@@ -36,7 +36,7 @@ All work branches from `main` and merges back to `main` via PR.
 
 When any predicate fails, use the PR flow.
 
-- Delete branches after merging.
+- **Delete branches after merging.** The remote branch is deleted automatically (`delete_branch_on_merge`, see Merge Strategy below) — that half needs no action. The **local** clone's branch is not touched by GitHub and does not auto-delete: after confirming a PR merged (`gh pr view <n> --json state,mergedAt`), `git checkout main && git pull`, then `git branch -d <branch>` before starting the next chunk. Claude/Codex do this as a matter of course, not just Alex.
 - CI must pass before merging.
 
 ## Branch Naming
@@ -139,6 +139,7 @@ PRs touching multiple packages get multiple labels. Root-only changes (CI, docs,
 - Feature/fix/chore branches: **squash merge** into `main`.
 - **PR title = squash commit message** — must follow the gitmoji + conventional commit format above.
 - The PR title becomes the single commit message on `main`.
+- **Enforced at the repo level**, not just by convention: merge commits and rebase merges are disabled in GitHub repo settings — squash is the only merge button available. `squash_merge_commit_title` is `PR_TITLE` and `squash_merge_commit_message` is `BLANK`, so the squash commit is exactly the PR title, nothing appended. `delete_branch_on_merge` is on, so the remote branch is deleted automatically the moment a PR merges.
 
 ## Deploy Flow
 
