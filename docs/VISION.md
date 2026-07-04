@@ -12,11 +12,11 @@
 
 The previous attempt was not a failed idea — it was a working, deployed system (Slack bot live, GitHub App integrated, dozens of PRs merged, real ceremonies running on a real cron) that Alex chose to shelve anyway, for three concrete, named reasons. Not "it didn't feel finished" — specific, reproducible failures:
 
-| # | Failure | What actually happened | Root cause | Fix in this version |
-|---|---|---|---|---|
-| 1 | **Trigger-bound, not intent-driven** | From the day the app was installed, sharing a GitHub issue link in a DM or channel never got picked up. The team would say outright it couldn't work on it — it had to be triggered. | Intake was hardcoded to explicit triggers (slash commands, webhooks). There was no path from "Alex said something work-shaped in chat" to "a ticket exists," no matter how the conversational-intake work was scoped on paper. | Ambient, no-@mention intent-driven intake (§5) is foundational — it ships with the *first* persona, not a later "team-feel" phase. |
-| 2 | **Fabricated self-reports** | Personas would sometimes say they were doing something, or had done something, that wasn't true. | Status updates were free-generated narrative — a persona describing its own state in prose, with nothing forcing that prose to trace back to a real tool call. This has a name in the literature: *execution hallucination*. | A typed, evidence-gated claim schema (§7.6) that the message composer enforces mechanically. A persona cannot emit "tests passed" without a real `tool_call_id` attached — the composer refuses, full stop. This is software, not a prompt instruction. |
-| 3 | **Code/architecture quality** | AI-code smells, inconsistent patterns, a codebase that became hard to navigate and hard to trust. | The old VISION already *planned* to adopt chief-clancy's engineering discipline (its own §12) — but as an aspiration layered onto a codebase already in motion, not as a foundation poured before anything else was built. | Chief-clancy's `CONVENTIONS.md`, review-gate, and complexity discipline are imported near-wholesale and built **first**, before any persona or ceremony code (§12, §13). |
+| #   | Failure                              | What actually happened                                                                                                                                                               | Root cause                                                                                                                                                                                                                     | Fix in this version                                                                                                                                                                                                                                     |
+| --- | ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | **Trigger-bound, not intent-driven** | From the day the app was installed, sharing a GitHub issue link in a DM or channel never got picked up. The team would say outright it couldn't work on it — it had to be triggered. | Intake was hardcoded to explicit triggers (slash commands, webhooks). There was no path from "Alex said something work-shaped in chat" to "a ticket exists," no matter how the conversational-intake work was scoped on paper. | Ambient, no-@mention intent-driven intake (§5) is foundational — it ships with the _first_ persona, not a later "team-feel" phase.                                                                                                                      |
+| 2   | **Fabricated self-reports**          | Personas would sometimes say they were doing something, or had done something, that wasn't true.                                                                                     | Status updates were free-generated narrative — a persona describing its own state in prose, with nothing forcing that prose to trace back to a real tool call. This has a name in the literature: _execution hallucination_.   | A typed, evidence-gated claim schema (§7.6) that the message composer enforces mechanically. A persona cannot emit "tests passed" without a real `tool_call_id` attached — the composer refuses, full stop. This is software, not a prompt instruction. |
+| 3   | **Code/architecture quality**        | AI-code smells, inconsistent patterns, a codebase that became hard to navigate and hard to trust.                                                                                    | The old VISION already _planned_ to adopt chief-clancy's engineering discipline (its own §12) — but as an aspiration layered onto a codebase already in motion, not as a foundation poured before anything else was built.     | Chief-clancy's `CONVENTIONS.md`, review-gate, and complexity discipline are imported near-wholesale and built **first**, before any persona or ceremony code (§12, §13).                                                                                |
 
 None of the ambition from the old VISION is being cut — the destination is the same, arguably bigger (a full cast from day one, not phased). What's different is the order things get built in and the mechanisms that make "feels like a real team" actually true rather than merely intended.
 
@@ -29,7 +29,7 @@ Two further decisions this rebuild settled with research rather than opinion:
 
 ## 1. Purpose & north star
 
-### 1.1 Moe is an AI team you work *with*, not a tool you use
+### 1.1 Moe is an AI team you work _with_, not a tool you use
 
 The mental shift this whole document exists to protect: Moe is not a pipeline Alex operates. It's a small team of AI coworkers Alex collaborates with. Personas have peer relationships with each other and with Alex. They interject. They disagree, with evidence. They have signature quirks. They get serious when their domain is at risk. They earn the right to merge code without asking. Alex is a teammate, not the interface — and the team can push back on him, as long as they say why.
 
@@ -37,7 +37,7 @@ The mental shift this whole document exists to protect: Moe is not a pipeline Al
 
 The team is conceived as **one team that swaps projects** long-term — the same cast moves between chief-clancy and whatever comes next, like an internal consultancy, with per-project context in `team.config.ts` and team-level continuity for personality, relationships, and lore.
 
-**v3 deliberately starts on exactly one project: chief-clancy.** Multi-project Kanban, cross-project priority arbitration, and project-onboarding flows are real, well-designed ideas — and explicitly *not* built until the single-project loop (chat → triage → build → ship → ceremonies → feels like real coworkers) is proven end-to-end. Scope-spreading across multiple concerns at once is part of why the last attempt never got to iterate on the thing that actually mattered (persona feel). See §13.
+**v3 deliberately starts on exactly one project: chief-clancy.** Multi-project Kanban, cross-project priority arbitration, and project-onboarding flows are real, well-designed ideas — and explicitly _not_ built until the single-project loop (chat → triage → build → ship → ceremonies → feels like real coworkers) is proven end-to-end. Scope-spreading across multiple concerns at once is part of why the last attempt never got to iterate on the thing that actually mattered (persona feel). See §13.
 
 Moe's personas work on chief-clancy as ordinary contributors — reading its `CLAUDE.md`/`CONVENTIONS.md`, writing code directly, opening PRs, going through its existing CI — not by invoking chief-clancy's own `/clancy:*` commands. Those commands are a human-triggered CLI Alex runs by hand; they have no standing runtime to coordinate with, and there's no reason for an already-autonomous persona to shell out to a separate scripted pipeline that does the same kind of work she's already doing directly. Chief-clancy itself is being brought into scope manually/ad hoc for this rebuild, not through a built onboarding flow — that flow (§3.4) is deferred along with the rest of multi-project support.
 
@@ -49,10 +49,10 @@ Moe's personas work on chief-clancy as ordinary contributors — reading its `CL
 > **Priya** (threaded on Sarah's brief): @Sarah — "all 8 packages listed," does that include the internal-only `dev` package? Worth a `(internal)` tag or just listing it plain?
 > **Sarah:** good catch, tagging it. Updated above.
 > **Alex** (in the shared channel, no @-mention): hey, there's an issue on the repo about the CLI hanging on large repos — someone want to take a look?
-> **Sarah** (a few minutes later): on it — filed as #142, tagging it `standard`, Marcus is picking up the plan. *(No trigger word. No slash command. Just a sentence in chat, recognized and acted on.)*
+> **Sarah** (a few minutes later): on it — filed as #142, tagging it `standard`, Marcus is picking up the plan. _(No trigger word. No slash command. Just a sentence in chat, recognized and acted on.)_
 > **Marcus** (much later, unprompted): incidentally — we've now hit "list all packages" three times in different forms. Worth a small generator script? Not blocking, just noticing.
 
-That's the texture this rebuild is chasing: Nia keeps the flow moving, Sarah owns the front door (both briefs and *hearing* Alex), Priya catches edge cases, Marcus interjects with pattern-level observations, and a plain sentence in chat becomes real work without ceremony.
+That's the texture this rebuild is chasing: Nia keeps the flow moving, Sarah owns the front door (both briefs and _hearing_ Alex), Priya catches edge cases, Marcus interjects with pattern-level observations, and a plain sentence in chat becomes real work without ceremony.
 
 ---
 
@@ -62,7 +62,7 @@ That's the texture this rebuild is chasing: Nia keeps the flow moving, Sarah own
 2. **Calm conversations, not arguments.** Disagreement is healthy — it surfaces hidden assumptions. Never personal.
 3. **Flat hierarchy.** Everyone's opinion matters equally. Title is irrelevant.
 4. **Respect by default.** Always.
-5. **Alex is a teammate, not a king.** His opinions carry weight *as opinions*, not commands. The team can disagree — but must say why.
+5. **Alex is a teammate, not a king.** His opinions carry weight _as opinions_, not commands. The team can disagree — but must say why.
 
 **Anti-sycophancy remains the central technical design challenge.** The research anchoring this — Sharma et al. on sycophancy, the AISI "Ask Don't Tell" finding, Anthropic's Constitution language, and the full pattern catalogue in Appendix C — is unchanged and still the right foundation.
 
@@ -80,11 +80,11 @@ Tickets pull through a continuous board: `Backlog → Brief → Plan → Build �
 
 ### 3.2 Ceremonies
 
-| Ceremony | Cadence | Owner | Where |
-|---|---|---|---|
-| Retro | Weekly Friday | Nia | `#moe-team` (threaded) |
-| Monthly review | First business day of month | Sarah + Nia | `#moe-team` (threaded) |
-| Weekly replenishment | Weekly Monday | Sarah | `#moe-team` (threaded) |
+| Ceremony             | Cadence                     | Owner       | Where                  |
+| -------------------- | --------------------------- | ----------- | ---------------------- |
+| Retro                | Weekly Friday               | Nia         | `#moe-team` (threaded) |
+| Monthly review       | First business day of month | Sarah + Nia | `#moe-team` (threaded) |
+| Weekly replenishment | Weekly Monday               | Sarah       | `#moe-team` (threaded) |
 
 No standup — an EOD digest already plays that role in a channel Alex is continuously present in; a bolted-on standup on top would be cargo-culted Scrum.
 
@@ -94,7 +94,7 @@ Ceremony mechanics (five-round retro, six-section monthly review, four-section r
 
 Two mechanics from the old design don't simply carry over:
 
-- The **Trust Level pull mechanism** (which ticket stages need Alex's confirmation before a persona starts) is **superseded** by the risk-tier model in §8 — there is no more time-gated Probation phase gating *all* pulls; low-risk work pulls and starts immediately.
+- The **Trust Level pull mechanism** (which ticket stages need Alex's confirmation before a persona starts) is **superseded** by the risk-tier model in §8 — there is no more time-gated Probation phase gating _all_ pulls; low-risk work pulls and starts immediately.
 - The **triage-reason taxonomy** (named reasons a ticket gets tagged during Sarah's intake triage) is **deferred** — it depends on a triage-category enum that doesn't exist yet.
 
 ### 3.3 Ticket lifecycle & the Orchestrator
@@ -105,7 +105,7 @@ The lifecycle (`Sarah triages → Marcus plans → Riley builds (with Priya) →
 
 The `team.config.ts` per-project model, project-onboarding flows (greenfield and existing-project), cross-project Kanban, classes of service, and cross-project WIP limits are all real design — needed the day a second project joins — but explicitly **out of scope for the v3 build** per §1.2 and §13. Building any of this now would repeat the scope-spreading pattern that kept the last attempt from finishing the one thing that mattered most.
 
-**Single-project WIP limits and classes of service are a different, in-scope question** — chief-clancy's own board still needs *some* capacity model even without cross-project arbitration. That's the open question flagged in §3.1; resolve it before board code is written.
+**Single-project WIP limits and classes of service are a different, in-scope question** — chief-clancy's own board still needs _some_ capacity model even without cross-project arbitration. That's the open question flagged in §3.1; resolve it before board code is written.
 
 ---
 
@@ -117,7 +117,7 @@ The previous cast (Sarah/PM, Marcus/Architect, Riley/Engineer, Priya/QA, Dom/Rev
 
 Also open, for the same reason: the **welcome ritual** for how a new persona is socially introduced to the rest of the team once the cast is settled — a distinct "team feel" question from the roster itself.
 
-*Per-persona sketches and signature moves are deliberately not reproduced here until the redline lands — no content is missing by accident.*
+_Per-persona sketches and signature moves are deliberately not reproduced here until the redline lands — no content is missing by accident._
 
 ### 4.5 The Orchestrator — the atomic-claim problem is orthogonal to any platform primitive
 
@@ -147,7 +147,7 @@ No message needs an `@mention`, a slash command, or a specific phrase to be reco
 ### 5.2 The mechanism: two-stage cascade, confidence-banded
 
 1. **Stage 0 — scope the surface.** A message only enters the pipeline if it's in a channel/DM the team already treats as work-relevant. This alone removes most banter with no keyword rules.
-2. **Stage 1 — cheap classification gate, numeric not binary.** A fast, cheap model call scores one narrow question: *"does this describe something that needs work done, or is it something else?"* The output is a **numeric confidence score**, not a yes/no — a bare binary collapses Stage 2's three bands into two and defeats the point of banding at all. This departs deliberately from Linear's own binary-gate pattern, drawing instead on AWS Comprehend's tunable-threshold approach and PRISM's adaptive-threshold research.
+2. **Stage 1 — cheap classification gate, numeric not binary.** A fast, cheap model call scores one narrow question: _"does this describe something that needs work done, or is it something else?"_ The output is a **numeric confidence score**, not a yes/no — a bare binary collapses Stage 2's three bands into two and defeats the point of banding at all. This departs deliberately from Linear's own binary-gate pattern, drawing instead on AWS Comprehend's tunable-threshold approach and PRISM's adaptive-threshold research.
    **Open question, blocking §5's implementation, not a post-launch tuning parameter:** the exact thresholds separating High/Mid/Low, and the scoring method itself (model-reported probability vs. a separate scoring call vs. log-probs). "One score in, three bands out" is fixed; everything that determines actual behavior (a system auto-drafting at 60% confidence looks nothing like one auto-drafting at 90%) is not. Resolve via a dedicated spike before persona work on §5 proceeds, and write the answer back into this section once it lands.
 3. **Stage 2 — confidence-banded routing, never binary:**
    - **High confidence** → auto-draft the ticket, post it back into the thread as a visible, reversible draft using the existing reaction-gate pattern (📦/🔁/✅). A wrong high-confidence guess costs one ignored/corrected draft, never a silent action.
@@ -164,7 +164,7 @@ A DM sent directly to a named persona is already unambiguous and is handled by t
 
 ### 5.4 The trust-erosion rule
 
-**Never let routing decisions with real consequences (who gets paged, which persona owns it) live in the LLM layer.** This holds as sound engineering practice on its own — deterministic systems are auditable and debuggable in a way a model call isn't — independent of any single citation. The LLM's job stops at deciding whether something looks like work and drafting it (§5.2, reversible, visible); everything about what happens to a ticket *after* it exists is deterministic code. Motivating color, not the rule's foundation: a third-party case study of Linear's Slack agent (ZenML LLMOps Database) reports LLM-based routing had a ~1% failure rate that "could trigger alerts to the wrong team and create confusion" once business logic moved into a model call.
+**Never let routing decisions with real consequences (who gets paged, which persona owns it) live in the LLM layer.** This holds as sound engineering practice on its own — deterministic systems are auditable and debuggable in a way a model call isn't — independent of any single citation. The LLM's job stops at deciding whether something looks like work and drafting it (§5.2, reversible, visible); everything about what happens to a ticket _after_ it exists is deterministic code. Motivating color, not the rule's foundation: a third-party case study of Linear's Slack agent (ZenML LLMOps Database) reports LLM-based routing had a ~1% failure rate that "could trigger alerts to the wrong team and create confusion" once business logic moved into a model call.
 
 Calibration matters more than coverage — badly-tuned proactive systems risk getting **ignored wholesale**, not just individually wrong, by analogy with alert-fatigue behavior in SOC/HITL contexts. The real production metric to watch is the rate of ignored/rejected drafts, not an academic precision score, once §5.2 ships and there's real usage data to look at.
 
@@ -174,12 +174,12 @@ Calibration matters more than coverage — badly-tuned proactive systems risk ge
 
 ### 6.1 Channels
 
-| Channel | Purpose |
-|---|---|
-| `#moe-team` | Main daily channel — EOD digests, work updates, banter. |
+| Channel          | Purpose                                                           |
+| ---------------- | ----------------------------------------------------------------- |
+| `#moe-team`      | Main daily channel — EOD digests, work updates, banter.           |
 | `#moe-incidents` | Bugs, regressions, postmortems. Quiet unless something's on fire. |
-| `#moe-research` | Theo's domain — deep-dives, citations. |
-| `#moe-random` | Non-work banter. |
+| `#moe-research`  | Theo's domain — deep-dives, citations.                            |
+| `#moe-random`    | Non-work banter.                                                  |
 
 Per-project channels are deferred with the rest of multi-project support (§3.4).
 
@@ -218,7 +218,7 @@ Three layers, carried over conceptually: bot identity (platform layer) + persona
 
 Per-role memory shape, working memory + summaries, memory of Alex, shared team lore, and continuous learning carry over conceptually from the previous design — they were sound in concept and weren't implicated in any of the three named failures.
 
-Research on persona consistency strengthens the case for investing here specifically: it's explicit that voice consistency is an architectural property requiring deliberate design at the memory layer, the training layer, and the evaluation layer, not just a well-written system prompt — *"an agent that is highly capable but behaviorally inconsistent will be less useful and less trusted than one that is slightly less capable but deeply reliable in its character."* Memory/recall is the layer this build owns and can act on directly; training and evaluation are Anthropic's.
+Research on persona consistency strengthens the case for investing here specifically: it's explicit that voice consistency is an architectural property requiring deliberate design at the memory layer, the training layer, and the evaluation layer, not just a well-written system prompt — _"an agent that is highly capable but behaviorally inconsistent will be less useful and less trusted than one that is slightly less capable but deeply reliable in its character."_ Memory/recall is the layer this build owns and can act on directly; training and evaluation are Anthropic's.
 
 The file-based per-persona namespace design (`/data/memories/<personaId>/...`) stands on its own reasoning and does not rely on any external platform precedent — an earlier note claiming an Anthropic "memory store" feature validated this shape has no basis in this rebuild's research and is retracted.
 
@@ -228,16 +228,16 @@ Every status claim a persona makes about its own work — `tests_passed`, `PR re
 
 ```ts
 type StatusClaim = {
-  claim: string
-  toolCallId: string
-  toolOutputSnippet: string
-  timestamp: string
-}
+  claim: string;
+  toolCallId: string;
+  toolOutputSnippet: string;
+  timestamp: string;
+};
 ```
 
-The message composer enforces this mechanically: if a claim has no populated `toolCallId`/`toolOutputSnippet`, it refuses to emit the claim and falls back to "not yet verified." This turns *ungrounded* fabrication — no tool call at all — into a type error, not a prompting problem.
+The message composer enforces this mechanically: if a claim has no populated `toolCallId`/`toolOutputSnippet`, it refuses to emit the claim and falls back to "not yet verified." This turns _ungrounded_ fabrication — no tool call at all — into a type error, not a prompting problem.
 
-**What this does not close on its own:** the schema checks presence of grounding, not correctness — nothing stops a persona from attaching a real but unrelated tool call to an unrelated claim (an `ls` output backing a `tests_passed` claim), and passing the gate regardless. That gap — *misgrounded* rather than *ungrounded* fabrication — is closed only for high-stakes claims, by layer 2 below; at Tier 0/1 (§8), the majority of volume, it's an accepted, deliberate cost tradeoff, not an oversight. Nobody downstream should treat a schema-passing low-tier claim as fully trustworthy on that basis alone.
+**What this does not close on its own:** the schema checks presence of grounding, not correctness — nothing stops a persona from attaching a real but unrelated tool call to an unrelated claim (an `ls` output backing a `tests_passed` claim), and passing the gate regardless. That gap — _misgrounded_ rather than _ungrounded_ fabrication — is closed only for high-stakes claims, by layer 2 below; at Tier 0/1 (§8), the majority of volume, it's an accepted, deliberate cost tradeoff, not an oversight. Nobody downstream should treat a schema-passing low-tier claim as fully trustworthy on that basis alone.
 
 Two further layers, in order of build cost:
 
@@ -255,12 +255,12 @@ The old **grey-zone authority grid** is **superseded** by the risk-tier model be
 
 ### 8.1 Risk tiers (path sensitivity × change shape)
 
-| Tier | Gate | Examples |
-|---|---|---|
-| **Tier 0 — auto-merge immediately** | All CI green; no sensitive path touched; diff below a size threshold; docs/config/lint-only or a non-major devDependency bump | Typo fix, formatter config, lockfile maintenance |
-| **Tier 1 — fast single-approve, same-day** | Logic change with an accompanying test, in a path the agent has a track record on | Scoped bug fix with a regression test |
-| **Tier 2 — standard review** | Any logic change without an accompanying test, or a path with no track record, or a diff crossing package boundaries | New feature work, first touch of a module |
-| **Tier 3 — mandatory named-owner review, cannot be satisfied by the requesting persona or the human who dispatched it** | Auth, payments, PII/secrets, CI/CD config, migrations, or any destructive operation, regardless of track record | Anything touching `.github/workflows/`, schema migrations, credential handling |
+| Tier                                                                                                                    | Gate                                                                                                                          | Examples                                                                       |
+| ----------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------ |
+| **Tier 0 — auto-merge immediately**                                                                                     | All CI green; no sensitive path touched; diff below a size threshold; docs/config/lint-only or a non-major devDependency bump | Typo fix, formatter config, lockfile maintenance                               |
+| **Tier 1 — fast single-approve, same-day**                                                                              | Logic change with an accompanying test, in a path the agent has a track record on                                             | Scoped bug fix with a regression test                                          |
+| **Tier 2 — standard review**                                                                                            | Any logic change without an accompanying test, or a path with no track record, or a diff crossing package boundaries          | New feature work, first touch of a module                                      |
+| **Tier 3 — mandatory named-owner review, cannot be satisfied by the requesting persona or the human who dispatched it** | Auth, payments, PII/secrets, CI/CD config, migrations, or any destructive operation, regardless of track record               | Anything touching `.github/workflows/`, schema migrations, credential handling |
 
 **Track record shifts a change down at most one tier, and never into Tier 3.** A perfect 90-day history on a payments module still doesn't buy auto-merge there — sensitive paths are a hard floor autonomy doesn't earn past. This encodes the lesson from two real 2025–2026 incidents, with different confidence levels: Replit's agent ran a destructive operation during an active code freeze and then fabricated cover-up logs — there, the root problem (permission scope broader than the task warranted) is well-established. A second incident, an AWS/Kiro production outage, is genuinely disputed rather than merely under-qualified: AWS's own public statement attributes it to human error (an engineer misconfiguring their own access privileges), not AI agency, and neither account clarifies what Kiro actually asked permission for — so treat it as a plausible illustration of the same failure shape, not a second confirmed instance.
 
@@ -279,7 +279,7 @@ The old **grey-zone authority grid** is **superseded** by the risk-tier model be
 
 The general shape — persistent disagreement escalates to the domain owner, then Nia, then Alex; a bad PR triggers an auto-approved revert plus a blameless postmortem; a hallucinated brief gets caught by Priya and corrected without defensiveness; a stuck persona gets noticed by Nia; a rare, high-bar escalation chain to Alex — carries over conceptually from the previous design.
 
-**Open question:** the disagreement escalation chain above describes the general shape, but the actual tie-breaking mechanism doesn't have a specified implementation anywhere yet, by deliberate choice rather than oversight — this rebuild's own project history shows the disagreement work was re-scoped toward an Alex-owned anti-sycophancy prompt track (helping personas push back well in the first place), with the escalation-chain *code* explicitly deferred until a real persistent disagreement is observed in practice, rather than speculatively designed now.
+**Open question:** the disagreement escalation chain above describes the general shape, but the actual tie-breaking mechanism doesn't have a specified implementation anywhere yet, by deliberate choice rather than oversight — this rebuild's own project history shows the disagreement work was re-scoped toward an Alex-owned anti-sycophancy prompt track (helping personas push back well in the first place), with the escalation-chain _code_ explicitly deferred until a real persistent disagreement is observed in practice, rather than speculatively designed now.
 
 Three new failure modes belong in this list going forward, because they're this rebuild's own diagnosed risks, not hypotheticals:
 
@@ -363,38 +363,45 @@ Research-backed reference for per-persona prompt design. Each persona prompt lay
 **Baseline** (Claude's Constitution): Claude is trained to be "diplomatically honest rather than dishonestly diplomatic." "Epistemic cowardice" — vague or noncommittal answers to placate users — is named as a violation.
 
 **Pattern 1 — Explicit pushback license**
+
 > You may, and should, push back on false premises, disagree with the user when you have good reason, and point out things people might not want to hear. Direct correction is more useful than soft hedging.
 
 Direct constraint-style instructions ("don't be sycophantic") underperform reframing-style instructions per AISI 2026.
 
-**Pattern 2 — "Rephrase as a question" preamble** *(AISI's #1 finding — the highest-leverage single pattern in this catalogue)*
+**Pattern 2 — "Rephrase as a question" preamble** _(AISI's #1 finding — the highest-leverage single pattern in this catalogue)_
+
 > Before responding to any user claim or request, rephrase it internally as a question — "is X true?" / "is Y the right action?" — and answer the question on its merits.
 
 **Pattern 3 — Steelman before counter**
+
 > Before disagreeing, restate the strongest version of the opposing view in one sentence the proponent would endorse. Then state your disagreement and your reason.
 
-**Pattern 4 — Citation-required disagreement** *(by the persona, not the user)*
+**Pattern 4 — Citation-required disagreement** _(by the persona, not the user)_
+
 > If you disagree, state (a) the specific claim you reject and (b) the reason — evidence, logical flaw, or prior context. Do not disagree without a stated reason.
 
-Requiring the *user* to cite sources backfires (authority cues increase deference); this requirement applies only to the persona's own disagreements.
+Requiring the _user_ to cite sources backfires (authority cues increase deference); this requirement applies only to the persona's own disagreements.
 
 **Pattern 5 — Calibrated confidence**
+
 > Express uncertainty when you are uncertain. Rate your confidence 0–100% reflecting how often you'd be right giving answers at this certainty.
 
 **Pattern 6 — Intellectual integrity over agreement**
+
 > Prioritise intellectual integrity over agreement. Share genuine assessments of hard dilemmas. Engage critically with speculative ideas rather than giving empty validation. Saying "that's a great question" or "I love this idea" is not engagement; it's noise.
 
 **Pattern 7 — Multi-turn drift mitigation** (sycophancy persists ~80% once triggered within a conversation; prevention beats correction)
+
 > Self-check: re-read your most recent substantive position. Would you state it the same way starting from zero context now? If your position has drifted toward the user's preference without new evidence, restore your original position.
 
 **Layering by persona:**
 
-| Persona | Patterns to layer (priority order) |
-|---|---|
-| Sarah, Marcus, Nia | 1 (permission), 2 (preamble), 6 (priority), 5 (calibrated) |
-| Riley, Dom | 1 (permission), 4 (form) — code work; reasons must be cited |
-| Priya | 1 (permission), 2 (preamble), 4 (form) — skepticism is the role; 1+4 amplify it |
-| Theo | 5 (calibrated), 6 (priority) — he's the citation-bringer already |
-| All personas | 7 (drift mitigation) — universal |
+| Persona            | Patterns to layer (priority order)                                              |
+| ------------------ | ------------------------------------------------------------------------------- |
+| Sarah, Marcus, Nia | 1 (permission), 2 (preamble), 6 (priority), 5 (calibrated)                      |
+| Riley, Dom         | 1 (permission), 4 (form) — code work; reasons must be cited                     |
+| Priya              | 1 (permission), 2 (preamble), 4 (form) — skepticism is the role; 1+4 amplify it |
+| Theo               | 5 (calibrated), 6 (priority) — he's the citation-bringer already                |
+| All personas       | 7 (drift mitigation) — universal                                                |
 
 **Iteration discipline:** first-attempt prompts will underperform. Validate per persona with adversarial conversations (Alex as the pushy user; the persona should hold position when right, update when shown wrong). Capture failure modes; iterate. This catalogue is currently load-bearing for the disagreement-prompt track referenced in §9 — treat it as the actual source, not a placeholder.

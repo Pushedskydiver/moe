@@ -10,14 +10,14 @@ main ← feature/ | fix/ | chore/ | refactor/ | docs/
 
 All work branches from `main` and merges back to `main` via PR.
 
-| Branch | Purpose | Branched from | Merges into |
-|---|---|---|---|
-| `main` | Production code, tagged releases | — | — |
-| `feature/<name>` | New features | `main` | `main` |
-| `fix/<name>` | Bug fixes | `main` | `main` |
-| `chore/<name>` | Maintenance, deps, config | `main` | `main` |
-| `refactor/<name>` | Code restructuring, no new behaviour | `main` | `main` |
-| `docs/<name>` | Documentation only | `main` | `main` |
+| Branch            | Purpose                              | Branched from | Merges into |
+| ----------------- | ------------------------------------ | ------------- | ----------- |
+| `main`            | Production code, tagged releases     | —             | —           |
+| `feature/<name>`  | New features                         | `main`        | `main`      |
+| `fix/<name>`      | Bug fixes                            | `main`        | `main`      |
+| `chore/<name>`    | Maintenance, deps, config            | `main`        | `main`      |
+| `refactor/<name>` | Code restructuring, no new behaviour | `main`        | `main`      |
+| `docs/<name>`     | Documentation only                   | `main`        | `main`      |
 
 ### Rules
 
@@ -71,19 +71,19 @@ The gitmoji comes first, then the conventional commit type. Scope is optional.
 
 ### Types
 
-| Type | Gitmoji | Use for |
-|---|---|---|
-| `feat` | ✨ | New feature |
-| `fix` | 🐛 | Bug fix |
-| `chore` | 📦 | Maintenance, deps, config |
-| `refactor` | ♻️ | Code change that doesn't fix or add |
-| `test` | ✅ | Adding or updating tests |
-| `docs` | 📝 | Documentation only |
-| `style` | 💄 | Formatting, cosmetic (no logic change) |
-| `perf` | ⚡️ | Performance improvement |
-| `security` | 🔒 | Security fix |
-| `remove` | 🔥 | Removing code or files |
-| `build` | 🔧 | Build system, dependency bumps |
+| Type       | Gitmoji | Use for                                |
+| ---------- | ------- | -------------------------------------- |
+| `feat`     | ✨      | New feature                            |
+| `fix`      | 🐛      | Bug fix                                |
+| `chore`    | 📦      | Maintenance, deps, config              |
+| `refactor` | ♻️      | Code change that doesn't fix or add    |
+| `test`     | ✅      | Adding or updating tests               |
+| `docs`     | 📝      | Documentation only                     |
+| `style`    | 💄      | Formatting, cosmetic (no logic change) |
+| `perf`     | ⚡️      | Performance improvement                |
+| `security` | 🔒      | Security fix                           |
+| `remove`   | 🔥      | Removing code or files                 |
+| `build`    | 🔧      | Build system, dependency bumps         |
 
 ### Examples
 
@@ -107,24 +107,24 @@ Always create a new commit instead of amending an existing one, even for small f
 
 Every PR must have exactly one type label. `refactor/` and `docs/` branches use the `chore` label:
 
-| Label | Branch prefix |
-|---|---|
-| `feature` | `feature/` |
-| `fix` | `fix/` |
-| `chore` | `chore/`, `refactor/`, `docs/` |
+| Label     | Branch prefix                  |
+| --------- | ------------------------------ |
+| `feature` | `feature/`                     |
+| `fix`     | `fix/`                         |
+| `chore`   | `chore/`, `refactor/`, `docs/` |
 
 ### Package scope labels
 
 **First-cut, not yet confirmed** — pending `BUILD_PLAN.md` chunk 0's actual package graph (see `docs/CONVENTIONS.md` Architecture Enforcement):
 
-| Label | When to use |
-|---|---|
-| `core` | Changes to `packages/core/` |
+| Label    | When to use                   |
+| -------- | ----------------------------- |
+| `core`   | Changes to `packages/core/`   |
 | `memory` | Changes to `packages/memory/` |
 | `agents` | Changes to `packages/agents/` |
-| `slack` | Changes to `packages/slack/` |
+| `slack`  | Changes to `packages/slack/`  |
 | `github` | Changes to `packages/github/` |
-| `server` | Changes to `apps/server/` |
+| `server` | Changes to `apps/server/`     |
 
 PRs touching multiple packages get multiple labels. Root-only changes (CI, docs, config) get no scope label.
 
@@ -160,6 +160,6 @@ Editing any of these triggers Alex-review regardless of how small the diff is:
 - `docs/DEVELOPMENT.md`, `docs/DA-REVIEW.md`, `docs/SELF-REVIEW.md`, `docs/TESTING.md`, `docs/RATIONALIZATIONS.md` (once written)
 - `packages/agents/src/personas/*/prompt.md` — the do-not-touch list from `CLAUDE.md`
 - `/.github/workflows/**`, `/.github/CODEOWNERS`
-- Repo-root config: `/package.json`, `/pnpm-workspace.yaml`, `/pnpm-lock.yaml`, `/tsconfig.base.json`
+- Repo-root config: `/package.json`, `/pnpm-workspace.yaml`, `/pnpm-lock.yaml`, `/tsconfig.base.json`, `/tsconfig.json`, `/eslint.config.ts`, `/knip.json`
 
 This list is the source of truth — re-check it rather than recite from memory, same discipline chief-clancy applies to its own list.

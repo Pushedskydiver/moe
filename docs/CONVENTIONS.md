@@ -19,14 +19,14 @@ Many rules blend both shapes. Classify by which enforcement surface carries the 
 
 ## Complexity Limits (ESLint)
 
-| Rule | Limit | Rationale |
-|---|---|---|
-| `complexity` (cyclomatic) | 10 | NIST standard. Forces extraction of complex logic. |
-| `sonarjs/cognitive-complexity` | 15 | Penalises nesting over flat branching. More forgiving for early-return patterns. |
-| `max-lines-per-function` | 50 (skip blanks/comments) | Forces decomposition. If a function needs 51 lines, it's doing two things. |
-| `max-lines` (per file) | 300 (skip blanks/comments) | Keeps modules focused. |
-| `max-params` | 3 | 3 is the limit. 4+ params must use an options object. |
-| `max-depth` | 3 | No deep nesting. Forces early returns and extraction. |
+| Rule                           | Limit                      | Rationale                                                                        |
+| ------------------------------ | -------------------------- | -------------------------------------------------------------------------------- |
+| `complexity` (cyclomatic)      | 10                         | NIST standard. Forces extraction of complex logic.                               |
+| `sonarjs/cognitive-complexity` | 15                         | Penalises nesting over flat branching. More forgiving for early-return patterns. |
+| `max-lines-per-function`       | 50 (skip blanks/comments)  | Forces decomposition. If a function needs 51 lines, it's doing two things.       |
+| `max-lines` (per file)         | 300 (skip blanks/comments) | Keeps modules focused.                                                           |
+| `max-params`                   | 3                          | 3 is the limit. 4+ params must use an options object.                            |
+| `max-depth`                    | 3                          | No deep nesting. Forces early returns and extraction.                            |
 
 These are exactly chief-clancy's numbers — this is the specific discipline named in `docs/VISION.md` §12 as the fix for "an LLM writes one 400-line function."
 
@@ -34,12 +34,12 @@ These are exactly chief-clancy's numbers — this is the specific discipline nam
 
 ## Functional Rules (eslint-plugin-functional)
 
-| Rule | Setting | Notes |
-|---|---|---|
-| `no-let` | error | `const` everywhere. Disable per-line where genuinely needed. |
-| `immutable-data` | error (ignoreImmediateMutation, ignoreClasses) | No `obj.foo = bar`, no `arr.push()`. Spread/concat. Test files exempt. |
-| `prefer-readonly-type` | warn (allowLocalMutation) | Function params marked readonly. Gradual adoption. |
-| `no-loop-statements` | warn | Prefer `.map()/.filter()`. Disable for orchestration where loops are clearer. |
+| Rule                   | Setting                                        | Notes                                                                         |
+| ---------------------- | ---------------------------------------------- | ----------------------------------------------------------------------------- |
+| `no-let`               | error                                          | `const` everywhere. Disable per-line where genuinely needed.                  |
+| `immutable-data`       | error (ignoreImmediateMutation, ignoreClasses) | No `obj.foo = bar`, no `arr.push()`. Spread/concat. Test files exempt.        |
+| `prefer-readonly-type` | warn (allowLocalMutation)                      | Function params marked readonly. Gradual adoption.                            |
+| `no-loop-statements`   | warn                                           | Prefer `.map()/.filter()`. Disable for orchestration where loops are clearer. |
 
 ---
 
@@ -47,13 +47,13 @@ These are exactly chief-clancy's numbers — this is the specific discipline nam
 
 **Delta from chief-clancy: this table is a first-cut, not yet confirmed.** Moe's actual package graph is `BUILD_PLAN.md` chunk 0's job to settle when the monorepo is scaffolded — treat the table below as the expected shape, re-verify once chunk 0 lands.
 
-| From (type) | May import from |
-|---|---|
-| `core` | `core` |
-| `memory` | `memory`, `core` |
-| `agents` | `agents`, `memory`, `core` |
-| `slack` | `slack`, `core` |
-| `github` | `github`, `core` |
+| From (type)              | May import from                                         |
+| ------------------------ | ------------------------------------------------------- |
+| `core`                   | `core`                                                  |
+| `memory`                 | `memory`, `core`                                        |
+| `agents`                 | `agents`, `memory`, `core`                              |
+| `slack`                  | `slack`, `core`                                         |
+| `github`                 | `github`, `core`                                        |
 | `server` (`apps/server`) | `server`, `agents`, `memory`, `slack`, `github`, `core` |
 
 `core` holds shared types/schemas and the ticket orchestrator. Every persona process (`apps/server`, parameterized by persona ID) sits at the top of the graph — it's the only thing allowed to import everything else.
@@ -64,13 +64,13 @@ These are exactly chief-clancy's numbers — this is the specific discipline nam
 
 Imports are sorted into 5 groups, separated by blank lines:
 
-| Group | Pattern | Example |
-|---|---|---|
-| 1. Type imports | `import type { ... }` from anywhere | `import type { Ticket } from '@moe/core'` |
-| 2. Node built-ins | `node:*` | `import { resolve } from 'node:path'` |
-| 3. Third-party | npm packages | `import { z } from 'zod'` |
-| 4. Workspace packages | `@moe/*` | `import { createTicket } from '@moe/core'` |
-| 5. Local | `./`, `../` | `import { parseClaim } from './claim-schema.js'` |
+| Group                 | Pattern                             | Example                                          |
+| --------------------- | ----------------------------------- | ------------------------------------------------ |
+| 1. Type imports       | `import type { ... }` from anywhere | `import type { Ticket } from '@moe/core'`        |
+| 2. Node built-ins     | `node:*`                            | `import { resolve } from 'node:path'`            |
+| 3. Third-party        | npm packages                        | `import { z } from 'zod'`                        |
+| 4. Workspace packages | `@moe/*`                            | `import { createTicket } from '@moe/core'`       |
+| 5. Local              | `./`, `../`                         | `import { parseClaim } from './claim-schema.js'` |
 
 **Delta from chief-clancy: no path aliases.** Chief-clancy's group 5 includes `~/c/`-style deep-import aliases (needed because it ships esbuild bundles from a CLI). Moe is a long-running ESM service with no bundling step — group 5 is plain relative imports only. Deep imports across a package's own internal folders use ordinary relative paths; imports across package boundaries always go through the package's `@moe/*` entry (group 4), never a relative path that reaches outside `src/`.
 
@@ -149,11 +149,11 @@ Single-file concepts stay flat. No `feature-name/feature-name.ts` wrappers.
 
 ### Barrels (`index.ts`)
 
-| Category | Where it lives | Status |
-|---|---|---|
-| **Package entry** (`src/index.ts`) | Every workspace package | Defines the package's public surface; cross-package consumers import from here only. |
-| **Multi-content folder** | A folder already holding multiple concepts | No barrel. Consumers import direct files. |
-| **Single-impl wrapper** | Folder wrapping a single source file | Flattened — folder removed, file lifted to parent. |
+| Category                           | Where it lives                             | Status                                                                               |
+| ---------------------------------- | ------------------------------------------ | ------------------------------------------------------------------------------------ |
+| **Package entry** (`src/index.ts`) | Every workspace package                    | Defines the package's public surface; cross-package consumers import from here only. |
+| **Multi-content folder**           | A folder already holding multiple concepts | No barrel. Consumers import direct files.                                            |
+| **Single-impl wrapper**            | Folder wrapping a single source file       | Flattened — folder removed, file lifted to parent.                                   |
 
 Consumers within a package use relative paths. Cross-package consumers use the package entry (`@moe/core`) — never a relative path reaching outside `src/`.
 
@@ -222,7 +222,7 @@ If a lint rule creates unreadable workarounds in practice, flag it. Rules can be
 
 ## Output style
 
-Selective brevity for chat output, commit messages, and PR comments. Reasoning accuracy degrades as input length grows and recall is U-shaped over long context — real evidence for conciseness in conversational output, applied selectively (elaboration-heavy tasks get *worse* under blanket compression, so this is not a universal rule).
+Selective brevity for chat output, commit messages, and PR comments. Reasoning accuracy degrades as input length grows and recall is U-shaped over long context — real evidence for conciseness in conversational output, applied selectively (elaboration-heavy tasks get _worse_ under blanket compression, so this is not a universal rule).
 
 ### Where to be terse
 
