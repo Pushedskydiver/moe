@@ -11,6 +11,14 @@ Marker conventions in CLAUDE.md:
 - <!-- literal:start --> ... <!-- literal:end -->           — copied verbatim,
   exempt from the token swap (facts that don't depend on which agent reads the
   file, e.g. "personas read a target project's CLAUDE.md").
+
+Always run `pnpm format` after regenerating. The raw output of this script is
+not byte-identical to the committed AGENTS.md by design: stripping a
+source-only block that's flanked by blank lines leaves an extra blank line
+this script doesn't clean up, and Prettier's markdown formatter collapses it
+back to one on the `pnpm format` pass every commit already runs. Diffing raw
+script output against the committed file will show this one-line drift —
+it's expected, not a sync bug.
 """
 
 import re

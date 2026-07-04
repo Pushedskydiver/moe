@@ -13,7 +13,7 @@ This is a **living document** — when a bug or drift issue slips through DA + s
 
 **Adapted from chief-clancy's own `docs/SELF-REVIEW.md`.** That version cites specific chief-clancy PR numbers and package names as evidence for each rule. This version keeps the general disciplines and strips the borrowed evidence — moe starts this checklist evidence-free and grows its own citations from its own history.
 
-See also: `docs/DEVELOPMENT.md` (full review gate flow) and `docs/TESTING.md` (test-specific disciplines) — both chunk 0.6a, not yet built; forward references to acknowledged chunk-0 deliverables, not stale links.
+See also: `docs/DEVELOPMENT.md` (full review gate flow) and `docs/TESTING.md` (test-specific disciplines).
 
 ---
 
@@ -165,6 +165,6 @@ Applies once Slack/GitHub integration code lands (Stage 2+). See `docs/CONVENTIO
 ## See also
 
 - [DA-REVIEW.md](DA-REVIEW.md) — architectural and comment/doc layer review (DA owns), Red Flags, Required disciplines, Severity Labels
-- `docs/DEVELOPMENT.md` — full review gate flow (chunk 0.6a, not yet built)
-- `docs/TESTING.md` — test disciplines, test anti-patterns (chunk 0.6a, not yet built)
+- `docs/DEVELOPMENT.md` — full review gate flow
+- `docs/TESTING.md` — test disciplines, test anti-patterns
 - `docs/RATIONALIZATIONS.md` — anti-rationalization index (chunk 0.6b, not yet built)

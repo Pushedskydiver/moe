@@ -6,7 +6,7 @@ This is a **living document** — when a DA pass, self-review, or Alex's own PR 
 
 **Adapted from chief-clancy's own `docs/DA-REVIEW.md`.** That version grew from years of real chief-clancy incidents — specific PR numbers, session evidence, and package names that don't exist in this codebase. This version keeps the general disciplines and strips the chief-clancy-specific evidence and package graph. It starts thinner and evidence-free by design; it earns its own citations from moe's own history as they happen, rather than borrowing someone else's.
 
-See also: [SELF-REVIEW.md](SELF-REVIEW.md) for line-level accuracy checks (DA owns architectural concerns; self-review owns code-level accuracy). `docs/DEVELOPMENT.md` (full review gate flow) and `docs/RATIONALIZATIONS.md` (anti-rationalization index) don't exist yet — chunks 0.6a/0.6b — these are forward references to acknowledged chunk-0 deliverables, not stale links.
+See also: [SELF-REVIEW.md](SELF-REVIEW.md) for line-level accuracy checks (DA owns architectural concerns; self-review owns code-level accuracy). `docs/DEVELOPMENT.md` (full review gate flow). `docs/RATIONALIZATIONS.md` (anti-rationalization index) doesn't exist yet — chunk 0.6b — a forward reference to an acknowledged chunk-0 deliverable, not a stale link.
 
 ---
 
@@ -92,7 +92,7 @@ Two discipline modes. **Reactive** — when the current round's scope spans more
 
 Run this regex on every PR: `deferred to a future|lands in a (later|future)|in a subsequent (chunk|slice)|TODO|FIXME|tbd|coming soon|when chunk \d|after chunk \d.\d lands`
 
-**This does not flag moe's own acknowledged forward-reference convention.** `CLAUDE.md` and `BUILD_PLAN.md` deliberately reference docs that don't exist yet (`docs/DEVELOPMENT.md`, `docs/RATIONALIZATIONS.md`, etc.) and say so explicitly — "chunk 0 deliverable, not an aspirational claim." That's a documented, intentional pattern, not drift. The sweep is for the OTHER case: a forward reference that used to be accurate and has gone stale (the chunk it pointed to shipped under a different name, or got reordered, or the referencing prose was never updated once the target landed), or a new forward reference introduced without the same explicit "not yet built" framing this codebase already uses. Check which case you're looking at before flagging it.
+**This does not flag moe's own acknowledged forward-reference convention.** `CLAUDE.md` and `BUILD_PLAN.md` deliberately reference docs that don't exist yet (`docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md`, etc.) and say so explicitly — "chunk 0 deliverable, not an aspirational claim." That's a documented, intentional pattern, not drift. The sweep is for the OTHER case: a forward reference that used to be accurate and has gone stale (the chunk it pointed to shipped under a different name, or got reordered, or the referencing prose was never updated once the target landed), or a new forward reference introduced without the same explicit "not yet built" framing this codebase already uses. Check which case you're looking at before flagging it.
 
 ### Test permissiveness audit
 
@@ -220,7 +220,7 @@ DA owns the **architectural gate**: is this symbol actually public API? Is TSDoc
 - [ ] Parsers, serializers, and the risk-tier classifier (once it exists) use property-based tests (fast-check)
 - [ ] Tests co-located with source, flat (`module.test.ts`, no wrapping folder — see `docs/CONVENTIONS.md` §Testing Standards)
 - [ ] Stale references checked (renamed files, moved modules, wrong paths in comments)
-- [ ] Bug fixes include a reproduction test that **failed** before the fix, not just a test added after — `docs/TESTING.md` doesn't exist yet (chunk 0.6a) and hasn't named this discipline; the check applies regardless
+- [ ] Bug fixes include a reproduction test that **failed** before the fix, not just a test added after — the Prove-It Pattern, `docs/TESTING.md` §Bug fixes — the Prove-It Pattern
 - [ ] Schema pairs verified side-by-side (see [Schema-pair check](#schema-pair-check) above)
 
 ## Security & error handling
@@ -268,6 +268,6 @@ Findings get labelled so the author knows what's required vs optional. The six l
 ## See also
 
 - [SELF-REVIEW.md](SELF-REVIEW.md) — line-level accuracy checks (split ownership: DA owns architectural; self-review owns code-level)
-- `docs/DEVELOPMENT.md` — full review gate flow (chunk 0.6a, not yet built)
+- `docs/DEVELOPMENT.md` — full review gate flow
 - `docs/RATIONALIZATIONS.md` — anti-rationalization index (chunk 0.6b, not yet built)
-- `docs/TESTING.md` — test disciplines (chunk 0.6a, not yet built)
+- `docs/TESTING.md` — test disciplines, the Prove-It Pattern
