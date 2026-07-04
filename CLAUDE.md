@@ -4,7 +4,7 @@ Autonomous AI coworker team, built as a long-running Slack-native service. Monor
 
 **Scope note:** this file governs how the _moe codebase itself_ is built (by Alex + Claude Code) — not how the finished persona team behaves once it's running on chief-clancy. That's `docs/VISION.md`'s subject. <!-- literal:start -->A persona (Sarah, Riley, etc.) working on a _target_ project reads that target project's own `CLAUDE.md`, not this one — personas are Claude-backed (raw Messages API for chat, the Claude Agent SDK for agentic coding sessions — `docs/VISION.md` §11), so this is true regardless of whether Claude Code or Codex is reading the present file.<!-- literal:end -->
 
-**Status: pre-scaffold.** This file describes the target discipline `BUILD_PLAN.md`'s chunk 0 will scaffold to match — commands below won't run until the monorepo exists. Several docs referenced below (`DEVELOPMENT.md`, `DA-REVIEW.md`, `SELF-REVIEW.md`, `TESTING.md`, `INDEX.md`, `RATIONALIZATIONS.md`, `REVIEW-PATTERNS.md`, the review-agent definitions), plus `ARCHITECTURE.md`, `GLOSSARY.md`, and `docs/decisions/` (with its README.md brief/design-doc/trim-to-decisions lifecycle convention), don't exist yet either — they're chunk-0 deliverables, not aspirational claims. `docs/INDEX.md`'s port is structurally coupled to these existing as routing targets, same as in chief-clancy. Only `docs/VISION.md`, `docs/CONVENTIONS.md`, and `docs/GIT.md` are real today.
+**Status: Stage 0 in progress.** The monorepo is scaffolded and the commands below run for real — this is no longer a pre-scaffold description of a target state. Several docs referenced below (`DEVELOPMENT.md`, `TESTING.md` — chunk 0.6a; `RATIONALIZATIONS.md`, `REVIEW-PATTERNS.md` — chunk 0.6b; `ARCHITECTURE.md`, `GLOSSARY.md`, and `docs/decisions/` with its README.md brief/design-doc/trim-to-decisions lifecycle convention — chunk 0.6c) don't exist yet — chunk-0 deliverables, not aspirational claims. `docs/INDEX.md` is deliberately deferred past Stage 0 entirely (it needs real PRs to route against) and is structurally coupled to the 0.6a–0.6c docs existing first as routing targets, same as in chief-clancy. `docs/VISION.md`, `docs/CONVENTIONS.md`, `docs/GIT.md`, `docs/DA-REVIEW.md`, and `docs/SELF-REVIEW.md` are real today, along with the `da-review`/`spec-grill`/`copilot-surrogate` agent definitions in `.claude/agents/`. This paragraph names what exists by file rather than by chunk number, so it stays accurate as more chunks merge — check `BUILD_PLAN.md`'s checkboxes for exactly which Stage-0 chunks have landed.
 
 Chief-clancy also has `docs/LIFECYCLE.md`, `docs/TECHNICAL-REFERENCE.md`, `docs/VISUAL-ARCHITECTURE.md`, `docs/COMPARISON.md`, `docs/guides/` (`CONFIGURATION.md`, `SECURITY.md`, `TROUBLESHOOTING.md`), and `docs/roles/` (`IMPLEMENTER.md`, `PLANNER.md`, `REVIEWER.md`, `SETUP.md`, `STRATEGIST.md`). Whether moe ports any of these is undecided — not scoped into chunk 0 above, not rejected either. **Open question:** revisit once the chunk-0 doc set is real and it's clear which of these moe actually needs.
 
@@ -60,7 +60,7 @@ gh pr create --title "✨ feat(scope): description" --label "feature" --label "c
 
 ## Architecture
 
-Not yet settled — `BUILD_PLAN.md` chunk 0 defines the actual package graph and dependency-direction table (`eslint-plugin-boundaries` config) when it scaffolds the monorepo. Expected shape, not yet built: a `core` package (shared types/schemas, the ticket orchestrator) sitting below `memory`, `agents` (persona definitions), `slack`, and `github` integration packages, which sit below `apps/server` (the deployable long-running process, one instance per persona — see "Non-obvious constraints" below). Confirm against `BUILD_PLAN.md` before relying on this as settled.
+**Settled at `BUILD_PLAN.md` chunk 0.3**, confirmed unchanged from the original expected shape: a `core` package (shared types/schemas, the ticket orchestrator) sitting below `memory`, `agents` (persona definitions), `slack`, and `github` integration packages, which sit below `apps/server` (the deployable long-running process, one instance per persona — see "Non-obvious constraints" below). Enforced via `eslint-plugin-boundaries` in `eslint.config.ts` — see `docs/CONVENTIONS.md` §Architecture Enforcement for the full dependency-direction table.
 
 ## Non-obvious constraints
 
@@ -79,7 +79,7 @@ Not yet settled — `BUILD_PLAN.md` chunk 0 defines the actual package graph and
 Minimal actionable rules only. Patterns and philosophy live in on-demand docs, loaded via explicit trigger phrases — same rationale as <!-- literal:start -->chief-clancy's own CLAUDE.md<!-- literal:end -->: AGENTS.md-style always-loaded instructions improve agent efficiency (Lulla et al. 2026), reasoning accuracy degrades as input length grows (Levy et al. 2024), and recall is U-shaped over long context (Liu et al. 2023) — load detail on demand, not upfront.
 
 - **TDD: vertical slices.** One test → implement → next test. Never write all tests first.
-- **Review order (from chunk 0 onward): architectural → DA (subagent) → self → PR. Never skip or reorder.** Mechanism TBD — chunk 0 ports chief-clancy's `da-review`/`spec-grill`/`copilot-surrogate` agent definitions and adapts them to moe's own doc set. Until chunk 0 lands the subagent, this rule doesn't apply yet — there's nothing to invoke, and nothing to hand-simulate in its place. Adopt the automated pipeline the moment it exists.
+- **Review order: architectural → DA (subagent) → self → PR. Never skip or reorder.** The `da-review`/`spec-grill`/`copilot-surrogate` agent definitions (`.claude/agents/`) and their checklists (`docs/DA-REVIEW.md`, `docs/SELF-REVIEW.md`) are live as of chunk 0.5 — dispatch DA review from a fresh context before every non-trivial PR, per their own definitions.
 - **Consult INDEX before policy-adjacent edits** — an edit to anything on `docs/GIT.md`'s blast-radius list, or code that changes what that list itself governs (e.g. the tool-allowlist grid, the risk-tier gate) — once `docs/INDEX.md` exists (chunk 0+; it needs real PRs to route against, same as chief-clancy's own bootstrapping — don't force scenarios into existence before there's evidence for them).
 
 <!-- source-only:start -->
@@ -93,11 +93,11 @@ Minimal actionable rules only. Patterns and philosophy live in on-demand docs, l
 
 ## Key docs
 
-- **Before opening a PR:** read `docs/SELF-REVIEW.md` (TBD, chunk 0).
-- **Before commenting on a PR:** read `docs/DA-REVIEW.md` (TBD, chunk 0).
-- **Before policy-adjacent edits:** read `docs/INDEX.md` (TBD, chunk 0+).
+- **Before opening a PR:** read `docs/SELF-REVIEW.md`.
+- **Before commenting on a PR:** read `docs/DA-REVIEW.md`.
+- **Before policy-adjacent edits:** read `docs/INDEX.md` (TBD, deferred past Stage 0).
 - **Before writing a commit message:** read `docs/GIT.md`.
-- **Before writing tests:** read `docs/TESTING.md` (TBD, chunk 0).
+- **Before writing tests:** read `docs/TESTING.md` (TBD, chunk 0.6a).
 - **Before changing code style, adding a persona, or touching a Slack/GitHub integration:** read `docs/CONVENTIONS.md`.
 - **Before touching a do-not-touch surface** (persona prompts, ceremony formats): stop — get Alex's explicit approval first.
 - **For product vision, ceremonies, and the cast:** read `docs/VISION.md` (and `docs/PERSONAS.md`/`docs/CEREMONIES.md` once written — `VISION.md` wins on conflict).
