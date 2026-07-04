@@ -8,7 +8,9 @@ Updated 2026-07-04 end-Session-1 — **first working session of the moe v3 groun
 
 **Stage 0, chunks 0.1–0.5:** all merged. `git init` + pnpm workspace skeleton (direct-to-main bootstrap commit — no PR yet, no remote existed) → ESLint/Prettier/knip/husky ([#1](https://github.com/Pushedskydiver/moe/pull/1)) → repo settings + branch-cleanup convention ([#2](https://github.com/Pushedskydiver/moe/pull/2)) → settled package graph + `eslint-plugin-boundaries` ([#3](https://github.com/Pushedskydiver/moe/pull/3)) → CI pipeline + branch protection ([#4](https://github.com/Pushedskydiver/moe/pull/4)) → review-gate agents ported ([#5](https://github.com/Pushedskydiver/moe/pull/5)). Repo is live and public at `Pushedskydiver/moe`.
 
-**Chunk 0.6a (process docs) — in flight this session:** `docs/DEVELOPMENT.md` + `docs/TESTING.md` drafted, adapted from chief-clancy's own versions. This PR also resolves `CLAUDE.md`'s open question about moe's own `PROGRESS.md`/`docs/history/SESSIONS.md` equivalent (this file) — same names, same shapes as chief-clancy's, scaled down since moe has no session history yet.
+**Chunk 0.6a (process docs):** merged ([#6](https://github.com/Pushedskydiver/moe/pull/6)). `docs/DEVELOPMENT.md` + `docs/TESTING.md` added, adapted from chief-clancy's own versions. Resolved `CLAUDE.md`'s open question about moe's own `PROGRESS.md`/`docs/history/SESSIONS.md` equivalent (this file) — same names, same shapes as chief-clancy's, scaled down since moe has no session history yet. Dogfooded via a workflow (DA + `copilot-surrogate` in parallel) — caught 3 real findings each, including a genuine miss: an earlier "marking 0.5 merged" never actually flipped the checkbox.
+
+**Chunk 0.6b (review canon) — in flight this session:** `docs/RATIONALIZATIONS.md` + `docs/REVIEW-PATTERNS.md`, the latter pre-seeded per `docs/VISION.md` §12's five named failure classes (persona-prompt drift, ESM `.js` extension slips, schema/type separation, business-hours guard misses, recorded-transcript drift) — several describe functionality that doesn't exist yet (Stage 2/5 chunks), seeded ahead of any real catch by design.
 
 **Major novel patterns Session 1:**
 
@@ -19,19 +21,20 @@ Updated 2026-07-04 end-Session-1 — **first working session of the moe v3 groun
 5. **Repo settings needed fixing after PR #1**, not just documenting — GitHub allowed merge-commit and rebase merges by default, so PR #1 landed as a merge commit despite `docs/GIT.md` requiring squash-only. Fixed via `gh api` (squash-only, `delete_branch_on_merge`, bare-PR-title squash message) before PR #2, which then landed clean.
 6. **Saying "I'll fix that" isn't the same as fixing it (n=1, this session's own DA pass caught it on itself)** — earlier this session, chunk 0.5's BUILD_PLAN checkbox was flagged for a flip to `[x]` in a status update, but the actual `Edit` call never happened. A DA review dispatched on chunk 0.6a's own diff caught the stale `[~]`, plus the downstream `CLAUDE.md` kept-prose that had quietly inherited the same inconsistency ("live as of chunk 0.5" next to a checkbox still reading in-progress). Both fixed in the same round. The lesson isn't "check BUILD_PLAN more carefully" — it's that a stated intention needs the same verification pass as any other claim before treating it as done.
 
-### Session 2 loading instructions
+### Next session loading instructions
 
-- **Verify state before picking anything up:** confirm this PR (0.6a) actually merged (`gh pr view <n> --json state,mergedAt`), then `git checkout main && git pull && git branch -d chore/process-docs`.
-- **Primary workstream:** BUILD_PLAN chunk 0.6b — `docs/RATIONALIZATIONS.md` + `docs/REVIEW-PATTERNS.md`, pre-seeded per VISION §12. Its own PR, per BUILD_PLAN's own note, because 0.5's review-gate agents already cite these as authority.
+- **Verify state before picking anything up:** confirm chunk 0.6b's PR actually merged (`gh pr view <n> --json state,mergedAt`), then `git checkout main && git pull && git branch -d chore/review-canon`.
+- **Primary workstream:** BUILD_PLAN chunk 0.6c — reference docs + port decision (`docs/ARCHITECTURE.md`, `docs/GLOSSARY.md`, `docs/decisions/` with README; also decide which of chief-clancy's other docs moe ports, per `CLAUDE.md`'s parked list).
 - **Decision branches:**
-  - A. If Alex has feedback on the `PROGRESS.md`/`SESSIONS.md` naming or structure from this session, apply it before continuing the pattern into future sessions.
-  - B. 0.6c and 0.7 remain after 0.6b — reference docs + port decision, then the `generate:agents-md` script wiring. None are `[GATE]`.
+  - A. If Alex has feedback on the `PROGRESS.md`/`SESSIONS.md` naming or structure, or on `docs/RATIONALIZATIONS.md`/`docs/REVIEW-PATTERNS.md`'s content, apply it before continuing the pattern into future chunks.
+  - B. 0.7 (the `generate:agents-md` script port + CI freshness check) remains after 0.6c. Neither is `[GATE]`.
 - **Carry-overs:**
   - Branch protection on `main` requires "Quality suite" + "Validate PR title format"; `enforce_admins: false` (deliberate escape hatch, not routine bypass).
   - Merge is squash-only, `delete_branch_on_merge` on — confirmed working correctly since PR #2.
   - Always re-derive the Node-24 `PATH` prepend in every Bash call that needs it; it does not persist across calls.
+  - Direct-to-main pushes get blocked by the harness's own auto-mode classifier even for changes GIT.md's rules would permit (a small checkbox-only fix was blocked this session) — route even small doc fixes through a branch/PR, or bundle them into whatever branch is already open.
   - First `[GATE]` chunk is 1.2a (topology × DB) — still several chunks away, no action needed yet.
-- **Fallback:** if Alex redirects on load, follow that; otherwise default to 0.6b.
+- **Fallback:** if Alex redirects on load, follow that; otherwise default to 0.6c.
 
 ## Session archive
 
@@ -46,4 +49,5 @@ Archived sessions are in `docs/history/SESSIONS.md`. Full retrospective for any 
 | 0.3   | Merged      | 2026-07-04 | Package graph settled, `eslint-plugin-boundaries` wired (needed a resolver fix)                |
 | 0.4   | Merged      | 2026-07-04 | CI pipeline + branch protection live                                                           |
 | 0.5   | Merged      | 2026-07-04 | Review-gate agents ported, dogfooded, caught real `CLAUDE.md` drift                            |
-| 0.6a  | In progress | —          | Process docs (`docs/DEVELOPMENT.md`, `docs/TESTING.md`) + `PROGRESS.md`/`SESSIONS.md` resolved |
+| 0.6a  | Merged      | 2026-07-04 | Process docs (`docs/DEVELOPMENT.md`, `docs/TESTING.md`) + `PROGRESS.md`/`SESSIONS.md` resolved |
+| 0.6b  | In progress | —          | Review canon (`docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md` pre-seeded per VISION §12) |
