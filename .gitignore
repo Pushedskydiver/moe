@@ -1,0 +1,26 @@
+# Build output
+dist/
+*.tsbuildinfo
+
+# Coverage
+coverage/
+
+# Dependencies
+node_modules/
+
+# Credentials — never commit
+.env*
+!.env.example
+
+# Editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code — everything except reusable agent definitions
+.claude/*
+!.claude/agents/
+!.claude/agents/**
