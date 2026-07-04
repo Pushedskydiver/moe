@@ -154,7 +154,7 @@ This is the discipline `docs/DA-REVIEW.md` and `docs/SELF-REVIEW.md` already for
 
 1. Create the module and its co-located test in the same commit.
 2. Test the pure functions directly; mock only at I/O boundaries.
-3. Use fast-check for parsers, serializers, and formatters (grep `fast-check` in the repo for the current list of where it's used — a maintained enumeration goes stale, the grep doesn't).
+3. Use fast-check for parsers, serializers, and formatters (grep `fast-check` in the repo for the current list of where it's used — a maintained enumeration goes stale, the grep doesn't. Nothing uses it yet; the first parser/serializer this codebase writes is also the first real entry in that list).
 4. Follow the existing package's test patterns rather than inventing a new shape.
 
 **A PR adding a new module should include:**

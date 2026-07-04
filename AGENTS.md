@@ -11,7 +11,7 @@ Autonomous AI coworker team, built as a long-running Slack-native service. Monor
 
 Chief-clancy also has `docs/LIFECYCLE.md`, `docs/TECHNICAL-REFERENCE.md`, `docs/VISUAL-ARCHITECTURE.md`, `docs/COMPARISON.md`, `docs/guides/` (`CONFIGURATION.md`, `SECURITY.md`, `TROUBLESHOOTING.md`), and `docs/roles/` (`IMPLEMENTER.md`, `PLANNER.md`, `REVIEWER.md`, `SETUP.md`, `STRATEGIST.md`). Whether moe ports any of these is undecided — not scoped into chunk 0 above, not rejected either. **Open question:** revisit once the chunk-0 doc set is real and it's clear which of these moe actually needs.
 
-**Resolved at chunk 0.6a:** moe uses the same state-surface pair as chief-clancy, same names — root `PROGRESS.md` (the living state document session handoffs read/write) and `docs/history/SESSIONS.md` (the archival sink `PROGRESS.md` overflows into). No reason to invent different names for an identical mechanism. See `docs/DEVELOPMENT.md` §Session handoff for the full mechanics (trigger, handoff steps, archival trigger, loading-instructions block format).
+Moe uses the same state-surface pair as chief-clancy, same names — root `PROGRESS.md` (the living state document session handoffs read/write) and `docs/history/SESSIONS.md` (the archival sink `PROGRESS.md` overflows into). No reason to invent different names for an identical mechanism. See `docs/DEVELOPMENT.md` §Session handoff for the full mechanics (trigger, handoff steps, archival trigger, loading-instructions block format). (`BUILD_PLAN.md`'s checkboxes are the source of truth for exactly which chunk resolved this — this paragraph describes the mechanism, not a chunk-completion claim.)
 
 ## Commands
 
