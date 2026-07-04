@@ -167,4 +167,4 @@ Applies once Slack/GitHub integration code lands (Stage 2+). See `docs/CONVENTIO
 - [DA-REVIEW.md](DA-REVIEW.md) — architectural and comment/doc layer review (DA owns), Red Flags, Required disciplines, Severity Labels
 - `docs/DEVELOPMENT.md` — full review gate flow
 - `docs/TESTING.md` — test disciplines, test anti-patterns
-- `docs/RATIONALIZATIONS.md` — anti-rationalization index (chunk 0.6b, not yet built)
+- `docs/RATIONALIZATIONS.md` — anti-rationalization index
