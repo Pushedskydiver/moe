@@ -1,11 +1,15 @@
 import eslint from '@eslint/js';
 import prettier from 'eslint-config-prettier';
+// boundaries v6 types don't export a valid ESLint Plugin shape
+import * as _boundaries from 'eslint-plugin-boundaries';
 import functional from 'eslint-plugin-functional';
 import n from 'eslint-plugin-n';
 import sonarjs from 'eslint-plugin-sonarjs';
 import unicorn from 'eslint-plugin-unicorn';
 import { defineConfig } from 'eslint/config';
 import tseslint from 'typescript-eslint';
+
+const boundaries = _boundaries as Record<string, unknown>;
 
 export default defineConfig(
   // ── Base configs ──────────────────────────────────────────────
@@ -29,15 +33,32 @@ export default defineConfig(
   },
 
   // ── All TypeScript files ──────────────────────────────────────
-  // Boundaries enforcement (eslint-plugin-boundaries) lands at
-  // BUILD_PLAN chunk 0.3, once the real package graph is settled.
   {
     files: ['packages/*/src/**/*.ts', 'apps/*/src/**/*.ts'],
     plugins: {
       functional,
       sonarjs,
+      boundaries,
       unicorn,
       n,
+    },
+    settings: {
+      // eslint-plugin-boundaries resolves import targets via
+      // eslint-module-utils/resolve, which needs this resolver to map our
+      // relative `.js`-suffixed imports (NodeNext/ESM convention) back to
+      // their `.ts` source files — without it, resolution silently fails
+      // and the dependencies rule has nothing to check.
+      'import/resolver': {
+        typescript: true,
+      },
+      'boundaries/elements': [
+        { type: 'core', pattern: 'packages/core/**' },
+        { type: 'memory', pattern: 'packages/memory/**' },
+        { type: 'agents', pattern: 'packages/agents/**' },
+        { type: 'slack', pattern: 'packages/slack/**' },
+        { type: 'github', pattern: 'packages/github/**' },
+        { type: 'server', pattern: 'apps/server/**' },
+      ],
     },
     rules: {
       // ── TypeScript ──────────────────────────────────────────
@@ -80,6 +101,51 @@ export default defineConfig(
 
       // ── Portability ───────────────────────────────────────
       'n/no-path-concat': 'error',
+
+      // ── Architecture boundaries ─────────────────────────────
+      'boundaries/dependencies': [
+        'error',
+        {
+          default: 'disallow',
+          rules: [
+            {
+              from: { type: 'core' },
+              allow: [{ to: { type: 'core' } }],
+            },
+            {
+              from: { type: 'memory' },
+              allow: [{ to: { type: 'memory' } }, { to: { type: 'core' } }],
+            },
+            {
+              from: { type: 'agents' },
+              allow: [
+                { to: { type: 'agents' } },
+                { to: { type: 'memory' } },
+                { to: { type: 'core' } },
+              ],
+            },
+            {
+              from: { type: 'slack' },
+              allow: [{ to: { type: 'slack' } }, { to: { type: 'core' } }],
+            },
+            {
+              from: { type: 'github' },
+              allow: [{ to: { type: 'github' } }, { to: { type: 'core' } }],
+            },
+            {
+              from: { type: 'server' },
+              allow: [
+                { to: { type: 'server' } },
+                { to: { type: 'agents' } },
+                { to: { type: 'memory' } },
+                { to: { type: 'slack' } },
+                { to: { type: 'github' } },
+                { to: { type: 'core' } },
+              ],
+            },
+          ],
+        },
+      ],
     },
   },
 

@@ -115,7 +115,7 @@ Every PR must have exactly one type label. `refactor/` and `docs/` branches use 
 
 ### Package scope labels
 
-**First-cut, not yet confirmed** — pending `BUILD_PLAN.md` chunk 0's actual package graph (see `docs/CONVENTIONS.md` Architecture Enforcement):
+**Settled at `BUILD_PLAN.md` chunk 0.3** — matches the confirmed package graph in `docs/CONVENTIONS.md`'s Architecture Enforcement section:
 
 | Label    | When to use                   |
 | -------- | ----------------------------- |

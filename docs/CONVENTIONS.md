@@ -45,7 +45,7 @@ These are exactly chief-clancy's numbers — this is the specific discipline nam
 
 ## Architecture Enforcement (eslint-plugin-boundaries)
 
-**Delta from chief-clancy: this table is a first-cut, not yet confirmed.** Moe's actual package graph is `BUILD_PLAN.md` chunk 0's job to settle when the monorepo is scaffolded — treat the table below as the expected shape, re-verify once chunk 0 lands.
+**Settled at `BUILD_PLAN.md` chunk 0.3** — confirmed unchanged from the first-cut table, matching `CLAUDE.md`'s Architecture section. Enforced via `eslint-plugin-boundaries` in `eslint.config.ts`, verified against both a legal and an illegal cross-package import before landing. Delta from chief-clancy: this is moe's own package graph, not a port of theirs.
 
 | From (type)              | May import from                                         |
 | ------------------------ | ------------------------------------------------------- |

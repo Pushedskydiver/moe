@@ -3,6 +3,21 @@
   "workspaces": {
     "packages/core": {
       "project": ["src/**/*.ts"]
+    },
+    "packages/memory": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/agents": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/slack": {
+      "project": ["src/**/*.ts"]
+    },
+    "packages/github": {
+      "project": ["src/**/*.ts"]
+    },
+    "apps/server": {
+      "project": ["src/**/*.ts"]
     }
   }
 }
