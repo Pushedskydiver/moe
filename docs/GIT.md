@@ -37,7 +37,7 @@ All work branches from `main` and merges back to `main` via PR.
 When any predicate fails, use the PR flow.
 
 - **Delete branches after merging.** The remote branch is deleted automatically (`delete_branch_on_merge`, see Merge Strategy below) — that half needs no action. The **local** clone's branch is not touched by GitHub and does not auto-delete: after confirming a PR merged (`gh pr view <n> --json state,mergedAt`), `git checkout main && git pull`, then `git branch -d <branch>` before starting the next chunk. Claude/Codex do this as a matter of course, not just Alex.
-- CI must pass before merging.
+- **CI must pass before merging.** Enforced via branch protection on `main`: `.github/workflows/ci.yml`'s "Quality suite" job and `.github/workflows/pr-title-check.yml`'s "Validate PR title format" job are both required status checks. Admin/owner enforcement is off (`enforce_admins: false`) — a deliberate one-person-team escape hatch for genuine emergencies, not an invitation to routinely bypass the gate.
 
 ## Branch Naming
 

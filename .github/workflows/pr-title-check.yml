@@ -1,0 +1,89 @@
+name: PR title check
+
+# Validates PR titles against the gitmoji + conventional commit format
+# documented in docs/GIT.md §Types. PR titles become the squash commit
+# subject on `main` (per docs/GIT.md §Merge Strategy), so the same
+# convention applies.
+#
+# Bot-author PRs (Dependabot) are exempted: the bot's default title
+# (`build(deps): ...`) lands without a gitmoji prefix and the bot isn't
+# configured to emit one. Auto-renaming bot titles is a separate concern —
+# moe has no Dependabot config yet, but the exemption costs nothing to
+# have in place before it does.
+
+on:
+  pull_request:
+    # `edited` fires on title/body changes; `opened`/`reopened` cover lifecycle.
+    # `synchronize` re-runs on every push to the PR head — necessary because
+    # commit status results are SHA-attached: when a push moves the PR tip,
+    # the previous SUCCESS (against the old tip) does not automatically
+    # apply to the new tip, and required-status-check branch protection can
+    # block merge until a fresh run posts a SUCCESS against the current SHA.
+    types: [opened, edited, reopened, synchronize]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Validate PR title format
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check PR title against gitmoji + conventional commit format
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_AUTHOR: ${{ github.event.pull_request.user.login }}
+        run: |
+          set -euo pipefail
+
+          if [[ "$PR_AUTHOR" == "dependabot[bot]" ]]; then
+            echo "Author is dependabot[bot] — bot owns title format; skipping check."
+            exit 0
+          fi
+
+          # Allowed prefixes (gitmoji + type) per docs/GIT.md §Types table.
+          # Keep this list in sync with that table — both are the same convention.
+          ALLOWED_PREFIXES=(
+            "✨ feat"
+            "🐛 fix"
+            "📦 chore"
+            "♻️ refactor"
+            "✅ test"
+            "📝 docs"
+            "💄 style"
+            "⚡️ perf"
+            "🔒 security"
+            "🔥 remove"
+            "🔧 build"
+          )
+
+          for prefix in "${ALLOWED_PREFIXES[@]}"; do
+            if [[ "$PR_TITLE" == "$prefix"* ]]; then
+              remainder="${PR_TITLE#"$prefix"}"
+              # remainder must be: optional (scope) + ":" + space + non-empty description
+              if [[ "$remainder" =~ ^(\([a-zA-Z0-9_-]+\))?:\ .+ ]]; then
+                echo "✅ PR title conforms to convention: '$PR_TITLE'"
+                exit 0
+              fi
+            fi
+          done
+
+          {
+            echo "❌ PR title does not match the gitmoji + conventional commit convention."
+            echo ""
+            echo "   Required format: <gitmoji> <type>[(scope)]: <description>"
+            echo ""
+            echo "   Allowed prefixes (gitmoji + type):"
+            for prefix in "${ALLOWED_PREFIXES[@]}"; do
+              echo "     $prefix"
+            done
+            echo ""
+            echo "   Example: ✨ feat(design): add canvas server"
+            echo ""
+            echo "   Got: $PR_TITLE"
+            echo ""
+            echo "   Fix: gh pr edit ${{ github.event.pull_request.number }} --title \"<new title>\""
+            echo "   Or edit via the GitHub UI."
+            echo "   See docs/GIT.md §Types for the full type/gitmoji table."
+          } >&2
+          exit 1
