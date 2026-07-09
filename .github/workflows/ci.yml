@@ -1,7 +1,11 @@
 name: CI
 
-# Mirrors CLAUDE.md's documented pre-push suite exactly (same commands, same
-# order) so a green run here reproduces locally with no hidden extra steps.
+# The "Quality suite" job mirrors CLAUDE.md's documented pre-push suite exactly
+# (same commands, same order) so a green run here reproduces locally with no
+# hidden extra steps. "AGENTS.md freshness" is a separate, additional gate
+# (docs/DEVELOPMENT.md §AGENTS.md generation) — not part of that mirrored
+# suite, since a developer only needs to run its underlying commands after
+# editing CLAUDE.md, not on every push.
 
 on:
   pull_request:
@@ -25,3 +29,15 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm format:check
       - run: pnpm knip
+
+  agents-md-freshness:
+    name: AGENTS.md freshness
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup
+
+      - run: pnpm generate:agents-md
+      - run: pnpm format
+      - run: git diff --exit-code AGENTS.md

@@ -10,6 +10,15 @@ How moe's own codebase gets built, session to session. Complements `docs/DA-REVI
 
 **Node 24 / Volta / pnpm gotcha.** `package.json` pins Node 24 via both `engines` and Volta, but a Volta shim can still win on `PATH` even after pinning `volta.node`/`volta.pnpm` and running `nvm use 24` — `pnpm` then fails with `ERR_PNPM_UNSUPPORTED_ENGINE` despite the pin looking correct. Fix: explicitly prepend nvm's v24 bin dir to `PATH` ahead of Volta's shim dir in the same shell invocation as the pnpm command — a prior `nvm use` doesn't persist across separate shell invocations, so this has to be redone every time.
 
+## AGENTS.md generation
+
+`scripts/generate-agents-md.ts` (`pnpm generate:agents-md`) derives `AGENTS.md` from `CLAUDE.md` via a token-swap sync table (`Claude Code`→`Codex`, `CLAUDE.md`→`AGENTS.md`, `.claude/`→`.codex/`, bare `Claude`→`Codex`) — Codex reads `AGENTS.md`, so the same source of truth serves both agents without hand-duplicated prose. Two HTML-comment markers in `CLAUDE.md` control what the swap does to a given span:
+
+- **`<!-- source-only:start/end -->`** — stripped from the generated output entirely. For meta-commentary that's only true from `CLAUDE.md`'s own vantage (e.g. a note that's specifically about this file, not about the agent reading it).
+- **`<!-- literal:start/end -->`** — copied verbatim, exempt from the token swap. For facts that don't depend on which agent is reading the file (e.g. "personas read a target project's own `CLAUDE.md`, not this one" — true regardless of whether Claude Code or Codex is doing the reading). Any prose naming a `.claude/`-prefixed path needs this marker, or the generator silently asserts a `.codex/`-prefixed path that was never created.
+
+Always run `pnpm format` after regenerating — the raw script output isn't byte-identical to the committed file by design (stripping a `source-only` block flanked by blank lines leaves one extra blank line the script doesn't clean up; Prettier's markdown formatter collapses it back on the `pnpm format` pass every commit already runs). A CI check fails the build if `AGENTS.md` is stale relative to `CLAUDE.md` — it reruns the generator + `pnpm format` and diffs against the committed file.
+
 ---
 
 ## Quick Reference
