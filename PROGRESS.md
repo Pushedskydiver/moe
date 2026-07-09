@@ -10,7 +10,9 @@ Updated 2026-07-04 end-Session-1 — **first working session of the moe v3 groun
 
 **Chunk 0.6a (process docs):** merged ([#6](https://github.com/Pushedskydiver/moe/pull/6)). `docs/DEVELOPMENT.md` + `docs/TESTING.md` added, adapted from chief-clancy's own versions. Resolved `CLAUDE.md`'s open question about moe's own `PROGRESS.md`/`docs/history/SESSIONS.md` equivalent (this file) — same names, same shapes as chief-clancy's, scaled down since moe has no session history yet. Dogfooded via a workflow (DA + `copilot-surrogate` in parallel) — both found real issues, including a genuine miss: an earlier "marking 0.5 merged" never actually flipped the checkbox. See [PR #6](https://github.com/Pushedskydiver/moe/pull/6) for the itemized findings.
 
-**Chunk 0.6b (review canon) — in flight this session:** `docs/RATIONALIZATIONS.md` + `docs/REVIEW-PATTERNS.md`, the latter pre-seeded per `docs/VISION.md` §12's five named failure classes (persona-prompt drift, ESM `.js` extension slips, schema/type separation, business-hours guard misses, recorded-transcript drift) — several describe functionality that doesn't exist yet (Stage 2/5 chunks), seeded ahead of any real catch by design.
+**Chunk 0.6b (review canon):** merged ([#7](https://github.com/Pushedskydiver/moe/pull/7)). `docs/RATIONALIZATIONS.md` + `docs/REVIEW-PATTERNS.md`, the latter pre-seeded per `docs/VISION.md` §12's five named failure classes (persona-prompt drift, ESM `.js` extension slips, schema/type separation, business-hours guard misses, recorded-transcript drift) — several describe functionality that doesn't exist yet (Stage 2/5 chunks), seeded ahead of any real catch by design. Dogfooded via a workflow (DA + `copilot-surrogate` in parallel) again — 2 more real findings, including the first genuine use of `CLAUDE.md`'s `literal` marker convention since chunk 0.1 (the generator's `.claude/`→`.codex/` token-swap had produced a false `.codex/agents/` claim). See [PR #7](https://github.com/Pushedskydiver/moe/pull/7) for the itemized findings.
+
+Chunk-0 doc set is now essentially complete: only 0.6c (reference docs + port decision) and 0.7 (`generate:agents-md` TS port + CI freshness check) remain.
 
 **Major novel patterns Session 1:**
 
@@ -20,21 +22,24 @@ Updated 2026-07-04 end-Session-1 — **first working session of the moe v3 groun
 4. **Newly-created `.claude/agents/*.md` aren't dynamically dispatchable the same session they're written** — first attempt to invoke `da-review` right after creating it failed with "Agent type not found." Worked around with a `general-purpose` agent carrying the target's own instructions; the real agent type became available later in the same session (exact trigger unclear).
 5. **Repo settings needed fixing after PR #1**, not just documenting — GitHub allowed merge-commit and rebase merges by default, so PR #1 landed as a merge commit despite `docs/GIT.md` requiring squash-only. Fixed via `gh api` (squash-only, `delete_branch_on_merge`, bare-PR-title squash message) before PR #2, which then landed clean.
 6. **Saying "I'll fix that" isn't the same as fixing it (n=1, this session's own DA pass caught it on itself)** — earlier this session, chunk 0.5's BUILD_PLAN checkbox was flagged for a flip to `[x]` in a status update, but the actual `Edit` call never happened. A DA review dispatched on chunk 0.6a's own diff caught the stale `[~]`, plus the downstream `CLAUDE.md` kept-prose that had quietly inherited the same inconsistency ("live as of chunk 0.5" next to a checkbox still reading in-progress). Both fixed in the same round. The lesson isn't "check BUILD_PLAN more carefully" — it's that a stated intention needs the same verification pass as any other claim before treating it as done.
+7. **Handoff triggered on its own textbook condition, dogfooded live** — after chunk 0.6b merged (a natural phase boundary) with context flagged as large by Alex, this is the exact "sooner of" condition `docs/DEVELOPMENT.md` §Session handoff itself defines, written earlier this same session. Alex also asked whether moe should adopt chief-clancy's session-count/context-budget auto-detection for handoff prep, and whether that approach holds up under real evidence rather than assumed-good practice — deferred to Session 2 as its own research task (see loading instructions) rather than researched under an already-large context, per Alex's own explicit choice among three sequencing options offered.
 
 ### Session 2 loading instructions
 
-- **Verify state before picking anything up:** confirm chunk 0.6b's PR actually merged (`gh pr view <n> --json state,mergedAt`), then `git checkout main && git pull && git branch -d chore/review-canon`.
-- **Primary workstream:** BUILD_PLAN chunk 0.6c — reference docs + port decision (`docs/ARCHITECTURE.md`, `docs/GLOSSARY.md`, `docs/decisions/` with README; also decide which of chief-clancy's other docs moe ports, per `CLAUDE.md`'s parked list).
+- **Verify state before picking anything up:** `git log --oneline -5`, confirm `BUILD_PLAN.md` shows 0.1–0.6b all `[x]`, `git status` clean.
+- **Primary workstream — auto-handoff research (do this FIRST, before 0.6c):** research whether chief-clancy's own conclusion (explicitly investigated automating session handoff — a `PostCompact` hook, an LLM-generated summary — and declined, citing unproven summary quality and beta-status tooling, favoring "measure before automating" with named revisit triggers) is well-founded, or whether stronger evidence points elsewhere. Cover at minimum: Claude Code's actual hook capabilities today (`PreCompact`/`PostCompact`/`SessionStart`/`Stop` — check current docs, this moves fast), any published evidence on LLM-generated session-summary quality/reliability, and what other agentic coding tools do for cross-session continuity. Use the deep-research skill — this is exactly its shape (multi-source, needs adversarial verification, a topic with real disagreement potential). Output: a recommendation (adopt something, adapt chief-clancy's stance with moe-specific thresholds, or explicitly do nothing yet) written into `docs/DEVELOPMENT.md` §Session handoff, replacing its current "adopts the same posture, no thresholds yet" placeholder with a reasoned position either way.
+- **Then: BUILD_PLAN chunk 0.6c** — reference docs + port decision (`docs/ARCHITECTURE.md`, `docs/GLOSSARY.md`, `docs/decisions/` with README; also decide which of chief-clancy's other docs moe ports, per `CLAUDE.md`'s parked list).
 - **Decision branches:**
-  - A. If Alex has feedback on the `PROGRESS.md`/`SESSIONS.md` naming or structure, or on `docs/RATIONALIZATIONS.md`/`docs/REVIEW-PATTERNS.md`'s content, apply it before continuing the pattern into future chunks.
-  - B. 0.7 (the `generate:agents-md` script port + CI freshness check) remains after 0.6c. Neither is `[GATE]`.
+  - A. If the research concludes moe should adopt some form of auto-handoff, that's new scope — surface it as a candidate BUILD_PLAN addition rather than silently building it into 0.6c's own PR.
+  - B. If Alex has feedback on the `PROGRESS.md`/`SESSIONS.md` naming or structure, or on `docs/RATIONALIZATIONS.md`/`docs/REVIEW-PATTERNS.md`'s content, apply it before continuing the pattern into future chunks.
+  - C. 0.7 (the `generate:agents-md` script port + CI freshness check) remains after 0.6c. Neither 0.6c nor 0.7 is `[GATE]`.
 - **Carry-overs:**
   - Branch protection on `main` requires "Quality suite" + "Validate PR title format"; `enforce_admins: false` (deliberate escape hatch, not routine bypass).
   - Merge is squash-only, `delete_branch_on_merge` on — confirmed working correctly since PR #2.
   - Always re-derive the Node-24 `PATH` prepend in every Bash call that needs it; it does not persist across calls.
-  - Direct-to-main pushes get blocked by the harness's own auto-mode classifier even for changes GIT.md's rules would permit (a small checkbox-only fix was blocked this session) — route even small doc fixes through a branch/PR, or bundle them into whatever branch is already open.
+  - Direct-to-main pushes get blocked by the harness's own auto-mode classifier even for changes GIT.md's rules would permit — route even small doc fixes through a branch/PR, or bundle them into whatever branch is already open. This handoff itself is bundled into a small standalone PR for exactly this reason.
   - First `[GATE]` chunk is 1.2a (topology × DB) — still several chunks away, no action needed yet.
-- **Fallback:** if Alex redirects on load, follow that; otherwise default to 0.6c.
+- **Fallback:** if Alex redirects on load, follow that; otherwise default to the auto-handoff research above.
 
 ## Session archive
 
@@ -42,12 +47,12 @@ Archived sessions are in `docs/history/SESSIONS.md`. Full retrospective for any 
 
 ## Phase ledger
 
-| Chunk | Status      | Shipped    | Headline                                                                                       |
-| ----- | ----------- | ---------- | ---------------------------------------------------------------------------------------------- |
-| 0.1   | Merged      | 2026-07-04 | git init + pnpm workspace skeleton, `packages/core` toolchain proven                           |
-| 0.2   | Merged      | 2026-07-04 | ESLint/Prettier/knip/husky, 6 rule-family fixtures verified then deleted                       |
-| 0.3   | Merged      | 2026-07-04 | Package graph settled, `eslint-plugin-boundaries` wired (needed a resolver fix)                |
-| 0.4   | Merged      | 2026-07-04 | CI pipeline + branch protection live                                                           |
-| 0.5   | Merged      | 2026-07-04 | Review-gate agents ported, dogfooded, caught real `CLAUDE.md` drift                            |
-| 0.6a  | Merged      | 2026-07-04 | Process docs (`docs/DEVELOPMENT.md`, `docs/TESTING.md`) + `PROGRESS.md`/`SESSIONS.md` resolved |
-| 0.6b  | In progress | —          | Review canon (`docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md` pre-seeded per VISION §12) |
+| Chunk | Status | Shipped    | Headline                                                                                       |
+| ----- | ------ | ---------- | ---------------------------------------------------------------------------------------------- |
+| 0.1   | Merged | 2026-07-04 | git init + pnpm workspace skeleton, `packages/core` toolchain proven                           |
+| 0.2   | Merged | 2026-07-04 | ESLint/Prettier/knip/husky, 6 rule-family fixtures verified then deleted                       |
+| 0.3   | Merged | 2026-07-04 | Package graph settled, `eslint-plugin-boundaries` wired (needed a resolver fix)                |
+| 0.4   | Merged | 2026-07-04 | CI pipeline + branch protection live                                                           |
+| 0.5   | Merged | 2026-07-04 | Review-gate agents ported, dogfooded, caught real `CLAUDE.md` drift                            |
+| 0.6a  | Merged | 2026-07-04 | Process docs (`docs/DEVELOPMENT.md`, `docs/TESTING.md`) + `PROGRESS.md`/`SESSIONS.md` resolved |
+| 0.6b  | Merged | 2026-07-04 | Review canon (`docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md` pre-seeded per VISION §12) |
