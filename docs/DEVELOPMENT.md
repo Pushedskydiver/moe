@@ -10,6 +10,8 @@ How moe's own codebase gets built, session to session. Complements `docs/DA-REVI
 
 **Node 24 / Volta / pnpm gotcha.** `package.json` pins Node 24 via both `engines` and Volta, but a Volta shim can still win on `PATH` even after pinning `volta.node`/`volta.pnpm` and running `nvm use 24` — `pnpm` then fails with `ERR_PNPM_UNSUPPORTED_ENGINE` despite the pin looking correct. Fix: explicitly prepend nvm's v24 bin dir to `PATH` ahead of Volta's shim dir in the same shell invocation as the pnpm command — a prior `nvm use` doesn't persist across separate shell invocations, so this has to be redone every time.
 
+---
+
 ## AGENTS.md generation
 
 `scripts/generate-agents-md.ts` (`pnpm generate:agents-md`) derives `AGENTS.md` from `CLAUDE.md` via a token-swap sync table (`Claude Code`→`Codex`, `CLAUDE.md`→`AGENTS.md`, `.claude/`→`.codex/`, bare `Claude`→`Codex`) — Codex reads `AGENTS.md`, so the same source of truth serves both agents without hand-duplicated prose. Two HTML-comment markers in `CLAUDE.md` control what the swap does to a given span:
@@ -227,7 +229,7 @@ Named explicitly so a future reader doesn't wonder whether these were missed rat
 
 - **Auto-merge criteria, HITL triggers, Phase Validation Protocol.** These describe chief-clancy's own autonomous-merge apparatus for _its own_ repository — Claude merging its own PRs against chief-clancy under a defined risk gate. Moe's `CLAUDE.md` is explicit: "Alex merges. There is no autonomous-merge model for this repo." That's a different, simpler model than an apparatus with exceptions to strip down — there's no gate to describe because there's no autonomy to gate. (The risk-tier autonomy in `docs/VISION.md` §8 is a different thing entirely: it governs how the _finished persona team_ ships code to _chief-clancy_ once moe is a running product, not how moe's own codebase gets built. Don't confuse the two.)
 - **Versioning, Release Flow** (changesets, per-package semver, npm publish). Moe doesn't publish any package (`CLAUDE.md` §Commands) — nothing to version yet.
-- **AGENTS.md ↔ CLAUDE.md sync via a manual token-substitution table and `diff` spot-check.** Moe has a stronger, automated version already: `scripts/generate-agents-md.py`, never hand-edited, regenerated after every `CLAUDE.md` change. Nothing to port here beyond what already exists.
+- **AGENTS.md ↔ CLAUDE.md sync via a manual token-substitution table and `diff` spot-check.** Moe has a stronger, automated version already: `scripts/generate-agents-md.ts` (`pnpm generate:agents-md`), never hand-edited, regenerated after every `CLAUDE.md` change, with a CI freshness check (§AGENTS.md generation, above). Nothing to port here beyond what already exists.
 
 ---
 
