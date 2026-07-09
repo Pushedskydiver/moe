@@ -6,6 +6,12 @@ How moe's own codebase gets built, session to session. Complements `docs/DA-REVI
 
 ---
 
+## Local dev environment
+
+**Node 24 / Volta / pnpm gotcha.** `package.json` pins Node 24 via both `engines` and Volta, but a Volta shim can still win on `PATH` even after pinning `volta.node`/`volta.pnpm` and running `nvm use 24` — `pnpm` then fails with `ERR_PNPM_UNSUPPORTED_ENGINE` despite the pin looking correct. Fix: explicitly prepend nvm's v24 bin dir to `PATH` ahead of Volta's shim dir in the same shell invocation as the pnpm command — a prior `nvm use` doesn't persist across separate shell invocations, so this has to be redone every time.
+
+---
+
 ## Quick Reference
 
 1. Read the brief / pick up the next chunk from `BUILD_PLAN.md`.

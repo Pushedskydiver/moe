@@ -1,6 +1,6 @@
 # Architecture
 
-System architecture and package map — the "what's built and how it fits together" reference. Written fresh for moe rather than templated off chief-clancy's own `ARCHITECTURE.md`: chief-clancy's version documents a mature, years-old installer/pipeline/board system moe doesn't have yet. This doc grows alongside moe's own build; it doesn't front-run it.
+System architecture and package map — the "what's built and how it fits together" reference. Written fresh for moe rather than templated off chief-clancy's own `ARCHITECTURE.md`: chief-clancy's version documents a mature, multi-month installer/pipeline/board system moe doesn't have yet. This doc grows alongside moe's own build; it doesn't front-run it.
 
 **Naming discipline, same as `CLAUDE.md`'s own status paragraph:** this doc names what's built by file/package, not by BUILD_PLAN chunk number, so it stays accurate as chunks land — check `BUILD_PLAN.md`'s checkboxes for exactly which stage the codebase is at.
 
@@ -23,7 +23,7 @@ Moe is a monorepo of `@moe/*` packages plus one deployable app (`apps/server`). 
 
 ## Dependency direction
 
-Settled at `BUILD_PLAN.md` chunk 0.3, enforced via `eslint-plugin-boundaries` in `eslint.config.ts` (verified against both a legal and an illegal cross-package import before landing — see `docs/CONVENTIONS.md` §Architecture Enforcement for the enforcement table and the resolver gotcha that bit that chunk).
+Settled at `BUILD_PLAN.md` chunk 0.3, enforced via `eslint-plugin-boundaries` in `eslint.config.ts` (verified against both a legal and an illegal cross-package import before landing — see `docs/CONVENTIONS.md` §Architecture Enforcement for the enforcement table, and `docs/DA-REVIEW.md` §Claim-extraction pass for the resolver gotcha that bit that chunk: the rule was silently inert until a resolver was added, and the only thing that caught it was writing a fixture and watching it fail to fail).
 
 ```
 core                                  (shared types/schemas, ticket orchestrator — zero deps on siblings)
@@ -67,7 +67,7 @@ docs/              # this doc set
 
 ## Build system
 
-pnpm workspaces (`pnpm-workspace.yaml`: `packages/*`, `apps/*`), Node 24 pinned via both `engines` and Volta (the two don't always agree in practice — see `docs/DEVELOPMENT.md`'s Node-24 dev-shell notes), TypeScript (`tsc --noEmit` for typecheck, no separate build step beyond each package's own `build` script), Vitest per package. `pnpm knip` is a hard CI gate, not advisory, per `BUILD_PLAN.md`'s Stage-0 exit criterion.
+pnpm workspaces (`pnpm-workspace.yaml`: `packages/*`, `apps/*`), Node 24 pinned via both `engines` and Volta (the two don't always agree in practice — see `docs/DEVELOPMENT.md` §Local dev environment), TypeScript (`tsc --noEmit` for typecheck, no separate build step beyond each package's own `build` script), Vitest per package. `pnpm knip` is a hard CI gate, not advisory, per `BUILD_PLAN.md`'s Stage-0 exit criterion.
 
 No path aliases, no esbuild CLI bundling, no CommonJS interop — moe is a long-running ESM service, not a distributed CLI (`CLAUDE.md` §Non-obvious constraints). Full Zod v4 for runtime validation, a deliberate reversal of chief-clancy's `zod/mini` choice (`docs/CONVENTIONS.md`).
 

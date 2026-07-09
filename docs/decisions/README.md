@@ -2,7 +2,7 @@
 
 Design decisions for moe — the "why" behind non-obvious choices. The code (and moe's other `docs/*.md`) is the source of truth for "what" and "how."
 
-Adapted from chief-clancy's own `docs/decisions/README.md` — the lifecycle convention and naming rule carry over unchanged; the document table is moe's own, starting empty except for one seed.
+Adapted from chief-clancy's own `docs/decisions/README.md` — the naming rule carries over unchanged; the lifecycle convention carries over extended with an explicit Status-update-append step (below); the document table is moe's own, starting empty except for one seed.
 
 ## What belongs here
 

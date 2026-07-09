@@ -15,12 +15,12 @@ Chief-clancy investigated automating session handoff (a `PostCompact` hook + Rou
 
 ## Positions evaluated
 
-|       | Position                                                                              | Verdict                                                                                                                                         |
-| ----- | ------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| **A** | Manual handoff stays primary; decline LLM-authored automation                         | **CHOSEN**                                                                                                                                      |
-| **B** | Adopt a `PostCompact`/Routines hook writing an LLM summary now                        | Rejected — evidence-backed omission risk, and the harm it guards against (unplanned compaction) never fired in chief-clancy's 40-session record |
-| **C** | Import chief-clancy's numeric thresholds (handoff-cost median, backfill fields) as-is | Rejected — their thresholds drifted out of meaning within 20 sessions and their own backfill discipline collapsed                               |
-| **D** | Deterministic pointer-injection hook (no LLM authorship) as a chunk now               | Deferred — no trigger has fired yet to justify building it                                                                                      |
+|       | Position                                                                              | Verdict                                                                                                                                                         |
+| ----- | ------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **A** | Manual handoff stays primary; decline LLM-authored automation                         | **CHOSEN**                                                                                                                                                      |
+| **B** | Adopt a `PostCompact`/Routines hook writing an LLM summary now                        | Rejected — evidence-backed omission risk, and the harm it guards against (unplanned compaction) never fired in chief-clancy's 40-session record                 |
+| **C** | Import chief-clancy's numeric thresholds (handoff-cost median, backfill fields) as-is | Rejected — their thresholds held clean through the first 20 sessions, then drifted out of meaning over the next 20, and their own backfill discipline collapsed |
+| **D** | Deterministic pointer-injection hook (no LLM authorship) as a chunk now               | Deferred — no trigger has fired yet to justify building it                                                                                                      |
 
 ## Rationale
 
