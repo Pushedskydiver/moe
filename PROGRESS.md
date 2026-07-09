@@ -10,7 +10,7 @@ Updated 2026-07-09 end-Session-2 — **the auto-handoff research session, cut sh
 
 **Major novel patterns Session 2:**
 
-1. **Primary sources beat ported summaries (n=1, material).** Moe's placeholder said chief-clancy's thresholds were "calibrated against years of session history" — the actual audits show they were set in April 2026 against 10-session windows and drifted out of meaning within 20 sessions. Reading the source documents changed the position's shape. Same lesson-class as the VISION-is-north-star rule, applied to cross-repo doc ports.
+1. **Primary sources beat ported summaries (n=1, material).** Moe's placeholder said chief-clancy's thresholds were "calibrated against years of session history" — the actual audits show they were set in April 2026 against 10-session windows, held clean through the first 20 sessions, then drifted out of meaning over the next 20. Reading the source documents changed the position's shape. Same lesson-class as the VISION-is-north-star rule, applied to cross-repo doc ports.
 2. **The deep-research workflow died mid-verification on the session usage limit** (51 of 103 agents failed, including the synthesis step) — the run still yielded 6 adversarially-confirmed claims + 17 consistent-but-unverified ones, which combined with the first-party audit reading was enough. Lesson: read the cheap primary sources _before_ launching the expensive fan-out; they carried more weight than the web sweep.
 3. **Session-limit failures surface in subagent errors while the main loop keeps working** — plan for degraded finish (open the PR, document what's pending) rather than assuming a hard stop.
 
