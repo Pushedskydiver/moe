@@ -12,6 +12,17 @@ How moe's own codebase gets built, session to session. Complements `docs/DA-REVI
 
 ---
 
+## AGENTS.md generation
+
+`scripts/generate-agents-md.ts` (`pnpm generate:agents-md`) derives `AGENTS.md` from `CLAUDE.md` via a token-swap sync table (`Claude Code`→`Codex`, `CLAUDE.md`→`AGENTS.md`, `.claude/`→`.codex/`, bare `Claude`→`Codex`) — Codex reads `AGENTS.md`, so the same source of truth serves both agents without hand-duplicated prose. Two HTML-comment markers in `CLAUDE.md` control what the swap does to a given span:
+
+- **`<!-- source-only:start/end -->`** — stripped from the generated output entirely. For meta-commentary that's only true from `CLAUDE.md`'s own vantage (e.g. a note that's specifically about this file, not about the agent reading it).
+- **`<!-- literal:start/end -->`** — copied verbatim, exempt from the token swap. For facts that don't depend on which agent is reading the file (e.g. "personas read a target project's own `CLAUDE.md`, not this one" — true regardless of whether Claude Code or Codex is doing the reading). Any prose naming a `.claude/`-prefixed path needs this marker, or the generator silently asserts a `.codex/`-prefixed path that was never created.
+
+Always run `pnpm format` after regenerating — the raw script output isn't byte-identical to the committed file by design (stripping a `source-only` block flanked by blank lines leaves one extra blank line the script doesn't clean up; Prettier's markdown formatter collapses it back on the `pnpm format` pass every commit already runs). A CI check fails the build if `AGENTS.md` is stale relative to `CLAUDE.md` — it reruns the generator + `pnpm format` and diffs against the committed file.
+
+---
+
 ## Quick Reference
 
 1. Read the brief / pick up the next chunk from `BUILD_PLAN.md`.
@@ -218,7 +229,7 @@ Named explicitly so a future reader doesn't wonder whether these were missed rat
 
 - **Auto-merge criteria, HITL triggers, Phase Validation Protocol.** These describe chief-clancy's own autonomous-merge apparatus for _its own_ repository — Claude merging its own PRs against chief-clancy under a defined risk gate. Moe's `CLAUDE.md` is explicit: "Alex merges. There is no autonomous-merge model for this repo." That's a different, simpler model than an apparatus with exceptions to strip down — there's no gate to describe because there's no autonomy to gate. (The risk-tier autonomy in `docs/VISION.md` §8 is a different thing entirely: it governs how the _finished persona team_ ships code to _chief-clancy_ once moe is a running product, not how moe's own codebase gets built. Don't confuse the two.)
 - **Versioning, Release Flow** (changesets, per-package semver, npm publish). Moe doesn't publish any package (`CLAUDE.md` §Commands) — nothing to version yet.
-- **AGENTS.md ↔ CLAUDE.md sync via a manual token-substitution table and `diff` spot-check.** Moe has a stronger, automated version already: `scripts/generate-agents-md.py`, never hand-edited, regenerated after every `CLAUDE.md` change. Nothing to port here beyond what already exists.
+- **AGENTS.md ↔ CLAUDE.md sync via a manual token-substitution table and `diff` spot-check.** Moe has a stronger, automated version already: `scripts/generate-agents-md.ts` (`pnpm generate:agents-md`), never hand-edited, regenerated after every `CLAUDE.md` change, with a CI freshness check (§AGENTS.md generation, above). Nothing to port here beyond what already exists.
 
 ---
 

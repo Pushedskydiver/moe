@@ -22,6 +22,7 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
+    "generate:agents-md": "node scripts/generate-agents-md.ts",
     "prepare": "husky"
   },
   "lint-staged": {
