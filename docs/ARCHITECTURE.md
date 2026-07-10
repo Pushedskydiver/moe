@@ -10,16 +10,16 @@ Moe is a monorepo of `@moe/*` packages plus one deployable app (`apps/server`). 
 
 ## Package map
 
-| Package           | Purpose                                                        | Status                        |
-| ----------------- | -------------------------------------------------------------- | ----------------------------- |
-| `packages/core`   | Shared types/schemas, the ticket orchestrator                  | Scaffolded (one fn, one test) |
-| `packages/memory` | Cross-session/cross-persona memory substrate                   | Scaffolded (one fn, one test) |
-| `packages/agents` | Persona definitions (prompts, per-persona config)              | Scaffolded (one fn, one test) |
-| `packages/slack`  | Slack integration (Socket Mode, per-persona Bot Apps)          | Scaffolded (one fn, one test) |
-| `packages/github` | GitHub integration (board, PRs, tickets)                       | Scaffolded (one fn, one test) |
-| `apps/server`     | The deployable long-running process — one instance per persona | Scaffolded (one fn, one test) |
+| Package           | Purpose                                                        | Status                                                                                            |
+| ----------------- | -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| `packages/core`   | Shared types/schemas, the ticket orchestrator                  | `Ticket`/board-status/severity/`projectKey` schemas (chunk 1.1); orchestrator logic not yet built |
+| `packages/memory` | Cross-session/cross-persona memory substrate                   | Scaffolded (one fn, one test)                                                                     |
+| `packages/agents` | Persona definitions (prompts, per-persona config)              | Scaffolded (one fn, one test)                                                                     |
+| `packages/slack`  | Slack integration (Socket Mode, per-persona Bot Apps)          | Scaffolded (one fn, one test)                                                                     |
+| `packages/github` | GitHub integration (board, PRs, tickets)                       | Scaffolded (one fn, one test)                                                                     |
+| `apps/server`     | The deployable long-running process — one instance per persona | Scaffolded (one fn, one test)                                                                     |
 
-"Scaffolded" means: package exists, builds, has one passing test proving the toolchain — no real domain logic yet. Stage 1 (per `BUILD_PLAN.md`) is where `core` gets its actual ticket/claim domain model.
+"Scaffolded" means: package exists, builds, has one passing test proving the toolchain — no real domain logic yet. Stage 1 (per `BUILD_PLAN.md`) is where `core` gets its actual ticket/claim domain model — chunk 1.1 (ticket types) is the first slice; the atomic-claim primitive lands at 1.3.
 
 ## Dependency direction
 

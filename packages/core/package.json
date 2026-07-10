@@ -16,5 +16,11 @@
     "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "fast-check": "^4.9.0"
   }
 }
