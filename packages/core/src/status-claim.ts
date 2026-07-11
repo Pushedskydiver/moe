@@ -18,7 +18,9 @@ const toolOutputSnippetSchema = z
 /**
  * A persona's status claim about its own work (VISION §7.6), generated from this typed shape —
  * never free prose — so an ungrounded claim (no real tool call behind it) is a validation
- * failure the composer below catches, not a prompting problem.
+ * failure the composer below catches, not a prompting problem. Also enforces basic input hygiene
+ * on `claim` (non-blank) and `timestamp` (ISO-8601) — a step beyond VISION §7.6's own
+ * evidence-presence framing, folded into the same gate rather than a separate check.
  */
 export const statusClaimSchema = z.object({
   claim: claimSchema,
@@ -29,11 +31,18 @@ export const statusClaimSchema = z.object({
 
 export type StatusClaim = z.infer<typeof statusClaimSchema>;
 
-export type StatusClaimCandidate = {
-  readonly claim: string;
+/**
+ * The shape a caller assembles before grounding is checked — derived from `StatusClaim` rather
+ * than hand-maintained, so it can't silently drift from what `statusClaimSchema` actually
+ * validates. `toolCallId`/`toolOutputSnippet` are loosened to optional here specifically because a
+ * persona might not have populated them yet; that gap is exactly what `composeStatus` gates on.
+ */
+export type StatusClaimCandidate = Omit<
+  StatusClaim,
+  'toolCallId' | 'toolOutputSnippet'
+> & {
   readonly toolCallId?: string;
   readonly toolOutputSnippet?: string;
-  readonly timestamp: string;
 };
 
 export type ComposedStatus =
@@ -44,7 +53,9 @@ export type ComposedStatus =
  * Refuses to emit a status claim without populated `toolCallId`/`toolOutputSnippet` evidence,
  * falling back to `{ kind: 'not-yet-verified' }` instead (VISION §7.6) — this is failure-mode-#2's
  * fix: an ungrounded claim becomes a validation failure caught here, not a prompting problem left
- * to the model's own judgment.
+ * to the model's own judgment. The same fallback also fires for a blank `claim` string or a
+ * malformed `timestamp` — plain input hygiene collapsed into the same undifferentiated outcome,
+ * not itself part of the anti-fabrication mechanism.
  */
 export function composeStatus(candidate: StatusClaimCandidate): ComposedStatus {
   const parsed = statusClaimSchema.safeParse(candidate);

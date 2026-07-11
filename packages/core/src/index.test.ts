@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 
 import {
   boardStatusSchema,
+  composeStatus,
   projectKeySchema,
   severitySchema,
+  statusClaimSchema,
   ticketSchema,
 } from './index.js';
 
@@ -23,5 +25,19 @@ describe('@moe/core public API', () => {
         updatedAt: new Date(),
       }).success,
     ).toBe(true);
+    expect(
+      statusClaimSchema.safeParse({
+        claim: 'tests passed',
+        toolCallId: 'toolu_01abc',
+        toolOutputSnippet: '54 passed (54)',
+        timestamp: new Date().toISOString(),
+      }).success,
+    ).toBe(true);
+  });
+
+  it('re-exports composeStatus', () => {
+    expect(composeStatus({ claim: 'tests passed', timestamp: '' }).kind).toBe(
+      'not-yet-verified',
+    );
   });
 });

@@ -82,6 +82,14 @@ describe('composeStatus', () => {
     expect(result).toEqual({ kind: 'not-yet-verified' });
   });
 
+  it('falls back to not-yet-verified when the timestamp is malformed', () => {
+    const result = composeStatus({
+      ...validCandidate(),
+      timestamp: 'yesterday',
+    } as StatusClaimCandidate);
+    expect(result).toEqual({ kind: 'not-yet-verified' });
+  });
+
   it('property: any candidate built from valid field arbitraries always composes grounded', () => {
     const nonBlankString = fc.string({ minLength: 1 }).filter(isNotBlank);
 
@@ -89,6 +97,12 @@ describe('composeStatus', () => {
       claim: nonBlankString,
       toolCallId: nonBlankString,
       toolOutputSnippet: nonBlankString,
+      // Bounded to keep every generated date's toISOString() in standard (4-digit-year) form.
+      // An unbounded fc.date() can land beyond year 9999 or before year 0, where toISOString()
+      // switches to extended notation (e.g. "+010000-01-01T00:00:00.000Z") that z.iso.datetime()
+      // correctly rejects — a spurious failure unrelated to the grounding property under test.
+      // The lower bound (epoch, not calendar year 0) is stricter than the bug requires, but no
+      // real status claim will ever carry a pre-1970 timestamp.
       timestamp: fc
         .date({
           noInvalidDate: true,
