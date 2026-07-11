@@ -7,6 +7,13 @@ export type { ProjectKey } from './project-key.js';
 export { severitySchema } from './severity.js';
 export type { Severity } from './severity.js';
 
+export { composeStatus, statusClaimSchema } from './status-claim.js';
+export type {
+  ComposedStatus,
+  StatusClaim,
+  StatusClaimCandidate,
+} from './status-claim.js';
+
 export { ticketSchema } from './ticket.js';
 export type { Ticket } from './ticket.js';
 
