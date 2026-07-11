@@ -179,7 +179,7 @@ Consumers within a package use relative paths. Cross-package consumers use the p
 
 - **Co-located tests** — `<name>.test.ts` next to source. **Delta from chief-clancy: flat, no wrapping folder** (chief-clancy nests as `<name>/<name>.test.ts`; moe's flatter single-file-concept folder rule — see Folder Structure — makes the wrapping folder redundant for single-file concepts).
 - **Unit tests for every exported function** — no exceptions.
-- **Property-based tests** (fast-check) for parsers, serialisers, and the risk-tier classifier (`docs/VISION.md` §8.1) — anything whose correctness matters across a wide input space. §8.1 has an open definitional question (multi-directory diffs, directory renames, the track-record threshold N) — don't write the classifier's property tests until that resolves, or they'll need rewriting the moment it does.
+- **Property-based tests** (fast-check) for parsers, serialisers, and the risk-tier classifier (`docs/VISION.md` §8.1) — anything whose correctness matters across a wide input space. §8.1's track-record definitional question (multi-directory diffs, directory renames, the threshold N) resolved at BUILD_PLAN chunk 1.5 (`docs/decisions/TRACK-RECORD-DEFINITION.md`) — the classifier's property tests can now be written against a settled answer.
 - **Integration tests** for cross-module workflows (a persona process against a real test database, a Slack event through the classification cascade).
 - **Coverage threshold: 80%** per package (statements, branches, functions, lines).
 - **Tracer bullet TDD for new logic.** Vertical slices, not horizontal. One test → implement to pass → next test → repeat → refactor. Never write all tests first then all implementation.
@@ -192,7 +192,7 @@ Consumers within a package use relative paths. Cross-package consumers use the p
 
 **Return a `Result`-shaped discriminated union for expected failures; `throw` for broken invariants.** TypeScript has no checked exceptions — a signature that can throw gives no type-level signal. Return-typed failures make failure visible at call sites.
 
-**The risk-tier classifier specifically (`docs/VISION.md` §8.1) isn't implementable yet, not just untestable.** §8.1 has an open definitional question — what "track record" means for multi-directory diffs, directory renames/moves, and brand-new directories — that blocks the tier model for the common case. This applies to writing `classifyRiskTier` (or any Result-shaped function implementing the gate) itself, not only its property tests (see Testing Standards above). Don't write the real implementation until §8.1 resolves.
+**The risk-tier classifier specifically (`docs/VISION.md` §8.1) is now implementable.** §8.1's definitional question — what "track record" means for multi-directory diffs, directory renames/moves, and brand-new directories — resolved at BUILD_PLAN chunk 1.5 (`docs/decisions/TRACK-RECORD-DEFINITION.md`). This applies to writing `classifyRiskTier` (or any Result-shaped function implementing the gate) itself, not only its property tests (see Testing Standards above) — chunk 1.6 builds it against that ADR's answer.
 
 - **Return a `Result`-shaped discriminated union** for expected domain failures — Slack API failure, GitHub API failure, validation fail, ticket-claim conflict; anything the caller should meaningfully handle.
 - **`throw` only for:** programmer bugs / invariant violations (impossible states, exhaustiveness failures), or unrecoverable conditions.
