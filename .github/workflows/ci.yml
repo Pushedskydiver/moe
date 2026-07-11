@@ -19,11 +19,30 @@ jobs:
   quality:
     name: Quality suite
     runs-on: ubuntu-latest
+    # packages/core's ticket-lifecycle tests need a real Postgres (docs/TESTING.md: prefer a
+    # real test database) — a vanilla postgres:17 service is a faithful stand-in for Neon
+    # (which runs unmodified Postgres under the hood), no external API/secret needed.
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: moe_ci_password
+          POSTGRES_DB: moe_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      DATABASE_URL: postgres://postgres:moe_ci_password@localhost:5432/moe_ci
     steps:
       - uses: actions/checkout@v6
 
       - uses: ./.github/actions/setup
 
+      - run: pnpm build
       - run: pnpm test
       - run: pnpm lint
       - run: pnpm typecheck

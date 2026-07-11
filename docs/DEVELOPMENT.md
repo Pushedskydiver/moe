@@ -10,6 +10,10 @@ How moe's own codebase gets built, session to session. Complements `docs/DA-REVI
 
 **Node 24 / Volta / pnpm gotcha.** `package.json` pins Node 24 via both `engines` and Volta, but a Volta shim can still win on `PATH` even after pinning `volta.node`/`volta.pnpm` and running `nvm use 24` — `pnpm` then fails with `ERR_PNPM_UNSUPPORTED_ENGINE` despite the pin looking correct. Fix: explicitly prepend nvm's v24 bin dir to `PATH` ahead of Volta's shim dir in the same shell invocation as the pnpm command — a prior `nvm use` doesn't persist across separate shell invocations, so this has to be redone every time.
 
+**Node-native TS execution and local imports.** Node's built-in TypeScript support (used to run CLI scripts directly, e.g. `node scripts/migrate.ts` — see `CLAUDE.md`'s "No esbuild CLI bundles" constraint, which rules out `tsx`/`ts-node` as the fix here) type-strips a file but does **not** perform NodeNext-style `.js`→`.ts` module-resolution remapping for relative imports: `import { x } from './y.js'` only resolves if `y.js` genuinely exists on disk, not when only `y.ts` does. A script that needs a package's own real logic (not just Node built-ins) therefore can't reach into that package's `src/` directly — it has to consume the package's **built** `dist/` output instead, the same way an external package would. This is why `packages/core/scripts/migrate.ts` imports from `../dist/index.js`, and why the `migrate` script is `pnpm build && node scripts/migrate.ts` rather than a bare `node` invocation.
+
+This has one CI-shaped consequence: type-aware ESLint rules (`@typescript-eslint/no-unsafe-*`) resolve that `dist/index.js` import against real compiled output, so linting fails on a checkout where `dist/` hasn't been built yet — a fresh CI runner, in particular. That's why `pnpm build` is the first command in `CLAUDE.md`'s pre-push suite and the first step in the CI "Quality suite" job, ahead of `pnpm test`: skipping it makes lint fail in a way that only reproduces in CI, never locally on an already-built tree.
+
 ---
 
 ## AGENTS.md generation

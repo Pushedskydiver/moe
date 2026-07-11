@@ -15,12 +15,16 @@
   "scripts": {
     "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "migrate": "pnpm build && node scripts/migrate.ts"
   },
   "dependencies": {
+    "kysely": "^0.29.3",
+    "pg": "^8.22.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@types/pg": "^8.20.0",
     "fast-check": "^4.9.0"
   }
 }
