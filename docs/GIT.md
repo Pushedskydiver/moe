@@ -5,7 +5,7 @@ Adapted from chief-clancy's own `docs/GIT.md`. Commit format and the gitmoji tab
 ## Branch Strategy
 
 ```
-main ← feature/ | fix/ | chore/ | refactor/ | docs/
+main ← feat/ | fix/ | chore/ | refactor/ | docs/
 ```
 
 All work branches from `main` and merges back to `main` via PR.
@@ -13,7 +13,7 @@ All work branches from `main` and merges back to `main` via PR.
 | Branch            | Purpose                              | Branched from | Merges into |
 | ----------------- | ------------------------------------ | ------------- | ----------- |
 | `main`            | Production code, tagged releases     | —             | —           |
-| `feature/<name>`  | New features                         | `main`        | `main`      |
+| `feat/<name>`     | New features                         | `main`        | `main`      |
 | `fix/<name>`      | Bug fixes                            | `main`        | `main`      |
 | `chore/<name>`    | Maintenance, deps, config            | `main`        | `main`      |
 | `refactor/<name>` | Code restructuring, no new behaviour | `main`        | `main`      |
@@ -45,12 +45,12 @@ When any predicate fails, use the PR flow.
 type/short-description
 ```
 
-Types: `feature`, `fix`, `chore`, `refactor`, `docs`. `refactor/` and `docs/` branches use the `chore` label.
+Types: `feat`, `fix`, `chore`, `refactor`, `docs`. `refactor/` and `docs/` branches use the `chore` label.
 
 Examples:
 
 ```
-feature/evidence-gated-claims
+feat/evidence-gated-claims
 fix/slack-rate-limit-tier-lookup
 chore/update-dependencies
 refactor/extract-risk-classifier
@@ -109,7 +109,7 @@ Every PR must have exactly one type label. `refactor/` and `docs/` branches use 
 
 | Label     | Branch prefix                  |
 | --------- | ------------------------------ |
-| `feature` | `feature/`                     |
+| `feature` | `feat/`                        |
 | `fix`     | `fix/`                         |
 | `chore`   | `chore/`, `refactor/`, `docs/` |
 
