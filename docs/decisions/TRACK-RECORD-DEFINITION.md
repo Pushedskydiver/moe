@@ -22,7 +22,7 @@ VISION §8.1 makes "track record" directory-scoped and lets it shift a change do
 
 ## Deferred / explicitly rejected
 
-- Per-project rules of engagement and any per-persona tuning of N are out of scope here — deferred with the rest of multi-project posture (VISION §3.4).
+- Per-project rules of engagement are out of scope here — deferred with the rest of multi-project posture (VISION §3.4).
 - No change to the Tier 3 floor: track record still never buys a sensitive-path change out of mandatory named-owner review, regardless of how these four calls interact with it.
 
 ## Triggers for re-evaluation
