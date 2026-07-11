@@ -62,6 +62,17 @@ describe('tickets repository', () => {
     expect(result.ticket.createdAt).toEqual(result.ticket.updatedAt);
   });
 
+  it('rejects a blank title without writing a row to the database', async () => {
+    const result = await createTicket(db, {
+      ...newTicketInput(),
+      title: '   ',
+    });
+
+    expect(result.ok).toBe(false);
+    const { rows } = await pool.query('SELECT * FROM tickets');
+    expect(rows).toHaveLength(0);
+  });
+
   it('reads back a created ticket by id', async () => {
     const created = await createTicket(db, newTicketInput());
     if (!created.ok) throw new Error('setup failed');
@@ -109,6 +120,17 @@ describe('tickets repository', () => {
     expect(result.ticket?.updatedAt.getTime()).toBeGreaterThanOrEqual(
       created.ticket.updatedAt.getTime(),
     );
+  });
+
+  it('rejects a blank-title patch without persisting it', async () => {
+    const created = await createTicket(db, newTicketInput());
+    if (!created.ok) throw new Error('setup failed');
+
+    const result = await updateTicket(db, created.ticket.id, { title: '  ' });
+
+    expect(result.ok).toBe(false);
+    const unchanged = await getTicketById(db, created.ticket.id);
+    expect(unchanged).toEqual({ ok: true, ticket: created.ticket });
   });
 
   it('returns a null ticket when updating an id that does not exist', async () => {

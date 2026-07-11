@@ -13,8 +13,8 @@ const titleSchema = z
 /**
  * A work item moving through the board lifecycle (`boardStatusSchema`). Enforces `updatedAt`
  * must not predate `createdAt` (below). Deliberately excludes claim fields (`claimedBy`, a
- * version column) — those are chunk 1.3's atomic-claim primitive, not part of this pure domain
- * shape, since there's no DB yet for a claim to be atomic against.
+ * version column) — those are chunk 1.3's atomic-claim primitive, scoped to its own chunk so
+ * compare-and-set is tested in isolation, not part of this pure domain shape.
  */
 export const ticketSchema = z
   .object({

@@ -17,11 +17,13 @@ export type MigrateResult =
   | { readonly ok: true; readonly applied: readonly string[] }
   | {
       readonly ok: false;
-      readonly error: {
-        readonly kind: 'migration-failed';
-        readonly file: string;
-        readonly cause: unknown;
-      };
+      readonly error:
+        | {
+            readonly kind: 'migration-failed';
+            readonly file: string;
+            readonly cause: unknown;
+          }
+        | { readonly kind: 'unknown'; readonly cause: unknown };
     };
 
 async function applyPending(
@@ -32,8 +34,8 @@ async function applyPending(
   const [file, ...rest] = files;
   if (!file) return { ok: true, applied: [] };
 
-  const sql = await readFile(join(migrationsDir, file), 'utf8');
   try {
+    const sql = await readFile(join(migrationsDir, file), 'utf8');
     await client.query(sql);
     await client.query('INSERT INTO schema_migrations (id) VALUES ($1)', [
       file,
@@ -60,35 +62,45 @@ export async function runMigrations(
 ): Promise<MigrateResult> {
   const client = await pool.connect();
   try {
-    await client.query('BEGIN');
-    await client.query('SELECT pg_advisory_xact_lock($1)', [
-      MIGRATIONS_LOCK_ID,
-    ]);
-    await client.query(
-      `CREATE TABLE IF NOT EXISTS schema_migrations (
-         id TEXT PRIMARY KEY,
-         applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
-       )`,
-    );
+    try {
+      await client.query('BEGIN');
+      await client.query('SELECT pg_advisory_xact_lock($1)', [
+        MIGRATIONS_LOCK_ID,
+      ]);
+      await client.query(
+        `CREATE TABLE IF NOT EXISTS schema_migrations (
+           id TEXT PRIMARY KEY,
+           applied_at TIMESTAMPTZ NOT NULL DEFAULT now()
+         )`,
+      );
 
-    const appliedResult = await client.query<{ id: string }>(
-      'SELECT id FROM schema_migrations',
-    );
-    const applied = new Set(appliedResult.rows.map((row) => row.id));
+      const appliedResult = await client.query<{ id: string }>(
+        'SELECT id FROM schema_migrations',
+      );
+      const applied = new Set(appliedResult.rows.map((row) => row.id));
 
-    const allFiles = await readdir(migrationsDir);
-    const pendingFiles = allFiles
-      .filter((file) => file.endsWith('.sql') && !applied.has(file))
-      .sort();
+      const allFiles = await readdir(migrationsDir);
+      const pendingFiles = allFiles
+        .filter((file) => file.endsWith('.sql') && !applied.has(file))
+        .sort();
 
-    const result = await applyPending(client, migrationsDir, pendingFiles);
-    if (!result.ok) {
-      await client.query('ROLLBACK');
+      const result = await applyPending(client, migrationsDir, pendingFiles);
+      if (!result.ok) {
+        await client.query('ROLLBACK');
+        return result;
+      }
+
+      await client.query('COMMIT');
       return result;
+    } catch (cause) {
+      try {
+        await client.query('ROLLBACK');
+      } catch {
+        // The connection is likely unusable (e.g. it dropped mid-transaction) — there's
+        // nothing more to roll back; fall through and report the original failure below.
+      }
+      return { ok: false, error: { kind: 'unknown', cause } };
     }
-
-    await client.query('COMMIT');
-    return result;
   } finally {
     client.release();
   }

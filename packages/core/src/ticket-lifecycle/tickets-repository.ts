@@ -47,21 +47,31 @@ function isOkTicketResult(
   return result.ok;
 }
 
+/**
+ * Inserts a new ticket. `id` is server-generated (not part of `NewTicket`) and `createdAt`
+ * equals `updatedAt` on insert. Validates the full candidate row through `ticketSchema` before
+ * writing, so an invalid input (e.g. a blank title) never reaches the database.
+ */
 export async function createTicket(
   db: Kysely<Database>,
   input: NewTicket,
 ): Promise<TicketResult> {
   const now = new Date();
+  const candidate = {
+    id: crypto.randomUUID(),
+    projectKey: input.projectKey,
+    title: input.title,
+    status: input.status,
+    severity: input.severity,
+    createdAt: now,
+    updatedAt: now,
+  };
+
+  const validated = parseTicketRow(candidate);
+  if (!validated.ok) return validated;
+
   try {
-    const insert = db.insertInto('tickets').values({
-      id: crypto.randomUUID(),
-      projectKey: input.projectKey,
-      title: input.title,
-      status: input.status,
-      severity: input.severity,
-      createdAt: now,
-      updatedAt: now,
-    });
+    const insert = db.insertInto('tickets').values(candidate);
     const row = await insert.returningAll().executeTakeFirstOrThrow();
     return parseTicketRow(row);
   } catch (cause) {
@@ -69,6 +79,7 @@ export async function createTicket(
   }
 }
 
+/** Looks up a ticket by id. A non-matching id is not an error — returns `{ ok: true, ticket: null }`. */
 export async function getTicketById(
   db: Kysely<Database>,
   id: string,
@@ -84,6 +95,7 @@ export async function getTicketById(
   }
 }
 
+/** Lists tickets, optionally scoped to a single `projectKey`. */
 export async function listTickets(
   db: Kysely<Database>,
   filters?: { readonly projectKey?: string },
@@ -110,15 +122,31 @@ export async function listTickets(
   }
 }
 
+/**
+ * Applies a partial update. A non-matching id is not an error — returns
+ * `{ ok: true, ticket: null }`. Merges `patch` onto the existing row and validates the result
+ * through `ticketSchema` before writing, so a patch that would produce an invalid ticket (e.g. a
+ * blank title) never reaches the database.
+ */
 export async function updateTicket(
   db: Kysely<Database>,
   id: string,
   patch: TicketPatch,
 ): Promise<TicketOrNullResult> {
   try {
-    const update = db
-      .updateTable('tickets')
-      .set({ ...patch, updatedAt: new Date() });
+    const existing = await db
+      .selectFrom('tickets')
+      .selectAll()
+      .where('id', '=', id)
+      .executeTakeFirst();
+    if (!existing) return { ok: true, ticket: null };
+
+    const updatedAt = new Date();
+    const candidate = { ...existing, ...patch, updatedAt };
+    const validated = parseTicketRow(candidate);
+    if (!validated.ok) return validated;
+
+    const update = db.updateTable('tickets').set({ ...patch, updatedAt });
     const scoped = update.where('id', '=', id);
     const row = await scoped.returningAll().executeTakeFirst();
     if (!row) return { ok: true, ticket: null };
