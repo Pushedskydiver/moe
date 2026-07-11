@@ -42,7 +42,7 @@ server     ← agents, memory, slack, github, core     (apps/server — the only
 
 **Every persona is its own long-running process with its own Slack Bot App** (`docs/VISION.md` §4.5, §6.6) — not subordinate agents under one orchestrator process. This is settled (decided on evidence in VISION §4.5), unlike the package graph above, which is confirmed-but-revisitable. `apps/server` is the same codebase deployed N times (one per persona), not N different apps.
 
-Ticket claims are atomic via database-level optimistic locking, not in-process coordination — there's no shared-memory orchestrator process arbitrating between personas. What counts as a path's "track record" for the risk-tier gate that sits on top of this claim mechanism is an open definitional question (`docs/VISION.md` §8.1) — not yet resolved, don't build against an assumed answer.
+Ticket claims are atomic via database-level optimistic locking, not in-process coordination — there's no shared-memory orchestrator process arbitrating between personas. Each persona runs on its own machine, sharing one Neon Postgres instance for this claim mechanism (`docs/decisions/TOPOLOGY-AND-DATABASE.md`, BUILD_PLAN chunk 1.2a). What counts as a path's "track record" for the risk-tier gate that sits on top of this claim mechanism is an open definitional question (`docs/VISION.md` §8.1) — not yet resolved, don't build against an assumed answer.
 
 ## Model client
 
