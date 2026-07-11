@@ -65,6 +65,7 @@ export async function createTicket(
     severity: input.severity,
     createdAt: now,
     updatedAt: now,
+    claimedBy: null,
   };
 
   const validated = parseTicketRow(candidate);

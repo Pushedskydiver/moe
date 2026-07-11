@@ -10,6 +10,12 @@ export type { Severity } from './severity.js';
 export { ticketSchema } from './ticket.js';
 export type { Ticket } from './ticket.js';
 
+export { claimTicket, releaseTicket } from './ticket-lifecycle/claim.js';
+export type {
+  ClaimError,
+  ClaimResult,
+  TicketClaim,
+} from './ticket-lifecycle/claim.js';
 export { createDb, createPool } from './ticket-lifecycle/db.js';
 export { runMigrations } from './ticket-lifecycle/migrate.js';
 export type { MigrateResult } from './ticket-lifecycle/migrate.js';
