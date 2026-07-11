@@ -114,6 +114,11 @@ describe('claimTicket / releaseTicket', () => {
     const created = await createTicket(db, newTicketInput());
     if (!created.ok) throw new Error('setup failed');
 
+    // Claimant count matches db.ts's pool `max: 10` so every attempt can acquire its own
+    // connection at once — genuine concurrent races at the Postgres level, not just N sequential
+    // calls that happen to look atomic. If that pool max ever shrinks, some claimants would queue
+    // and run after the winner already committed, and this assertion would still pass without
+    // truly exercising the race.
     const claimants = Array.from({ length: 10 }, (_, i) => `persona-${i}`);
     const results = await Promise.all(
       claimants.map((claimedBy) =>

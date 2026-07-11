@@ -33,10 +33,15 @@ function parseTicketClaim(row: unknown): ClaimResult {
 }
 
 /**
- * Atomically claims an unclaimed ticket for `claimedBy` — the WHERE clause (`claimedBy IS NULL`)
- * is the compare, evaluated by Postgres against the current row at UPDATE time, so it's safe
- * against any number of racing callers: at most one UPDATE ever matches a given ticket, the rest
- * see zero rows affected. `version` increments only on the winning write.
+ * Atomically claims an unclaimed ticket for `claimedBy`. Under Postgres's default READ COMMITTED
+ * isolation (this codebase's assumption throughout — nothing here opens an explicit transaction),
+ * two concurrent `UPDATE ... WHERE claimedBy IS NULL` on the same row don't race in the naive
+ * "both see the old row" sense: the loser blocks on the row lock, and once the winner commits,
+ * Postgres re-evaluates the loser's WHERE clause against the now-updated row (EvalPlanQual) before
+ * it proceeds — since `claimedBy` is no longer NULL, the loser's WHERE no longer matches and it
+ * affects zero rows. A caller that wrapped this in an explicit REPEATABLE READ/SERIALIZABLE
+ * transaction would see the loser throw a serialization error instead of cleanly returning
+ * `{ kind: 'unavailable' }` — not handled here, since nothing in this codebase does that today.
  */
 export async function claimTicket(
   db: Kysely<Database>,
@@ -44,11 +49,11 @@ export async function claimTicket(
   claimedBy: string,
 ): Promise<ClaimResult> {
   try {
-    const row = await db
+    const update = db
       .updateTable('tickets')
-      .set({ claimedBy, version: sql`version + 1` })
-      .where('id', '=', id)
-      .where('claimedBy', 'is', null)
+      .set({ claimedBy, version: sql`version + 1` });
+    const scoped = update.where('id', '=', id).where('claimedBy', 'is', null);
+    const row = await scoped
       .returning(['id', 'claimedBy', 'version'])
       .executeTakeFirst();
 
@@ -60,9 +65,11 @@ export async function claimTicket(
 }
 
 /**
- * Atomically releases a ticket currently claimed by `claimedBy` — the WHERE clause
- * (`claimedBy = <caller>`) means a caller can only release its own claim, and a ticket that's
- * unclaimed (`claimedBy IS NULL`) or claimed by someone else never matches.
+ * Atomically releases a ticket currently claimed by `claimedBy`, via the same READ-COMMITTED
+ * row-lock/re-check mechanism as `claimTicket` (see its TSDoc). The WHERE clause (`claimedBy =
+ * <caller>`) means a caller can only release its own claim; a ticket that's unclaimed
+ * (`claimedBy IS NULL`) never matches either, since SQL's `NULL = 'x'` evaluates to NULL, not
+ * true, under three-valued logic.
  */
 export async function releaseTicket(
   db: Kysely<Database>,
@@ -70,11 +77,13 @@ export async function releaseTicket(
   claimedBy: string,
 ): Promise<ClaimResult> {
   try {
-    const row = await db
+    const update = db
       .updateTable('tickets')
-      .set({ claimedBy: null, version: sql`version + 1` })
+      .set({ claimedBy: null, version: sql`version + 1` });
+    const scoped = update
       .where('id', '=', id)
-      .where('claimedBy', '=', claimedBy)
+      .where('claimedBy', '=', claimedBy);
+    const row = await scoped
       .returning(['id', 'claimedBy', 'version'])
       .executeTakeFirst();
 
