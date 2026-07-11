@@ -23,6 +23,7 @@ Decision docs live at `docs/decisions/*.md` (ALLCAPS + flat, matching the top-le
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `SESSION-HANDOFF-AUTOMATION.md` | Whether to automate cross-session handoff; positions considered; why manual stays primary; revisit triggers |
 | `TOPOLOGY-AND-DATABASE.md`      | Process topology (N machines, one per persona) × DB choice (Neon Postgres); rejected alternatives; evidence |
+| `TRACK-RECORD-DEFINITION.md`    | VISION §8.1's track-record open question: multi-directory diffs, renames, new directories, threshold N      |
 
 Other significant decisions already made this early (the package graph settled at chunk 0.3; the Messages-API-vs-Agent-SDK model-client choice) are documented in their original locations — `docs/CONVENTIONS.md` §Architecture Enforcement and `docs/VISION.md` §11, respectively — and aren't duplicated here. Backfilling them is optional, not required by this convention.
 
