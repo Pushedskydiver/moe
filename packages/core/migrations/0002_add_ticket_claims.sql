@@ -1,0 +1,3 @@
+ALTER TABLE tickets
+  ADD COLUMN claimed_by TEXT,
+  ADD COLUMN version INTEGER NOT NULL DEFAULT 0;
