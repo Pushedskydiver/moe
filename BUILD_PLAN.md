@@ -52,7 +52,7 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 - [x] **1.3 — Atomic claim.** Compare-and-set claim/release on a ticket (`claimedBy` + version column). Property/concurrency tests: N racing claimants, exactly one winner, no lost updates. This is the orchestrator's load-bearing primitive (VISION §4.5) — it gets its own chunk so it's tested in isolation.
 - [x] **1.4 — StatusClaim schema + composer gate.** The `{claim, toolCallId, toolOutputSnippet, timestamp}` type (VISION §7.6), plus the composer function that refuses to emit a status claim without populated evidence and falls back to "not yet verified". Pure logic, heavily unit-tested. **This is failure-mode-#2's fix and it ships before any persona exists.**
 - [~] **1.5 — [GATE] Track-record definition ADR.** **Decided (2026-07-12):** minimum track record across directories for a multi-directory diff; preserve on git-detected rename; no transfer to a brand-new directory (Tier 2 floor); threshold **N = 5** consecutive unreverted merges. Full reasoning and rejected alternatives: `docs/decisions/TRACK-RECORD-DEFINITION.md`. Written ADR with Alex. **Decision-only chunk.**
-- [ ] **1.6 — Risk-tier classifier.** `classifyRiskTier(diffMeta) → Tier 0–3` as a pure function per the ADR from 1.5 + VISION §8.1's table. Property-based tests. No enforcement wiring yet — just the classifier.
+- [~] **1.6 — Risk-tier classifier.** `classifyRiskTier(diffMeta) → Tier 0–3` as a pure function per the ADR from 1.5 + VISION §8.1's table. Property-based tests. No enforcement wiring yet — just the classifier.
 
 ## Stage 2 — One persona process, one Slack app
 
