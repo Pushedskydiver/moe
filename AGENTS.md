@@ -25,8 +25,10 @@ pnpm format:check       # Check formatting
 pnpm knip               # Dead-code / unused-export detection
 
 # Pre-push quality suite (run before every git push — no exceptions)
-pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm knip
+pnpm build && pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm knip
 ```
+
+`build` runs first because `pnpm lint` type-aware-lints against each package's compiled `dist/` output wherever a script imports the package's own build (e.g. `packages/core/scripts/migrate.ts` — see `docs/DEVELOPMENT.md` §Node-native TS execution and local imports). A fresh checkout has no `dist/` yet, so skipping this step makes lint fail in a way that only reproduces in CI, never locally on an already-built tree.
 
 No `publint`/`attw`/changesets yet — moe doesn't publish any package to npm today (it's a private deployed service, not a distributed CLI). This isn't a deviation from `docs/VISION.md` §12's adopted pre-push hygiene list — §12 itself scopes `publint`/`attw` to "the packages Moe actually publishes," and none do yet. Add them the day a package actually publishes.
 
