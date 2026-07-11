@@ -2,7 +2,7 @@
 
 Design decisions for moe — the "why" behind non-obvious choices. The code (and moe's other `docs/*.md`) is the source of truth for "what" and "how."
 
-Adapted from chief-clancy's own `docs/decisions/README.md` — the naming rule carries over unchanged; the lifecycle convention carries over extended with an explicit Status-update-append step (below); the document table is moe's own, starting empty except for one seed.
+Adapted from chief-clancy's own `docs/decisions/README.md` — the naming rule carries over unchanged; the lifecycle convention carries over extended with an explicit Status-update-append step (below); the document table is moe's own.
 
 ## What belongs here
 
@@ -22,6 +22,7 @@ Decision docs live at `docs/decisions/*.md` (ALLCAPS + flat, matching the top-le
 | Document                        | Purpose                                                                                                     |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------- |
 | `SESSION-HANDOFF-AUTOMATION.md` | Whether to automate cross-session handoff; positions considered; why manual stays primary; revisit triggers |
+| `TOPOLOGY-AND-DATABASE.md`      | Process topology (N machines, one per persona) × DB choice (Neon Postgres); rejected alternatives; evidence |
 
 Other significant decisions already made this early (the package graph settled at chunk 0.3; the Messages-API-vs-Agent-SDK model-client choice) are documented in their original locations — `docs/CONVENTIONS.md` §Architecture Enforcement and `docs/VISION.md` §11, respectively — and aren't duplicated here. Backfilling them is optional, not required by this convention.
 
