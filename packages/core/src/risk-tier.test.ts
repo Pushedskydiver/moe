@@ -15,6 +15,7 @@ function baseDiffMeta(): DiffMeta {
     touchesSensitivePath: false,
     isBelowSizeThreshold: true,
     isLogicChange: true,
+    isEligibleNonLogicChange: false,
     hasAccompanyingTest: true,
     crossesPackageBoundary: false,
     touchedDirectories: [
@@ -24,28 +25,40 @@ function baseDiffMeta(): DiffMeta {
 }
 
 describe('classifyRiskTier', () => {
-  it('auto-merges a non-logic change with green CI below the size threshold (Tier 0)', () => {
+  it('auto-merges a docs/config/lint-only or non-major devDependency-bump change with green CI below the size threshold (Tier 0)', () => {
     const result = classifyRiskTier({
       ...baseDiffMeta(),
       isLogicChange: false,
+      isEligibleNonLogicChange: true,
     });
     expect(result).toBe(0);
   });
 
-  it('does not auto-merge a non-logic change when CI is red', () => {
+  it('does not auto-merge an eligible non-logic change when CI is red', () => {
     const result = classifyRiskTier({
       ...baseDiffMeta(),
       isLogicChange: false,
+      isEligibleNonLogicChange: true,
       ciAllGreen: false,
     });
     expect(result).toBe(2);
   });
 
-  it('does not auto-merge a non-logic change above the size threshold', () => {
+  it('does not auto-merge an eligible non-logic change above the size threshold', () => {
     const result = classifyRiskTier({
       ...baseDiffMeta(),
       isLogicChange: false,
+      isEligibleNonLogicChange: true,
       isBelowSizeThreshold: false,
+    });
+    expect(result).toBe(2);
+  });
+
+  it('does not auto-merge a major devDependency bump — not a logic change, but not the Tier 0 carve-out either', () => {
+    const result = classifyRiskTier({
+      ...baseDiffMeta(),
+      isLogicChange: false,
+      isEligibleNonLogicChange: false,
     });
     expect(result).toBe(2);
   });
@@ -128,6 +141,7 @@ describe('classifyRiskTier', () => {
       touchesSensitivePath: true,
       isBelowSizeThreshold: true,
       isLogicChange: true,
+      isEligibleNonLogicChange: false,
       hasAccompanyingTest: true,
       crossesPackageBoundary: false,
       touchedDirectories: [
@@ -151,6 +165,7 @@ describe('classifyRiskTier', () => {
       touchesSensitivePath: fc.constant(true),
       isBelowSizeThreshold: fc.boolean(),
       isLogicChange: fc.boolean(),
+      isEligibleNonLogicChange: fc.boolean(),
       hasAccompanyingTest: fc.boolean(),
       crossesPackageBoundary: fc.boolean(),
       touchedDirectories: fc.array(
@@ -175,6 +190,7 @@ describe('classifyRiskTier', () => {
       touchesSensitivePath: fc.constant(false),
       isBelowSizeThreshold: fc.boolean(),
       isLogicChange: fc.boolean(),
+      isEligibleNonLogicChange: fc.boolean(),
       hasAccompanyingTest: fc.boolean(),
       crossesPackageBoundary: fc.constant(true),
       touchedDirectories: fc.array(
@@ -209,6 +225,7 @@ describe('classifyRiskTier', () => {
             touchesSensitivePath: false,
             isBelowSizeThreshold: true,
             isLogicChange: true,
+            isEligibleNonLogicChange: false,
             hasAccompanyingTest: true,
             crossesPackageBoundary: false,
             touchedDirectories,
@@ -221,6 +238,56 @@ describe('classifyRiskTier', () => {
           expect(result).toBe(expectTier1 ? 1 : 2);
         },
       ),
+    );
+  });
+
+  it('property: a non-logic change never reaches Tier 1, regardless of tests or track record', () => {
+    const diffMetaArbitrary = fc.record({
+      ciAllGreen: fc.boolean(),
+      touchesSensitivePath: fc.constant(false),
+      isBelowSizeThreshold: fc.boolean(),
+      isLogicChange: fc.constant(false),
+      isEligibleNonLogicChange: fc.boolean(),
+      hasAccompanyingTest: fc.boolean(),
+      crossesPackageBoundary: fc.constant(false),
+      touchedDirectories: fc.array(
+        fc.record({
+          path: fc.string({ minLength: 1 }),
+          isNew: fc.boolean(),
+          consecutiveUnrevertedMerges: fc.nat(),
+        }),
+      ),
+    });
+
+    fc.assert(
+      fc.property(diffMetaArbitrary, (diffMeta) => {
+        expect(classifyRiskTier(diffMeta)).not.toBe(1);
+      }),
+    );
+  });
+
+  it('property: a change ineligible for the Tier 0 carve-out never auto-merges, regardless of CI or size', () => {
+    const diffMetaArbitrary = fc.record({
+      ciAllGreen: fc.boolean(),
+      touchesSensitivePath: fc.constant(false),
+      isBelowSizeThreshold: fc.boolean(),
+      isLogicChange: fc.boolean(),
+      isEligibleNonLogicChange: fc.constant(false),
+      hasAccompanyingTest: fc.boolean(),
+      crossesPackageBoundary: fc.constant(false),
+      touchedDirectories: fc.array(
+        fc.record({
+          path: fc.string({ minLength: 1 }),
+          isNew: fc.boolean(),
+          consecutiveUnrevertedMerges: fc.nat(),
+        }),
+      ),
+    });
+
+    fc.assert(
+      fc.property(diffMetaArbitrary, (diffMeta) => {
+        expect(classifyRiskTier(diffMeta)).not.toBe(0);
+      }),
     );
   });
 });

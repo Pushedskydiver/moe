@@ -1,5 +1,10 @@
 const TRACK_RECORD_THRESHOLD = 5;
 
+/**
+ * VISION §8.1's four-row tier table: 0 = auto-merge immediately (least review), 1 = fast
+ * single-approve same-day, 2 = standard review, 3 = mandatory named-owner review that not even
+ * the requesting persona or the human who dispatched it can satisfy (most review).
+ */
 export type RiskTier = 0 | 1 | 2 | 3;
 
 /**
@@ -20,12 +25,20 @@ export type TouchedDirectory = {
  * Pre-classified facts about a diff — path-pattern matching (which paths count as "sensitive",
  * what the size threshold is) is deliberately left to a later enforcement-wiring chunk, not
  * this pure classifier.
+ *
+ * `isLogicChange` and `isEligibleNonLogicChange` are deliberately separate, not complements of
+ * each other: VISION §8.1's Tier 0 gate names a specific carve-out — "docs/config/lint-only or a
+ * non-major devDependency bump" — not simply "anything that isn't a logic change." A *major*
+ * devDependency bump is also not a logic change (`isLogicChange: false`), but the table
+ * explicitly excludes it from Tier 0, so it must also set `isEligibleNonLogicChange: false`.
+ * Collapsing these into one boolean would silently let a major bump slip into auto-merge.
  */
 export type DiffMeta = {
   readonly ciAllGreen: boolean;
   readonly touchesSensitivePath: boolean;
   readonly isBelowSizeThreshold: boolean;
   readonly isLogicChange: boolean;
+  readonly isEligibleNonLogicChange: boolean;
   readonly hasAccompanyingTest: boolean;
   readonly crossesPackageBoundary: boolean;
   readonly touchedDirectories: readonly TouchedDirectory[];
@@ -60,21 +73,17 @@ export function classifyRiskTier(diffMeta: DiffMeta): RiskTier {
 
   if (diffMeta.crossesPackageBoundary) return 2;
 
-  if (
-    !diffMeta.isLogicChange &&
+  const isAutoMergeEligible =
+    diffMeta.isEligibleNonLogicChange &&
     diffMeta.ciAllGreen &&
-    diffMeta.isBelowSizeThreshold
-  ) {
-    return 0;
-  }
+    diffMeta.isBelowSizeThreshold;
+  if (isAutoMergeEligible) return 0;
 
-  if (
+  const isFastApproveEligible =
     diffMeta.isLogicChange &&
     diffMeta.hasAccompanyingTest &&
-    hasTrackRecord(diffMeta.touchedDirectories)
-  ) {
-    return 1;
-  }
+    hasTrackRecord(diffMeta.touchedDirectories);
+  if (isFastApproveEligible) return 1;
 
   return 2;
 }
