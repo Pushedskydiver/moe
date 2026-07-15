@@ -19,7 +19,11 @@ export default defineConfig(
 
   // ── Global ignores ────────────────────────────────────────────
   {
-    ignores: ['**/dist/', 'node_modules/'],
+    // .claude/worktrees/**: gitignored git worktrees created by review-agent isolation
+    // (isolation: 'worktree') — if one isn't cleaned up before a full-repo lint run, its own
+    // node_modules/dist state (or lack of it) produces hundreds of unrelated type-resolution
+    // errors that look like a real regression. Caught live: PR #24's retrospective review.
+    ignores: ['**/dist/', 'node_modules/', '.claude/worktrees/**'],
   },
 
   // ── Type-checked linting ──────────────────────────────────────
