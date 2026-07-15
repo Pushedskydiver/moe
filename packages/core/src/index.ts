@@ -4,6 +4,9 @@ export type { BoardStatus } from './board-status.js';
 export { projectKeySchema } from './project-key.js';
 export type { ProjectKey } from './project-key.js';
 
+export { classifyRiskTier } from './risk-tier.js';
+export type { DiffMeta, RiskTier, TouchedDirectory } from './risk-tier.js';
+
 export { severitySchema } from './severity.js';
 export type { Severity } from './severity.js';
 
