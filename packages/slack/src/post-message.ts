@@ -20,9 +20,12 @@ export type PostMessageResult =
 
 /**
  * Thin wrapper over `WebClient.chat.postMessage` — takes a structural subset of `WebClient` (not
- * the class itself) so callers can inject a plain test double. `@slack/web-api` can both reject
- * (network/rate-limit) and resolve with `{ ok: false }` (a Slack-reported API error); both collapse
- * into the same Result-shaped error channel.
+ * the class itself) so callers can inject a plain test double. The real `WebClient` always throws
+ * a `WebAPIPlatformError` on a Slack-reported API error (verified against `@slack/web-api`'s own
+ * `apiCall()` — it never resolves with `{ ok: false }`), so in production every error flows
+ * through the `catch` branch below with the SDK's own `"An API error occurred: <code>"` message.
+ * The `response.ok` check exists for `PostMessageClient`'s general structural contract (a test
+ * double or future client isn't required to always throw), not because `@slack/web-api` uses it.
  */
 export async function postMessage(
   client: PostMessageClient,
