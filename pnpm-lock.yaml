@@ -66,9 +66,17 @@ importers:
         specifier: ^4.1.9
         version: 4.1.9(@types/node@26.1.0)(vite@8.1.3(@types/node@26.1.0)(jiti@2.7.0)(yaml@2.9.0))
 
-  apps/server: {}
+  apps/server:
+    dependencies:
+      '@moe/agents':
+        specifier: workspace:*
+        version: link:../../packages/agents
 
-  packages/agents: {}
+  packages/agents:
+    dependencies:
+      zod:
+        specifier: ^4.4.3
+        version: 4.4.3
 
   packages/core:
     dependencies:
