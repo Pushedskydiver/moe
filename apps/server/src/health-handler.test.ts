@@ -22,6 +22,7 @@ describe('createHealthHandler', () => {
       id: 'sarah',
       slackBotToken: 'fake-bot-token',
       slackSigningSecret: 'test-secret',
+      slackAppToken: 'fake-app-token',
     });
     const res = makeMockResponse();
 
@@ -43,6 +44,7 @@ describe('createHealthHandler', () => {
       id: 'sarah',
       slackBotToken: 'fake-bot-token',
       slackSigningSecret: 'test-secret',
+      slackAppToken: 'fake-app-token',
     });
     const res = makeMockResponse();
 
@@ -58,6 +60,7 @@ describe('createHealthHandler', () => {
       id: 'sarah',
       slackBotToken: 'fake-bot-token',
       slackSigningSecret: 'test-secret',
+      slackAppToken: 'fake-app-token',
     });
     const res = makeMockResponse();
 

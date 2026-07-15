@@ -17,6 +17,7 @@ const personaConfigSchema = z.object({
   id: personaIdSchema,
   slackBotToken: z.string().min(1),
   slackSigningSecret: z.string().min(1),
+  slackAppToken: z.string().min(1),
 });
 
 export type PersonaConfig = z.infer<typeof personaConfigSchema>;
@@ -43,6 +44,7 @@ export function parsePersonaConfig(
     id: env.MOE_PERSONA_ID,
     slackBotToken: env.MOE_SLACK_BOT_TOKEN,
     slackSigningSecret: env.MOE_SLACK_SIGNING_SECRET,
+    slackAppToken: env.MOE_SLACK_APP_TOKEN,
   });
 
   return parsed.success

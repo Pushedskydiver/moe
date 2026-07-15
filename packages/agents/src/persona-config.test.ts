@@ -8,6 +8,7 @@ describe('parsePersonaConfig', () => {
       MOE_PERSONA_ID: 'sarah',
       MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
       MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
+      MOE_SLACK_APP_TOKEN: 'fake-app-token',
     });
 
     expect(result).toEqual({
@@ -16,14 +17,26 @@ describe('parsePersonaConfig', () => {
         id: 'sarah',
         slackBotToken: 'fake-bot-token',
         slackSigningSecret: 'test-signing-secret',
+        slackAppToken: 'fake-app-token',
       },
     });
+  });
+
+  it('returns ok:false when MOE_SLACK_APP_TOKEN is missing', () => {
+    const result = parsePersonaConfig({
+      MOE_PERSONA_ID: 'sarah',
+      MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
+      MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
+    });
+
+    expect(result.ok).toBe(false);
   });
 
   it('returns ok:false when MOE_PERSONA_ID is missing', () => {
     const result = parsePersonaConfig({
       MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
       MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
+      MOE_SLACK_APP_TOKEN: 'fake-app-token',
     });
 
     expect(result.ok).toBe(false);
@@ -34,6 +47,7 @@ describe('parsePersonaConfig', () => {
       MOE_PERSONA_ID: 'maya',
       MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
       MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
+      MOE_SLACK_APP_TOKEN: 'fake-app-token',
     });
 
     expect(result.ok).toBe(false);
@@ -43,6 +57,7 @@ describe('parsePersonaConfig', () => {
     const result = parsePersonaConfig({
       MOE_PERSONA_ID: 'sarah',
       MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
+      MOE_SLACK_APP_TOKEN: 'fake-app-token',
     });
 
     expect(result.ok).toBe(false);
