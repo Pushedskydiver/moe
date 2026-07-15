@@ -74,7 +74,7 @@ gh pr create --title "✨ feat(scope): description" --label "feature" --label "c
   - `packages/agents/src/personas/*/prompt.md` (persona prompts)
   - `docs/CEREMONIES.md` (ceremony formats), once it exists — this covers first-draft authorship too, not just later edits: consolidating the scattered chunk-history detail into this doc is itself a content decision, so draft it with Alex rather than for his after-the-fact approval
   - `docs/VISION.md` §2 (team values) and §14 (out of scope)
-  - `docs/VISION.md` §4.1 (cast roster) — settled at BUILD_PLAN chunk 2.1 (`docs/decisions/CAST-ROSTER.md`); any further change to the roster itself (not the still-unwritten per-persona voice/personality, which is chunk 5.3's own do-not-touch surface above) needs the same drafted-with-Alex treatment as the original redline, not an after-the-fact approval
+  - `docs/VISION.md` §4.1 (cast roster) — settled at BUILD_PLAN chunk 2.1 (`docs/decisions/CAST-ROSTER.md`); any further change to the roster itself (not the still-unwritten per-persona voice/personality, which is chunk 5.3's own do-not-touch surface above) needs the same drafted-with-Alex treatment as the original redline, not an after-the-fact approval. `docs/PERSONAS.md`'s roster table mirrors §4.1 and is covered by this same protection — it can't be changed on its own to sidestep the gate on the authoritative section
 
 ## Process directives
 
@@ -102,7 +102,7 @@ Minimal actionable rules only. Patterns and philosophy live in on-demand docs, l
 - **Before writing tests:** read `docs/TESTING.md`.
 - **Before changing code style, adding a persona, or touching a Slack/GitHub integration:** read `docs/CONVENTIONS.md`.
 - **Before touching a do-not-touch surface** (persona prompts, ceremony formats): stop — get Alex's explicit approval first.
-- **For product vision, ceremonies, and the cast:** read `docs/VISION.md` (and `docs/PERSONAS.md`/`docs/CEREMONIES.md` once written — `VISION.md` wins on conflict).
+- **For product vision, ceremonies, and the cast:** read `docs/VISION.md` (and `docs/PERSONAS.md`, plus `docs/CEREMONIES.md` once written — `VISION.md` wins on conflict).
 - **For the build sequence:** read `BUILD_PLAN.md`.
 - **Before a non-trivial architecture or package-graph change:** read `docs/ARCHITECTURE.md`.
 - **For ubiquitous-language terms** (risk tiers, ceremonies, review-gate vocabulary): read `docs/GLOSSARY.md`.
