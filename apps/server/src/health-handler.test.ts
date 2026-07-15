@@ -20,7 +20,7 @@ describe('createHealthHandler', () => {
   it('responds 200 with a JSON status body for GET /health', () => {
     const handler = createHealthHandler({
       id: 'sarah',
-      slackBotToken: 'xoxb-test',
+      slackBotToken: 'fake-bot-token',
       slackSigningSecret: 'test-secret',
     });
     const res = makeMockResponse();
@@ -41,7 +41,7 @@ describe('createHealthHandler', () => {
   it('responds 404 for any other path', () => {
     const handler = createHealthHandler({
       id: 'sarah',
-      slackBotToken: 'xoxb-test',
+      slackBotToken: 'fake-bot-token',
       slackSigningSecret: 'test-secret',
     });
     const res = makeMockResponse();
@@ -56,7 +56,7 @@ describe('createHealthHandler', () => {
   it('responds 404 for a non-GET request to /health', () => {
     const handler = createHealthHandler({
       id: 'sarah',
-      slackBotToken: 'xoxb-test',
+      slackBotToken: 'fake-bot-token',
       slackSigningSecret: 'test-secret',
     });
     const res = makeMockResponse();

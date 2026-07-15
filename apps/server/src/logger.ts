@@ -20,12 +20,19 @@ type WriteLineOpts = {
 };
 
 function writeLine(opts: WriteLineOpts): void {
-  const redactedFields = redactSecrets(opts.fields ?? {}, opts.secretKeys);
+  // redactSecrets is a structural unknown -> unknown transform; the input was LogFields, so the
+  // shape is preserved and this cast is safe.
+  const redactedFields = redactSecrets(
+    opts.fields ?? {},
+    opts.secretKeys,
+  ) as LogFields;
+  // Caller fields spread first so a field literally named level/message/timestamp can never
+  // clobber the log line's own metadata — the literal fields below always win.
   const line = {
+    ...redactedFields,
     level: opts.level,
     message: opts.message,
     timestamp: new Date().toISOString(),
-    ...(redactedFields as LogFields),
   };
   console.log(JSON.stringify(line));
 }

@@ -6,7 +6,7 @@ describe('parsePersonaConfig', () => {
   it('returns ok:true with a parsed config for valid env input', () => {
     const result = parsePersonaConfig({
       MOE_PERSONA_ID: 'sarah',
-      MOE_SLACK_BOT_TOKEN: 'xoxb-test-token',
+      MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
       MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
     });
 
@@ -14,7 +14,7 @@ describe('parsePersonaConfig', () => {
       ok: true,
       config: {
         id: 'sarah',
-        slackBotToken: 'xoxb-test-token',
+        slackBotToken: 'fake-bot-token',
         slackSigningSecret: 'test-signing-secret',
       },
     });
@@ -22,7 +22,7 @@ describe('parsePersonaConfig', () => {
 
   it('returns ok:false when MOE_PERSONA_ID is missing', () => {
     const result = parsePersonaConfig({
-      MOE_SLACK_BOT_TOKEN: 'xoxb-test-token',
+      MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
       MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
     });
 
@@ -32,7 +32,7 @@ describe('parsePersonaConfig', () => {
   it('returns ok:false when MOE_PERSONA_ID is not a roster member', () => {
     const result = parsePersonaConfig({
       MOE_PERSONA_ID: 'maya',
-      MOE_SLACK_BOT_TOKEN: 'xoxb-test-token',
+      MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
       MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
     });
 
@@ -51,7 +51,7 @@ describe('parsePersonaConfig', () => {
   it('returns ok:false when MOE_SLACK_SIGNING_SECRET is blank', () => {
     const result = parsePersonaConfig({
       MOE_PERSONA_ID: 'sarah',
-      MOE_SLACK_BOT_TOKEN: 'xoxb-test-token',
+      MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
       MOE_SLACK_SIGNING_SECRET: '',
     });
 

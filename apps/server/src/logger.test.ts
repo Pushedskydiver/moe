@@ -45,15 +45,33 @@ describe('createLogger', () => {
     const logger = createLogger({ secretKeys: ['slackBotToken'] });
 
     logger.error('boot failed', {
-      config: { id: 'sarah', slackBotToken: 'xoxb-super-secret' },
+      config: { id: 'sarah', slackBotToken: 'fake-secret-value' },
     });
 
     const rawLine = logSpy.mock.calls[0]?.[0] as string;
-    expect(rawLine).not.toContain('xoxb-super-secret');
+    expect(rawLine).not.toContain('fake-secret-value');
     const emitted = JSON.parse(rawLine) as {
       config: { slackBotToken: string };
     };
     expect(emitted.config.slackBotToken).toBe('[REDACTED]');
+  });
+
+  it('never lets a caller field named level/message/timestamp override the real ones', () => {
+    const logger = createLogger({ secretKeys: [] });
+
+    logger.info('real message', {
+      level: 'error',
+      message: 'spoofed message',
+      timestamp: 'not-a-real-timestamp',
+    });
+
+    const emitted = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as Record<
+      string,
+      unknown
+    >;
+    expect(emitted.level).toBe('info');
+    expect(emitted.message).toBe('real message');
+    expect(emitted.timestamp).not.toBe('not-a-real-timestamp');
   });
 
   it('supports warn and error levels', () => {

@@ -10,6 +10,9 @@ import { createHealthHandler } from './health-handler.js';
 import { createLogger } from './logger.js';
 import { resolvePort } from './resolve-port.js';
 
+// PersonaConfig's own camelCase field names only — not the raw MOE_SLACK_BOT_TOKEN / etc. env var
+// names it's parsed from. No call site logs raw `env` today; extend this list first if one ever
+// does, or a raw env dump would bypass redaction entirely.
 const SECRET_KEYS = ['slackBotToken', 'slackSigningSecret'];
 
 function startServer(
@@ -32,7 +35,14 @@ function startServer(
  */
 export function main(
   env: Readonly<Record<string, string | undefined>> = process.env,
-  exit: (code: number) => void = (code) => process.exit(code),
+  // Sets the eventual exit code rather than force-terminating: process.exit() can truncate a
+  // pending stdout write (verified — a burst of output can be silently dropped when stdout is a
+  // pipe), so the process exits naturally once the event loop drains and the log line has flushed.
+  exit: (code: number) => void = (code) => {
+    // process.exitCode is Node's own documented mechanism for a graceful exit; no immutable equivalent exists.
+    // eslint-disable-next-line functional/immutable-data
+    process.exitCode = code;
+  },
 ): Server | undefined {
   const logger = createLogger({ secretKeys: SECRET_KEYS });
   const parsed = parsePersonaConfig(env);
@@ -43,5 +53,10 @@ export function main(
     return undefined;
   }
 
-  return startServer(parsed.config, logger, resolvePort(env));
+  const server = startServer(parsed.config, logger, resolvePort(env));
+  server.on('error', (error) => {
+    logger.error('server error', { message: error.message });
+    exit(1);
+  });
+  return server;
 }

@@ -5,7 +5,7 @@ import { redactSecrets } from './redact-secrets.js';
 describe('redactSecrets', () => {
   it('replaces a top-level secret key with a redaction marker', () => {
     const result = redactSecrets(
-      { id: 'sarah', slackBotToken: 'xoxb-real-token' },
+      { id: 'sarah', slackBotToken: 'fake-bot-token' },
       ['slackBotToken'],
     );
 
