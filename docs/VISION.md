@@ -1,6 +1,6 @@
 # VISION.md — Moe as an AI coworker team
 
-> **Status:** v3.1. A four-round adversarial grill (five lenses: internal consistency, fidelity to the design conversation, fidelity to the research evidence, completeness against the old doc, devil's-advocate build-readiness) ran against v3.0 and surfaced real issues — some genuine gaps, one mischaracterized citation, one overstated section header, several silently-dropped mechanics. This version folds all of that in directly rather than narrating the correction. **§4.1 (cast roster) remains a placeholder** pending a dedicated conversation; a small number of other open calls are marked `**Open question:**` inline and are genuinely unresolved, not settled-but-hedged.
+> **Status:** v3.1. A four-round adversarial grill (five lenses: internal consistency, fidelity to the design conversation, fidelity to the research evidence, completeness against the old doc, devil's-advocate build-readiness) ran against v3.0 and surfaced real issues — some genuine gaps, one mischaracterized citation, one overstated section header, several silently-dropped mechanics. This version folds all of that in directly rather than narrating the correction. **§4.1 (cast roster) settled at BUILD_PLAN chunk 2.1** (`docs/decisions/CAST-ROSTER.md`); a small number of other open calls are marked `**Open question:**` inline and are genuinely unresolved, not settled-but-hedged.
 >
 > **On the previous design (v0.2):** it is not retained in this repo as a checkable reference file. Anywhere below that says a mechanic "carries over from the previous design," that's asserted from institutional memory of the shelved build, not verified against a recoverable source — stated once here rather than re-disclaimed section by section. Where the shelved build's own later work already re-derived the actual detail (e.g. ceremony mechanics were re-specified during that build's own chunk work), this document points at that instead.
 >
@@ -111,13 +111,17 @@ The `team.config.ts` per-project model, project-onboarding flows (greenfield and
 
 ## 4. The team
 
-### 4.1 Cast — placeholder, pending Alex's redline
+### 4.1 Cast — settled (2026-07-15), personality/prompt detail still deferred to 5.3
 
-The previous cast (Sarah/PM, Marcus/Architect, Riley/Engineer, Priya/QA, Dom/Reviewer, Theo/Researcher, Nia/Scrum Master, plus a future Designer) is carried forward here as a **working default only** — Alex is explicitly open to reconsidering names, roles, and count, and this section isn't settled until that conversation happens. The personality sketches, the Nia/Lou tribute, and the "playful + expert + real friend" characterization from the previous design remain a strong starting point if the cast doesn't change.
+**Decided (BUILD_PLAN chunk 2.1):** the previous cast's roster stands — Sarah (PM), Marcus (Architect), Riley (Engineer), Priya (QA), Dom (Reviewer), Theo (Researcher), Nia (Scrum Master). A deep-research pass found no evidence, for or against, on whether this specific seven-role split is well-evidenced versus redundant — so the working default is kept rather than reworked speculatively, not because it was proven optimal. **Sarah is the confirmed first/front-door persona** Stage 2 builds and proves the loop against.
 
-Also open, for the same reason: the **welcome ritual** for how a new persona is socially introduced to the rest of the team once the cast is settled — a distinct "team feel" question from the roster itself.
+**The 8th role, Designer, is explicitly deferred**, not decided against — no comparable early-stage product research surfaced a reason to add it now, and chief-clancy (this rebuild's sole target through Stage 4) has no real end-user UI/UX surface yet for a Designer to work against. Revisit at the 5.0 gate, once the roster stands up together, or sooner if chief-clancy grows real UI/UX surface.
 
-_Per-persona sketches and signature moves are deliberately not reproduced here until the redline lands — no content is missing by accident._
+The personality sketches, the Nia/Lou tribute, and the "playful + expert + real friend" characterization from the previous design are **not preserved anywhere retrievable in this repo** (this document's own front matter already notes the previous design isn't a checkable reference) — so per-persona voice and personality is genuinely new authorship, not a port. That's chunk 5.3's own scope (one persona at a time, prompt drafted directly with Alex, the do-not-touch surface), not this gate's — full reasoning and the research this decision drew on: `docs/decisions/CAST-ROSTER.md`.
+
+Also still open, independent of the roster itself: the **welcome ritual** for how a new persona is socially introduced to the rest of the team.
+
+_Per-persona sketches and signature moves are deliberately not reproduced here — that's 5.3's own deliverable, not this gate's._
 
 ### 4.5 The Orchestrator — the atomic-claim problem is orthogonal to any platform primitive
 
@@ -272,6 +276,7 @@ The old **grey-zone authority grid** is **superseded** by the risk-tier model be
 - **Revocation is mechanical, not discretionary.** Any revert of a persona-authored change zeroes that persona's track-record counter for the affected directory, forcing the next several changes there back to Tier 2 regardless of prior history.
 - **Ambiguous instructions escalate the tier, not the eagerness.** "Clean this up" or "make it more robust" on a Tier 2/3-adjacent path requires the persona to restate a concrete plan and get it confirmed before acting — the exact gap that contributed to the Replit incident above.
 - **Veto signal, demotion, disagreement resolution** (Alex's 🛑 reaction holds a merge; Nia can drop a persona a tier with no drama; domain-driven tie-breaking) carry over conceptually.
+- **Persona framing never reduces review scrutiny or shifts accountability.** A 2026 BCG/HBR controlled study (1,200+ professionals) found that framing AI as a named "employee" measurably _reduced_ human error-detection (18% fewer errors caught vs. the same output attributed to a human) and shifted blame for mistakes onto the AI rather than the reviewer — the opposite of what naming personas is meant to buy, and a distinct risk from §7.6's anti-fabrication fix (that guards against the AI lying; this guards against the human under-checking it). Every merge gets reviewed and accounted for exactly as rigorously as if it carried no name at all — the human who approves it owns the outcome, not the persona who authored it, regardless of how established or trusted that persona's voice has become. (`docs/decisions/CAST-ROSTER.md`.)
 
 ---
 
@@ -326,7 +331,7 @@ What's deliberately **not** adopted, same reasoning as before: `zod/mini` (Moe u
 
 ### 13.1 What's genuinely different this time
 
-The previous attempt staged rollout **by persona count** — one new persona at a time, each requiring its own prompt-iteration round. Alex was explicit this time: **a full team from day one**, exact count still open (§4.1). What stages instead is **capability depth**, not roster size:
+The previous attempt staged rollout **by persona count** — one new persona at a time, each requiring its own prompt-iteration round. Alex was explicit this time: **a full team from day one** — 7 personas, settled at §4.1 (an 8th, Designer, deferred to the 5.0 gate). What stages instead is **capability depth**, not roster size:
 
 1. **Foundation first, before any persona exists in prose:** chief-clancy's engineering spine (§12), the evidence-gated claims schema (§7.6), the risk-tier gate (§8.1), and the ambient-intake mechanism (§5) — small, mechanical, shared by every persona, and everything else in this document depends on at least one of them existing first.
 2. **One project, not many** (§1.2, §3.4) — chief-clancy only, until the core loop is proven.

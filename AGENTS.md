@@ -77,7 +77,7 @@ gh pr create --title "✨ feat(scope): description" --label "feature" --label "c
   - `packages/agents/src/personas/*/prompt.md` (persona prompts)
   - `docs/CEREMONIES.md` (ceremony formats), once it exists — this covers first-draft authorship too, not just later edits: consolidating the scattered chunk-history detail into this doc is itself a content decision, so draft it with Alex rather than for his after-the-fact approval
   - `docs/VISION.md` §2 (team values) and §14 (out of scope)
-  - `docs/VISION.md` §4.1 (cast roster) — explicit placeholder pending Alex's redline; don't draft persona names/roles/count until that conversation happens
+  - `docs/VISION.md` §4.1 (cast roster) — settled at BUILD_PLAN chunk 2.1 (`docs/decisions/CAST-ROSTER.md`); any further change to the roster itself (not the still-unwritten per-persona voice/personality, which is chunk 5.3's own do-not-touch surface above) needs the same drafted-with-Alex treatment as the original redline, not an after-the-fact approval
 
 ## Process directives
 
