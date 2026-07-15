@@ -14,3 +14,4 @@ export {
 } from './create-slack-clients.js';
 export type { PostMessageResult } from './post-message.js';
 export { postMessage } from './post-message.js';
+export { isUnrecoverableStartError } from './is-unrecoverable-start-error.js';

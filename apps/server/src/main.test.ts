@@ -87,15 +87,23 @@ describe('main', () => {
     first?.close();
   });
 
-  it('starts the Slack listener with the parsed config once the config is valid', () => {
+  it('starts the Slack listener with the parsed config, and its exit callback closes the HTTP server (so an exit actually takes effect instead of the listening server keeping the process alive forever)', async () => {
     const startSlack = vi.fn();
+    const exit = vi.fn();
 
-    const server = main(VALID_ENV, vi.fn(), startSlack);
+    const server = main(VALID_ENV, exit, startSlack);
 
     expect(startSlack).toHaveBeenCalledTimes(1);
-    const [config] = startSlack.mock.calls[0] as [{ id: string }];
+    const [config, , passedExit] = startSlack.mock.calls[0] as [
+      { id: string },
+      unknown,
+      (code: number) => void,
+    ];
     expect(config.id).toBe('sarah');
 
-    server?.close();
+    passedExit(1);
+
+    expect(exit).toHaveBeenCalledWith(1);
+    await vi.waitFor(() => expect(server?.listening).toBe(false));
   });
 });

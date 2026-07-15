@@ -59,6 +59,21 @@ describe('rawSlackMessageEventSchema', () => {
     });
     expect(result.success).toBe(true);
   });
+
+  it('accepts mpim and app_home channel types as valid — not "unhandled" is not the same as "malformed"', () => {
+    expect(
+      rawSlackMessageEventSchema.safeParse({
+        ...VALID_DM_EVENT,
+        channel_type: 'mpim',
+      }).success,
+    ).toBe(true);
+    expect(
+      rawSlackMessageEventSchema.safeParse({
+        ...VALID_DM_EVENT,
+        channel_type: 'app_home',
+      }).success,
+    ).toBe(true);
+  });
 });
 
 describe('isProcessableMessageEvent', () => {
@@ -113,6 +128,21 @@ describe('isProcessableMessageEvent', () => {
         channel_type: 'im',
         user: 'U123',
         ts: '1700000000.000100',
+      }),
+    ).toBe(false);
+  });
+
+  it('returns false for a valid mpim event — a real channel type this app has no scope for yet, not a malformed one', () => {
+    expect(
+      isProcessableMessageEvent({ ...VALID_DM_EVENT, channel_type: 'mpim' }),
+    ).toBe(false);
+  });
+
+  it('returns false for a valid app_home event', () => {
+    expect(
+      isProcessableMessageEvent({
+        ...VALID_DM_EVENT,
+        channel_type: 'app_home',
       }),
     ).toBe(false);
   });

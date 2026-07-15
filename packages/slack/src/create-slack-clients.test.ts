@@ -12,7 +12,7 @@ function makeLogger() {
 
 describe('createWebClient', () => {
   it('builds a WebClient authenticated with the given bot token', () => {
-    const client = createWebClient('fake-bot-token');
+    const client = createWebClient('fake-bot-token', makeLogger());
 
     expect(client).toBeInstanceOf(WebClient);
     expect(client.token).toBe('fake-bot-token');

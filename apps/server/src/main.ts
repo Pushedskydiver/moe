@@ -1,38 +1,16 @@
 import type { Logger } from './logger.js';
+import type { StartSlackListenerFn } from './start-slack-listener.js';
 import type { PersonaConfig } from '@moe/agents';
 import type { Server } from 'node:http';
 
 import { createServer } from 'node:http';
 
 import { parsePersonaConfig } from '@moe/agents';
-import {
-  createSocketModeClient,
-  createSocketModeListener,
-  createWebClient,
-} from '@moe/slack';
 
-import { createInboundMessageHandler } from './handle-inbound-message.js';
 import { createHealthHandler } from './health-handler.js';
 import { createLogger } from './logger.js';
 import { resolvePort } from './resolve-port.js';
-
-type StartSlackListenerFn = (config: PersonaConfig, logger: Logger) => void;
-
-/** Real Slack wiring — constructs both SDK clients, wires the ack handler, connects. */
-function startSlackListener(config: PersonaConfig, logger: Logger): void {
-  const webClient = createWebClient(config.slackBotToken);
-  const socketModeClient = createSocketModeClient(config.slackAppToken, logger);
-  const listener = createSocketModeListener(socketModeClient, {
-    onMessage: createInboundMessageHandler(webClient, logger),
-    logger,
-  });
-
-  listener.start().catch((error: unknown) => {
-    logger.error('failed to start slack socket mode listener', {
-      message: error instanceof Error ? error.message : String(error),
-    });
-  });
-}
+import { startSlackListener } from './start-slack-listener.js';
 
 // PersonaConfig's own camelCase field names only — not the raw MOE_SLACK_BOT_TOKEN / etc. env var
 // names it's parsed from. No call site logs raw `env` today; extend this list first if one ever
@@ -54,9 +32,9 @@ function startServer(
 /**
  * Boot sequence for BUILD_PLAN 2.2/2.3: load + validate persona config from env, start the
  * health-check HTTP server, connect to Slack over Socket Mode and reply to every inbound message
- * with a hardcoded acknowledgment (no LLM yet). A Slack connection failure is logged, not fatal —
- * the SDK auto-reconnects on its own for transient issues, and treating the very first connection
- * attempt differently from a later one isn't a distinction with evidence behind it yet. Returns
+ * with a hardcoded acknowledgment (no LLM yet). A Slack connection failure only exits the process
+ * when it's unrecoverable per isUnrecoverableStartError (permanent misconfiguration — the SDK's
+ * own auto-reconnect already handles transient failures); see start-slack-listener.ts. Returns
  * `undefined` on invalid config after logging (redacted) and exiting, so a caller never mistakes a
  * failed boot for a running server.
  */
@@ -82,10 +60,20 @@ export function main(
   }
 
   const server = startServer(parsed.config, logger, resolvePort(env));
+  // A listening HTTP server keeps the event loop alive on its own, so a bare `exit(1)` (which only
+  // sets process.exitCode, deliberately not force-terminating — see the comment above) would never
+  // actually take effect while the server is up. Closing it first is what lets the process really
+  // exit, so an unrecoverable Slack failure actually restarts under Fly's supervisor instead of
+  // sitting "healthy" per /health forever. Verified live: without this, a Docker container with an
+  // invalid app token kept running indefinitely despite exit(1) firing.
+  const exitAndCloseServer = (code: number): void => {
+    server.close();
+    exit(code);
+  };
   server.on('error', (error) => {
     logger.error('server error', { message: error.message });
-    exit(1);
+    exitAndCloseServer(1);
   });
-  startSlack(parsed.config, logger);
+  startSlack(parsed.config, logger, exitAndCloseServer);
   return server;
 }
