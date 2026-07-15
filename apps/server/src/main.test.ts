@@ -6,6 +6,7 @@ const VALID_ENV = {
   MOE_PERSONA_ID: 'sarah',
   MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
   MOE_SLACK_SIGNING_SECRET: 'fake-signing-secret',
+  MOE_SLACK_APP_TOKEN: 'fake-app-token',
   PORT: '0',
 };
 
@@ -23,7 +24,7 @@ describe('main', () => {
   it('boots an HTTP server that answers GET /health when the config is valid', async () => {
     const exit = vi.fn();
 
-    const server = main(VALID_ENV, exit);
+    const server = main(VALID_ENV, exit, vi.fn());
     expect(server).toBeDefined();
 
     const address = server?.address();
@@ -44,11 +45,17 @@ describe('main', () => {
 
   it('logs an error and exits without starting a server when the config is invalid', () => {
     const exit = vi.fn();
+    const startSlack = vi.fn();
 
-    const server = main({ MOE_SLACK_BOT_TOKEN: 'fake-leaked-value' }, exit);
+    const server = main(
+      { MOE_SLACK_BOT_TOKEN: 'fake-leaked-value' },
+      exit,
+      startSlack,
+    );
 
     expect(server).toBeUndefined();
     expect(exit).toHaveBeenCalledWith(1);
+    expect(startSlack).not.toHaveBeenCalled();
     const emitted = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as {
       message: string;
     };
@@ -56,14 +63,14 @@ describe('main', () => {
   });
 
   it('logs an error and signals a failed exit when the HTTP server errors (e.g. port already in use)', async () => {
-    const first = main(VALID_ENV, vi.fn());
+    const first = main(VALID_ENV, vi.fn(), vi.fn());
     const address = first?.address();
     const port =
       typeof address === 'object' && address !== null ? address.port : 0;
 
     const exit = vi.fn();
     await new Promise<void>((resolve) => {
-      const second = main({ ...VALID_ENV, PORT: String(port) }, exit);
+      const second = main({ ...VALID_ENV, PORT: String(port) }, exit, vi.fn());
       second?.on('error', () => resolve());
     });
 
@@ -78,5 +85,25 @@ describe('main', () => {
     ).toBe(true);
 
     first?.close();
+  });
+
+  it('starts the Slack listener with the parsed config, and its exit callback closes the HTTP server (so an exit actually takes effect instead of the listening server keeping the process alive forever)', async () => {
+    const startSlack = vi.fn();
+    const exit = vi.fn();
+
+    const server = main(VALID_ENV, exit, startSlack);
+
+    expect(startSlack).toHaveBeenCalledTimes(1);
+    const [config, , passedExit] = startSlack.mock.calls[0] as [
+      { id: string },
+      unknown,
+      (code: number) => void,
+    ];
+    expect(config.id).toBe('sarah');
+
+    passedExit(1);
+
+    expect(exit).toHaveBeenCalledWith(1);
+    await vi.waitFor(() => expect(server?.listening).toBe(false));
   });
 });
