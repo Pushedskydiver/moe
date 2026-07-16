@@ -261,8 +261,10 @@ export function createInboundMessageHandler(
     // `threadKey` alone isn't unique across conversations — every DM resolves to the same
     // constant `'dm'` (`resolve-thread-key.ts`) regardless of which channel it's in, so the queue
     // key must include `channelId` too, or every DM in the whole process would serialize through
-    // one lane instead of each conversation getting its own.
-    const queueKey = `${message.channelId}:${threadKey}`;
+    // one lane instead of each conversation getting its own. `JSON.stringify` rather than a
+    // hand-delimited string — a plain `${channelId}:${threadKey}` join could collide if either
+    // value ever contained a literal `:`; encoding as a JSON array can't.
+    const queueKey = JSON.stringify([message.channelId, threadKey]);
     await deps.threadQueue.run(queueKey, () =>
       handleThreadedMessage(deps, message, threadKey),
     );
