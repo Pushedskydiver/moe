@@ -62,7 +62,10 @@ describe('startSlackListener', () => {
       'fake-app-token',
       logger,
     );
-    expect(mocks.createAnthropicClient).toHaveBeenCalledWith('sk-ant-fake-key');
+    expect(mocks.createAnthropicClient).toHaveBeenCalledWith(
+      'sk-ant-fake-key',
+      logger,
+    );
   });
 
   it('wires the listener to the socket mode client and starts it', () => {

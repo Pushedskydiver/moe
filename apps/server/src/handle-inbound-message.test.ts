@@ -87,7 +87,7 @@ describe('createInboundMessageHandler', () => {
     expect(call.thread_ts).toBe('1699999999.000100');
   });
 
-  it('logs an error and posts nothing when the LLM call fails', async () => {
+  it('logs an error and posts a generic fallback reply when the LLM call fails — not silence', async () => {
     const anthropicClient = makeAnthropicClient(() => {
       throw new Error('rate limited');
     });
@@ -101,10 +101,15 @@ describe('createInboundMessageHandler', () => {
 
     await expect(handler(MESSAGE)).resolves.toBeUndefined();
 
-    expect(slackClient.chat.postMessage).not.toHaveBeenCalled();
     expect(logger.error).toHaveBeenCalledWith('failed to generate reply', {
       message: 'rate limited',
     });
+    const call = slackClient.chat.postMessage.mock.calls[0]?.[0] as {
+      channel: string;
+      text: string;
+    };
+    expect(call.channel).toBe('D123');
+    expect(call.text.length).toBeGreaterThan(0);
   });
 
   it('logs an error, without throwing, when the generated reply fails to send', async () => {

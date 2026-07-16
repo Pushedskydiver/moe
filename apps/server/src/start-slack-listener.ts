@@ -41,7 +41,7 @@ export const startSlackListener: StartSlackListenerFn = (
   const { config, anthropicApiKey } = deps;
   const webClient = createWebClient(config.slackBotToken, logger);
   const socketModeClient = createSocketModeClient(config.slackAppToken, logger);
-  const anthropicClient = createAnthropicClient(anthropicApiKey);
+  const anthropicClient = createAnthropicClient(anthropicApiKey, logger);
   const listener = createSocketModeListener(socketModeClient, {
     onMessage: createInboundMessageHandler(anthropicClient, webClient, logger),
     logger,

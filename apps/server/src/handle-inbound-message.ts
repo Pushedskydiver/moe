@@ -12,12 +12,20 @@ type InboundMessageLogger = {
   ) => void;
 };
 
+// Non-persona-voiced, same spirit as chunk 2.3's ACK_TEXT — a visible reply on LLM failure beats
+// the silent-to-the-user gap a bare "log and stop" would leave (caught live: DA review on this
+// chunk's own PR, comparing against chunk 2.3's baseline where every inbound message got a
+// visible ack). Retry/backoff itself stays out of scope for this chunk.
+const FALLBACK_TEXT =
+  "Sorry, I ran into a problem generating a reply — I've logged it.";
+
 /**
  * Replies to every inbound message with a single-turn, stateless LLM-generated reply in the
  * placeholder voice (BUILD_PLAN 2.4a — not the persona's real character, which is Stage 5 behind
- * the do-not-touch gate). A failed LLM call is logged and produces no Slack reply at all, the same
- * "log, don't throw, don't retry here" shape as a failed Slack post below — this chunk proves the
- * client wiring end-to-end, not a retry/fallback UX, which stays out of scope.
+ * the do-not-touch gate). A failed LLM call is logged and still posts a generic fallback reply
+ * rather than leaving the user with silence; a failed Slack post (of either the real reply or the
+ * fallback) is logged, "log, don't throw, don't retry here" — this chunk proves the client wiring
+ * end-to-end, not a full retry/backoff UX, which stays out of scope.
  */
 export function createInboundMessageHandler(
   anthropicClient: GenerateReplyClient,
@@ -33,12 +41,11 @@ export function createInboundMessageHandler(
       logger.error('failed to generate reply', {
         message: generated.error.message,
       });
-      return;
     }
 
     const posted = await postMessage(slackClient, {
       channelId: message.channelId,
-      text: generated.reply,
+      text: generated.ok ? generated.reply : FALLBACK_TEXT,
       ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
     });
     if (!posted.ok) {
