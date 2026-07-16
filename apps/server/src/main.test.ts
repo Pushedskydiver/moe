@@ -7,6 +7,7 @@ const VALID_ENV = {
   MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
   MOE_SLACK_SIGNING_SECRET: 'fake-signing-secret',
   MOE_SLACK_APP_TOKEN: 'fake-app-token',
+  ANTHROPIC_API_KEY: 'sk-ant-fake-key',
   PORT: '0',
 };
 
@@ -62,6 +63,25 @@ describe('main', () => {
     expect(emitted.message).toBe('invalid persona config');
   });
 
+  it('logs an error and exits without starting a server when the anthropic config is invalid', () => {
+    const exit = vi.fn();
+    const startSlack = vi.fn();
+
+    const server = main(
+      { ...VALID_ENV, ANTHROPIC_API_KEY: undefined },
+      exit,
+      startSlack,
+    );
+
+    expect(server).toBeUndefined();
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(startSlack).not.toHaveBeenCalled();
+    const emitted = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as {
+      message: string;
+    };
+    expect(emitted.message).toBe('invalid anthropic config');
+  });
+
   it('logs an error and signals a failed exit when the HTTP server errors (e.g. port already in use)', async () => {
     const first = main(VALID_ENV, vi.fn(), vi.fn());
     const address = first?.address();
@@ -94,12 +114,13 @@ describe('main', () => {
     const server = main(VALID_ENV, exit, startSlack);
 
     expect(startSlack).toHaveBeenCalledTimes(1);
-    const [config, , passedExit] = startSlack.mock.calls[0] as [
-      { id: string },
+    const [deps, , passedExit] = startSlack.mock.calls[0] as [
+      { config: { id: string }; anthropicApiKey: string },
       unknown,
       (code: number) => void,
     ];
-    expect(config.id).toBe('sarah');
+    expect(deps.config.id).toBe('sarah');
+    expect(deps.anthropicApiKey).toBe('sk-ant-fake-key');
 
     passedExit(1);
 
