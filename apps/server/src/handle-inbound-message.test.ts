@@ -2,11 +2,31 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createInboundMessageHandler } from './handle-inbound-message.js';
 
-function makeClient(response: {
+function makeSlackClient(response: {
   readonly ok: boolean;
   readonly error?: string;
 }) {
   return { chat: { postMessage: vi.fn().mockResolvedValue(response) } };
+}
+
+function makeAnthropicClient(
+  response:
+    | {
+        readonly content: ReadonlyArray<{
+          readonly type: string;
+          readonly text?: string;
+        }>;
+      }
+    | (() => never),
+) {
+  return {
+    messages: {
+      create:
+        typeof response === 'function'
+          ? vi.fn(response)
+          : vi.fn().mockResolvedValue(response),
+    },
+  };
 }
 
 function makeLogger() {
@@ -21,43 +41,87 @@ const MESSAGE = {
   ts: '1700000000.000100',
 };
 
+const REPLY_MESSAGE = {
+  content: [{ type: 'text', text: 'Sure, tell me more.' }],
+};
+
 describe('createInboundMessageHandler', () => {
-  it('replies in the same channel with a non-empty, non-persona-voiced acknowledgment', async () => {
-    const client = makeClient({ ok: true });
-    const handler = createInboundMessageHandler(client, makeLogger());
+  it('generates a reply from the inbound text and posts it back in the same channel', async () => {
+    const anthropicClient = makeAnthropicClient(REPLY_MESSAGE);
+    const slackClient = makeSlackClient({ ok: true });
+    const handler = createInboundMessageHandler(
+      anthropicClient,
+      slackClient,
+      makeLogger(),
+    );
 
     await handler(MESSAGE);
 
-    expect(client.chat.postMessage).toHaveBeenCalledTimes(1);
-    const call = client.chat.postMessage.mock.calls[0]?.[0] as {
-      channel: string;
-      text: string;
-      thread_ts?: string;
-    };
-    expect(call.channel).toBe('D123');
-    expect(call.text.length).toBeGreaterThan(0);
-    expect(call.thread_ts).toBeUndefined();
+    expect(anthropicClient.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: MESSAGE.text }],
+      }),
+    );
+    expect(slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'D123',
+        text: 'Sure, tell me more.',
+      }),
+    );
   });
 
   it('replies in the thread when the inbound message was threaded', async () => {
-    const client = makeClient({ ok: true });
-    const handler = createInboundMessageHandler(client, makeLogger());
+    const anthropicClient = makeAnthropicClient(REPLY_MESSAGE);
+    const slackClient = makeSlackClient({ ok: true });
+    const handler = createInboundMessageHandler(
+      anthropicClient,
+      slackClient,
+      makeLogger(),
+    );
 
     await handler({ ...MESSAGE, threadTs: '1699999999.000100' });
 
-    const call = client.chat.postMessage.mock.calls[0]?.[0] as {
+    const call = slackClient.chat.postMessage.mock.calls[0]?.[0] as {
       thread_ts?: string;
     };
     expect(call.thread_ts).toBe('1699999999.000100');
   });
 
-  it('logs an error, without throwing, when the reply fails to send', async () => {
-    const client = makeClient({ ok: false, error: 'channel_not_found' });
+  it('logs an error and posts nothing when the LLM call fails', async () => {
+    const anthropicClient = makeAnthropicClient(() => {
+      throw new Error('rate limited');
+    });
+    const slackClient = makeSlackClient({ ok: true });
     const logger = makeLogger();
-    const handler = createInboundMessageHandler(client, logger);
+    const handler = createInboundMessageHandler(
+      anthropicClient,
+      slackClient,
+      logger,
+    );
 
     await expect(handler(MESSAGE)).resolves.toBeUndefined();
-    expect(logger.error).toHaveBeenCalledWith('failed to post acknowledgment', {
+
+    expect(slackClient.chat.postMessage).not.toHaveBeenCalled();
+    expect(logger.error).toHaveBeenCalledWith('failed to generate reply', {
+      message: 'rate limited',
+    });
+  });
+
+  it('logs an error, without throwing, when the generated reply fails to send', async () => {
+    const anthropicClient = makeAnthropicClient(REPLY_MESSAGE);
+    const slackClient = makeSlackClient({
+      ok: false,
+      error: 'channel_not_found',
+    });
+    const logger = makeLogger();
+    const handler = createInboundMessageHandler(
+      anthropicClient,
+      slackClient,
+      logger,
+    );
+
+    await expect(handler(MESSAGE)).resolves.toBeUndefined();
+    expect(logger.error).toHaveBeenCalledWith('failed to post reply', {
       message: 'channel_not_found',
     });
   });

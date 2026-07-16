@@ -1,34 +1,49 @@
 import type { InboundMessage } from '@moe/slack';
 
+import { generateReply } from '@moe/agents';
 import { postMessage } from '@moe/slack';
 
-// Deliberately generic, non-persona voice — Sarah's actual character is Stage 5 behind the
-// do-not-touch gate (packages/agents/src/personas/*/prompt.md), same principle as BUILD_PLAN 2.4a's
-// placeholder reply. No LLM yet at this chunk; this is the whole reply.
-const ACK_TEXT = "Got it — I heard you, but I can't act on this yet.";
-
+type GenerateReplyClient = Parameters<typeof generateReply>[0];
 type PostMessageClient = Parameters<typeof postMessage>[0];
-type AckLogger = {
+type InboundMessageLogger = {
   readonly error: (
     message: string,
     fields?: Readonly<Record<string, unknown>>,
   ) => void;
 };
 
-/** Replies to every inbound message with a hardcoded acknowledgment (BUILD_PLAN 2.3 — no LLM yet). */
+/**
+ * Replies to every inbound message with a single-turn, stateless LLM-generated reply in the
+ * placeholder voice (BUILD_PLAN 2.4a — not the persona's real character, which is Stage 5 behind
+ * the do-not-touch gate). A failed LLM call is logged and produces no Slack reply at all, the same
+ * "log, don't throw, don't retry here" shape as a failed Slack post below — this chunk proves the
+ * client wiring end-to-end, not a retry/fallback UX, which stays out of scope.
+ */
 export function createInboundMessageHandler(
-  client: PostMessageClient,
-  logger: AckLogger,
+  anthropicClient: GenerateReplyClient,
+  slackClient: PostMessageClient,
+  logger: InboundMessageLogger,
 ): (message: InboundMessage) => Promise<void> {
   return async (message) => {
-    const result = await postMessage(client, {
+    const generated = await generateReply(anthropicClient, {
+      text: message.text,
+    });
+
+    if (!generated.ok) {
+      logger.error('failed to generate reply', {
+        message: generated.error.message,
+      });
+      return;
+    }
+
+    const posted = await postMessage(slackClient, {
       channelId: message.channelId,
-      text: ACK_TEXT,
+      text: generated.reply,
       ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
     });
-    if (!result.ok) {
-      logger.error('failed to post acknowledgment', {
-        message: result.error.message,
+    if (!posted.ok) {
+      logger.error('failed to post reply', {
+        message: posted.error.message,
       });
     }
   };

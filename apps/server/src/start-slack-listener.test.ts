@@ -7,9 +7,18 @@ const mocks = vi.hoisted(() => ({
   createSocketModeClient: vi.fn(),
   createSocketModeListener: vi.fn(),
   isUnrecoverableStartError: vi.fn(),
+  createAnthropicClient: vi.fn(),
 }));
 
-vi.mock('@moe/slack', () => mocks);
+vi.mock('@moe/slack', () => ({
+  createWebClient: mocks.createWebClient,
+  createSocketModeClient: mocks.createSocketModeClient,
+  createSocketModeListener: mocks.createSocketModeListener,
+  isUnrecoverableStartError: mocks.isUnrecoverableStartError,
+}));
+vi.mock('@moe/agents', () => ({
+  createAnthropicClient: mocks.createAnthropicClient,
+}));
 
 afterEach(() => {
   vi.clearAllMocks();
@@ -19,11 +28,14 @@ function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
 
-const CONFIG = {
-  id: 'sarah' as const,
-  slackBotToken: 'fake-bot-token',
-  slackSigningSecret: 'fake-signing-secret',
-  slackAppToken: 'fake-app-token',
+const DEPS = {
+  config: {
+    id: 'sarah' as const,
+    slackBotToken: 'fake-bot-token',
+    slackSigningSecret: 'fake-signing-secret',
+    slackAppToken: 'fake-app-token',
+  },
+  anthropicApiKey: 'sk-ant-fake-key',
 };
 
 function makeFakeListener(start: ReturnType<typeof vi.fn>) {
@@ -31,17 +43,16 @@ function makeFakeListener(start: ReturnType<typeof vi.fn>) {
 }
 
 describe('startSlackListener', () => {
-  it("constructs both SDK clients with the persona's own tokens and the logger", () => {
+  it("constructs both Slack SDK clients with the persona's own tokens and the logger, and the Anthropic client with its own key", () => {
     const logger = makeLogger();
-    const fakeWebClient = { chat: {} };
-    const fakeSocketModeClient = {};
-    mocks.createWebClient.mockReturnValue(fakeWebClient);
-    mocks.createSocketModeClient.mockReturnValue(fakeSocketModeClient);
+    mocks.createWebClient.mockReturnValue({ chat: {} });
+    mocks.createSocketModeClient.mockReturnValue({});
+    mocks.createAnthropicClient.mockReturnValue({ messages: {} });
     mocks.createSocketModeListener.mockReturnValue(
       makeFakeListener(vi.fn().mockResolvedValue(undefined)),
     );
 
-    startSlackListener(CONFIG, logger, vi.fn());
+    startSlackListener(DEPS, logger, vi.fn());
 
     expect(mocks.createWebClient).toHaveBeenCalledWith(
       'fake-bot-token',
@@ -51,6 +62,7 @@ describe('startSlackListener', () => {
       'fake-app-token',
       logger,
     );
+    expect(mocks.createAnthropicClient).toHaveBeenCalledWith('sk-ant-fake-key');
   });
 
   it('wires the listener to the socket mode client and starts it', () => {
@@ -59,9 +71,10 @@ describe('startSlackListener', () => {
     const start = vi.fn().mockResolvedValue(undefined);
     mocks.createWebClient.mockReturnValue({ chat: {} });
     mocks.createSocketModeClient.mockReturnValue(fakeSocketModeClient);
+    mocks.createAnthropicClient.mockReturnValue({ messages: {} });
     mocks.createSocketModeListener.mockReturnValue(makeFakeListener(start));
 
-    startSlackListener(CONFIG, logger, vi.fn());
+    startSlackListener(DEPS, logger, vi.fn());
 
     expect(mocks.createSocketModeListener).toHaveBeenCalledWith(
       fakeSocketModeClient,
@@ -75,12 +88,13 @@ describe('startSlackListener', () => {
     const exit = vi.fn();
     mocks.createWebClient.mockReturnValue({ chat: {} });
     mocks.createSocketModeClient.mockReturnValue({});
+    mocks.createAnthropicClient.mockReturnValue({ messages: {} });
     mocks.createSocketModeListener.mockReturnValue(
       makeFakeListener(vi.fn().mockRejectedValue(new Error('invalid_auth'))),
     );
     mocks.isUnrecoverableStartError.mockReturnValue(true);
 
-    startSlackListener(CONFIG, logger, exit);
+    startSlackListener(DEPS, logger, exit);
     await vi.waitFor(() => expect(logger.error).toHaveBeenCalled());
 
     expect(exit).toHaveBeenCalledWith(1);
@@ -91,12 +105,13 @@ describe('startSlackListener', () => {
     const exit = vi.fn();
     mocks.createWebClient.mockReturnValue({ chat: {} });
     mocks.createSocketModeClient.mockReturnValue({});
+    mocks.createAnthropicClient.mockReturnValue({ messages: {} });
     mocks.createSocketModeListener.mockReturnValue(
       makeFakeListener(vi.fn().mockRejectedValue(new Error('transient'))),
     );
     mocks.isUnrecoverableStartError.mockReturnValue(false);
 
-    startSlackListener(CONFIG, logger, exit);
+    startSlackListener(DEPS, logger, exit);
     await vi.waitFor(() => expect(logger.error).toHaveBeenCalled());
 
     expect(exit).not.toHaveBeenCalled();
