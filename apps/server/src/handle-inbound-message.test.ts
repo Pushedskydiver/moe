@@ -104,12 +104,12 @@ describe('createInboundMessageHandler', () => {
     expect(logger.error).toHaveBeenCalledWith('failed to generate reply', {
       message: 'rate limited',
     });
-    const call = slackClient.chat.postMessage.mock.calls[0]?.[0] as {
-      channel: string;
-      text: string;
-    };
-    expect(call.channel).toBe('D123');
-    expect(call.text.length).toBeGreaterThan(0);
+    expect(slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: 'D123',
+        text: "Sorry, I ran into a problem generating a reply — I've logged it.",
+      }),
+    );
   });
 
   it('logs an error, without throwing, when the generated reply fails to send', async () => {
