@@ -2,7 +2,7 @@
 
 How moe's own codebase gets built, session to session. Complements `docs/DA-REVIEW.md` (the DA checklist), `docs/SELF-REVIEW.md` (the self-review checklist), `docs/CONVENTIONS.md` (code style), and `docs/GIT.md` (commit/branch/merge mechanics) — this doc is the connective process tissue between them.
 
-**Adapted from chief-clancy's own `docs/DEVELOPMENT.md`.** That version carries a large apparatus this repo doesn't need or want: chief-clancy autonomously merges its own PRs against its own repository under a defined risk gate, and it publishes packages to npm via changesets. Neither applies to moe's own development — `CLAUDE.md`'s merge policy is "Alex merges, full stop," and moe doesn't publish anything yet. Those sections are named below as **not ported**, not silently dropped, so a future reader doesn't wonder whether they were missed.
+**Adapted from chief-clancy's own `docs/DEVELOPMENT.md`.** That version carries a large apparatus this repo doesn't need or want: chief-clancy autonomously merges its own PRs against its own repository under a defined risk gate, and it publishes packages to npm via changesets. Neither applies to moe's own development — `CLAUDE.md`'s merge policy is "Alex merges" — full stop — and moe doesn't publish anything yet. Those sections are named below as **not ported**, not silently dropped, so a future reader doesn't wonder whether they were missed.
 
 ---
 
