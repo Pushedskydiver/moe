@@ -112,9 +112,9 @@ async function appendTurnLogged(
 /**
  * On the first reply into a never-before-seen channel/group thread, backfills the message that
  * opened it (Slack's own `message` event never carries `thread_ts` on that message, only on the
- * replies that follow — BUILD_PLAN 2.4b Design §0). A match with no `replyText` yet (the bot's own
- * async reply to the root hasn't landed) backfills the user turn alone — accepted, not corrected;
- * the API silently merges the resulting consecutive user turns rather than erroring.
+ * replies that follow — see `root-candidate-buffer.ts`). A match with no `replyText` yet (the
+ * bot's own async reply to the root hasn't landed) backfills the user turn alone — accepted, not
+ * corrected; the API silently merges the resulting consecutive user turns rather than erroring.
  */
 async function backfillRootCandidate(
   deps: HandlerDeps,
@@ -258,7 +258,12 @@ export function createInboundMessageHandler(
       return;
     }
 
-    await deps.threadQueue.run(threadKey, () =>
+    // `threadKey` alone isn't unique across conversations — every DM resolves to the same
+    // constant `'dm'` (`resolve-thread-key.ts`) regardless of which channel it's in, so the queue
+    // key must include `channelId` too, or every DM in the whole process would serialize through
+    // one lane instead of each conversation getting its own.
+    const queueKey = `${message.channelId}:${threadKey}`;
+    await deps.threadQueue.run(queueKey, () =>
       handleThreadedMessage(deps, message, threadKey),
     );
   };

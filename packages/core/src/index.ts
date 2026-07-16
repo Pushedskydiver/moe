@@ -38,8 +38,10 @@ export type {
 } from './conversation-history/conversation-turns-repository.js';
 export { conversationTurnSchema } from './conversation-history/conversation-turn.js';
 export type { ConversationTurn } from './conversation-history/conversation-turn.js';
+
 export { parseDatabaseConfig } from './database-config.js';
 export type { DatabaseConfig } from './database-config.js';
+
 export { createDb, createPool } from './ticket-lifecycle/db.js';
 export { runMigrations } from './ticket-lifecycle/migrate.js';
 export type { MigrateResult } from './ticket-lifecycle/migrate.js';

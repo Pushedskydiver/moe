@@ -415,4 +415,38 @@ describe('createInboundMessageHandler', () => {
       'persist-assistant',
     ]);
   });
+
+  it('lets messages from different DM channels run concurrently, not serialized through one global queue lane', async () => {
+    const order: string[] = [];
+    const threadQueue = makeThreadQueue();
+    let releaseFirstFetch: () => void = () => {};
+    const firstFetchBlocked = new Promise<void>((resolve) => {
+      releaseFirstFetch = resolve;
+    });
+    const historyStore = makeHistoryStore({
+      getRecentTurns: vi
+        .fn<HistoryStore['getRecentTurns']>()
+        .mockImplementation(async (scope) => {
+          order.push(`fetch-${scope.channelId}`);
+          if (scope.channelId === 'D123') {
+            await firstFetchBlocked;
+          }
+          return { ok: true, turns: [] };
+        }),
+    });
+    const deps = makeDeps({ threadQueue, historyStore });
+    const handler = createInboundMessageHandler(deps);
+
+    const firstCall = handler(DM_MESSAGE);
+    const secondCall = handler({ ...DM_MESSAGE, channelId: 'D999' });
+
+    // If the queue key were `threadKey` alone (the constant `'dm'`), this second call — a
+    // completely different DM conversation — would never even start its fetch until the first
+    // call's blocked fetch resolves, and this `await` would hang forever.
+    await secondCall;
+    expect(order).toEqual(['fetch-D123', 'fetch-D999']);
+
+    releaseFirstFetch();
+    await firstCall;
+  });
 });

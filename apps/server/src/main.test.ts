@@ -148,4 +148,22 @@ describe('main', () => {
     expect(exit).toHaveBeenCalledWith(1);
     await vi.waitFor(() => expect(server?.listening).toBe(false));
   });
+
+  it("its exit callback also closes the database pool (an open pg.Pool keeps the event loop alive the same way a listening server does, so leaving it open would silently reintroduce the 'exit never actually takes effect' bug)", async () => {
+    const startSlack = vi.fn();
+    const exit = vi.fn();
+
+    main(VALID_ENV, exit, startSlack);
+
+    const [deps, , passedExit] = startSlack.mock.calls[0] as [
+      { db: { destroy: () => Promise<void> } },
+      unknown,
+      (code: number) => void,
+    ];
+    const destroySpy = vi.spyOn(deps.db, 'destroy');
+
+    passedExit(1);
+
+    await vi.waitFor(() => expect(destroySpy).toHaveBeenCalledTimes(1));
+  });
 });

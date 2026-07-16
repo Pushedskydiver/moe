@@ -67,11 +67,11 @@ class RootCandidateBufferImpl implements RootCandidateBuffer {
 /**
  * Single-slot-per-channel, in-memory, lost on process restart — backfills the message that opened
  * a Slack thread (never carries `thread_ts` itself, only the replies that follow do — BUILD_PLAN
- * 2.4b Design §0) without persisting every un-threaded message indefinitely. Only catches threading
- * onto the most recent un-threaded message per channel; an older one displaced from the slot is an
- * accepted residual gap. `recordReply` only attaches when `ts` still matches the live candidate —
- * closes both a cross-contamination race (a slow reply landing after a newer candidate overwrote
- * the slot) and an already-consumed race (`takeIfMatches` cleared the slot first).
+ * 2.4b) without persisting every un-threaded message indefinitely. Only catches threading onto the
+ * most recent un-threaded message per channel; an older one displaced from the slot is an accepted
+ * residual gap. `recordReply` only attaches when `ts` still matches the live candidate — closes
+ * both a cross-contamination race (a slow reply landing after a newer candidate overwrote the
+ * slot) and an already-consumed race (`takeIfMatches` cleared the slot first).
  */
 export function makeRootCandidateBuffer(): RootCandidateBuffer {
   return new RootCandidateBufferImpl();

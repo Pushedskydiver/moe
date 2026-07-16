@@ -78,7 +78,11 @@ export async function appendTurn(
 /**
  * Returns up to `limit` of the most recent turns for `(personaId, channelId, threadKey)`, in
  * ascending (oldest-first) chronological order — the order the Anthropic `messages[]` array needs.
- * An unfamiliar thread returns an empty list, not an error.
+ * An unfamiliar thread returns an empty list, not an error. Orders by `createdAt` alone
+ * (millisecond resolution) — two turns inserted within the same millisecond can come back in
+ * either order; `id` isn't a usable tiebreaker since it's a random UUID, not a sequential value.
+ * Accepted: real Slack round-trips always have meaningful latency between turns, so this only
+ * bites rapid-fire test setups, not production traffic.
  */
 export async function getRecentTurns(
   db: Kysely<Database>,

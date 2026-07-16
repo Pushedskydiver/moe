@@ -109,21 +109,29 @@ export function main(
   }
 
   const server = startServer(config.persona, logger, resolvePort(env));
-  // A listening HTTP server keeps the event loop alive on its own, so a bare `exit(1)` (which only
-  // sets process.exitCode, deliberately not force-terminating — see the comment above) would never
-  // actually take effect while the server is up. Closing it first is what lets the process really
-  // exit, so an unrecoverable Slack failure actually restarts under Fly's supervisor instead of
-  // sitting "healthy" per /health forever. Verified live: without this, a Docker container with an
-  // invalid app token kept running indefinitely despite exit(1) firing.
+  const db = createDb(createPool(config.databaseConnectionString));
+  // A listening HTTP server (and, equally, an open pg.Pool with any client that's ever run a
+  // query — verified against node-postgres's own docs: its sockets aren't unref'd, so an open
+  // pool keeps the event loop alive same as a listening server) keeps the event loop alive on its
+  // own, so a bare `exit(1)` (which only sets process.exitCode, deliberately not
+  // force-terminating — see the comment above) would never actually take effect while either is
+  // still open. Closing both is what lets the process really exit, so an unrecoverable Slack
+  // failure actually restarts under Fly's supervisor instead of sitting "healthy" per /health
+  // forever. Verified live for the HTTP-server half: without closing it, a Docker container with
+  // an invalid app token kept running indefinitely despite exit(1) firing.
   const exitAndCloseServer = (code: number): void => {
     server.close();
+    db.destroy().catch((error: unknown) => {
+      logger.error('failed to close database pool', {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    });
     exit(code);
   };
   server.on('error', (error) => {
     logger.error('server error', { message: error.message });
     exitAndCloseServer(1);
   });
-  const db = createDb(createPool(config.databaseConnectionString));
   startSlack(
     { config: config.persona, anthropicApiKey: config.anthropicApiKey, db },
     logger,
