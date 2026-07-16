@@ -8,6 +8,7 @@ const VALID_ENV = {
   MOE_SLACK_SIGNING_SECRET: 'fake-signing-secret',
   MOE_SLACK_APP_TOKEN: 'fake-app-token',
   ANTHROPIC_API_KEY: 'sk-ant-fake-key',
+  DATABASE_URL: 'postgres://postgres:password@localhost:5432/moe_dev',
   PORT: '0',
 };
 
@@ -82,6 +83,25 @@ describe('main', () => {
     expect(emitted.message).toBe('invalid anthropic config');
   });
 
+  it('logs an error and exits without starting a server when the database config is invalid', () => {
+    const exit = vi.fn();
+    const startSlack = vi.fn();
+
+    const server = main(
+      { ...VALID_ENV, DATABASE_URL: undefined },
+      exit,
+      startSlack,
+    );
+
+    expect(server).toBeUndefined();
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(startSlack).not.toHaveBeenCalled();
+    const emitted = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as {
+      message: string;
+    };
+    expect(emitted.message).toBe('invalid database config');
+  });
+
   it('logs an error and signals a failed exit when the HTTP server errors (e.g. port already in use)', async () => {
     const first = main(VALID_ENV, vi.fn(), vi.fn());
     const address = first?.address();
@@ -115,12 +135,13 @@ describe('main', () => {
 
     expect(startSlack).toHaveBeenCalledTimes(1);
     const [deps, , passedExit] = startSlack.mock.calls[0] as [
-      { config: { id: string }; anthropicApiKey: string },
+      { config: { id: string }; anthropicApiKey: string; db: unknown },
       unknown,
       (code: number) => void,
     ];
     expect(deps.config.id).toBe('sarah');
     expect(deps.anthropicApiKey).toBe('sk-ant-fake-key');
+    expect(deps.db).toBeDefined();
 
     passedExit(1);
 

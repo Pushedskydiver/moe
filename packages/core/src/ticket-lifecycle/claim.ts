@@ -1,4 +1,4 @@
-import type { Database } from './schema.js';
+import type { Database } from '../schema.js';
 import type { Kysely } from 'kysely';
 
 import { sql } from 'kysely';

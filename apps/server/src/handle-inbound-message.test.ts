@@ -1,6 +1,13 @@
+import type { HandlerDeps } from './handle-inbound-message.js';
+import type { ConversationTurn } from '@moe/core';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { createInboundMessageHandler } from './handle-inbound-message.js';
+import { makeRootCandidateBuffer } from './root-candidate-buffer.js';
+import { makeThreadQueue } from './thread-queue.js';
+
+type HistoryStore = HandlerDeps['historyStore'];
 
 function makeSlackClient(response: {
   readonly ok: boolean;
@@ -33,7 +40,60 @@ function makeLogger() {
   return { error: vi.fn() };
 }
 
-const MESSAGE = {
+function turn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
+  return {
+    id: '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    personaId: 'sarah',
+    channelId: 'D123',
+    threadKey: 'dm',
+    role: 'user',
+    content: 'earlier message',
+    createdAt: new Date('2026-07-16T09:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function makeHistoryStore(
+  overrides: Partial<{
+    readonly getRecentTurns: HistoryStore['getRecentTurns'];
+    readonly appendTurn: HistoryStore['appendTurn'];
+  }> = {},
+): HistoryStore {
+  return {
+    getRecentTurns: vi
+      .fn<HistoryStore['getRecentTurns']>()
+      .mockResolvedValue({ ok: true, turns: [] }),
+    appendTurn: vi
+      .fn<HistoryStore['appendTurn']>()
+      .mockResolvedValue({ ok: true, turn: turn() }),
+    ...overrides,
+  };
+}
+
+function makeDeps(
+  overrides: Partial<{
+    readonly anthropicClient: ReturnType<typeof makeAnthropicClient>;
+    readonly slackClient: ReturnType<typeof makeSlackClient>;
+    readonly logger: ReturnType<typeof makeLogger>;
+    readonly historyStore: ReturnType<typeof makeHistoryStore>;
+    readonly personaId: string;
+    readonly threadQueue: ReturnType<typeof makeThreadQueue>;
+    readonly rootCandidateBuffer: ReturnType<typeof makeRootCandidateBuffer>;
+  }> = {},
+) {
+  return {
+    anthropicClient: makeAnthropicClient(REPLY_MESSAGE),
+    slackClient: makeSlackClient({ ok: true }),
+    logger: makeLogger(),
+    historyStore: makeHistoryStore(),
+    personaId: 'sarah',
+    threadQueue: makeThreadQueue(),
+    rootCandidateBuffer: makeRootCandidateBuffer(),
+    ...overrides,
+  };
+}
+
+const DM_MESSAGE = {
   channelId: 'D123',
   channelType: 'im' as const,
   userId: 'U123',
@@ -47,22 +107,17 @@ const REPLY_MESSAGE = {
 
 describe('createInboundMessageHandler', () => {
   it('generates a reply from the inbound text and posts it back in the same channel', async () => {
-    const anthropicClient = makeAnthropicClient(REPLY_MESSAGE);
-    const slackClient = makeSlackClient({ ok: true });
-    const handler = createInboundMessageHandler(
-      anthropicClient,
-      slackClient,
-      makeLogger(),
-    );
+    const deps = makeDeps();
+    const handler = createInboundMessageHandler(deps);
 
-    await handler(MESSAGE);
+    await handler(DM_MESSAGE);
 
-    expect(anthropicClient.messages.create).toHaveBeenCalledWith(
+    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        messages: [{ role: 'user', content: MESSAGE.text }],
+        messages: [{ role: 'user', content: DM_MESSAGE.text }],
       }),
     );
-    expect(slackClient.chat.postMessage).toHaveBeenCalledWith(
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: 'D123',
         text: 'Sure, tell me more.',
@@ -71,40 +126,35 @@ describe('createInboundMessageHandler', () => {
   });
 
   it('replies in the thread when the inbound message was threaded', async () => {
-    const anthropicClient = makeAnthropicClient(REPLY_MESSAGE);
-    const slackClient = makeSlackClient({ ok: true });
-    const handler = createInboundMessageHandler(
-      anthropicClient,
-      slackClient,
-      makeLogger(),
-    );
+    const deps = makeDeps();
+    const handler = createInboundMessageHandler(deps);
 
-    await handler({ ...MESSAGE, threadTs: '1699999999.000100' });
+    await handler({
+      ...DM_MESSAGE,
+      channelType: 'channel',
+      threadTs: '1699999999.000100',
+    });
 
-    const call = slackClient.chat.postMessage.mock.calls[0]?.[0] as {
+    const call = deps.slackClient.chat.postMessage.mock.calls[0]?.[0] as {
       thread_ts?: string;
     };
     expect(call.thread_ts).toBe('1699999999.000100');
   });
 
   it('logs an error and posts a generic fallback reply when the LLM call fails — not silence', async () => {
-    const anthropicClient = makeAnthropicClient(() => {
-      throw new Error('rate limited');
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(() => {
+        throw new Error('rate limited');
+      }),
     });
-    const slackClient = makeSlackClient({ ok: true });
-    const logger = makeLogger();
-    const handler = createInboundMessageHandler(
-      anthropicClient,
-      slackClient,
-      logger,
-    );
+    const handler = createInboundMessageHandler(deps);
 
-    await expect(handler(MESSAGE)).resolves.toBeUndefined();
+    await expect(handler(DM_MESSAGE)).resolves.toBeUndefined();
 
-    expect(logger.error).toHaveBeenCalledWith('failed to generate reply', {
+    expect(deps.logger.error).toHaveBeenCalledWith('failed to generate reply', {
       message: 'rate limited',
     });
-    expect(slackClient.chat.postMessage).toHaveBeenCalledWith(
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
         channel: 'D123',
         text: "Sorry, I ran into a problem generating a reply — I've logged it.",
@@ -113,21 +163,256 @@ describe('createInboundMessageHandler', () => {
   });
 
   it('logs an error, without throwing, when the generated reply fails to send', async () => {
-    const anthropicClient = makeAnthropicClient(REPLY_MESSAGE);
-    const slackClient = makeSlackClient({
-      ok: false,
-      error: 'channel_not_found',
+    const deps = makeDeps({
+      slackClient: makeSlackClient({ ok: false, error: 'channel_not_found' }),
     });
-    const logger = makeLogger();
-    const handler = createInboundMessageHandler(
-      anthropicClient,
-      slackClient,
-      logger,
-    );
+    const handler = createInboundMessageHandler(deps);
 
-    await expect(handler(MESSAGE)).resolves.toBeUndefined();
-    expect(logger.error).toHaveBeenCalledWith('failed to post reply', {
+    await expect(handler(DM_MESSAGE)).resolves.toBeUndefined();
+    expect(deps.logger.error).toHaveBeenCalledWith('failed to post reply', {
       message: 'channel_not_found',
     });
+  });
+
+  it('fetches and forwards DM history, then persists both the user and assistant turns', async () => {
+    const priorTurns = [
+      turn({ role: 'user', content: 'what is the deploy command?' }),
+      turn({ role: 'assistant', content: 'fly deploy --app moe' }),
+    ];
+    const deps = makeDeps({
+      historyStore: makeHistoryStore({
+        getRecentTurns: vi
+          .fn<HistoryStore['getRecentTurns']>()
+          .mockResolvedValue({ ok: true, turns: priorTurns }),
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler(DM_MESSAGE);
+
+    expect(deps.historyStore.getRecentTurns).toHaveBeenCalledWith(
+      { personaId: 'sarah', channelId: 'D123', threadKey: 'dm' },
+      20,
+    );
+    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'user', content: 'what is the deploy command?' },
+          { role: 'assistant', content: 'fly deploy --app moe' },
+          { role: 'user', content: DM_MESSAGE.text },
+        ],
+      }),
+    );
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'D123',
+      threadKey: 'dm',
+      role: 'user',
+      content: DM_MESSAGE.text,
+    });
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'D123',
+      threadKey: 'dm',
+      role: 'assistant',
+      content: 'Sure, tell me more.',
+    });
+  });
+
+  it('stays fully stateless for an un-threaded channel message — no history fetch/persist, buffer recorded', async () => {
+    const deps = makeDeps();
+    const handler = createInboundMessageHandler(deps);
+    const channelMessage = { ...DM_MESSAGE, channelType: 'channel' as const };
+
+    await handler(channelMessage);
+
+    expect(deps.historyStore.getRecentTurns).not.toHaveBeenCalled();
+    expect(deps.historyStore.appendTurn).not.toHaveBeenCalled();
+    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: channelMessage.text }],
+      }),
+    );
+    expect(
+      deps.rootCandidateBuffer.takeIfMatches('D123', channelMessage.ts),
+    ).toEqual({ text: channelMessage.text, replyText: 'Sure, tell me more.' });
+  });
+
+  it('backfills the buffered root message and reply on the first reply into a new channel thread', async () => {
+    const rootCandidateBuffer = makeRootCandidateBuffer();
+    rootCandidateBuffer.recordCandidate(
+      'D123',
+      '1699999999.000100',
+      'what do you think?',
+    );
+    rootCandidateBuffer.recordReply(
+      'D123',
+      '1699999999.000100',
+      'good idea, let’s do it',
+    );
+    const deps = makeDeps({ rootCandidateBuffer });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelType: 'channel',
+      threadTs: '1699999999.000100',
+    });
+
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'D123',
+      threadKey: '1699999999.000100',
+      role: 'user',
+      content: 'what do you think?',
+    });
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'D123',
+      threadKey: '1699999999.000100',
+      role: 'assistant',
+      content: 'good idea, let’s do it',
+    });
+  });
+
+  it('proceeds with empty history when a channel thread reply has no matching buffered candidate', async () => {
+    const deps = makeDeps();
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelType: 'channel',
+      threadTs: '1699999999.000100',
+    });
+
+    // No backfill happened — exactly the current turn's own two persists (user + assistant),
+    // not four (which a spurious backfill would add).
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledTimes(2);
+    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: DM_MESSAGE.text }],
+      }),
+    );
+  });
+
+  it('backfills only the root user turn, with no fabricated assistant turn, when the candidate has no replyText yet', async () => {
+    const rootCandidateBuffer = makeRootCandidateBuffer();
+    rootCandidateBuffer.recordCandidate(
+      'D123',
+      '1699999999.000100',
+      'what do you think?',
+    );
+    const appendTurn = vi
+      .fn<HistoryStore['appendTurn']>()
+      .mockResolvedValue({ ok: true, turn: turn() });
+    const deps = makeDeps({
+      rootCandidateBuffer,
+      historyStore: makeHistoryStore({ appendTurn }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelType: 'channel',
+      threadTs: '1699999999.000100',
+    });
+
+    const appendCalls = appendTurn.mock.calls.map((call) => call[0]);
+    expect(appendCalls).toContainEqual({
+      personaId: 'sarah',
+      channelId: 'D123',
+      threadKey: '1699999999.000100',
+      role: 'user',
+      content: 'what do you think?',
+    });
+    expect(
+      appendCalls.filter(
+        (call) =>
+          call.content === 'what do you think?' && call.role === 'assistant',
+      ),
+    ).toHaveLength(0);
+  });
+
+  it('persists the user turn but not an assistant turn when the LLM call fails', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(() => {
+        throw new Error('rate limited');
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler(DM_MESSAGE);
+
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'D123',
+      threadKey: 'dm',
+      role: 'user',
+      content: DM_MESSAGE.text,
+    });
+    expect(deps.historyStore.appendTurn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'assistant' }),
+    );
+  });
+
+  it('falls back to empty history without blocking the reply when the history fetch fails', async () => {
+    const deps = makeDeps({
+      historyStore: makeHistoryStore({
+        getRecentTurns: vi
+          .fn<HistoryStore['getRecentTurns']>()
+          .mockResolvedValue({
+            ok: false,
+            error: { kind: 'unknown', cause: new Error('connection reset') },
+          }),
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await expect(handler(DM_MESSAGE)).resolves.toBeUndefined();
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to fetch conversation history',
+      expect.objectContaining({ message: expect.any(String) as string }),
+    );
+    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: DM_MESSAGE.text }],
+      }),
+    );
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Sure, tell me more.' }),
+    );
+  });
+
+  it('serializes two rapid messages in the same thread key via threadQueue, no interleaved fetch/persist', async () => {
+    const order: string[] = [];
+    const threadQueue = makeThreadQueue();
+    const historyStore = makeHistoryStore({
+      getRecentTurns: vi
+        .fn<HistoryStore['getRecentTurns']>()
+        .mockImplementation(async () => {
+          order.push('fetch');
+          return { ok: true, turns: [] };
+        }),
+      appendTurn: vi
+        .fn<HistoryStore['appendTurn']>()
+        .mockImplementation(async (input) => {
+          order.push(`persist-${input.role}`);
+          return { ok: true, turn: turn() };
+        }),
+    });
+    const deps = makeDeps({ threadQueue, historyStore });
+    const handler = createInboundMessageHandler(deps);
+
+    await Promise.all([handler(DM_MESSAGE), handler(DM_MESSAGE)]);
+
+    expect(order).toEqual([
+      'fetch',
+      'persist-user',
+      'persist-assistant',
+      'fetch',
+      'persist-user',
+      'persist-assistant',
+    ]);
   });
 });

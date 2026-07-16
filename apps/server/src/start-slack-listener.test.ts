@@ -1,3 +1,5 @@
+import type { StartSlackListenerDeps } from './start-slack-listener.js';
+
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { startSlackListener } from './start-slack-listener.js';
@@ -28,7 +30,7 @@ function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
 
-const DEPS = {
+const DEPS: StartSlackListenerDeps = {
   config: {
     id: 'sarah' as const,
     slackBotToken: 'fake-bot-token',
@@ -36,6 +38,9 @@ const DEPS = {
     slackAppToken: 'fake-app-token',
   },
   anthropicApiKey: 'sk-ant-fake-key',
+  // A placeholder — none of these tests exercise a Slack message reaching the handler, so the
+  // real Kysely query surface is never touched; only its presence on `deps` is asserted anywhere.
+  db: {} as StartSlackListenerDeps['db'],
 };
 
 function makeFakeListener(start: ReturnType<typeof vi.fn>) {

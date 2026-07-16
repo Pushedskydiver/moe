@@ -41,7 +41,7 @@ describe('generateReply', () => {
     expect(result).toEqual({ ok: true, reply: 'Hi there!' });
   });
 
-  it('sends a single-turn user message with the placeholder system prompt and the sonnet-5 model, stateless — no prior turns', async () => {
+  it('sends a single-turn user message with the placeholder system prompt and the sonnet-5 model when no history is provided', async () => {
     const client = makeClient(TEXT_MESSAGE);
 
     await generateReply(client, { text: 'hello' });
@@ -51,6 +51,26 @@ describe('generateReply', () => {
         model: 'claude-sonnet-5',
         system: PLACEHOLDER_SYSTEM_PROMPT,
         messages: [{ role: 'user', content: 'hello' }],
+      }),
+    );
+  });
+
+  it('forwards prior turns ahead of the current message when history is provided', async () => {
+    const client = makeClient(TEXT_MESSAGE);
+    const history = [
+      { role: 'user' as const, content: 'what did I just ask you?' },
+      { role: 'assistant' as const, content: 'you asked about the deploy' },
+    ];
+
+    await generateReply(client, { text: 'hello', history });
+
+    expect(client.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [
+          { role: 'user', content: 'what did I just ask you?' },
+          { role: 'assistant', content: 'you asked about the deploy' },
+          { role: 'user', content: 'hello' },
+        ],
       }),
     );
   });

@@ -1,5 +1,5 @@
+import type { Database } from '../schema.js';
 import type { Ticket } from '../ticket.js';
-import type { Database } from './schema.js';
 import type { Kysely } from 'kysely';
 
 import { ticketSchema } from '../ticket.js';

@@ -71,9 +71,15 @@ importers:
       '@moe/agents':
         specifier: workspace:*
         version: link:../../packages/agents
+      '@moe/core':
+        specifier: workspace:*
+        version: link:../../packages/core
       '@moe/slack':
         specifier: workspace:*
         version: link:../../packages/slack
+      kysely:
+        specifier: ^0.29.3
+        version: 0.29.3
 
   packages/agents:
     dependencies:

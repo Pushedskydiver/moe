@@ -31,7 +31,11 @@ describe('runMigrations', () => {
     const result = await runMigrations(pool, migrationsDir);
     expect(result).toEqual({
       ok: true,
-      applied: ['0001_create_tickets_table.sql', '0002_add_ticket_claims.sql'],
+      applied: [
+        '0001_create_tickets_table.sql',
+        '0002_add_ticket_claims.sql',
+        '0003_create_conversation_turns.sql',
+      ],
     });
 
     const { rows } = await pool.query<{ id: string }>(
@@ -40,6 +44,7 @@ describe('runMigrations', () => {
     expect(rows).toEqual([
       { id: '0001_create_tickets_table.sql' },
       { id: '0002_add_ticket_claims.sql' },
+      { id: '0003_create_conversation_turns.sql' },
     ]);
   });
 
@@ -88,6 +93,44 @@ describe('runMigrations', () => {
       version: number;
     }>('SELECT claimed_by, version FROM tickets');
     expect(rows).toEqual([{ claimed_by: null, version: 0 }]);
+  });
+
+  it('creates a conversation_turns table that accepts a valid turn row', async () => {
+    await runMigrations(pool, migrationsDir);
+    await pool.query(
+      `INSERT INTO conversation_turns (id, persona_id, channel_id, thread_key, role, content, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'sarah',
+        'C123',
+        'dm',
+        'user',
+        'hello',
+        new Date(),
+      ],
+    );
+    const { rows } = await pool.query('SELECT * FROM conversation_turns');
+    expect(rows).toHaveLength(1);
+  });
+
+  it('rejects a conversation_turns row with an invalid role via the CHECK constraint', async () => {
+    await runMigrations(pool, migrationsDir);
+    await expect(
+      pool.query(
+        `INSERT INTO conversation_turns (id, persona_id, channel_id, thread_key, role, content, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        [
+          '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+          'sarah',
+          'C123',
+          'dm',
+          'system',
+          'hello',
+          new Date(),
+        ],
+      ),
+    ).rejects.toThrow();
   });
 
   it('rejects a row with an invalid status via the CHECK constraint', async () => {
