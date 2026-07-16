@@ -55,13 +55,16 @@ function toFields(
 /**
  * Adapts our structured logger to @anthropic-ai/sdk's `Logger` interface. Without this, the SDK
  * defaults to `globalThis.console` (verified against the installed package — `client.js`'s own
- * `logger` option default), writing raw, unredacted lines straight to stdout/stderr — the same
- * secret-redaction gap `createSdkLoggerAdapter` in `@moe/slack` already exists to close for the
- * Slack SDKs, and the exact partial-update trap `secret-pattern-mirror-locations` predicted:
- * adding a new secret-handling client without wiring this mirror. `secretValues` are scrubbed
- * from every logged string on top of routing through the structured logger, since the SDK's own
- * log messages are free-text and can't be redacted by key name alone. Debug is silenced (too
- * noisy for production, and the least-audited part of this dependency).
+ * `logger` option default) — bypassing this app's structured JSON logging and `redactSecrets`
+ * entirely, the same routing gap `createSdkLoggerAdapter` in `@moe/slack` already closes for the
+ * Slack SDKs. Note this isn't closing an active unredacted-API-key leak on the SDK's main request/
+ * response logging path specifically — the SDK's own default logger already redacts known auth
+ * headers (`x-api-key`, `authorization`, `cookie`) there — but any free-text or positional log
+ * argument outside that one path isn't covered by the SDK's own redaction, which is what
+ * `secretValues` closes here. `secretValues` are scrubbed from every logged string on top of
+ * routing through the structured logger, since the SDK's own log messages are free-text and can't
+ * be redacted by key name alone. Debug is silenced (too noisy for production, and the
+ * least-audited part of this dependency).
  */
 export function createAnthropicSdkLoggerAdapter(
   logger: AppLogger,
