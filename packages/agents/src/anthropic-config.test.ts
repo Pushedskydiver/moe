@@ -5,7 +5,7 @@ import { parseAnthropicConfig } from './anthropic-config.js';
 describe('parseAnthropicConfig', () => {
   it('returns ok:true with a parsed config for valid env input', () => {
     const result = parseAnthropicConfig({
-      MOE_ANTHROPIC_API_KEY: 'sk-ant-fake-key',
+      ANTHROPIC_API_KEY: 'sk-ant-fake-key',
     });
 
     expect(result).toEqual({
@@ -16,14 +16,14 @@ describe('parseAnthropicConfig', () => {
     });
   });
 
-  it('returns ok:false when MOE_ANTHROPIC_API_KEY is missing', () => {
+  it('returns ok:false when ANTHROPIC_API_KEY is missing', () => {
     const result = parseAnthropicConfig({});
 
     expect(result.ok).toBe(false);
   });
 
-  it('returns ok:false when MOE_ANTHROPIC_API_KEY is blank', () => {
-    const result = parseAnthropicConfig({ MOE_ANTHROPIC_API_KEY: '' });
+  it('returns ok:false when ANTHROPIC_API_KEY is blank', () => {
+    const result = parseAnthropicConfig({ ANTHROPIC_API_KEY: '' });
 
     expect(result.ok).toBe(false);
   });

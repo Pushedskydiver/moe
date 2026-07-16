@@ -7,7 +7,7 @@ const VALID_ENV = {
   MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
   MOE_SLACK_SIGNING_SECRET: 'fake-signing-secret',
   MOE_SLACK_APP_TOKEN: 'fake-app-token',
-  MOE_ANTHROPIC_API_KEY: 'sk-ant-fake-key',
+  ANTHROPIC_API_KEY: 'sk-ant-fake-key',
   PORT: '0',
 };
 
@@ -68,7 +68,7 @@ describe('main', () => {
     const startSlack = vi.fn();
 
     const server = main(
-      { ...VALID_ENV, MOE_ANTHROPIC_API_KEY: undefined },
+      { ...VALID_ENV, ANTHROPIC_API_KEY: undefined },
       exit,
       startSlack,
     );

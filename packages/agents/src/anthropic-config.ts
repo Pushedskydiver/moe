@@ -21,13 +21,16 @@ export type ParseAnthropicConfigResult =
  * function never does) and validates it into an `AnthropicConfig`. Separate from
  * `parsePersonaConfig`: the Anthropic API key is a single shared account credential, not a
  * per-persona one (unlike the Slack tokens), matching `DATABASE_URL`'s own separate-from-persona
- * treatment.
+ * treatment. Reads the bare `ANTHROPIC_API_KEY` (no `MOE_` prefix) — same precedent as
+ * `DATABASE_URL`/`PORT`: a widely-standard name outside moe's own vocabulary, and the exact env
+ * var `@anthropic-ai/sdk` itself defaults to when no explicit `apiKey` is passed to its
+ * constructor.
  */
 export function parseAnthropicConfig(
   env: Readonly<Record<string, string | undefined>>,
 ): ParseAnthropicConfigResult {
   const parsed = anthropicConfigSchema.safeParse({
-    apiKey: env.MOE_ANTHROPIC_API_KEY,
+    apiKey: env.ANTHROPIC_API_KEY,
   });
 
   return parsed.success
