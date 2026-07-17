@@ -44,6 +44,25 @@ describe('composeGatedReply', () => {
     expect(composeGatedReply(result, now)).toBe(NOT_YET_VERIFIED_TEXT);
   });
 
+  it('ignores toolCallId/toolOutputSnippet if the model tries to self-report them in the tool_use input — evidence only ever comes from the evidence parameter', () => {
+    const result = okResult({
+      reply: '',
+      toolUses: [
+        {
+          id: 't1',
+          name: STATUS_CLAIM_TOOL_NAME,
+          input: {
+            claim: 'done',
+            toolCallId: 'toolu_fake',
+            toolOutputSnippet: 'fabricated evidence',
+          },
+        },
+      ],
+    });
+
+    expect(composeGatedReply(result, now)).toBe(NOT_YET_VERIFIED_TEXT);
+  });
+
   it('composes a grounded claim, returning the claim text, when real evidence is supplied', () => {
     const result = okResult({
       reply: '',
@@ -73,6 +92,27 @@ describe('composeGatedReply', () => {
     });
 
     expect(composeGatedReply(result, now)).toBe(NOT_YET_VERIFIED_TEXT);
+  });
+
+  it('composes only the first report_status call when the model makes more than one in a single turn', () => {
+    const result = okResult({
+      reply: '',
+      toolUses: [
+        { id: 't1', name: STATUS_CLAIM_TOOL_NAME, input: { claim: 'first' } },
+        {
+          id: 't2',
+          name: STATUS_CLAIM_TOOL_NAME,
+          input: { claim: 'second' },
+        },
+      ],
+    });
+
+    const text = composeGatedReply(result, now, {
+      toolCallId: 'toolu_01abc',
+      toolOutputSnippet: '54 passed (54)',
+    });
+
+    expect(text).toBe('first');
   });
 
   it('ignores tool calls to other tools, returning the reply unchanged', () => {

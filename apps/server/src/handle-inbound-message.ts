@@ -171,8 +171,9 @@ async function generateAndPost(
   }
 
   // Composed once and reused for both the Slack post and the persisted/buffered history entry
-  // below — calling composeGatedReply a second time would re-invoke `now()` and, once Stage 6
-  // wires in real tool-call evidence, could theoretically compose a different result.
+  // below, so the two can never drift apart — avoids redundant work now, and once Stage 6 wires
+  // in real evidence that could itself change between calls (e.g. a re-fetched CI status), a
+  // second composeGatedReply call could otherwise return a different result than the first.
   const text = generated.ok
     ? composeGatedReply(generated, () => new Date().toISOString())
     : FALLBACK_TEXT;
