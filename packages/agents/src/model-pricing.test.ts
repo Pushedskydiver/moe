@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
-import { computeCostUsdMicros } from './model-pricing.js';
+import { sonnetCostUsdMicros } from './model-pricing.js';
 
-describe('computeCostUsdMicros', () => {
+describe('sonnetCostUsdMicros', () => {
   it('prices at the introductory $2/$10-per-MTok rate before the 2026-08-31 cutover', () => {
-    const cost = computeCostUsdMicros(
+    const cost = sonnetCostUsdMicros(
       { inputTokens: 1_000, outputTokens: 500 },
       new Date('2026-07-17T09:00:00.000Z'),
     );
@@ -14,7 +14,7 @@ describe('computeCostUsdMicros', () => {
   });
 
   it('still uses introductory pricing on the last covered instant', () => {
-    const cost = computeCostUsdMicros(
+    const cost = sonnetCostUsdMicros(
       { inputTokens: 1_000, outputTokens: 0 },
       new Date('2026-08-31T23:59:59.999Z'),
     );
@@ -23,7 +23,7 @@ describe('computeCostUsdMicros', () => {
   });
 
   it('switches to the standard $3/$15-per-MTok rate exactly at the cutover instant', () => {
-    const cost = computeCostUsdMicros(
+    const cost = sonnetCostUsdMicros(
       { inputTokens: 1_000, outputTokens: 500 },
       new Date('2026-09-01T00:00:00.000Z'),
     );
@@ -33,7 +33,7 @@ describe('computeCostUsdMicros', () => {
   });
 
   it('uses standard pricing well after the cutover', () => {
-    const cost = computeCostUsdMicros(
+    const cost = sonnetCostUsdMicros(
       { inputTokens: 1_000, outputTokens: 0 },
       new Date('2027-01-01T00:00:00.000Z'),
     );
@@ -42,7 +42,7 @@ describe('computeCostUsdMicros', () => {
   });
 
   it('returns zero for a zero-token turn', () => {
-    const cost = computeCostUsdMicros(
+    const cost = sonnetCostUsdMicros(
       { inputTokens: 0, outputTokens: 0 },
       new Date('2026-07-17T09:00:00.000Z'),
     );

@@ -18,7 +18,7 @@ const STANDARD_PRICING = { inputMicrosPerToken: 3, outputMicrosPerToken: 15 };
  * standard Sonnet-5 pricing by `now`, not by when this function happens to run — so a turn
  * accounted for after the cutover with a `now` from before it still prices correctly.
  */
-export function computeCostUsdMicros(
+export function sonnetCostUsdMicros(
   usage: { readonly inputTokens: number; readonly outputTokens: number },
   now: Date,
 ): number {

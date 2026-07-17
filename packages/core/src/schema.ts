@@ -43,8 +43,13 @@ export type ConversationTurnsTable = {
  * counterpart, BUILD_PLAN 2.6a). `inputTokens`/`outputTokens`/`costUsdMicros` are `BIGINT` at the
  * SQL level — `pg`'s default type parser returns those as strings, not numbers, to avoid silent
  * precision loss past `Number.MAX_SAFE_INTEGER`; the repository layer parses them back to numbers
- * via `personaCostUsageSchema`'s `z.number().int()` fields (`z.coerce` would also accept a
- * pre-parsed number, so this holds regardless of which shape a given `pg` version hands back).
+ * via `personaCostUsageSchema`'s `z.coerce.number().int()` fields — coercion, not a plain
+ * `z.number()`, so the same schema also validates a freshly-computed candidate row's real numbers
+ * regardless of which shape a given `pg` version hands back.
+ * No `model` column — every persona uses exactly one hardcoded model today (`generate-reply.ts`'s
+ * `MODEL` constant), so `costUsdMicros` blending across an implicit single model is safe. Adding a
+ * `model` column (and widening the primary key to include it) is the real fix once "per-persona
+ * model tuning as real data comes in" (`docs/VISION.md` §10) actually lands a second model.
  */
 export type PersonaCostDailyTable = {
   readonly personaId: string;

@@ -83,6 +83,33 @@ describe('cost-usage repository', () => {
     });
   });
 
+  it('accumulates correctly even when two calls for the same persona/day race concurrently', async () => {
+    await Promise.all([
+      recordUsage(db, usageInput()),
+      recordUsage(
+        db,
+        usageInput({
+          inputTokens: 80,
+          outputTokens: 200,
+          costUsdMicros: 2_160,
+        }),
+      ),
+    ]);
+
+    const result = await getPersonaCostForDay(db, {
+      personaId: 'sarah',
+      day: '2026-07-17',
+    });
+
+    expect(result.ok && result.usage).toEqual(
+      expect.objectContaining({
+        inputTokens: 200,
+        outputTokens: 540,
+        costUsdMicros: 5_800,
+      }),
+    );
+  });
+
   it('keeps a different day for the same persona as a separate row', async () => {
     await recordUsage(db, usageInput({ day: '2026-07-17' }));
     await recordUsage(db, usageInput({ day: '2026-07-18', inputTokens: 50 }));

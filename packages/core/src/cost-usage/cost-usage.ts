@@ -14,7 +14,9 @@ const nonNegativeInt = z.coerce.number().int().nonnegative();
  * accumulated across many turns. `day` is a plain `YYYY-MM-DD` string keyed to UTC, not a SQL
  * `DATE`/`Date` object — matches this codebase's existing preference for string timestamps at
  * repository seams (e.g. `compose-gated-reply.ts`'s `now: () => string`) and sidesteps `pg`'s own
- * `DATE` → local-midnight `Date` parsing ambiguity entirely.
+ * `DATE` → local-midnight `Date` parsing ambiguity entirely. No `model` field — see
+ * `schema.ts`'s `PersonaCostDailyTable` doc comment for why that's a deliberate, revisitable
+ * simplification rather than an oversight.
  */
 export const personaCostUsageSchema = z.object({
   personaId: z.string().min(1),
@@ -27,7 +29,13 @@ export const personaCostUsageSchema = z.object({
 
 export type PersonaCostUsage = z.infer<typeof personaCostUsageSchema>;
 
-/** The UTC calendar-date portion (`YYYY-MM-DD`) of an ISO timestamp — the `day` bucket key above. */
+/**
+ * The UTC calendar-date portion (`YYYY-MM-DD`) of an ISO timestamp — the `day` bucket key above.
+ * Requires `iso` to be a real `Date.prototype.toISOString()` output (always UTC, always
+ * `YYYY-MM-DDTHH:mm:ss.sssZ`) — a non-UTC-offset ISO string (e.g. one ending `+02:00`) would
+ * silently truncate to the wrong calendar day, since this is a plain string slice, not a real
+ * timezone-aware parse.
+ */
 export function toUtcDay(iso: string): string {
   return iso.slice(0, 10);
 }

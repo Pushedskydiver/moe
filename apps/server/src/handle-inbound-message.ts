@@ -14,8 +14,8 @@ import type { InboundMessage } from '@moe/slack';
 import {
   buildPersonaSystemPrompt,
   composeGatedReply,
-  computeCostUsdMicros,
   generateReply,
+  sonnetCostUsdMicros,
   STATUS_CLAIM_TOOL,
 } from '@moe/agents';
 import { toUtcDay } from '@moe/core';
@@ -91,7 +91,7 @@ function toHistoryEntry(turn: ConversationTurn): {
   return { role: turn.role, content: turn.content };
 }
 
-// The house Result-error shape (`docs/CONVENTIONS.md` §Testing Standards) every `@moe/core`
+// The house Result-error shape (`docs/CONVENTIONS.md` §Error Handling) every `@moe/core`
 // repository error independently conforms to — shared here instead of naming one repository's
 // own error type, since this same formatter serves `HistoryStore` and `CostStore` alike.
 type RepositoryError =
@@ -149,7 +149,7 @@ async function recordUsageLogged(
     day: toUtcDay(now.toISOString()),
     inputTokens: usage.inputTokens,
     outputTokens: usage.outputTokens,
-    costUsdMicros: computeCostUsdMicros(usage, now),
+    costUsdMicros: sonnetCostUsdMicros(usage, now),
   });
   if (!result.ok) {
     deps.logger.error('failed to record LLM cost usage', {
