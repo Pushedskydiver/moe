@@ -1,3 +1,5 @@
+import type { PersonaId } from './persona-config.js';
+
 /**
  * No-persona-context fallback — used only when a caller doesn't have a `personaId` to build
  * `buildPersonaSystemPrompt` with (in practice, only `generateReply`'s own default when `system`
@@ -28,7 +30,7 @@ export const PLACEHOLDER_SYSTEM_PROMPT =
  * not something VISION itself sanctions as accepted (`compose-gated-reply.ts`'s own TSDoc; VISION
  * §7.6 only names a different gap, misgrounded claims, as an accepted Tier 0/1 tradeoff).
  */
-export function buildPersonaSystemPrompt(personaId: string): string {
+export function buildPersonaSystemPrompt(personaId: PersonaId): string {
   const displayName = personaId.charAt(0).toUpperCase() + personaId.slice(1);
   return (
     `You're ${displayName}, replying to a direct message on Slack as a teammate — that's your ` +
