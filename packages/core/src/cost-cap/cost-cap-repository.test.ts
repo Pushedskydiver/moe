@@ -12,9 +12,9 @@ import { createDb } from '../ticket-lifecycle/db.js';
 import { runMigrations } from '../ticket-lifecycle/migrate.js';
 import { getTestPool, resetDatabase } from '../ticket-lifecycle/test-db.js';
 import {
+  claimAlertThreshold,
   getAlertState,
   getPersonaCostForMonth,
-  recordAlertThreshold,
 } from './cost-cap-repository.js';
 
 const migrationsDir = join(
@@ -147,7 +147,7 @@ describe('cost-cap repository', () => {
     });
   });
 
-  describe('getAlertState / recordAlertThreshold', () => {
+  describe('getAlertState / claimAlertThreshold', () => {
     it('returns a null alert state for a persona/month with no alerts recorded yet', async () => {
       const result = await getAlertState(db, {
         personaId: 'sarah',
@@ -157,8 +157,8 @@ describe('cost-cap repository', () => {
       expect(result).toEqual({ ok: true, alert: null });
     });
 
-    it('records a first threshold crossing as a new row', async () => {
-      const result = await recordAlertThreshold(db, {
+    it('claims a first threshold crossing as a new row', async () => {
+      const result = await claimAlertThreshold(db, {
         personaId: 'sarah',
         month: '2026-07',
         threshold: 50,
@@ -174,13 +174,13 @@ describe('cost-cap repository', () => {
       });
     });
 
-    it('advances the watermark when a higher threshold is recorded', async () => {
-      await recordAlertThreshold(db, {
+    it('advances the watermark when a higher threshold is claimed', async () => {
+      await claimAlertThreshold(db, {
         personaId: 'sarah',
         month: '2026-07',
         threshold: 50,
       });
-      const second = await recordAlertThreshold(db, {
+      const second = await claimAlertThreshold(db, {
         personaId: 'sarah',
         month: '2026-07',
         threshold: 80,
@@ -189,23 +189,64 @@ describe('cost-cap repository', () => {
       expect(second.ok && second.alert.highestThresholdAlerted).toBe(80);
     });
 
-    it('never regresses the watermark when an out-of-order lower threshold is recorded', async () => {
-      await recordAlertThreshold(db, {
+    it('returns unavailable, not a stale success, for an out-of-order lower threshold', async () => {
+      await claimAlertThreshold(db, {
         personaId: 'sarah',
         month: '2026-07',
         threshold: 80,
       });
-      const second = await recordAlertThreshold(db, {
+      const second = await claimAlertThreshold(db, {
         personaId: 'sarah',
         month: '2026-07',
         threshold: 50,
       });
 
-      expect(second.ok && second.alert.highestThresholdAlerted).toBe(80);
+      expect(second).toEqual({ ok: false, error: { kind: 'unavailable' } });
+
+      const state = await getAlertState(db, {
+        personaId: 'sarah',
+        month: '2026-07',
+      });
+      expect(state.ok && state.alert?.highestThresholdAlerted).toBe(80);
+    });
+
+    it('returns unavailable, not a duplicate success, when the exact same threshold is claimed twice', async () => {
+      await claimAlertThreshold(db, {
+        personaId: 'sarah',
+        month: '2026-07',
+        threshold: 50,
+      });
+      const second = await claimAlertThreshold(db, {
+        personaId: 'sarah',
+        month: '2026-07',
+        threshold: 50,
+      });
+
+      expect(second).toEqual({ ok: false, error: { kind: 'unavailable' } });
+    });
+
+    it('lets exactly one of two concurrent claims for the same threshold win the race', async () => {
+      const [first, second] = await Promise.all([
+        claimAlertThreshold(db, {
+          personaId: 'sarah',
+          month: '2026-07',
+          threshold: 50,
+        }),
+        claimAlertThreshold(db, {
+          personaId: 'sarah',
+          month: '2026-07',
+          threshold: 50,
+        }),
+      ]);
+
+      const winners = [first, second].filter((result) => result.ok);
+      const losers = [first, second].filter((result) => !result.ok);
+      expect(winners).toHaveLength(1);
+      expect(losers).toEqual([{ ok: false, error: { kind: 'unavailable' } }]);
     });
 
     it('keeps a different month for the same persona as a separate row', async () => {
-      await recordAlertThreshold(db, {
+      await claimAlertThreshold(db, {
         personaId: 'sarah',
         month: '2026-07',
         threshold: 100,

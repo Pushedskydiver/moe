@@ -201,7 +201,7 @@ async function postHaltReply(
     ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
   });
   if (!posted.ok) {
-    deps.logger.error('failed to post reply', {
+    deps.logger.error('failed to post halt reply', {
       message: posted.error.message,
     });
   }
@@ -222,7 +222,13 @@ async function generateAndPost(
   const capCheck = await checkCostCapAndAlert(deps, now);
   if (capCheck.halt) {
     await postHaltReply(deps, message);
-    return { ok: false };
+    // `ok: true`, not `false` — matches the line below's own "ok reflects whether there's real
+    // reply content to persist, independent of Slack delivery success" precedent. A halt genuinely
+    // produced a reply (`HALT_TEXT`, just posted above); persisting it to conversation history
+    // means a real month-long halt doesn't leave the history silently diverging from what the user
+    // actually saw in Slack — a plain LLM failure (below) has no such content to persist, which is
+    // the one case `ok: false` still covers.
+    return { ok: true, text: HALT_TEXT };
   }
 
   const generated = await generateReply(deps.anthropicClient, {

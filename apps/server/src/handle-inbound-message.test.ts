@@ -101,7 +101,7 @@ function makeCapStore(
   overrides: Partial<{
     readonly getMonthlyCost: CapStore['getMonthlyCost'];
     readonly getAlertState: CapStore['getAlertState'];
-    readonly recordAlertThreshold: CapStore['recordAlertThreshold'];
+    readonly claimAlertThreshold: CapStore['claimAlertThreshold'];
   }> = {},
 ): CapStore {
   return {
@@ -118,8 +118,8 @@ function makeCapStore(
     getAlertState: vi
       .fn<CapStore['getAlertState']>()
       .mockResolvedValue({ ok: true, alert: null }),
-    recordAlertThreshold: vi
-      .fn<CapStore['recordAlertThreshold']>()
+    claimAlertThreshold: vi
+      .fn<CapStore['claimAlertThreshold']>()
       .mockResolvedValue({
         ok: true,
         alert: {
@@ -310,7 +310,7 @@ describe('createInboundMessageHandler', () => {
     await handler(DM_MESSAGE);
 
     expect(deps.anthropicClient.messages.create).toHaveBeenCalled();
-    expect(deps.capStore.recordAlertThreshold).not.toHaveBeenCalled();
+    expect(deps.capStore.claimAlertThreshold).not.toHaveBeenCalled();
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'U0ALEX' }),
     );
@@ -344,7 +344,7 @@ describe('createInboundMessageHandler', () => {
     );
   });
 
-  it('does not persist a halted turn as an assistant reply in conversation history', async () => {
+  it('persists a halted turn as a real assistant reply in conversation history (BUILD_PLAN 2.6b DA fold) — HALT_TEXT genuinely reached Slack, so history should match the real transcript, not silently diverge from it for the rest of the month', async () => {
     const priorTurns = [turn({ role: 'user', content: 'hi' })];
     const deps = makeDeps({
       historyStore: makeHistoryStore({
@@ -372,8 +372,11 @@ describe('createInboundMessageHandler', () => {
     expect(deps.historyStore.appendTurn).toHaveBeenCalledWith(
       expect.objectContaining({ role: 'user' }),
     );
-    expect(deps.historyStore.appendTurn).not.toHaveBeenCalledWith(
-      expect.objectContaining({ role: 'assistant' }),
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith(
+      expect.objectContaining({
+        role: 'assistant',
+        content: expect.stringContaining('budget'),
+      }),
     );
   });
 
@@ -407,7 +410,7 @@ describe('createInboundMessageHandler', () => {
           text: expect.stringContaining('50'),
         }),
       );
-      expect(deps.capStore.recordAlertThreshold).toHaveBeenCalledWith({
+      expect(deps.capStore.claimAlertThreshold).toHaveBeenCalledWith({
         personaId: 'sarah',
         month: '2026-07',
         threshold: 50,
@@ -445,7 +448,7 @@ describe('createInboundMessageHandler', () => {
 
     await handler(DM_MESSAGE);
 
-    expect(deps.capStore.recordAlertThreshold).not.toHaveBeenCalled();
+    expect(deps.capStore.claimAlertThreshold).not.toHaveBeenCalled();
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'U0ALEX' }),
     );
@@ -471,7 +474,7 @@ describe('createInboundMessageHandler', () => {
     );
   });
 
-  it('logs an error, without throwing, when recording the alert threshold fails', async () => {
+  it('logs an error, without throwing, and does not post the alert, when claiming the threshold fails for a real reason', async () => {
     const deps = makeDeps({
       capStore: makeCapStore({
         getMonthlyCost: vi.fn<CapStore['getMonthlyCost']>().mockResolvedValue({
@@ -484,8 +487,8 @@ describe('createInboundMessageHandler', () => {
             costUsdMicros: 50_000_000,
           },
         }),
-        recordAlertThreshold: vi
-          .fn<CapStore['recordAlertThreshold']>()
+        claimAlertThreshold: vi
+          .fn<CapStore['claimAlertThreshold']>()
           .mockResolvedValue({
             ok: false,
             error: { kind: 'unknown', cause: new Error('connection reset') },
@@ -499,6 +502,40 @@ describe('createInboundMessageHandler', () => {
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to record cost alert threshold',
       { message: 'Error: connection reset' },
+    );
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'U0ALEX' }),
+    );
+  });
+
+  it('does not post a duplicate alert, and does not log an error, when a concurrent turn already won the claim for this threshold (BUILD_PLAN 2.6b DA fold)', async () => {
+    const deps = makeDeps({
+      capStore: makeCapStore({
+        getMonthlyCost: vi.fn<CapStore['getMonthlyCost']>().mockResolvedValue({
+          ok: true,
+          total: {
+            personaId: 'sarah',
+            month: '2026-07',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsdMicros: 50_000_000,
+          },
+        }),
+        claimAlertThreshold: vi
+          .fn<CapStore['claimAlertThreshold']>()
+          .mockResolvedValue({ ok: false, error: { kind: 'unavailable' } }),
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler(DM_MESSAGE);
+
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'U0ALEX' }),
+    );
+    expect(deps.logger.error).not.toHaveBeenCalledWith(
+      'failed to record cost alert threshold',
+      expect.anything(),
     );
   });
 

@@ -1,7 +1,7 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
 import type {
+  AlertClaimResult,
   PersonaCostAlertOrNullResult,
-  PersonaCostAlertResult,
   PersonaCostMonthlyTotalResult,
 } from '@moe/core';
 
@@ -26,12 +26,22 @@ export type CapStore = {
   readonly getAlertState: (
     scope: CostCapScope,
   ) => Promise<PersonaCostAlertOrNullResult>;
-  readonly recordAlertThreshold: (input: {
+  readonly claimAlertThreshold: (input: {
     readonly personaId: string;
     readonly month: string;
     readonly threshold: number;
-  }) => Promise<PersonaCostAlertResult>;
+  }) => Promise<AlertClaimResult>;
 };
+
+// This module only ever touches 5 of `HandlerDeps`'s fields — `Pick` rather than the full type,
+// so a caller (or a future test) only needs to supply what's actually used here, not every field
+// `handle-inbound-message.ts` itself needs. Still a type-only reference to `HandlerDeps`, so it
+// erases at compile time regardless of the type-only import cycle that creates with
+// `handle-inbound-message.ts` importing `CapStore` back from this file.
+type CostCapDeps = Pick<
+  HandlerDeps,
+  'capStore' | 'costCapConfig' | 'personaId' | 'slackClient' | 'logger'
+>;
 
 /**
  * DM'd to `costCapConfig.alertSlackUserId` (Alex) on a newly-crossed spend-alert rung — a
@@ -51,12 +61,24 @@ function costAlertText(input: {
   return `${input.personaId} has crossed ${input.threshold}% of its monthly cost cap: $${spent} of $${cap} spent this month.`;
 }
 
-// Recursive, not a `for` loop — matches `@moe/core`'s `migrate.ts` `applyPending` precedent for
-// sequential-by-design async work over a short list (at most 3 thresholds). Sends and records one
-// at a time, in ascending order, so a partial failure mid-list still leaves earlier rungs alerted
-// and persisted.
+/**
+ * Recursive, not a `for` loop — matches `@moe/core`'s `migrate.ts` `applyPending` precedent for
+ * sequential-by-design async work over a short list (at most 3 thresholds). Claims one threshold
+ * at a time, in ascending order, via `capStore.claimAlertThreshold`'s atomic conditional update
+ * (`@moe/core`'s `claimAlertThreshold`, same `WHERE`-guarded mechanism as
+ * `ticket-lifecycle/claim.ts`'s `claimTicket`) — the DM is only sent when the claim actually wins,
+ * so two concurrent turns for the same persona (`apps/server`'s own `threadQueue` only serializes
+ * per-thread, not process-wide) evaluating the same newly-crossed threshold can never both send
+ * the same DM: exactly one claim can win, `{ kind: 'unavailable' }` for the loser is expected,
+ * quiet behavior, not an error. If the claim wins but the Slack post itself then fails, the
+ * watermark still advances (the claim already committed) — this rung's alert is not retried this
+ * month. That's a narrower, rarer gap than the alternative (post-before-claim), which would let
+ * concurrent callers each observe success and each send a duplicate — VISION §10's own
+ * "alerts once, not every turn after" is a harder requirement to violate than "never once misses an
+ * alert during a Slack outage," so this chunk accepts the latter, narrower risk.
+ */
 async function sendCostAlerts(
-  deps: HandlerDeps,
+  deps: CostCapDeps,
   input: {
     readonly scope: CostCapScope;
     readonly thresholds: readonly number[];
@@ -66,28 +88,28 @@ async function sendCostAlerts(
   const [threshold, ...rest] = input.thresholds;
   if (threshold === undefined) return;
 
-  const posted = await postMessage(deps.slackClient, {
-    channelId: deps.costCapConfig.alertSlackUserId,
-    text: costAlertText({
-      personaId: deps.personaId,
-      threshold,
-      monthlyCostUsdMicros: input.monthlyCostUsdMicros,
-      capUsdMicros: deps.costCapConfig.monthlyCapUsdMicros,
-    }),
-  });
-  if (!posted.ok) {
-    deps.logger.error('failed to post cost cap alert', {
-      message: posted.error.message,
-    });
-  }
-
-  const recorded = await deps.capStore.recordAlertThreshold({
+  const claimed = await deps.capStore.claimAlertThreshold({
     ...input.scope,
     threshold,
   });
-  if (!recorded.ok) {
+  if (claimed.ok) {
+    const posted = await postMessage(deps.slackClient, {
+      channelId: deps.costCapConfig.alertSlackUserId,
+      text: costAlertText({
+        personaId: deps.personaId,
+        threshold,
+        monthlyCostUsdMicros: input.monthlyCostUsdMicros,
+        capUsdMicros: deps.costCapConfig.monthlyCapUsdMicros,
+      }),
+    });
+    if (!posted.ok) {
+      deps.logger.error('failed to post cost cap alert', {
+        message: posted.error.message,
+      });
+    }
+  } else if (claimed.error.kind !== 'unavailable') {
     deps.logger.error('failed to record cost alert threshold', {
-      message: repositoryErrorMessage(recorded.error),
+      message: repositoryErrorMessage(claimed.error),
     });
   }
 
@@ -99,15 +121,18 @@ async function sendCostAlerts(
  * turn generates a reply — `handle-inbound-message.ts`'s `generateAndPost` skips `generateReply`
  * entirely when `halt` comes back `true`, so a halted turn never reaches the Anthropic API at
  * all, not just its reply being discarded afterward. Any newly-crossed alert rung
- * (`evaluateCostCap`, `@moe/agents`) is DM'd to Alex and its watermark persisted before
- * returning, so a crash between the two would at worst re-send one alert next turn, never
- * silently drop it. A read failure on either the monthly total or the alert-dedup state fails
- * open (`halt: false`) — same "log, don't block replies" posture every other infra-failure path
- * in this app already takes; a transient DB error blocking every future reply for the rest of the
- * month would be a far worse outcome than one unchecked turn.
+ * (`evaluateCostCap`, `@moe/agents`) goes through `sendCostAlerts`'s own atomic claim-then-alert
+ * step — see its TSDoc for what "newly-crossed" actually guarantees under concurrent turns. A read
+ * failure on either the monthly total or the alert-dedup state fails open (`halt: false`) — same
+ * "log, don't block replies" posture every other infra-failure path in this app already takes.
+ * The trade-off is deliberate, not just borrowed: a sustained outage here means cap enforcement
+ * itself goes silently inert for its duration, but the alternative (fail closed) means a
+ * transient DB blip halts every reply for every persona for the rest of the month with no
+ * automatic recovery — for a chunk with no escalation/paging path yet, the failure mode that
+ * self-heals the moment the DB recovers is the safer default.
  */
 export async function checkCostCapAndAlert(
-  deps: HandlerDeps,
+  deps: CostCapDeps,
   now: Date,
 ): Promise<{ readonly halt: boolean }> {
   const scope: CostCapScope = {

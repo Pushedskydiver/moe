@@ -71,11 +71,13 @@ export {
 export type { PersonaCostUsage } from './cost-usage/cost-usage.js';
 
 export {
+  claimAlertThreshold,
   getAlertState,
   getPersonaCostForMonth,
-  recordAlertThreshold,
 } from './cost-cap/cost-cap-repository.js';
 export type {
+  AlertClaimError,
+  AlertClaimResult,
   CostCapRepositoryError,
   PersonaCostAlertOrNullResult,
   PersonaCostAlertResult,

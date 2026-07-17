@@ -23,6 +23,18 @@ export type PersonaCostAlertOrNullResult =
   | { readonly ok: true; readonly alert: PersonaCostAlert | null }
   | { readonly ok: false; readonly error: CostCapRepositoryError };
 
+// `'unavailable'` is specific to `claimAlertThreshold`'s atomic-claim semantics below (the
+// conditional update legitimately matching zero rows, not a failure) — scoped to its own error/
+// result type rather than widening `CostCapRepositoryError`, matching `../ticket-lifecycle/
+// claim.ts`'s own separate `ClaimError`/`ClaimResult` for the identical reason: `getPersonaCostForMonth`/
+// `getAlertState` can never actually produce it, so their own result types shouldn't claim to.
+export type AlertClaimError =
+  CostCapRepositoryError | { readonly kind: 'unavailable' };
+
+export type AlertClaimResult =
+  | { readonly ok: true; readonly alert: PersonaCostAlert }
+  | { readonly ok: false; readonly error: AlertClaimError };
+
 function parseMonthlyTotal(row: unknown): PersonaCostMonthlyTotalResult {
   const parsed = personaCostMonthlyTotalSchema.safeParse(row);
   if (!parsed.success) {
@@ -113,19 +125,25 @@ export async function getAlertState(
 }
 
 /**
- * Advances a persona's spend-alert watermark for one UTC month to `threshold` — a real
- * `INSERT ... ON CONFLICT (persona_id, month) DO UPDATE SET highest_threshold_alerted =
- * GREATEST(...)`, not a read-modify-write, so an out-of-order or concurrent call for a *lower*
- * threshold than what's already recorded can never regress the watermark.
+ * Atomically claims the right to alert on `threshold` for one UTC month — same READ-COMMITTED
+ * row-lock/re-check mechanism as `../ticket-lifecycle/claim.ts`'s `claimTicket` (see its own
+ * TSDoc for the exact mechanics), applied to "am I the first caller to advance this watermark
+ * past `threshold`" instead of "am I the first caller to claim this ticket." The conflict update
+ * only applies `WHERE highestThresholdAlerted < excluded.highestThresholdAlerted` — a concurrent
+ * or out-of-order call for a threshold at or below the current watermark returns
+ * `{ kind: 'unavailable' }`, not a stale-but-successful read of the existing row, so a caller can
+ * tell "I won the race, go alert" apart from "someone already claimed this, stay quiet" without a
+ * separate read-then-act step that could itself race. The very first call for a persona/month
+ * always succeeds (the `WHERE` only gates the conflict branch, not the initial insert).
  */
-export async function recordAlertThreshold(
+export async function claimAlertThreshold(
   db: Kysely<Database>,
   input: {
     readonly personaId: string;
     readonly month: string;
     readonly threshold: number;
   },
-): Promise<PersonaCostAlertResult> {
+): Promise<AlertClaimResult> {
   const candidate = {
     personaId: input.personaId,
     month: input.month,
@@ -141,17 +159,24 @@ export async function recordAlertThreshold(
       .insertInto('personaCostAlerts')
       .values(candidate)
       .onConflict((oc) =>
-        oc.columns(['personaId', 'month']).doUpdateSet((eb) => ({
-          highestThresholdAlerted: eb.fn<number>('greatest', [
-            'personaCostAlerts.highestThresholdAlerted',
-            'excluded.highestThresholdAlerted',
-          ]),
-          updatedAt: eb.ref('excluded.updatedAt'),
-        })),
+        oc
+          .columns(['personaId', 'month'])
+          .doUpdateSet((eb) => ({
+            highestThresholdAlerted: eb.ref('excluded.highestThresholdAlerted'),
+            updatedAt: eb.ref('excluded.updatedAt'),
+          }))
+          .where((eb) =>
+            eb(
+              'personaCostAlerts.highestThresholdAlerted',
+              '<',
+              eb.ref('excluded.highestThresholdAlerted'),
+            ),
+          ),
       )
       .returningAll()
-      .executeTakeFirstOrThrow();
+      .executeTakeFirst();
 
+    if (!row) return { ok: false, error: { kind: 'unavailable' } };
     return parseAlertRow(row);
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };

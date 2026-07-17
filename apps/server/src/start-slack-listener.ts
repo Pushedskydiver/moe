@@ -6,10 +6,10 @@ import type { Kysely } from 'kysely';
 import { createAnthropicClient } from '@moe/agents';
 import {
   appendTurn,
+  claimAlertThreshold,
   getAlertState,
   getPersonaCostForMonth,
   getRecentTurns,
-  recordAlertThreshold,
   recordUsage,
 } from '@moe/core';
 import {
@@ -63,9 +63,8 @@ function createStores(db: Kysely<Database>) {
         getPersonaCostForMonth(db, scope),
       getAlertState: (scope: Parameters<typeof getAlertState>[1]) =>
         getAlertState(db, scope),
-      recordAlertThreshold: (
-        input: Parameters<typeof recordAlertThreshold>[1],
-      ) => recordAlertThreshold(db, input),
+      claimAlertThreshold: (input: Parameters<typeof claimAlertThreshold>[1]) =>
+        claimAlertThreshold(db, input),
     },
   };
 }
