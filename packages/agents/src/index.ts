@@ -18,9 +18,13 @@ export { createAnthropicClient } from './create-anthropic-client.js';
 export type {
   GenerateReplyParams,
   GenerateReplyResult,
+  GenerateReplyToolUse,
 } from './generate-reply.js';
 export { generateReply } from './generate-reply.js';
 export {
   buildPersonaSystemPrompt,
   PLACEHOLDER_SYSTEM_PROMPT,
 } from './placeholder-system-prompt.js';
+export type { GatedReplyEvidence } from './compose-gated-reply.js';
+export { composeGatedReply } from './compose-gated-reply.js';
+export { STATUS_CLAIM_TOOL } from './status-claim-tool.js';

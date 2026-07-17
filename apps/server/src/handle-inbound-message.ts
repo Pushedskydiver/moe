@@ -9,7 +9,12 @@ import type {
 } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
-import { buildPersonaSystemPrompt, generateReply } from '@moe/agents';
+import {
+  buildPersonaSystemPrompt,
+  composeGatedReply,
+  generateReply,
+  STATUS_CLAIM_TOOL,
+} from '@moe/agents';
 import { postMessage } from '@moe/slack';
 
 import { resolveThreadKey } from './resolve-thread-key.js';
@@ -141,6 +146,9 @@ async function backfillRootCandidate(
   }
 }
 
+type GenerateAndPostResult =
+  { readonly ok: true; readonly text: string } | { readonly ok: false };
+
 async function generateAndPost(
   deps: HandlerDeps,
   message: InboundMessage,
@@ -148,11 +156,12 @@ async function generateAndPost(
     readonly role: 'user' | 'assistant';
     readonly content: string;
   }>,
-) {
+): Promise<GenerateAndPostResult> {
   const generated = await generateReply(deps.anthropicClient, {
     text: message.text,
     history,
     system: buildPersonaSystemPrompt(deps.personaId),
+    tools: [STATUS_CLAIM_TOOL],
   });
 
   if (!generated.ok) {
@@ -161,9 +170,17 @@ async function generateAndPost(
     });
   }
 
+  // Composed once and reused for both the Slack post and the persisted/buffered history entry
+  // below, so the two can never drift apart — avoids redundant work now, and once Stage 6 wires
+  // in real evidence that could itself change between calls (e.g. a re-fetched CI status), a
+  // second composeGatedReply call could otherwise return a different result than the first.
+  const text = generated.ok
+    ? composeGatedReply(generated, () => new Date().toISOString())
+    : FALLBACK_TEXT;
+
   const posted = await postMessage(deps.slackClient, {
     channelId: message.channelId,
-    text: generated.ok ? generated.reply : FALLBACK_TEXT,
+    text,
     ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
   });
   if (!posted.ok) {
@@ -172,7 +189,7 @@ async function generateAndPost(
     });
   }
 
-  return generated;
+  return generated.ok ? { ok: true, text } : { ok: false };
 }
 
 async function handleUnthreadedMessage(
@@ -191,7 +208,7 @@ async function handleUnthreadedMessage(
     deps.rootCandidateBuffer.recordReply(
       message.channelId,
       message.ts,
-      generated.reply,
+      generated.text,
     );
   }
 }
@@ -232,7 +249,7 @@ async function handleThreadedMessage(
     await appendTurnLogged(deps, {
       ...scope,
       role: 'assistant',
-      content: generated.reply,
+      content: generated.text,
     });
   }
 }

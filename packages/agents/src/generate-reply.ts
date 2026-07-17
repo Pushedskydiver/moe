@@ -15,6 +15,12 @@ type GenerateReplyClient = {
   };
 };
 
+export type GenerateReplyToolUse = {
+  readonly id: string;
+  readonly name: string;
+  readonly input: unknown;
+};
+
 export type GenerateReplyParams = {
   readonly text: string;
   readonly tools?: ReadonlyArray<Anthropic.Tool>;
@@ -26,14 +32,43 @@ export type GenerateReplyParams = {
 };
 
 export type GenerateReplyResult =
-  | { readonly ok: true; readonly reply: string }
+  | {
+      readonly ok: true;
+      readonly reply: string;
+      readonly toolUses: readonly GenerateReplyToolUse[];
+    }
   | {
       readonly ok: false;
       readonly error: {
-        readonly kind: 'anthropic-api-error' | 'no-text-content';
+        readonly kind: 'anthropic-api-error' | 'no-content';
         readonly message: string;
       };
     };
+
+function toGenerateReplyResult(
+  message: Anthropic.Message,
+): GenerateReplyResult {
+  const textBlock = message.content.find(
+    (block): block is Anthropic.TextBlock => block.type === 'text',
+  );
+  const toolUses: readonly GenerateReplyToolUse[] = message.content
+    .filter(
+      (block): block is Anthropic.ToolUseBlock => block.type === 'tool_use',
+    )
+    .map((block) => ({ id: block.id, name: block.name, input: block.input }));
+
+  if (textBlock === undefined && toolUses.length === 0) {
+    return {
+      ok: false,
+      error: {
+        kind: 'no-content',
+        message: `no text or tool_use content block in response (stop_reason: ${message.stop_reason ?? 'unknown'})`,
+      },
+    };
+  }
+
+  return { ok: true, reply: textBlock?.text ?? '', toolUses };
+}
 
 /**
  * Calls the Anthropic Messages API (`docs/VISION.md` §11's verified model-client choice). `system`
@@ -42,9 +77,10 @@ export type GenerateReplyResult =
  * `buildPersonaSystemPrompt(personaId)` instead. `history`, when provided, is forwarded ahead of
  * `text` as prior turns (BUILD_PLAN 2.4b) — this function itself is stateless (it never reads or
  * writes any store), the caller decides what history to pass, if any. `tools`, when provided,
- * passes through to the API call as inline JSON-schema definitions (not MCP) — BUILD_PLAN 2.4a's
- * own proof that the client wiring supports them, even though no real tool is wired to anything
- * yet.
+ * passes through to the API call as inline JSON-schema definitions (not MCP) — the real call site
+ * always passes the `report_status` status-claim tool (BUILD_PLAN 2.5); `reply` is the response's
+ * text block content (`''` if none), and `toolUses` collects every `tool_use` content block
+ * verbatim, letting the caller decide what to do with either.
  */
 export async function generateReply(
   client: GenerateReplyClient,
@@ -62,19 +98,7 @@ export async function generateReply(
       ...(params.tools !== undefined ? { tools: [...params.tools] } : {}),
     });
 
-    const textBlock = message.content.find(
-      (block): block is Anthropic.TextBlock => block.type === 'text',
-    );
-
-    return textBlock
-      ? { ok: true, reply: textBlock.text }
-      : {
-          ok: false,
-          error: {
-            kind: 'no-text-content',
-            message: `no text content block in response (stop_reason: ${message.stop_reason ?? 'unknown'})`,
-          },
-        };
+    return toGenerateReplyResult(message);
   } catch (error) {
     return {
       ok: false,
