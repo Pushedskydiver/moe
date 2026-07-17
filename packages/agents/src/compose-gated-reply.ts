@@ -23,7 +23,12 @@ export type GatedReplyEvidence = Pick<
 
 /**
  * Runs any `report_status` tool call in `result` through the 1.4 gate (`@moe/core`'s
- * `composeStatus`, VISION §7.6). Returns `result.reply` unchanged when no status claim was made.
+ * `composeStatus`, VISION §7.6). Returns `result.reply` unchanged when no status claim was made —
+ * this is also the gap in this chunk's own enforcement: a status claim asserted directly in free
+ * prose, with no `report_status` call at all, passes straight through here ungated. Closing that
+ * fully means detecting a status assertion in arbitrary prose, which is Stage 5/6 territory
+ * (persona prompting, independent verifiers), not this function's job — `placeholder-system-
+ * prompt.ts` instructs the model not to do this, but nothing here mechanically enforces it.
  * When a status claim IS present, its text (and any accompanying prose in `result.reply`) is
  * discarded in favor of the composed outcome — VISION §7.6 requires status claims to come from
  * the typed object exclusively, so any free text alongside the tool call isn't a second,

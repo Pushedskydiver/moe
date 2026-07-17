@@ -26,8 +26,5 @@ export {
   PLACEHOLDER_SYSTEM_PROMPT,
 } from './placeholder-system-prompt.js';
 export type { GatedReplyEvidence } from './compose-gated-reply.js';
-export {
-  composeGatedReply,
-  NOT_YET_VERIFIED_TEXT,
-} from './compose-gated-reply.js';
+export { composeGatedReply } from './compose-gated-reply.js';
 export { STATUS_CLAIM_TOOL } from './status-claim-tool.js';
