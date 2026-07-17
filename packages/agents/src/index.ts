@@ -19,6 +19,7 @@ export type {
   GenerateReplyParams,
   GenerateReplyResult,
   GenerateReplyToolUse,
+  GenerateReplyUsage,
 } from './generate-reply.js';
 export { generateReply } from './generate-reply.js';
 export {
@@ -28,3 +29,4 @@ export {
 export type { GatedReplyEvidence } from './compose-gated-reply.js';
 export { composeGatedReply } from './compose-gated-reply.js';
 export { STATUS_CLAIM_TOOL } from './status-claim-tool.js';
+export { sonnetCostUsdMicros } from './model-pricing.js';

@@ -38,7 +38,30 @@ export type ConversationTurnsTable = {
   readonly createdAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `persona_cost_daily` (`./cost-usage/cost-usage.ts`'s DB-backed
+ * counterpart, BUILD_PLAN 2.6a). `inputTokens`/`outputTokens`/`costUsdMicros` are `BIGINT` at the
+ * SQL level — `pg`'s default type parser returns those as strings, not numbers, to avoid silent
+ * precision loss past `Number.MAX_SAFE_INTEGER`; the repository layer parses them back to numbers
+ * via `personaCostUsageSchema`'s `z.coerce.number().int()` fields — coercion, not a plain
+ * `z.number()`, so the same schema also validates a freshly-computed candidate row's real numbers
+ * regardless of which shape a given `pg` version hands back.
+ * No `model` column — every persona uses exactly one hardcoded model today (`generate-reply.ts`'s
+ * `MODEL` constant), so `costUsdMicros` blending across an implicit single model is safe. Adding a
+ * `model` column (and widening the primary key to include it) is the real fix once "per-persona
+ * model tuning as real data comes in" (`docs/VISION.md` §10) actually lands a second model.
+ */
+export type PersonaCostDailyTable = {
+  readonly personaId: string;
+  readonly day: string;
+  readonly inputTokens: string | number;
+  readonly outputTokens: string | number;
+  readonly costUsdMicros: string | number;
+  readonly updatedAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
+  readonly personaCostDaily: PersonaCostDailyTable;
 };

@@ -48,8 +48,21 @@ export type { MigrateResult } from './ticket-lifecycle/migrate.js';
 export type {
   ConversationTurnsTable,
   Database,
+  PersonaCostDailyTable,
   TicketsTable,
 } from './schema.js';
+export {
+  getPersonaCostForDay,
+  recordUsage,
+} from './cost-usage/cost-usage-repository.js';
+export type {
+  NewPersonaCostUsage,
+  PersonaCostUsageOrNullResult,
+  PersonaCostUsageRepositoryError,
+  PersonaCostUsageResult,
+} from './cost-usage/cost-usage-repository.js';
+export { personaCostUsageSchema, toUtcDay } from './cost-usage/cost-usage.js';
+export type { PersonaCostUsage } from './cost-usage/cost-usage.js';
 export {
   createTicket,
   getTicketById,

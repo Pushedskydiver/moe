@@ -14,7 +14,13 @@ const now = () => FIXED_TIMESTAMP;
 function okResult(
   overrides: Partial<Extract<GenerateReplyResult, { readonly ok: true }>> = {},
 ): Extract<GenerateReplyResult, { readonly ok: true }> {
-  return { ok: true, reply: 'sure, one sec', toolUses: [], ...overrides };
+  return {
+    ok: true,
+    reply: 'sure, one sec',
+    toolUses: [],
+    usage: { inputTokens: 12, outputTokens: 34 },
+    ...overrides,
+  };
 }
 
 describe('composeGatedReply', () => {

@@ -8,6 +8,7 @@ import { makeRootCandidateBuffer } from './root-candidate-buffer.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 type HistoryStore = HandlerDeps['historyStore'];
+type CostStore = HandlerDeps['costStore'];
 
 function makeSlackClient(response: {
   readonly ok: boolean;
@@ -25,6 +26,10 @@ function makeAnthropicClient(
             unknown
           >
         >;
+        readonly usage?: {
+          readonly input_tokens: number;
+          readonly output_tokens: number;
+        };
       }
     | (() => never),
 ) {
@@ -72,12 +77,32 @@ function makeHistoryStore(
   };
 }
 
+function makeCostStore(
+  overrides: Partial<{ readonly recordUsage: CostStore['recordUsage'] }> = {},
+): CostStore {
+  return {
+    recordUsage: vi.fn<CostStore['recordUsage']>().mockResolvedValue({
+      ok: true,
+      usage: {
+        personaId: 'sarah',
+        day: '2026-07-17',
+        inputTokens: 12,
+        outputTokens: 34,
+        costUsdMicros: 364,
+        updatedAt: new Date('2026-07-17T09:00:00.000Z'),
+      },
+    }),
+    ...overrides,
+  };
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly anthropicClient: ReturnType<typeof makeAnthropicClient>;
     readonly slackClient: ReturnType<typeof makeSlackClient>;
     readonly logger: ReturnType<typeof makeLogger>;
     readonly historyStore: ReturnType<typeof makeHistoryStore>;
+    readonly costStore: ReturnType<typeof makeCostStore>;
     readonly personaId: string;
     readonly threadQueue: ReturnType<typeof makeThreadQueue>;
     readonly rootCandidateBuffer: ReturnType<typeof makeRootCandidateBuffer>;
@@ -88,6 +113,7 @@ function makeDeps(
     slackClient: makeSlackClient({ ok: true }),
     logger: makeLogger(),
     historyStore: makeHistoryStore(),
+    costStore: makeCostStore(),
     personaId: 'sarah',
     threadQueue: makeThreadQueue(),
     rootCandidateBuffer: makeRootCandidateBuffer(),
@@ -105,6 +131,7 @@ const DM_MESSAGE = {
 
 const REPLY_MESSAGE = {
   content: [{ type: 'text', text: 'Sure, tell me more.' }],
+  usage: { input_tokens: 12, output_tokens: 34 },
 };
 
 describe('createInboundMessageHandler', () => {
@@ -173,6 +200,62 @@ describe('createInboundMessageHandler', () => {
         channel: 'D123',
         text: "Sorry, I ran into a problem generating a reply — I've logged it.",
       }),
+    );
+  });
+
+  it("records the turn's token usage and its priced cost against the persona/day bucket (BUILD_PLAN 2.6a)", async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-17T09:00:00.000Z'));
+    try {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      // REPLY_MESSAGE's usage is {input_tokens: 12, output_tokens: 34}; introductory Sonnet-5
+      // pricing (2026-07-17, before the 2026-08-31 cutover) is $2/$10 per MTok, i.e. 2/10
+      // micro-USD per token: 12 * 2 + 34 * 10 = 364.
+      expect(deps.costStore.recordUsage).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        day: '2026-07-17',
+        inputTokens: 12,
+        outputTokens: 34,
+        costUsdMicros: 364,
+      });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not record cost usage when the LLM call fails — there is no token usage to account for', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(() => {
+        throw new Error('rate limited');
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler(DM_MESSAGE);
+
+    expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it('logs an error, without throwing, when recording cost usage fails', async () => {
+    const deps = makeDeps({
+      costStore: makeCostStore({
+        recordUsage: vi.fn<CostStore['recordUsage']>().mockResolvedValue({
+          ok: false,
+          error: { kind: 'unknown', cause: new Error('connection reset') },
+        }),
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await expect(handler(DM_MESSAGE)).resolves.toBeUndefined();
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to record LLM cost usage',
+      { message: 'Error: connection reset' },
     );
   });
 
@@ -380,6 +463,7 @@ describe('createInboundMessageHandler', () => {
             input: { claim: 'done' },
           },
         ],
+        usage: { input_tokens: 12, output_tokens: 34 },
       }),
     });
     const handler = createInboundMessageHandler(deps);
