@@ -30,3 +30,10 @@ export type { GatedReplyEvidence } from './compose-gated-reply.js';
 export { composeGatedReply } from './compose-gated-reply.js';
 export { STATUS_CLAIM_TOOL } from './status-claim-tool.js';
 export { sonnetCostUsdMicros } from './model-pricing.js';
+export type {
+  CostCapConfig,
+  ParseCostCapConfigResult,
+} from './cost-cap-config.js';
+export { parseCostCapConfig } from './cost-cap-config.js';
+export type { CostCapEvaluation } from './evaluate-cost-cap.js';
+export { evaluateCostCap } from './evaluate-cost-cap.js';

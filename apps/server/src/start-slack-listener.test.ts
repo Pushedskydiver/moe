@@ -41,6 +41,10 @@ const DEPS: StartSlackListenerDeps = {
   // A placeholder — none of these tests exercise a Slack message reaching the handler, so the
   // real Kysely query surface is never touched; only its presence on `deps` is asserted anywhere.
   db: {} as StartSlackListenerDeps['db'],
+  costCapConfig: {
+    monthlyCapUsdMicros: 100_000_000,
+    alertSlackUserId: 'U0ALEX',
+  },
 };
 
 function makeFakeListener(start: ReturnType<typeof vi.fn>) {

@@ -36,6 +36,7 @@ describe('runMigrations', () => {
         '0002_add_ticket_claims.sql',
         '0003_create_conversation_turns.sql',
         '0004_create_persona_cost_daily.sql',
+        '0005_create_persona_cost_alerts.sql',
       ],
     });
 
@@ -47,6 +48,7 @@ describe('runMigrations', () => {
       { id: '0002_add_ticket_claims.sql' },
       { id: '0003_create_conversation_turns.sql' },
       { id: '0004_create_persona_cost_daily.sql' },
+      { id: '0005_create_persona_cost_alerts.sql' },
     ]);
   });
 
