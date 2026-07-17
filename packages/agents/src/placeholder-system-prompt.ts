@@ -24,7 +24,9 @@ export const PLACEHOLDER_SYSTEM_PROMPT =
  * model to route status claims through the `report_status` tool (`status-claim-tool.ts`, BUILD_PLAN
  * 2.5) rather than asserting them directly in prose — VISION §7.6 requires status claims to come
  * from a typed object, never free prose; a bare-prose claim still slips past this instruction
- * ungated, an accepted gap at this stage (`compose-gated-reply.ts`'s own TSDoc).
+ * ungated — a known limitation of this chunk's own (prompt-level, not mechanical) enforcement,
+ * not something VISION itself sanctions as accepted (`compose-gated-reply.ts`'s own TSDoc; VISION
+ * §7.6 only names a different gap, misgrounded claims, as an accepted Tier 0/1 tradeoff).
  */
 export function buildPersonaSystemPrompt(personaId: string): string {
   const displayName = personaId.charAt(0).toUpperCase() + personaId.slice(1);
