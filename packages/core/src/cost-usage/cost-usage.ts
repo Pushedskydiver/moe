@@ -8,10 +8,13 @@ const nonNegativeInt = z.coerce.number().int().nonnegative();
 
 /**
  * One persona's accumulated LLM token/cost usage for a single UTC calendar day (BUILD_PLAN
- * 2.6a). `costUsdMicros` is USD × 1,000,000 (an integer, not a float or SQL `NUMERIC`) — avoids
- * both floating-point drift and `pg`'s default string-typed `NUMERIC` deserialization, and gives
- * enough precision that a single turn's fractional-cent cost isn't lost to rounding when
- * accumulated across many turns. `day` is a plain `YYYY-MM-DD` string keyed to UTC, not a SQL
+ * 2.6a). `costUsdMicros` is USD × 1,000,000 (an integer, not a float or SQL `NUMERIC`) — `pg`
+ * returns both `BIGINT` and `NUMERIC` columns as strings by default (see the comment above), so
+ * the choice isn't about avoiding string-typed deserialization, which happens either way. It's
+ * about keeping every value in the pipeline — this schema's own coercion, the pricing arithmetic
+ * in `@moe/agents`'s `sonnetCostUsdMicros`, and the SQL-side atomic accumulation — an exact
+ * integer with no floating-point step anywhere, the way a fractional-cent dollar amount
+ * represented as a JS float would require. `day` is a plain `YYYY-MM-DD` string keyed to UTC, not a SQL
  * `DATE`/`Date` object — matches this codebase's existing preference for string timestamps at
  * repository seams (e.g. `compose-gated-reply.ts`'s `now: () => string`) and sidesteps `pg`'s own
  * `DATE` → local-midnight `Date` parsing ambiguity entirely. No `model` field — see
