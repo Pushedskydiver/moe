@@ -1,20 +1,24 @@
 import type { RootCandidateBuffer } from './root-candidate-buffer.js';
 import type { ThreadQueue } from './thread-queue.js';
+import type { GenerateReplyUsage } from '@moe/agents';
 import type {
   ConversationTurn,
   ConversationTurnListResult,
-  ConversationTurnRepositoryError,
   ConversationTurnResult,
   NewConversationTurn,
+  NewPersonaCostUsage,
+  PersonaCostUsageResult,
 } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
 import {
   buildPersonaSystemPrompt,
   composeGatedReply,
+  computeCostUsdMicros,
   generateReply,
   STATUS_CLAIM_TOOL,
 } from '@moe/agents';
+import { toUtcDay } from '@moe/core';
 import { postMessage } from '@moe/slack';
 
 import { resolveThreadKey } from './resolve-thread-key.js';
@@ -50,14 +54,24 @@ type HistoryStore = {
   ) => Promise<ConversationTurnResult>;
 };
 
-// `historyStore`/`personaId`/`threadQueue`/`rootCandidateBuffer` bundled alongside the pre-existing
-// 3 params into one options object — the 3-param signature was already at eslint's `max-params: 3`
-// ceiling, same bundling pattern `start-slack-listener.ts` already uses for its own deps.
+// Same thin DI seam as `HistoryStore` above, over `@moe/core`'s cost-usage repository
+// (BUILD_PLAN 2.6a) — real binding lives in `start-slack-listener.ts`.
+type CostStore = {
+  readonly recordUsage: (
+    input: NewPersonaCostUsage,
+  ) => Promise<PersonaCostUsageResult>;
+};
+
+// `historyStore`/`costStore`/`personaId`/`threadQueue`/`rootCandidateBuffer` bundled alongside the
+// pre-existing 3 params into one options object — the 3-param signature was already at eslint's
+// `max-params: 3` ceiling, same bundling pattern `start-slack-listener.ts` already uses for its
+// own deps.
 export type HandlerDeps = {
   readonly anthropicClient: GenerateReplyClient;
   readonly slackClient: PostMessageClient;
   readonly logger: InboundMessageLogger;
   readonly historyStore: HistoryStore;
+  readonly costStore: CostStore;
   readonly personaId: string;
   readonly threadQueue: ThreadQueue;
   readonly rootCandidateBuffer: RootCandidateBuffer;
@@ -77,9 +91,14 @@ function toHistoryEntry(turn: ConversationTurn): {
   return { role: turn.role, content: turn.content };
 }
 
-function repositoryErrorMessage(
-  error: ConversationTurnRepositoryError,
-): string {
+// The house Result-error shape (`docs/CONVENTIONS.md` §Testing Standards) every `@moe/core`
+// repository error independently conforms to — shared here instead of naming one repository's
+// own error type, since this same formatter serves `HistoryStore` and `CostStore` alike.
+type RepositoryError =
+  | { readonly kind: 'validation-failed'; readonly issues: string }
+  | { readonly kind: 'unknown'; readonly cause: unknown };
+
+function repositoryErrorMessage(error: RepositoryError): string {
   return error.kind === 'validation-failed'
     ? error.issues
     : String(error.cause);
@@ -109,6 +128,31 @@ async function appendTurnLogged(
   const result = await deps.historyStore.appendTurn(input);
   if (!result.ok) {
     deps.logger.error('failed to persist conversation turn', {
+      message: repositoryErrorMessage(result.error),
+    });
+  }
+}
+
+/**
+ * Accounts for one turn's LLM token usage against the persona/day cost bucket (BUILD_PLAN 2.6a) —
+ * "log, don't throw" on failure, same as `appendTurnLogged` above; a cost-tracking write should
+ * never be why a reply doesn't reach Slack. Only called when `generateReply` itself succeeded —
+ * a failed API call returns no `usage` to account for.
+ */
+async function recordUsageLogged(
+  deps: HandlerDeps,
+  usage: GenerateReplyUsage,
+  now: Date,
+): Promise<void> {
+  const result = await deps.costStore.recordUsage({
+    personaId: deps.personaId,
+    day: toUtcDay(now.toISOString()),
+    inputTokens: usage.inputTokens,
+    outputTokens: usage.outputTokens,
+    costUsdMicros: computeCostUsdMicros(usage, now),
+  });
+  if (!result.ok) {
+    deps.logger.error('failed to record LLM cost usage', {
       message: repositoryErrorMessage(result.error),
     });
   }
@@ -164,10 +208,16 @@ async function generateAndPost(
     tools: [STATUS_CLAIM_TOOL],
   });
 
+  // One clock read shared by cost accounting and the gated-reply compose below, not a fresh
+  // `new Date()` per use — keeps both derived from the exact same instant for this turn.
+  const now = new Date();
+
   if (!generated.ok) {
     deps.logger.error('failed to generate reply', {
       message: generated.error.message,
     });
+  } else {
+    await recordUsageLogged(deps, generated.usage, now);
   }
 
   // Composed once and reused for both the Slack post and the persisted/buffered history entry
@@ -175,7 +225,7 @@ async function generateAndPost(
   // in real evidence that could itself change between calls (e.g. a re-fetched CI status), a
   // second composeGatedReply call could otherwise return a different result than the first.
   const text = generated.ok
-    ? composeGatedReply(generated, () => new Date().toISOString())
+    ? composeGatedReply(generated, () => now.toISOString())
     : FALLBACK_TEXT;
 
   const posted = await postMessage(deps.slackClient, {

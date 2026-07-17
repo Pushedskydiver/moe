@@ -38,7 +38,25 @@ export type ConversationTurnsTable = {
   readonly createdAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `persona_cost_daily` (`./cost-usage/cost-usage.ts`'s DB-backed
+ * counterpart, BUILD_PLAN 2.6a). `inputTokens`/`outputTokens`/`costUsdMicros` are `BIGINT` at the
+ * SQL level — `pg`'s default type parser returns those as strings, not numbers, to avoid silent
+ * precision loss past `Number.MAX_SAFE_INTEGER`; the repository layer parses them back to numbers
+ * via `personaCostUsageSchema`'s `z.number().int()` fields (`z.coerce` would also accept a
+ * pre-parsed number, so this holds regardless of which shape a given `pg` version hands back).
+ */
+export type PersonaCostDailyTable = {
+  readonly personaId: string;
+  readonly day: string;
+  readonly inputTokens: string | number;
+  readonly outputTokens: string | number;
+  readonly costUsdMicros: string | number;
+  readonly updatedAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
+  readonly personaCostDaily: PersonaCostDailyTable;
 };

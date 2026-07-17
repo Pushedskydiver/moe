@@ -14,6 +14,10 @@ function makeClient(
           >
         >;
         readonly stop_reason?: string;
+        readonly usage?: {
+          readonly input_tokens: number;
+          readonly output_tokens: number;
+        };
       }
     | (() => never),
 ) {
@@ -30,6 +34,7 @@ function makeClient(
 const TEXT_MESSAGE = {
   content: [{ type: 'text', text: 'Hi there!', citations: null }],
   stop_reason: 'end_turn',
+  usage: { input_tokens: 12, output_tokens: 34 },
 };
 
 describe('generateReply', () => {
@@ -38,7 +43,27 @@ describe('generateReply', () => {
 
     const result = await generateReply(client, { text: 'hello' });
 
-    expect(result).toEqual({ ok: true, reply: 'Hi there!', toolUses: [] });
+    expect(result).toEqual({
+      ok: true,
+      reply: 'Hi there!',
+      toolUses: [],
+      usage: { inputTokens: 12, outputTokens: 34 },
+    });
+  });
+
+  it('surfaces the input/output token usage from the response', async () => {
+    const client = makeClient({
+      content: [{ type: 'text', text: 'Hi there!', citations: null }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 501, output_tokens: 82 },
+    });
+
+    const result = await generateReply(client, { text: 'hello' });
+
+    expect(result.ok && result.usage).toEqual({
+      inputTokens: 501,
+      outputTokens: 82,
+    });
   });
 
   it('sends a single-turn user message with the placeholder system prompt and the sonnet-5 model when no history is provided', async () => {
@@ -123,6 +148,7 @@ describe('generateReply', () => {
     const client = makeClient({
       content: [{ type: 'tool_use', id: 't1', name: 'x', input: { a: 1 } }],
       stop_reason: 'tool_use',
+      usage: { input_tokens: 12, output_tokens: 34 },
     });
 
     const result = await generateReply(client, { text: 'hello' });
@@ -131,6 +157,7 @@ describe('generateReply', () => {
       ok: true,
       reply: '',
       toolUses: [{ id: 't1', name: 'x', input: { a: 1 } }],
+      usage: { inputTokens: 12, outputTokens: 34 },
     });
   });
 
@@ -141,6 +168,7 @@ describe('generateReply', () => {
         { type: 'tool_use', id: 't1', name: 'x', input: { a: 1 } },
       ],
       stop_reason: 'tool_use',
+      usage: { input_tokens: 12, output_tokens: 34 },
     });
 
     const result = await generateReply(client, { text: 'hello' });
@@ -149,6 +177,7 @@ describe('generateReply', () => {
       ok: true,
       reply: 'sure, one sec',
       toolUses: [{ id: 't1', name: 'x', input: { a: 1 } }],
+      usage: { inputTokens: 12, outputTokens: 34 },
     });
   });
 

@@ -31,11 +31,17 @@ export type GenerateReplyParams = {
   readonly system?: string;
 };
 
+export type GenerateReplyUsage = {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+};
+
 export type GenerateReplyResult =
   | {
       readonly ok: true;
       readonly reply: string;
       readonly toolUses: readonly GenerateReplyToolUse[];
+      readonly usage: GenerateReplyUsage;
     }
   | {
       readonly ok: false;
@@ -67,7 +73,15 @@ function toGenerateReplyResult(
     };
   }
 
-  return { ok: true, reply: textBlock?.text ?? '', toolUses };
+  return {
+    ok: true,
+    reply: textBlock?.text ?? '',
+    toolUses,
+    usage: {
+      inputTokens: message.usage.input_tokens,
+      outputTokens: message.usage.output_tokens,
+    },
+  };
 }
 
 /**
@@ -80,7 +94,10 @@ function toGenerateReplyResult(
  * passes through to the API call as inline JSON-schema definitions (not MCP) — the real call site
  * always passes the `report_status` status-claim tool (BUILD_PLAN 2.5); `reply` is the response's
  * text block content (`''` if none), and `toolUses` collects every `tool_use` content block
- * verbatim, letting the caller decide what to do with either.
+ * verbatim, letting the caller decide what to do with either. `usage` passes through the API
+ * response's own `input_tokens`/`output_tokens` counts verbatim (BUILD_PLAN 2.6a) — this function
+ * stays stateless, so it reports usage rather than accounting for it; the real call site
+ * (`apps/server/src/handle-inbound-message.ts`) is what turns this into a persisted cost record.
  */
 export async function generateReply(
   client: GenerateReplyClient,

@@ -4,7 +4,7 @@ import type { Database } from '@moe/core';
 import type { Kysely } from 'kysely';
 
 import { createAnthropicClient } from '@moe/agents';
-import { appendTurn, getRecentTurns } from '@moe/core';
+import { appendTurn, getRecentTurns, recordUsage } from '@moe/core';
 import {
   createSocketModeClient,
   createSocketModeListener,
@@ -58,12 +58,17 @@ export const startSlackListener: StartSlackListenerFn = (
     appendTurn: (input: Parameters<typeof appendTurn>[1]) =>
       appendTurn(db, input),
   };
+  const costStore = {
+    recordUsage: (input: Parameters<typeof recordUsage>[1]) =>
+      recordUsage(db, input),
+  };
   const listener = createSocketModeListener(socketModeClient, {
     onMessage: createInboundMessageHandler({
       anthropicClient,
       slackClient: webClient,
       logger,
       historyStore,
+      costStore,
       personaId: config.id,
       threadQueue: makeThreadQueue(),
       rootCandidateBuffer: makeRootCandidateBuffer(),
