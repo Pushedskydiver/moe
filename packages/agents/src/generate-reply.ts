@@ -18,6 +18,11 @@ type GenerateReplyClient = {
 export type GenerateReplyParams = {
   readonly text: string;
   readonly tools?: ReadonlyArray<Anthropic.Tool>;
+  readonly history?: ReadonlyArray<{
+    readonly role: 'user' | 'assistant';
+    readonly content: string;
+  }>;
+  readonly system?: string;
 };
 
 export type GenerateReplyResult =
@@ -31,11 +36,15 @@ export type GenerateReplyResult =
     };
 
 /**
- * Single-turn, stateless call to the Anthropic Messages API (`docs/VISION.md` §11's verified
- * model-client choice) in a deliberately generic, non-persona placeholder voice — thread-scoped
- * conversation state arrives at BUILD_PLAN 2.4b, not here. `tools`, when provided, passes through
- * to the API call as inline JSON-schema definitions (not MCP) — BUILD_PLAN 2.4a's own proof that
- * the client wiring supports them, even though no real tool is wired to anything yet.
+ * Calls the Anthropic Messages API (`docs/VISION.md` §11's verified model-client choice). `system`
+ * defaults to `PLACEHOLDER_SYSTEM_PROMPT` (a generic, no-persona-named fallback) when omitted; the
+ * real call site (`apps/server/src/handle-inbound-message.ts`) always overrides it with
+ * `buildPersonaSystemPrompt(personaId)` instead. `history`, when provided, is forwarded ahead of
+ * `text` as prior turns (BUILD_PLAN 2.4b) — this function itself is stateless (it never reads or
+ * writes any store), the caller decides what history to pass, if any. `tools`, when provided,
+ * passes through to the API call as inline JSON-schema definitions (not MCP) — BUILD_PLAN 2.4a's
+ * own proof that the client wiring supports them, even though no real tool is wired to anything
+ * yet.
  */
 export async function generateReply(
   client: GenerateReplyClient,
@@ -45,8 +54,11 @@ export async function generateReply(
     const message = await client.messages.create({
       model: MODEL,
       max_tokens: MAX_TOKENS,
-      system: PLACEHOLDER_SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: params.text }],
+      system: params.system ?? PLACEHOLDER_SYSTEM_PROMPT,
+      messages: [
+        ...(params.history ?? []),
+        { role: 'user', content: params.text },
+      ],
       ...(params.tools !== undefined ? { tools: [...params.tools] } : {}),
     });
 

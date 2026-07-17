@@ -1,4 +1,4 @@
-import type { Database } from './schema.js';
+import type { Database } from '../schema.js';
 
 import { CamelCasePlugin, Kysely, PostgresDialect } from 'kysely';
 import { Pool } from 'pg';

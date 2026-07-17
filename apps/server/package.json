@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@moe/agents": "workspace:*",
-    "@moe/slack": "workspace:*"
+    "@moe/core": "workspace:*",
+    "@moe/slack": "workspace:*",
+    "kysely": "^0.29.3"
   }
 }

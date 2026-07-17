@@ -1,7 +1,10 @@
 import type { Logger } from './logger.js';
 import type { PersonaConfig } from '@moe/agents';
+import type { Database } from '@moe/core';
+import type { Kysely } from 'kysely';
 
 import { createAnthropicClient } from '@moe/agents';
+import { appendTurn, getRecentTurns } from '@moe/core';
 import {
   createSocketModeClient,
   createSocketModeListener,
@@ -10,13 +13,18 @@ import {
 } from '@moe/slack';
 
 import { createInboundMessageHandler } from './handle-inbound-message.js';
+import { makeRootCandidateBuffer } from './root-candidate-buffer.js';
+import { makeThreadQueue } from './thread-queue.js';
 
 // Bundled into one object, not two extra params, to stay under eslint's max-params: 3 — the
 // Anthropic API key is a single shared account credential, not per-persona (unlike the Slack
 // tokens on `config`), matching `parseAnthropicConfig`'s own separate-from-`PersonaConfig` split.
-type StartSlackListenerDeps = {
+// `db` follows the same reasoning: one shared Postgres instance across every persona process
+// (`docs/decisions/TOPOLOGY-AND-DATABASE.md`), constructed once in `main.ts`, not per-persona.
+export type StartSlackListenerDeps = {
   readonly config: PersonaConfig;
   readonly anthropicApiKey: string;
+  readonly db: Kysely<Database>;
 };
 
 export type StartSlackListenerFn = (
@@ -38,12 +46,28 @@ export const startSlackListener: StartSlackListenerFn = (
   logger,
   exit,
 ) => {
-  const { config, anthropicApiKey } = deps;
+  const { config, anthropicApiKey, db } = deps;
   const webClient = createWebClient(config.slackBotToken, logger);
   const socketModeClient = createSocketModeClient(config.slackAppToken, logger);
   const anthropicClient = createAnthropicClient(anthropicApiKey, logger);
+  const historyStore = {
+    getRecentTurns: (
+      scope: Parameters<typeof getRecentTurns>[1],
+      limit: number,
+    ) => getRecentTurns(db, scope, limit),
+    appendTurn: (input: Parameters<typeof appendTurn>[1]) =>
+      appendTurn(db, input),
+  };
   const listener = createSocketModeListener(socketModeClient, {
-    onMessage: createInboundMessageHandler(anthropicClient, webClient, logger),
+    onMessage: createInboundMessageHandler({
+      anthropicClient,
+      slackClient: webClient,
+      logger,
+      historyStore,
+      personaId: config.id,
+      threadQueue: makeThreadQueue(),
+      rootCandidateBuffer: makeRootCandidateBuffer(),
+    }),
     logger,
   });
 
