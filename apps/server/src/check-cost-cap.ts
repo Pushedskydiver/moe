@@ -125,11 +125,15 @@ async function sendCostAlerts(
  * step — see its TSDoc for what "newly-crossed" actually guarantees under concurrent turns. A read
  * failure on either the monthly total or the alert-dedup state fails open (`halt: false`) — same
  * "log, don't block replies" posture every other infra-failure path in this app already takes.
- * The trade-off is deliberate, not just borrowed: a sustained outage here means cap enforcement
- * itself goes silently inert for its duration, but the alternative (fail closed) means a
- * transient DB blip halts every reply for every persona for the rest of the month with no
- * automatic recovery — for a chunk with no escalation/paging path yet, the failure mode that
- * self-heals the moment the DB recovers is the safer default.
+ * `halt` is never cached — it's recomputed from a live DB read on every single turn, so both
+ * fail-open and a hypothetical fail-closed self-heal at the identical per-turn granularity the
+ * moment the DB recovers; "self-heals sooner" isn't the actual trade-off. The real one: fail-open
+ * risks unbounded spend for an outage's duration; fail-closed would block every reply for that
+ * persona over the same window, and — since a DB blip is unrelated to actual spend — do it with a
+ * `HALT_TEXT` message that misleadingly claims a budget cap was hit. With no escalation/paging
+ * path yet to surface a sustained outage independently, and moe still a single-early-adopter
+ * deployment, a bounded window of unchecked spend is judged the smaller cost of the two; revisit
+ * if usage volume or team size changes that calculus.
  */
 export async function checkCostCapAndAlert(
   deps: CostCapDeps,
