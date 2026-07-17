@@ -142,7 +142,7 @@ function makeDeps(
     readonly costStore: ReturnType<typeof makeCostStore>;
     readonly capStore: ReturnType<typeof makeCapStore>;
     readonly costCapConfig: HandlerDeps['costCapConfig'];
-    readonly personaId: string;
+    readonly personaId: HandlerDeps['personaId'];
     readonly threadQueue: ReturnType<typeof makeThreadQueue>;
     readonly rootCandidateBuffer: ReturnType<typeof makeRootCandidateBuffer>;
   }> = {},
@@ -158,7 +158,7 @@ function makeDeps(
       monthlyCapUsdMicros: 100_000_000,
       alertSlackUserId: 'U0ALEX',
     },
-    personaId: 'sarah',
+    personaId: 'sarah' as const,
     threadQueue: makeThreadQueue(),
     rootCandidateBuffer: makeRootCandidateBuffer(),
     ...overrides,

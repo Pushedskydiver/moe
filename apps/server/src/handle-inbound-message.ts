@@ -1,7 +1,7 @@
 import type { CapStore } from './check-cost-cap.js';
 import type { RootCandidateBuffer } from './root-candidate-buffer.js';
 import type { ThreadQueue } from './thread-queue.js';
-import type { CostCapConfig, GenerateReplyUsage } from '@moe/agents';
+import type { CostCapConfig, GenerateReplyUsage, PersonaId } from '@moe/agents';
 import type {
   ConversationTurn,
   ConversationTurnListResult,
@@ -77,7 +77,7 @@ export type HandlerDeps = {
   readonly costStore: CostStore;
   readonly capStore: CapStore;
   readonly costCapConfig: CostCapConfig;
-  readonly personaId: string;
+  readonly personaId: PersonaId;
   readonly threadQueue: ThreadQueue;
   readonly rootCandidateBuffer: RootCandidateBuffer;
 };
