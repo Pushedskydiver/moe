@@ -33,12 +33,12 @@ const TEXT_MESSAGE = {
 };
 
 describe('generateReply', () => {
-  it('returns ok:true with the extracted text on a successful turn', async () => {
+  it('returns ok:true with the extracted text and an empty toolUses array on a text-only turn', async () => {
     const client = makeClient(TEXT_MESSAGE);
 
     const result = await generateReply(client, { text: 'hello' });
 
-    expect(result).toEqual({ ok: true, reply: 'Hi there!' });
+    expect(result).toEqual({ ok: true, reply: 'Hi there!', toolUses: [] });
   });
 
   it('sends a single-turn user message with the placeholder system prompt and the sonnet-5 model when no history is provided', async () => {
@@ -119,17 +119,50 @@ describe('generateReply', () => {
     expect('tools' in call).toBe(false);
   });
 
-  it('returns ok:false when the response has no text content block', async () => {
+  it('returns ok:true with an empty reply and the tool use surfaced when the response has a tool_use block but no text block', async () => {
     const client = makeClient({
-      content: [{ type: 'tool_use', id: 't1', name: 'x', input: {} }],
+      content: [{ type: 'tool_use', id: 't1', name: 'x', input: { a: 1 } }],
       stop_reason: 'tool_use',
+    });
+
+    const result = await generateReply(client, { text: 'hello' });
+
+    expect(result).toEqual({
+      ok: true,
+      reply: '',
+      toolUses: [{ id: 't1', name: 'x', input: { a: 1 } }],
+    });
+  });
+
+  it('surfaces both the text and the tool use when the response has both content blocks', async () => {
+    const client = makeClient({
+      content: [
+        { type: 'text', text: 'sure, one sec', citations: null },
+        { type: 'tool_use', id: 't1', name: 'x', input: { a: 1 } },
+      ],
+      stop_reason: 'tool_use',
+    });
+
+    const result = await generateReply(client, { text: 'hello' });
+
+    expect(result).toEqual({
+      ok: true,
+      reply: 'sure, one sec',
+      toolUses: [{ id: 't1', name: 'x', input: { a: 1 } }],
+    });
+  });
+
+  it('returns ok:false with kind no-content when the response has neither a text nor a tool_use block', async () => {
+    const client = makeClient({
+      content: [{ type: 'citation_delta' }],
+      stop_reason: 'end_turn',
     });
 
     const result = await generateReply(client, { text: 'hello' });
 
     expect(result.ok).toBe(false);
     if (!result.ok) {
-      expect(result.error.kind).toBe('no-text-content');
+      expect(result.error.kind).toBe('no-content');
     }
   });
 

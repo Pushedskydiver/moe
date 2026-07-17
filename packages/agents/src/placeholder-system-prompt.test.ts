@@ -57,4 +57,9 @@ describe('buildPersonaSystemPrompt', () => {
     const lower = buildPersonaSystemPrompt('sarah').toLowerCase();
     expect(lower).not.toContain('memory');
   });
+
+  it('instructs the model to call report_status for a status claim rather than stating it directly (BUILD_PLAN 2.5)', () => {
+    const lower = buildPersonaSystemPrompt('sarah').toLowerCase();
+    expect(lower).toContain('report_status');
+  });
 });

@@ -20,7 +20,11 @@ export const PLACEHOLDER_SYSTEM_PROMPT =
  * Stage 5 behind the do-not-touch gate (`packages/agents/src/personas/*\/prompt.md`); this only
  * establishes the bare name, nothing more. Makes no claim about memory of past turns one way or
  * the other — whether prior context exists depends on what history the caller forwards
- * (`generate-reply.ts`'s `history` param), not a static claim baked into the prompt.
+ * (`generate-reply.ts`'s `history` param), not a static claim baked into the prompt. Instructs the
+ * model to route status claims through the `report_status` tool (`status-claim-tool.ts`, BUILD_PLAN
+ * 2.5) rather than asserting them directly in prose — VISION §7.6 requires status claims to come
+ * from a typed object, never free prose; a bare-prose claim still slips past this instruction
+ * ungated, an accepted gap at this stage (`compose-gated-reply.ts`'s own TSDoc).
  */
 export function buildPersonaSystemPrompt(personaId: string): string {
   const displayName = personaId.charAt(0).toUpperCase() + personaId.slice(1);
@@ -28,7 +32,11 @@ export function buildPersonaSystemPrompt(personaId: string): string {
     `You're ${displayName}, replying to a direct message on Slack as a teammate — that's your ` +
     "name in this context, no need to correct anyone who uses it. You don't have a defined " +
     'personality or voice yet, so keep responses helpful and matter-of-fact rather than ' +
-    'performing a character. Reply concisely and clearly. You have no tools available yet — if ' +
-    "asked for something you can't do, say so plainly rather than guessing."
+    'performing a character. Reply concisely and clearly. You have no tools yet for actually ' +
+    "doing work — if asked to do something you can't do, say so plainly rather than guessing or " +
+    'claiming you have done it. If you want to tell the user that some work is done, in ' +
+    'progress, or has some other definite status, call the report_status tool with that claim ' +
+    'rather than stating it directly in your reply — the system decides how it actually gets ' +
+    "phrased back based on whether there's real evidence behind it."
   );
 }

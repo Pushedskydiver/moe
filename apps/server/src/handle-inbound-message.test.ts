@@ -19,10 +19,12 @@ function makeSlackClient(response: {
 function makeAnthropicClient(
   response:
     | {
-        readonly content: ReadonlyArray<{
-          readonly type: string;
-          readonly text?: string;
-        }>;
+        readonly content: ReadonlyArray<
+          { readonly type: string; readonly text?: string } & Record<
+            string,
+            unknown
+          >
+        >;
       }
     | (() => never),
 ) {
@@ -364,6 +366,51 @@ describe('createInboundMessageHandler', () => {
     });
     expect(deps.historyStore.appendTurn).not.toHaveBeenCalledWith(
       expect.objectContaining({ role: 'assistant' }),
+    );
+  });
+
+  it('composes a status claim through the 1.4 gate — a report_status call with no backing evidence reaches Slack, and gets persisted, as "Not yet verified." (BUILD_PLAN 2.5)', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient({
+        content: [
+          {
+            type: 'tool_use',
+            id: 'toolu_01',
+            name: 'report_status',
+            input: { claim: 'done' },
+          },
+        ],
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler(DM_MESSAGE);
+
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'D123', text: 'Not yet verified.' }),
+    );
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'D123',
+      threadKey: 'dm',
+      role: 'assistant',
+      content: 'Not yet verified.',
+    });
+  });
+
+  it('always offers the report_status tool to the model, alongside a plain text reply passing straight through ungated', async () => {
+    const deps = makeDeps();
+    const handler = createInboundMessageHandler(deps);
+
+    await handler(DM_MESSAGE);
+
+    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        tools: [expect.objectContaining({ name: 'report_status' })],
+      }),
+    );
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ text: 'Sure, tell me more.' }),
     );
   });
 

@@ -19,6 +19,10 @@
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
+    "@moe/core": "workspace:*",
     "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "fast-check": "^4.9.0"
   }
 }
