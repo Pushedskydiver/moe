@@ -20,4 +20,7 @@ export type {
   GenerateReplyResult,
 } from './generate-reply.js';
 export { generateReply } from './generate-reply.js';
-export { PLACEHOLDER_SYSTEM_PROMPT } from './placeholder-system-prompt.js';
+export {
+  buildPersonaSystemPrompt,
+  PLACEHOLDER_SYSTEM_PROMPT,
+} from './placeholder-system-prompt.js';

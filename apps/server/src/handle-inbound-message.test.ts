@@ -125,6 +125,18 @@ describe('createInboundMessageHandler', () => {
     );
   });
 
+  it("uses the persona's own system prompt, naming it by its personaId, not the generic no-persona placeholder", async () => {
+    const deps = makeDeps({ personaId: 'sarah' });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler(DM_MESSAGE);
+
+    const call = deps.anthropicClient.messages.create.mock.calls[0]?.[0] as {
+      system: string;
+    };
+    expect(call.system).toContain('Sarah');
+  });
+
   it('replies in the thread when the inbound message was threaded', async () => {
     const deps = makeDeps();
     const handler = createInboundMessageHandler(deps);

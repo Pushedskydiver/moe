@@ -55,6 +55,21 @@ describe('generateReply', () => {
     );
   });
 
+  it('uses the given system prompt override instead of the placeholder default when provided', async () => {
+    const client = makeClient(TEXT_MESSAGE);
+
+    await generateReply(client, {
+      text: 'hello',
+      system: "You're Sarah, replying on Slack.",
+    });
+
+    expect(client.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: "You're Sarah, replying on Slack.",
+      }),
+    );
+  });
+
   it('forwards prior turns ahead of the current message when history is provided', async () => {
     const client = makeClient(TEXT_MESSAGE);
     const history = [

@@ -9,7 +9,7 @@ import type {
 } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
-import { generateReply } from '@moe/agents';
+import { buildPersonaSystemPrompt, generateReply } from '@moe/agents';
 import { postMessage } from '@moe/slack';
 
 import { resolveThreadKey } from './resolve-thread-key.js';
@@ -152,6 +152,7 @@ async function generateAndPost(
   const generated = await generateReply(deps.anthropicClient, {
     text: message.text,
     history,
+    system: buildPersonaSystemPrompt(deps.personaId),
   });
 
   if (!generated.ok) {
