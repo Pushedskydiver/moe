@@ -3,8 +3,10 @@ import { z } from 'zod';
 // `z.coerce.number()`, not `z.number()` — `pg`'s default `BIGINT` type parser returns a string,
 // not a number (see `schema.ts`'s `PersonaCostDailyTable` doc comment), and this same schema
 // validates both freshly-computed candidate rows (real numbers) and rows read back from the
-// database (strings) — one schema, one behavior, not a second DB-only parsing path.
-const nonNegativeInt = z.coerce.number().int().nonnegative();
+// database (strings) — one schema, one behavior, not a second DB-only parsing path. Exported so
+// `../cost-cap/cost-cap.ts`'s monthly-total shape (also `BIGINT`-summed, same coercion need)
+// reuses this instead of redefining the same coercion+reasoning a second time.
+export const nonNegativeIntSchema = z.coerce.number().int().nonnegative();
 
 /**
  * One persona's accumulated LLM token/cost usage for a single UTC calendar day (BUILD_PLAN
@@ -24,9 +26,9 @@ const nonNegativeInt = z.coerce.number().int().nonnegative();
 export const personaCostUsageSchema = z.object({
   personaId: z.string().min(1),
   day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'day must be YYYY-MM-DD'),
-  inputTokens: nonNegativeInt,
-  outputTokens: nonNegativeInt,
-  costUsdMicros: nonNegativeInt,
+  inputTokens: nonNegativeIntSchema,
+  outputTokens: nonNegativeIntSchema,
+  costUsdMicros: nonNegativeIntSchema,
   updatedAt: z.date(),
 });
 
@@ -41,4 +43,13 @@ export type PersonaCostUsage = z.infer<typeof personaCostUsageSchema>;
  */
 export function toUtcDay(iso: string): string {
   return iso.slice(0, 10);
+}
+
+/**
+ * The UTC calendar-month portion (`YYYY-MM`) of an ISO timestamp — the month bucket key
+ * `./cost-cap/cost-cap.ts` groups spend-cap alert state by. Same UTC-`Z`-input requirement as
+ * `toUtcDay` above.
+ */
+export function toUtcMonth(iso: string): string {
+  return iso.slice(0, 7);
 }

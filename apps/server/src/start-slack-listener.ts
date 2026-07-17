@@ -1,10 +1,17 @@
 import type { Logger } from './logger.js';
-import type { PersonaConfig } from '@moe/agents';
+import type { CostCapConfig, PersonaConfig } from '@moe/agents';
 import type { Database } from '@moe/core';
 import type { Kysely } from 'kysely';
 
 import { createAnthropicClient } from '@moe/agents';
-import { appendTurn, getRecentTurns, recordUsage } from '@moe/core';
+import {
+  appendTurn,
+  claimAlertThreshold,
+  getAlertState,
+  getPersonaCostForMonth,
+  getRecentTurns,
+  recordUsage,
+} from '@moe/core';
 import {
   createSocketModeClient,
   createSocketModeListener,
@@ -25,6 +32,7 @@ export type StartSlackListenerDeps = {
   readonly config: PersonaConfig;
   readonly anthropicApiKey: string;
   readonly db: Kysely<Database>;
+  readonly costCapConfig: CostCapConfig;
 };
 
 export type StartSlackListenerFn = (
@@ -32,6 +40,34 @@ export type StartSlackListenerFn = (
   logger: Logger,
   exit: (code: number) => void,
 ) => void;
+
+// Pre-binds every `@moe/core` repository function to one shared `db` handle — extracted from
+// `startSlackListener` itself purely to stay under eslint's `max-lines-per-function`; composition
+// code like this extracts aggressively (`docs/CONVENTIONS.md` §Code Style).
+function createStores(db: Kysely<Database>) {
+  return {
+    historyStore: {
+      getRecentTurns: (
+        scope: Parameters<typeof getRecentTurns>[1],
+        limit: number,
+      ) => getRecentTurns(db, scope, limit),
+      appendTurn: (input: Parameters<typeof appendTurn>[1]) =>
+        appendTurn(db, input),
+    },
+    costStore: {
+      recordUsage: (input: Parameters<typeof recordUsage>[1]) =>
+        recordUsage(db, input),
+    },
+    capStore: {
+      getMonthlyCost: (scope: Parameters<typeof getPersonaCostForMonth>[1]) =>
+        getPersonaCostForMonth(db, scope),
+      getAlertState: (scope: Parameters<typeof getAlertState>[1]) =>
+        getAlertState(db, scope),
+      claimAlertThreshold: (input: Parameters<typeof claimAlertThreshold>[1]) =>
+        claimAlertThreshold(db, input),
+    },
+  };
+}
 
 /**
  * Real Slack + Anthropic wiring — constructs all three SDK clients, wires the reply handler,
@@ -46,22 +82,11 @@ export const startSlackListener: StartSlackListenerFn = (
   logger,
   exit,
 ) => {
-  const { config, anthropicApiKey, db } = deps;
+  const { config, anthropicApiKey, db, costCapConfig } = deps;
   const webClient = createWebClient(config.slackBotToken, logger);
   const socketModeClient = createSocketModeClient(config.slackAppToken, logger);
   const anthropicClient = createAnthropicClient(anthropicApiKey, logger);
-  const historyStore = {
-    getRecentTurns: (
-      scope: Parameters<typeof getRecentTurns>[1],
-      limit: number,
-    ) => getRecentTurns(db, scope, limit),
-    appendTurn: (input: Parameters<typeof appendTurn>[1]) =>
-      appendTurn(db, input),
-  };
-  const costStore = {
-    recordUsage: (input: Parameters<typeof recordUsage>[1]) =>
-      recordUsage(db, input),
-  };
+  const { historyStore, costStore, capStore } = createStores(db);
   const listener = createSocketModeListener(socketModeClient, {
     onMessage: createInboundMessageHandler({
       anthropicClient,
@@ -69,6 +94,8 @@ export const startSlackListener: StartSlackListenerFn = (
       logger,
       historyStore,
       costStore,
+      capStore,
+      costCapConfig,
       personaId: config.id,
       threadQueue: makeThreadQueue(),
       rootCandidateBuffer: makeRootCandidateBuffer(),

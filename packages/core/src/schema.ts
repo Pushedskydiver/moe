@@ -60,8 +60,22 @@ export type PersonaCostDailyTable = {
   readonly updatedAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `persona_cost_alerts` (`./cost-cap/cost-cap.ts`'s DB-backed
+ * counterpart, BUILD_PLAN 2.6b). `highestThresholdAlerted` is a SQL `INTEGER`, not `BIGINT` — its
+ * whole valid range tops out at 100, so `pg`'s default `int4` parser already returns a real
+ * number (unlike `PersonaCostDailyTable`'s `BIGINT` columns above).
+ */
+export type PersonaCostAlertsTable = {
+  readonly personaId: string;
+  readonly month: string;
+  readonly highestThresholdAlerted: number;
+  readonly updatedAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
   readonly personaCostDaily: PersonaCostDailyTable;
+  readonly personaCostAlerts: PersonaCostAlertsTable;
 };

@@ -9,6 +9,8 @@ const VALID_ENV = {
   MOE_SLACK_APP_TOKEN: 'fake-app-token',
   ANTHROPIC_API_KEY: 'sk-ant-fake-key',
   DATABASE_URL: 'postgres://postgres:password@localhost:5432/moe_dev',
+  MOE_COST_CAP_MONTHLY: '50',
+  MOE_COST_ALERT_SLACK_USER_ID: 'U0ALEX',
   PORT: '0',
 };
 
@@ -102,6 +104,25 @@ describe('main', () => {
     expect(emitted.message).toBe('invalid database config');
   });
 
+  it('logs an error and exits without starting a server when the cost cap config is invalid', () => {
+    const exit = vi.fn();
+    const startSlack = vi.fn();
+
+    const server = main(
+      { ...VALID_ENV, MOE_COST_CAP_MONTHLY: undefined },
+      exit,
+      startSlack,
+    );
+
+    expect(server).toBeUndefined();
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(startSlack).not.toHaveBeenCalled();
+    const emitted = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as {
+      message: string;
+    };
+    expect(emitted.message).toBe('invalid cost cap config');
+  });
+
   it('logs an error and signals a failed exit when the HTTP server errors (e.g. port already in use)', async () => {
     const first = main(VALID_ENV, vi.fn(), vi.fn());
     const address = first?.address();
@@ -135,13 +156,25 @@ describe('main', () => {
 
     expect(startSlack).toHaveBeenCalledTimes(1);
     const [deps, , passedExit] = startSlack.mock.calls[0] as [
-      { config: { id: string }; anthropicApiKey: string; db: unknown },
+      {
+        config: { id: string };
+        anthropicApiKey: string;
+        db: unknown;
+        costCapConfig: {
+          monthlyCapUsdMicros: number;
+          alertSlackUserId: string;
+        };
+      },
       unknown,
       (code: number) => void,
     ];
     expect(deps.config.id).toBe('sarah');
     expect(deps.anthropicApiKey).toBe('sk-ant-fake-key');
     expect(deps.db).toBeDefined();
+    expect(deps.costCapConfig).toEqual({
+      monthlyCapUsdMicros: 50_000_000,
+      alertSlackUserId: 'U0ALEX',
+    });
 
     passedExit(1);
 

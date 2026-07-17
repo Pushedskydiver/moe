@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { personaCostUsageSchema, toUtcDay } from './cost-usage.js';
+import { personaCostUsageSchema, toUtcDay, toUtcMonth } from './cost-usage.js';
 
 function validUsage() {
   return {
@@ -81,5 +81,16 @@ describe('toUtcDay', () => {
   it('uses the UTC date, not a local one, near a midnight boundary', () => {
     expect(toUtcDay('2026-07-17T23:30:00.000Z')).toBe('2026-07-17');
     expect(toUtcDay('2026-07-18T00:30:00.000Z')).toBe('2026-07-18');
+  });
+});
+
+describe('toUtcMonth', () => {
+  it('extracts the UTC calendar month from an ISO timestamp', () => {
+    expect(toUtcMonth('2026-07-17T09:00:00.000Z')).toBe('2026-07');
+  });
+
+  it('uses the UTC month, not a local one, near a month boundary', () => {
+    expect(toUtcMonth('2026-07-31T23:30:00.000Z')).toBe('2026-07');
+    expect(toUtcMonth('2026-08-01T00:30:00.000Z')).toBe('2026-08');
   });
 });

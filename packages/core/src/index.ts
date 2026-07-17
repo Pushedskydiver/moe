@@ -48,6 +48,7 @@ export type { MigrateResult } from './ticket-lifecycle/migrate.js';
 export type {
   ConversationTurnsTable,
   Database,
+  PersonaCostAlertsTable,
   PersonaCostDailyTable,
   TicketsTable,
 } from './schema.js';
@@ -61,8 +62,36 @@ export type {
   PersonaCostUsageRepositoryError,
   PersonaCostUsageResult,
 } from './cost-usage/cost-usage-repository.js';
-export { personaCostUsageSchema, toUtcDay } from './cost-usage/cost-usage.js';
+export {
+  nonNegativeIntSchema,
+  personaCostUsageSchema,
+  toUtcDay,
+  toUtcMonth,
+} from './cost-usage/cost-usage.js';
 export type { PersonaCostUsage } from './cost-usage/cost-usage.js';
+
+export {
+  claimAlertThreshold,
+  getAlertState,
+  getPersonaCostForMonth,
+} from './cost-cap/cost-cap-repository.js';
+export type {
+  AlertClaimError,
+  AlertClaimResult,
+  CostCapRepositoryError,
+  PersonaCostAlertOrNullResult,
+  PersonaCostAlertResult,
+  PersonaCostMonthlyTotalResult,
+} from './cost-cap/cost-cap-repository.js';
+export {
+  COST_CAP_THRESHOLDS,
+  personaCostAlertSchema,
+  personaCostMonthlyTotalSchema,
+} from './cost-cap/cost-cap.js';
+export type {
+  PersonaCostAlert,
+  PersonaCostMonthlyTotal,
+} from './cost-cap/cost-cap.js';
 export {
   createTicket,
   getTicketById,

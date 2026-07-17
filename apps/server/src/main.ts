@@ -1,11 +1,15 @@
 import type { Logger } from './logger.js';
 import type { StartSlackListenerFn } from './start-slack-listener.js';
-import type { PersonaConfig } from '@moe/agents';
+import type { CostCapConfig, PersonaConfig } from '@moe/agents';
 import type { Server } from 'node:http';
 
 import { createServer } from 'node:http';
 
-import { parseAnthropicConfig, parsePersonaConfig } from '@moe/agents';
+import {
+  parseAnthropicConfig,
+  parseCostCapConfig,
+  parsePersonaConfig,
+} from '@moe/agents';
 import { createDb, createPool, parseDatabaseConfig } from '@moe/core';
 
 import { createHealthHandler } from './health-handler.js';
@@ -41,9 +45,10 @@ type BootConfig = {
   readonly persona: PersonaConfig;
   readonly anthropicApiKey: string;
   readonly databaseConnectionString: string;
+  readonly costCap: CostCapConfig;
 };
 
-/** Parses+validates all three env-boundary configs, logging (redacted) and returning `undefined` on the first invalid one. */
+/** Parses+validates all four env-boundary configs, logging (redacted) and returning `undefined` on the first invalid one. */
 function parseBootConfig(
   env: Readonly<Record<string, string | undefined>>,
   logger: Logger,
@@ -70,10 +75,19 @@ function parseBootConfig(
     return undefined;
   }
 
+  const parsedCostCap = parseCostCapConfig(env);
+  if (!parsedCostCap.ok) {
+    logger.error('invalid cost cap config', {
+      issues: parsedCostCap.error.issues,
+    });
+    return undefined;
+  }
+
   return {
     persona: parsed.config,
     anthropicApiKey: parsedAnthropic.config.apiKey,
     databaseConnectionString: parsedDatabase.config.connectionString,
+    costCap: parsedCostCap.config,
   };
 }
 
@@ -133,7 +147,12 @@ export function main(
     exitAndCloseServer(1);
   });
   startSlack(
-    { config: config.persona, anthropicApiKey: config.anthropicApiKey, db },
+    {
+      config: config.persona,
+      anthropicApiKey: config.anthropicApiKey,
+      db,
+      costCapConfig: config.costCap,
+    },
     logger,
     exitAndCloseServer,
   );

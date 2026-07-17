@@ -1,6 +1,7 @@
+import type { CapStore } from './check-cost-cap.js';
 import type { RootCandidateBuffer } from './root-candidate-buffer.js';
 import type { ThreadQueue } from './thread-queue.js';
-import type { GenerateReplyUsage } from '@moe/agents';
+import type { CostCapConfig, GenerateReplyUsage } from '@moe/agents';
 import type {
   ConversationTurn,
   ConversationTurnListResult,
@@ -21,6 +22,8 @@ import {
 import { toUtcDay } from '@moe/core';
 import { postMessage } from '@moe/slack';
 
+import { checkCostCapAndAlert } from './check-cost-cap.js';
+import { repositoryErrorMessage } from './repository-error.js';
 import { resolveThreadKey } from './resolve-thread-key.js';
 
 const MAX_HISTORY_TURNS = 20;
@@ -62,16 +65,18 @@ type CostStore = {
   ) => Promise<PersonaCostUsageResult>;
 };
 
-// `historyStore`/`costStore`/`personaId`/`threadQueue`/`rootCandidateBuffer` bundled alongside the
-// pre-existing 3 params into one options object — the 3-param signature was already at eslint's
-// `max-params: 3` ceiling, same bundling pattern `start-slack-listener.ts` already uses for its
-// own deps.
+// `historyStore`/`costStore`/`capStore`/`costCapConfig`/`personaId`/`threadQueue`/
+// `rootCandidateBuffer` bundled alongside the pre-existing 3 params into one options object — the
+// 3-param signature was already at eslint's `max-params: 3` ceiling, same bundling pattern
+// `start-slack-listener.ts` already uses for its own deps.
 export type HandlerDeps = {
   readonly anthropicClient: GenerateReplyClient;
   readonly slackClient: PostMessageClient;
   readonly logger: InboundMessageLogger;
   readonly historyStore: HistoryStore;
   readonly costStore: CostStore;
+  readonly capStore: CapStore;
+  readonly costCapConfig: CostCapConfig;
   readonly personaId: string;
   readonly threadQueue: ThreadQueue;
   readonly rootCandidateBuffer: RootCandidateBuffer;
@@ -84,24 +89,17 @@ export type HandlerDeps = {
 const FALLBACK_TEXT =
   "Sorry, I ran into a problem generating a reply — I've logged it.";
 
+// Posted to the user's own channel/thread, not Alex's alert DM (`costAlertText` below) — a hard
+// halt (BUILD_PLAN 2.6b) needs its own visible signal same as `FALLBACK_TEXT`, "never silent" per
+// this file's own established precedent.
+const HALT_TEXT =
+  "I've hit my monthly budget cap and can't generate a new reply right now — I'll be back once it resets next month.";
+
 function toHistoryEntry(turn: ConversationTurn): {
   readonly role: 'user' | 'assistant';
   readonly content: string;
 } {
   return { role: turn.role, content: turn.content };
-}
-
-// The house Result-error shape (`docs/CONVENTIONS.md` §Error Handling) every `@moe/core`
-// repository error independently conforms to — shared here instead of naming one repository's
-// own error type, since this same formatter serves `HistoryStore` and `CostStore` alike.
-type RepositoryError =
-  | { readonly kind: 'validation-failed'; readonly issues: string }
-  | { readonly kind: 'unknown'; readonly cause: unknown };
-
-function repositoryErrorMessage(error: RepositoryError): string {
-  return error.kind === 'validation-failed'
-    ? error.issues
-    : String(error.cause);
 }
 
 async function fetchHistory(
@@ -193,6 +191,22 @@ async function backfillRootCandidate(
 type GenerateAndPostResult =
   { readonly ok: true; readonly text: string } | { readonly ok: false };
 
+async function postHaltReply(
+  deps: HandlerDeps,
+  message: InboundMessage,
+): Promise<void> {
+  const posted = await postMessage(deps.slackClient, {
+    channelId: message.channelId,
+    text: HALT_TEXT,
+    ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
+  });
+  if (!posted.ok) {
+    deps.logger.error('failed to post halt reply', {
+      message: posted.error.message,
+    });
+  }
+}
+
 async function generateAndPost(
   deps: HandlerDeps,
   message: InboundMessage,
@@ -201,16 +215,28 @@ async function generateAndPost(
     readonly content: string;
   }>,
 ): Promise<GenerateAndPostResult> {
+  // One clock read shared by the cap check, cost accounting, and the gated-reply compose below,
+  // not a fresh `new Date()` per use — keeps all three derived from the exact same instant.
+  const now = new Date();
+
+  const capCheck = await checkCostCapAndAlert(deps, now);
+  if (capCheck.halt) {
+    await postHaltReply(deps, message);
+    // `ok: true`, not `false` — matches the line below's own "ok reflects whether there's real
+    // reply content to persist, independent of Slack delivery success" precedent. A halt genuinely
+    // produced a reply (`HALT_TEXT`, just posted above); persisting it to conversation history
+    // means a real month-long halt doesn't leave the history silently diverging from what the user
+    // actually saw in Slack — a plain LLM failure (below) has no such content to persist, which is
+    // the one case `ok: false` still covers.
+    return { ok: true, text: HALT_TEXT };
+  }
+
   const generated = await generateReply(deps.anthropicClient, {
     text: message.text,
     history,
     system: buildPersonaSystemPrompt(deps.personaId),
     tools: [STATUS_CLAIM_TOOL],
   });
-
-  // One clock read shared by cost accounting and the gated-reply compose below, not a fresh
-  // `new Date()` per use — keeps both derived from the exact same instant for this turn.
-  const now = new Date();
 
   if (!generated.ok) {
     deps.logger.error('failed to generate reply', {
