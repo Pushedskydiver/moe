@@ -1,4 +1,5 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
+import type { PersonaId } from '@moe/agents';
 import type {
   AlertClaimResult,
   PersonaCostAlertOrNullResult,
@@ -51,7 +52,7 @@ type CostCapDeps = Pick<
  * never fed back into a threshold decision.
  */
 function costAlertText(input: {
-  readonly personaId: string;
+  readonly personaId: PersonaId;
   readonly threshold: number;
   readonly monthlyCostUsdMicros: number;
   readonly capUsdMicros: number;
