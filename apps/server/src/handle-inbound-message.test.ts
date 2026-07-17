@@ -126,7 +126,7 @@ describe('createInboundMessageHandler', () => {
   });
 
   it("uses the persona's own system prompt, naming it by its personaId, not the generic no-persona placeholder", async () => {
-    const deps = makeDeps({ personaId: 'sarah' });
+    const deps = makeDeps({ personaId: 'marcus' });
     const handler = createInboundMessageHandler(deps);
 
     await handler(DM_MESSAGE);
@@ -134,7 +134,7 @@ describe('createInboundMessageHandler', () => {
     const call = deps.anthropicClient.messages.create.mock.calls[0]?.[0] as {
       system: string;
     };
-    expect(call.system).toContain('Sarah');
+    expect(call.system).toContain('Marcus');
   });
 
   it('replies in the thread when the inbound message was threaded', async () => {
