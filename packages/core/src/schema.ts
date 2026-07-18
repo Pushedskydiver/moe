@@ -73,9 +73,28 @@ export type PersonaCostAlertsTable = {
   readonly updatedAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `pending_ticket_drafts` (`./intake/pending-ticket-draft.ts`'s
+ * DB-backed counterpart, BUILD_PLAN 3.4a-ii). `resolvedAt` is genuinely nullable at both the SQL
+ * and app-facing layers (not `Generated`) — an unresolved draft's null-ness is the CAS predicate
+ * `resolvePendingTicketDraft` claims against, same shape as `TicketsTable.claimedBy` above.
+ */
+type PendingTicketDraftsTable = {
+  readonly id: string;
+  readonly personaId: string;
+  readonly channelId: string;
+  readonly messageTs: string;
+  readonly sourceMessageText: string;
+  readonly draftTitle: string;
+  readonly draftBody: string;
+  readonly resolvedAt: Date | null;
+  readonly createdAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
   readonly personaCostDaily: PersonaCostDailyTable;
   readonly personaCostAlerts: PersonaCostAlertsTable;
+  readonly pendingTicketDrafts: PendingTicketDraftsTable;
 };

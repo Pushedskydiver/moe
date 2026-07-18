@@ -14,7 +14,12 @@ import type {
   createBankHolidaysCache,
   NewConversationTurn,
   NewPersonaCostUsage,
+  NewTicket,
+  PendingTicketDraftClaimResult,
+  PendingTicketDraftOrNullResult,
+  PendingTicketDraftResult,
   PersonaCostUsageResult,
+  TicketResult,
 } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
@@ -84,6 +89,28 @@ type CostStore = {
   ) => Promise<PersonaCostUsageResult>;
 };
 
+// Same thin DI seam, over `@moe/core`'s ticket repository — BUILD_PLAN 3.4a-ii's ✅/📦 outcome
+// paths are its only consumer so far (`reaction-outcome-actions.ts`); no reaction listener is
+// wired into a real Socket Mode client yet (Alex confirmed via `AskUserQuestion`: build the
+// primitive, no live consumer, until 3.4a-iii's situational-appropriateness gate exists).
+type TicketStore = {
+  readonly create: (input: NewTicket) => Promise<TicketResult>;
+};
+
+// Same thin DI seam, over `@moe/core`'s pending-ticket-drafts repository (BUILD_PLAN 3.4a-ii's
+// "parent-message state") — same no-live-consumer caveat as `TicketStore` above.
+type DraftStore = {
+  readonly getByMessage: (scope: {
+    readonly channelId: string;
+    readonly messageTs: string;
+  }) => Promise<PendingTicketDraftOrNullResult>;
+  readonly resolve: (id: string) => Promise<PendingTicketDraftClaimResult>;
+  readonly updateContent: (
+    id: string,
+    content: { readonly draftTitle: string; readonly draftBody: string },
+  ) => Promise<PendingTicketDraftResult>;
+};
+
 // `historyStore`/`costStore`/`capStore`/`costCapConfig`/`personaId`/`threadQueue`/
 // `channelScopeConfig` bundled alongside the pre-existing 3 params into one options object — the
 // 3-param signature was already at eslint's `max-params: 3` ceiling, same bundling pattern
@@ -106,6 +133,8 @@ export type HandlerDeps = {
   readonly threadQueue: ThreadQueue;
   readonly channelScopeConfig: ChannelScopeConfig;
   readonly bankHolidaysCache: BankHolidaysCache;
+  readonly ticketStore: TicketStore;
+  readonly draftStore: DraftStore;
 };
 
 // Non-persona-voiced, same spirit as chunk 2.3's ACK_TEXT — a visible reply on LLM failure beats

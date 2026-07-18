@@ -195,6 +195,23 @@ function makeBankHolidaysCache(dates: readonly string[] = []) {
   });
 }
 
+// BUILD_PLAN 3.4a-ii's ticket/draft stores — this file never exercises the reaction-outcome path
+// (no consumer wired yet, `reaction-outcome-actions.test.ts` owns that coverage), so these are
+// trivial stubs satisfying `HandlerDeps`'s shape, not meaningfully-behaving fakes.
+function makeTicketStore(): HandlerDeps['ticketStore'] {
+  return {
+    create: vi.fn<HandlerDeps['ticketStore']['create']>(),
+  };
+}
+
+function makeDraftStore(): HandlerDeps['draftStore'] {
+  return {
+    getByMessage: vi.fn<HandlerDeps['draftStore']['getByMessage']>(),
+    resolve: vi.fn<HandlerDeps['draftStore']['resolve']>(),
+    updateContent: vi.fn<HandlerDeps['draftStore']['updateContent']>(),
+  };
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly anthropicClient: ReturnType<typeof makeAnthropicClient>;
@@ -208,6 +225,8 @@ function makeDeps(
     readonly threadQueue: ReturnType<typeof makeThreadQueue>;
     readonly channelScopeConfig: HandlerDeps['channelScopeConfig'];
     readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
+    readonly ticketStore: HandlerDeps['ticketStore'];
+    readonly draftStore: HandlerDeps['draftStore'];
   }> = {},
 ) {
   return {
@@ -225,6 +244,8 @@ function makeDeps(
     threadQueue: makeThreadQueue(),
     channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
     bankHolidaysCache: makeBankHolidaysCache(),
+    ticketStore: makeTicketStore(),
+    draftStore: makeDraftStore(),
     ...overrides,
   };
 }

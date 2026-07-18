@@ -8,10 +8,14 @@ import {
   appendTurn,
   claimAlertThreshold,
   createBankHolidaysCache,
+  createTicket,
   getAlertState,
+  getPendingTicketDraftByMessage,
   getPersonaCostForMonth,
   getRecentTurns,
   recordUsage,
+  resolvePendingTicketDraft,
+  updatePendingTicketDraftContent,
 } from '@moe/core';
 import {
   createSocketModeClient,
@@ -67,6 +71,21 @@ function createStores(db: Kysely<Database>) {
       claimAlertThreshold: (input: Parameters<typeof claimAlertThreshold>[1]) =>
         claimAlertThreshold(db, input),
     },
+    ticketStore: {
+      create: (input: Parameters<typeof createTicket>[1]) =>
+        createTicket(db, input),
+    },
+    draftStore: {
+      getByMessage: (
+        scope: Parameters<typeof getPendingTicketDraftByMessage>[1],
+      ) => getPendingTicketDraftByMessage(db, scope),
+      resolve: (id: Parameters<typeof resolvePendingTicketDraft>[1]) =>
+        resolvePendingTicketDraft(db, id),
+      updateContent: (
+        id: Parameters<typeof updatePendingTicketDraftContent>[1],
+        content: Parameters<typeof updatePendingTicketDraftContent>[2],
+      ) => updatePendingTicketDraftContent(db, id, content),
+    },
   };
 }
 
@@ -88,7 +107,8 @@ export const startSlackListener: StartSlackListenerFn = (
   const webClient = createWebClient(config.slackBotToken, logger);
   const socketModeClient = createSocketModeClient(config.slackAppToken, logger);
   const anthropicClient = createAnthropicClient(anthropicApiKey, logger);
-  const { historyStore, costStore, capStore } = createStores(db);
+  const { historyStore, costStore, capStore, ticketStore, draftStore } =
+    createStores(db);
   // Constructed once here, not per-message — amortizes the 24h-TTL bank-holidays cache
   // (BUILD_PLAN 2.7a) across the whole process lifetime, same reasoning as `makeThreadQueue()`
   // just below.
@@ -106,6 +126,8 @@ export const startSlackListener: StartSlackListenerFn = (
       threadQueue: makeThreadQueue(),
       channelScopeConfig,
       bankHolidaysCache,
+      ticketStore,
+      draftStore,
     }),
     logger,
   });

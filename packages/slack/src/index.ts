@@ -25,3 +25,16 @@ export type {
 } from './away-detection/fetch-slack-status.js';
 export { fetchSlackStatus } from './away-detection/fetch-slack-status.js';
 export { isAway } from './away-detection/is-away.js';
+
+export type { ReactionOutcome } from './reaction-outcome/classify-reaction-outcome.js';
+export { classifyReactionOutcome } from './reaction-outcome/classify-reaction-outcome.js';
+export type { InboundReaction } from './inbound-reaction.js';
+export type {
+  ProcessableReactionEvent,
+  RawSlackReactionEvent,
+} from './raw-reaction-event.js';
+export {
+  isProcessableReactionEvent,
+  rawSlackReactionEventSchema,
+} from './raw-reaction-event.js';
+export { normalizeInboundReaction } from './normalize-inbound-reaction.js';

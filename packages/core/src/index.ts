@@ -126,3 +126,19 @@ export { isSurfaceInScope } from './channel-scoping/is-surface-in-scope.js';
 
 export type { ConfidenceBand } from './confidence-band.js';
 export { classifyConfidenceBand } from './confidence-band.js';
+
+export type { PendingTicketDraft } from './intake/pending-ticket-draft.js';
+export {
+  createPendingTicketDraft,
+  getPendingTicketDraftByMessage,
+  resolvePendingTicketDraft,
+  updatePendingTicketDraftContent,
+} from './intake/pending-ticket-drafts-repository.js';
+export type {
+  NewPendingTicketDraft,
+  PendingTicketDraftClaimError,
+  PendingTicketDraftClaimResult,
+  PendingTicketDraftOrNullResult,
+  PendingTicketDraftRepositoryError,
+  PendingTicketDraftResult,
+} from './intake/pending-ticket-drafts-repository.js';

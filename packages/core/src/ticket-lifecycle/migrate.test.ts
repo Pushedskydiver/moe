@@ -37,6 +37,7 @@ describe('runMigrations', () => {
         '0003_create_conversation_turns.sql',
         '0004_create_persona_cost_daily.sql',
         '0005_create_persona_cost_alerts.sql',
+        '0006_create_pending_ticket_drafts.sql',
       ],
     });
 
@@ -49,6 +50,7 @@ describe('runMigrations', () => {
       { id: '0003_create_conversation_turns.sql' },
       { id: '0004_create_persona_cost_daily.sql' },
       { id: '0005_create_persona_cost_alerts.sql' },
+      { id: '0006_create_pending_ticket_drafts.sql' },
     ]);
   });
 
@@ -134,6 +136,51 @@ describe('runMigrations', () => {
           new Date(),
         ],
       ),
+    ).rejects.toThrow();
+  });
+
+  it('creates a pending_ticket_drafts table that accepts a valid draft row', async () => {
+    await runMigrations(pool, migrationsDir);
+    await pool.query(
+      `INSERT INTO pending_ticket_drafts
+         (id, persona_id, channel_id, message_ts, source_message_text, draft_title, draft_body, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'sarah',
+        'C123',
+        '1700000000.000100',
+        'the CLI hangs on large repos',
+        'CLI hangs on large repos',
+        'The CLI hangs when run against large repos.',
+        new Date(),
+      ],
+    );
+    const { rows } = await pool.query('SELECT * FROM pending_ticket_drafts');
+    expect(rows).toHaveLength(1);
+  });
+
+  it('rejects a second pending_ticket_drafts row for the same (channel_id, message_ts) pair via the UNIQUE constraint', async () => {
+    await runMigrations(pool, migrationsDir);
+    const insert = (id: string) =>
+      pool.query(
+        `INSERT INTO pending_ticket_drafts
+           (id, persona_id, channel_id, message_ts, source_message_text, draft_title, draft_body, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          id,
+          'sarah',
+          'C123',
+          '1700000000.000100',
+          'the CLI hangs on large repos',
+          'CLI hangs on large repos',
+          'The CLI hangs when run against large repos.',
+          new Date(),
+        ],
+      );
+    await insert('3fa85f64-5717-4562-b3fc-2c963f66afa6');
+    await expect(
+      insert('4fa85f64-5717-4562-b3fc-2c963f66afa7'),
     ).rejects.toThrow();
   });
 
