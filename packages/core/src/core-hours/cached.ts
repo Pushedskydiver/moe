@@ -19,8 +19,15 @@ export type CachedGetResult<T, E> =
  * not a directly-called `Date.now()`, so tests can advance time deterministically.
  */
 export class Cached<T, E> {
-  readonly #value: T | null = null;
-  readonly #fetchedAtMs: number | null = null;
+  // Genuinely mutable — `get()` below reassigns both on every successful fetch. `readonly` here
+  // would be actively wrong, not just unenforced: it compiles to a real TS2540 error at the
+  // reassignment site, which is exactly what `functional/prefer-readonly-type`'s own `--fix`
+  // introduced before this comment existed. Disabled, not restructured, because there is no
+  // alternative shape that is both a cache and immutable.
+  // eslint-disable-next-line functional/prefer-readonly-type
+  #value: T | null = null;
+  // eslint-disable-next-line functional/prefer-readonly-type
+  #fetchedAtMs: number | null = null;
 
   constructor(
     private readonly fetchFresh: () => Promise<CachedFetchResult<T, E>>,
