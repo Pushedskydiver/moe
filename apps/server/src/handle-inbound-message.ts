@@ -1,8 +1,8 @@
 import type { CapStore } from './check-cost-cap.js';
-import type { RootCandidateBuffer } from './root-candidate-buffer.js';
 import type { ThreadQueue } from './thread-queue.js';
-import type { CostCapConfig, GenerateReplyUsage, PersonaId } from '@moe/agents';
+import type { CostCapConfig, PersonaId } from '@moe/agents';
 import type {
+  ChannelScopeConfig,
   ConversationTurn,
   ConversationTurnListResult,
   ConversationTurnResult,
@@ -14,12 +14,14 @@ import type { InboundMessage } from '@moe/slack';
 
 import {
   buildPersonaSystemPrompt,
+  classifyMessageConfidence,
   composeGatedReply,
   generateReply,
+  haikuCostUsdMicros,
   sonnetCostUsdMicros,
   STATUS_CLAIM_TOOL,
 } from '@moe/agents';
-import { toUtcDay } from '@moe/core';
+import { isSurfaceInScope, toUtcDay } from '@moe/core';
 import { postMessage } from '@moe/slack';
 
 import { checkCostCapAndAlert } from './check-cost-cap.js';
@@ -29,8 +31,13 @@ import { resolveThreadKey } from './resolve-thread-key.js';
 const MAX_HISTORY_TURNS = 20;
 
 type GenerateReplyClient = Parameters<typeof generateReply>[0];
+type ClassifierClient = Parameters<typeof classifyMessageConfidence>[0];
 type PostMessageClient = Parameters<typeof postMessage>[0];
 type InboundMessageLogger = {
+  readonly info: (
+    message: string,
+    fields?: Readonly<Record<string, unknown>>,
+  ) => void;
   readonly error: (
     message: string,
     fields?: Readonly<Record<string, unknown>>,
@@ -66,11 +73,15 @@ type CostStore = {
 };
 
 // `historyStore`/`costStore`/`capStore`/`costCapConfig`/`personaId`/`threadQueue`/
-// `rootCandidateBuffer` bundled alongside the pre-existing 3 params into one options object — the
+// `channelScopeConfig` bundled alongside the pre-existing 3 params into one options object — the
 // 3-param signature was already at eslint's `max-params: 3` ceiling, same bundling pattern
-// `start-slack-listener.ts` already uses for its own deps.
+// `start-slack-listener.ts` already uses for its own deps. `anthropicClient` satisfies both
+// `generateReply`'s (DM chat replies) and `classifyMessageConfidence`'s (ambient-channel Stage 1
+// gate, BUILD_PLAN 3.3) client shapes — one real `Anthropic` SDK instance from
+// `createAnthropicClient` structurally satisfies both, same "one client, many call sites" pattern
+// as the rest of this file's DI seams.
 export type HandlerDeps = {
-  readonly anthropicClient: GenerateReplyClient;
+  readonly anthropicClient: GenerateReplyClient & ClassifierClient;
   readonly slackClient: PostMessageClient;
   readonly logger: InboundMessageLogger;
   readonly historyStore: HistoryStore;
@@ -79,7 +90,7 @@ export type HandlerDeps = {
   readonly costCapConfig: CostCapConfig;
   readonly personaId: PersonaId;
   readonly threadQueue: ThreadQueue;
-  readonly rootCandidateBuffer: RootCandidateBuffer;
+  readonly channelScopeConfig: ChannelScopeConfig;
 };
 
 // Non-persona-voiced, same spirit as chunk 2.3's ACK_TEXT — a visible reply on LLM failure beats
@@ -132,58 +143,36 @@ async function appendTurnLogged(
 }
 
 /**
- * Accounts for one turn's LLM token usage against the persona/day cost bucket (BUILD_PLAN 2.6a) —
- * "log, don't throw" on failure, same as `appendTurnLogged` above; a cost-tracking write should
- * never be why a reply doesn't reach Slack. Only called when `generateReply` itself succeeded —
- * a failed API call returns no `usage` to account for.
+ * Accounts for one LLM call's token usage against the persona/day cost bucket (BUILD_PLAN 2.6a,
+ * extended at 3.3 to a second model/call site) — "log, don't throw" on failure, same as
+ * `appendTurnLogged` above; a cost-tracking write should never be why a reply doesn't reach Slack
+ * (or, for the ambient path, why classification doesn't complete). Model-agnostic — the caller
+ * prices `usage` with whichever model it just called (`sonnetCostUsdMicros` for the DM chat-reply
+ * path, `haikuCostUsdMicros` for the Stage 1 classifier) and passes the result in, so this function
+ * only ever persists, never decides pricing. Only called after its own LLM call succeeded — a
+ * failed API call has no real `usage` to account for.
  */
 async function recordUsageLogged(
   deps: HandlerDeps,
-  usage: GenerateReplyUsage,
+  input: {
+    readonly usage: {
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+    };
+    readonly costUsdMicros: number;
+  },
   now: Date,
 ): Promise<void> {
   const result = await deps.costStore.recordUsage({
     personaId: deps.personaId,
     day: toUtcDay(now.toISOString()),
-    inputTokens: usage.inputTokens,
-    outputTokens: usage.outputTokens,
-    costUsdMicros: sonnetCostUsdMicros(usage, now),
+    inputTokens: input.usage.inputTokens,
+    outputTokens: input.usage.outputTokens,
+    costUsdMicros: input.costUsdMicros,
   });
   if (!result.ok) {
     deps.logger.error('failed to record LLM cost usage', {
       message: repositoryErrorMessage(result.error),
-    });
-  }
-}
-
-/**
- * On the first reply into a never-before-seen channel/group thread, backfills the message that
- * opened it (Slack's own `message` event never carries `thread_ts` on that message, only on the
- * replies that follow — see `root-candidate-buffer.ts`). A match with no `replyText` yet (the
- * bot's own async reply to the root hasn't landed) backfills the user turn alone — accepted, not
- * corrected; the API silently merges the resulting consecutive user turns rather than erroring.
- */
-async function backfillRootCandidate(
-  deps: HandlerDeps,
-  message: InboundMessage,
-  scope: HistoryScope,
-): Promise<void> {
-  const candidate = deps.rootCandidateBuffer.takeIfMatches(
-    message.channelId,
-    scope.threadKey,
-  );
-  if (candidate === undefined) return;
-
-  await appendTurnLogged(deps, {
-    ...scope,
-    role: 'user',
-    content: candidate.text,
-  });
-  if (candidate.replyText !== undefined) {
-    await appendTurnLogged(deps, {
-      ...scope,
-      role: 'assistant',
-      content: candidate.replyText,
     });
   }
 }
@@ -243,7 +232,14 @@ async function generateAndPost(
       message: generated.error.message,
     });
   } else {
-    await recordUsageLogged(deps, generated.usage, now);
+    await recordUsageLogged(
+      deps,
+      {
+        usage: generated.usage,
+        costUsdMicros: sonnetCostUsdMicros(generated.usage, now),
+      },
+      now,
+    );
   }
 
   // Composed once and reused for both the Slack post and the persisted/buffered history entry
@@ -268,27 +264,6 @@ async function generateAndPost(
   return generated.ok ? { ok: true, text } : { ok: false };
 }
 
-async function handleUnthreadedMessage(
-  deps: HandlerDeps,
-  message: InboundMessage,
-): Promise<void> {
-  deps.rootCandidateBuffer.recordCandidate(
-    message.channelId,
-    message.ts,
-    message.text,
-  );
-
-  const generated = await generateAndPost(deps, message, []);
-
-  if (generated.ok) {
-    deps.rootCandidateBuffer.recordReply(
-      message.channelId,
-      message.ts,
-      generated.text,
-    );
-  }
-}
-
 async function handleThreadedMessage(
   deps: HandlerDeps,
   message: InboundMessage,
@@ -300,16 +275,7 @@ async function handleThreadedMessage(
     threadKey,
   };
 
-  const initialHistory = await fetchHistory(deps, scope);
-  const isNeverSeenChannelThread =
-    initialHistory.length === 0 && message.channelType !== 'im';
-  if (isNeverSeenChannelThread) {
-    await backfillRootCandidate(deps, message, scope);
-  }
-  const history = isNeverSeenChannelThread
-    ? await fetchHistory(deps, scope)
-    : initialHistory;
-
+  const history = await fetchHistory(deps, scope);
   const generated = await generateAndPost(
     deps,
     message,
@@ -331,12 +297,78 @@ async function handleThreadedMessage(
 }
 
 /**
- * Replies to every inbound message with an LLM-generated reply in the placeholder voice
- * (BUILD_PLAN 2.4a — not the persona's real character, which is Stage 5 behind the do-not-touch
- * gate), now thread-scoped (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the keying rule). A
- * DM or an in-thread channel/group reply fetches/persists conversation history, serialized per
- * thread key via `threadQueue` so two overlapping messages for the same thread can't race on
- * history; an un-threaded channel/group message stays fully stateless, identical to 2.4a. A failed
+ * VISION §5.2's Stage 0 + Stage 1, run for every ambient channel/group message (never a DM — a DM
+ * is already addressed, §5.3). Out-of-scope channels never reach the classifier at all (Stage 0,
+ * BUILD_PLAN 3.2's `isSurfaceInScope`); an in-scope one gets a single classification call (Stage 1,
+ * `docs/decisions/STAGE-1-CLASSIFIER.md`) and the score is logged, not yet acted on — BUILD_PLAN
+ * 3.3's own scope is "run silently in prod for a few days of real traffic to sanity-check the
+ * thresholds" before 3.4a-i starts routing on it. No reply is posted either way; this replaces the
+ * old "chat back to every message" behavior for ambient surfaces (BUILD_PLAN 3.3's own
+ * DMs-only decision) — a DM still gets the full conversational reply path, unchanged, below.
+ *
+ * A real, billed Anthropic call regardless of which model it's on — gated by the same
+ * `checkCostCapAndAlert` the DM reply path uses (BUILD_PLAN 2.6b), not a separate or looser check,
+ * since both call sites draw against the same per-persona monthly cap (DA review, chunk 3.3: this
+ * path originally shipped completely uncapped and unaccounted-for). A halted persona skips
+ * classification entirely rather than posting anything — there's no reply path here to carry a
+ * visible `HALT_TEXT`-style signal, so the skip is logged instead, for Alex's own visibility.
+ */
+async function handleAmbientChannelMessage(
+  deps: HandlerDeps,
+  message: InboundMessage,
+): Promise<void> {
+  const inScope = isSurfaceInScope(
+    { kind: 'channel', channelId: message.channelId },
+    deps.channelScopeConfig,
+  );
+  if (!inScope) return;
+
+  const now = new Date();
+  const capCheck = await checkCostCapAndAlert(deps, now);
+  if (capCheck.halt) {
+    deps.logger.info('skipping classification — monthly cost cap reached', {
+      personaId: deps.personaId,
+      channelId: message.channelId,
+    });
+    return;
+  }
+
+  const classified = await classifyMessageConfidence(deps.anthropicClient, {
+    text: message.text,
+  });
+  if (!classified.ok) {
+    deps.logger.error('failed to classify inbound message', {
+      message: classified.error.message,
+    });
+    return;
+  }
+
+  await recordUsageLogged(
+    deps,
+    {
+      usage: classified.usage,
+      costUsdMicros: haikuCostUsdMicros(classified.usage),
+    },
+    now,
+  );
+
+  deps.logger.info('classified inbound message', {
+    personaId: deps.personaId,
+    channelId: message.channelId,
+    messageText: message.text,
+    confidence: classified.confidence,
+    reasoning: classified.reasoning,
+  });
+}
+
+/**
+ * Replies to every inbound DM with an LLM-generated reply in the placeholder voice (BUILD_PLAN
+ * 2.4a — not the persona's real character, which is Stage 5 behind the do-not-touch gate),
+ * thread-scoped (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the keying rule), serialized per
+ * thread key via `threadQueue` so two overlapping messages for the same conversation can't race on
+ * history. An ambient channel/group message never reaches this path at all — it's classified and
+ * logged instead (`handleAmbientChannelMessage`, BUILD_PLAN 3.3's DMs-only decision, made once
+ * Stage 3's intake cascade existed to give ambient messages a real, non-chatty purpose). A failed
  * LLM call is logged and still posts a generic fallback reply rather than leaving the user with
  * silence; a failed Slack post or history read/write is logged, "log, don't throw, don't retry
  * here" — this chunk proves the wiring end-to-end, not a full retry/backoff UX.
@@ -345,10 +377,16 @@ export function createInboundMessageHandler(
   deps: HandlerDeps,
 ): (message: InboundMessage) => Promise<void> {
   return async (message) => {
-    const threadKey = resolveThreadKey(message);
+    if (message.channelType !== 'im') {
+      await handleAmbientChannelMessage(deps, message);
+      return;
+    }
 
+    const threadKey = resolveThreadKey(message);
     if (threadKey === undefined) {
-      await handleUnthreadedMessage(deps, message);
+      // Unreachable given the `channelType !== 'im'` branch above — `resolveThreadKey` only
+      // returns `undefined` for an un-threaded channel/group message, which never reaches here.
+      // A narrowing guard instead of an `as`/`!` — defensively correct even if that changed.
       return;
     }
 

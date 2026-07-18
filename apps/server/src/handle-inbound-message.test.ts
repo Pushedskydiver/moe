@@ -4,7 +4,6 @@ import type { ConversationTurn } from '@moe/core';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createInboundMessageHandler } from './handle-inbound-message.js';
-import { makeRootCandidateBuffer } from './root-candidate-buffer.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 type HistoryStore = HandlerDeps['historyStore'];
@@ -19,7 +18,7 @@ function makeSlackClient(response: {
 }
 
 function makeAnthropicClient(
-  response:
+  createResponse:
     | {
         readonly content: ReadonlyArray<
           { readonly type: string; readonly text?: string } & Record<
@@ -33,19 +32,36 @@ function makeAnthropicClient(
         };
       }
     | (() => never),
+  // Only exercised by ambient-channel tests (`.create` is the DM chat-reply path, `.parse` is the
+  // Stage 1 classifier, BUILD_PLAN 3.3 — no test calls both on the same client). Defaults to a
+  // generic classification so DM-only tests never need to know this mock exists.
+  parseResponse:
+    | { readonly confidence: number; readonly reasoning: string }
+    | null
+    | (() => never) = {
+    confidence: 10,
+    reasoning: 'default test classification',
+  },
 ) {
   return {
     messages: {
       create:
-        typeof response === 'function'
-          ? vi.fn(response)
-          : vi.fn().mockResolvedValue(response),
+        typeof createResponse === 'function'
+          ? vi.fn(createResponse)
+          : vi.fn().mockResolvedValue(createResponse),
+      parse:
+        typeof parseResponse === 'function'
+          ? vi.fn(parseResponse)
+          : vi.fn().mockResolvedValue({
+              parsed_output: parseResponse,
+              usage: { input_tokens: 40, output_tokens: 12 },
+            }),
     },
   };
 }
 
 function makeLogger() {
-  return { error: vi.fn() };
+  return { info: vi.fn(), error: vi.fn() };
 }
 
 function turn(overrides: Partial<ConversationTurn> = {}): ConversationTurn {
@@ -144,7 +160,7 @@ function makeDeps(
     readonly costCapConfig: HandlerDeps['costCapConfig'];
     readonly personaId: HandlerDeps['personaId'];
     readonly threadQueue: ReturnType<typeof makeThreadQueue>;
-    readonly rootCandidateBuffer: ReturnType<typeof makeRootCandidateBuffer>;
+    readonly channelScopeConfig: HandlerDeps['channelScopeConfig'];
   }> = {},
 ) {
   return {
@@ -160,7 +176,7 @@ function makeDeps(
     },
     personaId: 'sarah' as const,
     threadQueue: makeThreadQueue(),
-    rootCandidateBuffer: makeRootCandidateBuffer(),
+    channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
     ...overrides,
   };
 }
@@ -210,13 +226,12 @@ describe('createInboundMessageHandler', () => {
     expect(call.system).toContain('Marcus');
   });
 
-  it('replies in the thread when the inbound message was threaded', async () => {
+  it('replies in the thread when the inbound DM carries a thread_ts', async () => {
     const deps = makeDeps();
     const handler = createInboundMessageHandler(deps);
 
     await handler({
       ...DM_MESSAGE,
-      channelType: 'channel',
       threadTs: '1699999999.000100',
     });
 
@@ -596,118 +611,169 @@ describe('createInboundMessageHandler', () => {
     });
   });
 
-  it('stays fully stateless for an un-threaded channel message — no history fetch/persist, buffer recorded', async () => {
-    const deps = makeDeps();
+  it('classifies and logs an in-scope ambient channel message, without fetching/persisting history or posting a reply (BUILD_PLAN 3.3)', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+        confidence: 82,
+        reasoning: 'describes a real bug',
+      }),
+    });
     const handler = createInboundMessageHandler(deps);
-    const channelMessage = { ...DM_MESSAGE, channelType: 'channel' as const };
+    const channelMessage = {
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    };
 
     await handler(channelMessage);
 
-    expect(deps.historyStore.getRecentTurns).not.toHaveBeenCalled();
-    expect(deps.historyStore.appendTurn).not.toHaveBeenCalled();
-    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
+    expect(deps.anthropicClient.messages.parse).toHaveBeenCalledWith(
       expect.objectContaining({
+        model: 'claude-haiku-4-5',
         messages: [{ role: 'user', content: channelMessage.text }],
       }),
     );
-    expect(
-      deps.rootCandidateBuffer.takeIfMatches('D123', channelMessage.ts),
-    ).toEqual({ text: channelMessage.text, replyText: 'Sure, tell me more.' });
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'classified inbound message',
+      {
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageText: channelMessage.text,
+        confidence: 82,
+        reasoning: 'describes a real bug',
+      },
+    );
+    expect(deps.anthropicClient.messages.create).not.toHaveBeenCalled();
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    expect(deps.historyStore.getRecentTurns).not.toHaveBeenCalled();
+    expect(deps.historyStore.appendTurn).not.toHaveBeenCalled();
   });
 
-  it('backfills the buffered root message and reply on the first reply into a new channel thread', async () => {
-    const rootCandidateBuffer = makeRootCandidateBuffer();
-    rootCandidateBuffer.recordCandidate(
-      'D123',
-      '1699999999.000100',
-      'what do you think?',
-    );
-    rootCandidateBuffer.recordReply(
-      'D123',
-      '1699999999.000100',
-      'good idea, let’s do it',
-    );
-    const deps = makeDeps({ rootCandidateBuffer });
-    const handler = createInboundMessageHandler(deps);
-
-    await handler({
-      ...DM_MESSAGE,
-      channelType: 'channel',
-      threadTs: '1699999999.000100',
-    });
-
-    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
-      personaId: 'sarah',
-      channelId: 'D123',
-      threadKey: '1699999999.000100',
-      role: 'user',
-      content: 'what do you think?',
-    });
-    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
-      personaId: 'sarah',
-      channelId: 'D123',
-      threadKey: '1699999999.000100',
-      role: 'assistant',
-      content: 'good idea, let’s do it',
-    });
-  });
-
-  it('proceeds with empty history when a channel thread reply has no matching buffered candidate', async () => {
+  it('does the same for a group message — group and channel both route through the ambient path', async () => {
     const deps = makeDeps();
     const handler = createInboundMessageHandler(deps);
 
     await handler({
       ...DM_MESSAGE,
-      channelType: 'channel',
-      threadTs: '1699999999.000100',
+      channelId: 'C123',
+      channelType: 'group' as const,
     });
 
-    // No backfill happened — exactly the current turn's own two persists (user + assistant),
-    // not four (which a spurious backfill would add).
-    expect(deps.historyStore.appendTurn).toHaveBeenCalledTimes(2);
-    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
-      expect.objectContaining({
-        messages: [{ role: 'user', content: DM_MESSAGE.text }],
-      }),
-    );
+    expect(deps.anthropicClient.messages.parse).toHaveBeenCalled();
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
   });
 
-  it('backfills only the root user turn, with no fabricated assistant turn, when the candidate has no replyText yet', async () => {
-    const rootCandidateBuffer = makeRootCandidateBuffer();
-    rootCandidateBuffer.recordCandidate(
-      'D123',
-      '1699999999.000100',
-      'what do you think?',
-    );
-    const appendTurn = vi
-      .fn<HistoryStore['appendTurn']>()
-      .mockResolvedValue({ ok: true, turn: turn() });
+  it('does nothing at all for an out-of-scope ambient channel message — the classifier is never called (Stage 0, BUILD_PLAN 3.2)', async () => {
+    const deps = makeDeps();
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C_NOT_CONFIGURED',
+      channelType: 'channel' as const,
+    });
+
+    expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+    expect(deps.anthropicClient.messages.create).not.toHaveBeenCalled();
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    expect(deps.logger.info).not.toHaveBeenCalled();
+  });
+
+  it('logs an error and posts no reply when classifying an ambient channel message fails', async () => {
     const deps = makeDeps({
-      rootCandidateBuffer,
-      historyStore: makeHistoryStore({ appendTurn }),
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, () => {
+        throw new Error('rate limited');
+      }),
     });
     const handler = createInboundMessageHandler(deps);
 
     await handler({
       ...DM_MESSAGE,
-      channelType: 'channel',
-      threadTs: '1699999999.000100',
+      channelId: 'C123',
+      channelType: 'channel' as const,
     });
 
-    const appendCalls = appendTurn.mock.calls.map((call) => call[0]);
-    expect(appendCalls).toContainEqual({
-      personaId: 'sarah',
-      channelId: 'D123',
-      threadKey: '1699999999.000100',
-      role: 'user',
-      content: 'what do you think?',
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to classify inbound message',
+      { message: 'rate limited' },
+    );
+    expect(deps.logger.info).not.toHaveBeenCalled();
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("records the classifier call's token usage and its Haiku-priced cost against the persona/day bucket, same cap-accounting mechanism as the DM path (DA fold, BUILD_PLAN 3.3)", async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+        confidence: 82,
+        reasoning: 'describes a real bug',
+      }),
     });
-    expect(
-      appendCalls.filter(
-        (call) =>
-          call.content === 'what do you think?' && call.role === 'assistant',
-      ),
-    ).toHaveLength(0);
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    });
+
+    // The classifier mock's default usage is {input_tokens: 40, output_tokens: 12}; Haiku 4.5 is
+    // a flat $1/$5 per MTok: 40 * 1 + 12 * 5 = 100 micro-USD.
+    expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        personaId: 'sarah',
+        inputTokens: 40,
+        outputTokens: 12,
+        costUsdMicros: 100,
+      }),
+    );
+  });
+
+  it('does not record cost usage when classifying an ambient channel message fails — there is no token usage to account for', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, () => {
+        throw new Error('rate limited');
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    });
+
+    expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it('hard-halts and skips classification entirely once monthly spend reaches the cap — ambient messages are gated by the same cap as the DM path (DA fold, BUILD_PLAN 3.3)', async () => {
+    const deps = makeDeps({
+      capStore: makeCapStore({
+        getMonthlyCost: vi.fn<CapStore['getMonthlyCost']>().mockResolvedValue({
+          ok: true,
+          total: {
+            personaId: 'sarah',
+            month: '2026-07',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsdMicros: 100_000_000,
+          },
+        }),
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    });
+
+    expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+    expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'skipping classification — monthly cost cap reached',
+      { personaId: 'sarah', channelId: 'C123' },
+    );
   });
 
   it('persists the user turn but not an assistant turn when the LLM call fails', async () => {

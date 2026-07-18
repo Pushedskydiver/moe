@@ -45,6 +45,7 @@ const DEPS: StartSlackListenerDeps = {
     monthlyCapUsdMicros: 100_000_000,
     alertSlackUserId: 'U0ALEX',
   },
+  channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
 };
 
 function makeFakeListener(start: ReturnType<typeof vi.fn>) {

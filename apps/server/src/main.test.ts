@@ -11,6 +11,7 @@ const VALID_ENV = {
   DATABASE_URL: 'postgres://postgres:password@localhost:5432/moe_dev',
   MOE_COST_CAP_MONTHLY: '50',
   MOE_COST_ALERT_SLACK_USER_ID: 'U0ALEX',
+  MOE_WORK_RELEVANT_CHANNEL_IDS: 'C_TEAM,C_INCIDENTS,C_RESEARCH',
   PORT: '0',
 };
 
@@ -123,6 +124,25 @@ describe('main', () => {
     expect(emitted.message).toBe('invalid cost cap config');
   });
 
+  it('logs an error and exits without starting a server when the channel scope config is invalid', () => {
+    const exit = vi.fn();
+    const startSlack = vi.fn();
+
+    const server = main(
+      { ...VALID_ENV, MOE_WORK_RELEVANT_CHANNEL_IDS: undefined },
+      exit,
+      startSlack,
+    );
+
+    expect(server).toBeUndefined();
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(startSlack).not.toHaveBeenCalled();
+    const emitted = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as {
+      message: string;
+    };
+    expect(emitted.message).toBe('invalid channel scope config');
+  });
+
   it('logs an error and signals a failed exit when the HTTP server errors (e.g. port already in use)', async () => {
     const first = main(VALID_ENV, vi.fn(), vi.fn());
     const address = first?.address();
@@ -164,6 +184,7 @@ describe('main', () => {
           monthlyCapUsdMicros: number;
           alertSlackUserId: string;
         };
+        channelScopeConfig: { workRelevantChannelIds: ReadonlySet<string> };
       },
       unknown,
       (code: number) => void,
@@ -175,6 +196,11 @@ describe('main', () => {
       monthlyCapUsdMicros: 50_000_000,
       alertSlackUserId: 'U0ALEX',
     });
+    expect([...deps.channelScopeConfig.workRelevantChannelIds]).toEqual([
+      'C_TEAM',
+      'C_INCIDENTS',
+      'C_RESEARCH',
+    ]);
 
     passedExit(1);
 
