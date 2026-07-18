@@ -19,6 +19,7 @@ export { isUnrecoverableStartError } from './is-unrecoverable-start-error.js';
 export type { AwayKeywords } from './away-detection/away-keywords.js';
 export { DEFAULT_AWAY_KEYWORDS } from './away-detection/away-keywords.js';
 export type {
+  FetchSlackStatusError,
   FetchSlackStatusResult,
   SlackStatus,
 } from './away-detection/fetch-slack-status.js';

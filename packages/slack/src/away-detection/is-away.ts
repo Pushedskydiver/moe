@@ -1,4 +1,5 @@
 import type { AwayKeywords } from './away-keywords.js';
+import type { SlackStatus } from './fetch-slack-status.js';
 
 import { DEFAULT_AWAY_KEYWORDS } from './away-keywords.js';
 
@@ -6,7 +7,14 @@ function escapeRegExp(literal: string): string {
   return literal.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function matchesTextKeyword(statusText: string, keyword: string): boolean {
+/**
+ * `\b` only fires at a transition between a word (`\w`) and non-word character — a `textKeywords`
+ * entry that doesn't both start and end with a word character (e.g. a keyword ending in
+ * punctuation) can therefore never satisfy the trailing `\b` and will silently never match.
+ * Doesn't affect `DEFAULT_AWAY_KEYWORDS` (plain words), but is a real constraint on any custom
+ * list a caller supplies, since `AwayKeywords` is public API.
+ */
+function isTextKeywordMatch(statusText: string, keyword: string): boolean {
   const wholeWord = new RegExp(`\\b${escapeRegExp(keyword)}\\b`, 'i');
   return wholeWord.test(statusText);
 }
@@ -16,7 +24,7 @@ function matchesTextKeyword(statusText: string, keyword: string): boolean {
  * `emojiShortcodes` are stored colon-free, so both sides are normalized here rather than baking
  * colon-handling into the config data.
  */
-function matchesEmojiShortcode(
+function isEmojiShortcodeMatch(
   statusEmoji: string,
   shortcode: string,
 ): boolean {
@@ -32,15 +40,15 @@ function matchesEmojiShortcode(
  * matching. Either signal alone is sufficient; there's no requirement that both match.
  */
 export function isAway(
-  status: { readonly statusText: string; readonly statusEmoji: string },
+  status: SlackStatus,
   keywords: AwayKeywords = DEFAULT_AWAY_KEYWORDS,
 ): boolean {
   const emojiMatch = keywords.emojiShortcodes.some((shortcode) =>
-    matchesEmojiShortcode(status.statusEmoji, shortcode),
+    isEmojiShortcodeMatch(status.statusEmoji, shortcode),
   );
   if (emojiMatch) return true;
 
   return keywords.textKeywords.some((keyword) =>
-    matchesTextKeyword(status.statusText, keyword),
+    isTextKeywordMatch(status.statusText, keyword),
   );
 }

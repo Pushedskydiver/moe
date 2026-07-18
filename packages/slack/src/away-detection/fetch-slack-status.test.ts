@@ -93,4 +93,19 @@ describe('fetchSlackStatus', () => {
       },
     });
   });
+
+  it('returns an invalid-response result instead of throwing when the response does not match the expected shape', async () => {
+    const client = {
+      users: {
+        profile: {
+          get: vi.fn().mockResolvedValue({ unexpected: 'shape' }),
+        },
+      },
+    };
+
+    const result = await fetchSlackStatus(client, 'U123');
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.kind).toBe('invalid-response');
+  });
 });

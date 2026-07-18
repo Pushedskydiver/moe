@@ -1,3 +1,9 @@
+/** The keyword/emoji shape `is-away.ts`'s `isAway` matches a Slack status against. */
+export type AwayKeywords = {
+  readonly textKeywords: readonly string[];
+  readonly emojiShortcodes: readonly string[];
+};
+
 /**
  * VISION Appendix A's open "Slack-status-away parsing conventions" question, settled at
  * BUILD_PLAN chunk 2.7b (Alex confirmed via `AskUserQuestion`, not inferred): BUILD_PLAN's own
@@ -14,11 +20,6 @@
  * wrong (🔁 is `repeat`, not `arrows_counterclockwise`); this list caught a second live instance
  * of the same gotcha (🏖️ is `beach_with_umbrella`, not the guessed `beach_umbrella`).
  */
-export type AwayKeywords = {
-  readonly textKeywords: readonly string[];
-  readonly emojiShortcodes: readonly string[];
-};
-
 export const DEFAULT_AWAY_KEYWORDS: AwayKeywords = {
   textKeywords: ['away', 'holiday', 'OOO'],
   emojiShortcodes: [

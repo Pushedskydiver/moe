@@ -48,6 +48,24 @@ describe('isAway', () => {
     ).toBe(true);
   });
 
+  it('treats a keyword containing regex metacharacters as a literal string, not a pattern', () => {
+    const customKeywords = { textKeywords: ['b.r.b'], emojiShortcodes: [] };
+    expect(
+      isAway(
+        { statusText: 'Back in a sec, b.r.b', statusEmoji: '' },
+        customKeywords,
+      ),
+    ).toBe(true);
+    // "." is regex-any-character if unescaped — "bxrxb" would wrongly match a leaked-through
+    // pattern where a real, properly-escaped literal "." must not.
+    expect(
+      isAway(
+        { statusText: 'bxrxb makes no sense', statusEmoji: '' },
+        customKeywords,
+      ),
+    ).toBe(false);
+  });
+
   it('respects a custom keyword list over the default', () => {
     const customKeywords = {
       textKeywords: ['gone fishing'],
