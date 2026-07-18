@@ -1,4 +1,3 @@
-import type { HandlerDeps } from './handle-inbound-message.js';
 import type { InboundReaction } from '@moe/slack';
 
 import { classifyReactionOutcome } from '@moe/slack';
@@ -14,15 +13,24 @@ type ReactionOutcomeDeps = Parameters<typeof commitTicketDraft>[0];
 
 // BUILD_PLAN 3.4a-ii's own scope, per Alex's confirmed resolution (`AskUserQuestion`): builds the
 // real reaction-event handler as a testable primitive — no live Socket Mode `reaction_added`
-// listener registered against it yet (`socket-mode-listener.ts`/`start-slack-listener.ts` are
-// untouched this chunk). 3.4a-i's own draft composition doesn't persist a `pending_ticket_draft`
-// row either, so nothing in the real process can produce a reaction this handler would ever see —
-// both halves of the real end-to-end loop wait for 3.4a-iii's situational-appropriateness gate,
-// per its own BUILD_PLAN text ("wiring it in front of 3.4a-i completes the acceptance-test path").
+// listener is registered anywhere (`socket-mode-listener.ts` itself is untouched this chunk;
+// `start-slack-listener.ts` DOES gain this chunk's `ticketStore`/`draftStore` construction/wiring
+// into `HandlerDeps`, it just never calls this function). 3.4a-i's own draft composition doesn't
+// persist a `pending_ticket_draft` row either, so nothing in the real process can produce a
+// reaction this handler would ever see — both halves of the real end-to-end loop wait for
+// 3.4a-iii's situational-appropriateness gate, per its own BUILD_PLAN text ("wiring it in front of
+// 3.4a-i completes the acceptance-test path").
+//
+// KNOWN GAP for 3.4a-iii to close before wiring `reactions.add`: there is no self-authored-
+// reaction filter here, unlike `raw-message-event.ts`'s sibling `isProcessableMessageEvent` (which
+// filters `bot_id` specifically "to stop a reply loop"). Once 3.4a-iii's own `reactions.add` call
+// seeds the 📦/🔁/✅ legend onto the persona's own posted draft message, that action itself emits a
+// real `reaction_added` event with `user` = the persona's own bot user ID — undetected today, since
+// no `botUserId`-equivalent field exists anywhere in `PersonaConfig`/`HandlerDeps` to filter it
+// with (confirmed via repo-wide grep, DA review chunk 3.4a-ii). 3.4a-iii needs to thread a bot
+// identity value through this pipeline and filter on it before wiring `reactions.add` for real.
 export async function handleReactionAdded(
-  deps: ReactionOutcomeDeps & {
-    readonly draftStore: HandlerDeps['draftStore'];
-  },
+  deps: ReactionOutcomeDeps,
   reaction: InboundReaction,
 ): Promise<void> {
   const outcome = classifyReactionOutcome(reaction.reactionName);
