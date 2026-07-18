@@ -24,16 +24,19 @@ export type CachedGetResult<T, E> =
  * public surface with one caller. Promote it to the package entry the day a second integration
  * (Slack, GitHub) needs the same cache-with-serve-stale-on-failure shape.
  */
+type CachedState<T> = { readonly value: T; readonly fetchedAtMs: number };
+
 export class Cached<T, E> {
-  // Genuinely mutable — `get()` below reassigns both on every successful fetch. `readonly` here
-  // would be actively wrong, not just unenforced: it compiles to a real TS2540 error at the
-  // reassignment site, which is exactly what `functional/prefer-readonly-type`'s own `--fix`
-  // introduced before this comment existed. Disabled, not restructured, because there is no
-  // alternative shape that is both a cache and immutable.
+  // A single nullable slot, not two independently-nullable fields — `value`/`fetchedAtMs` can
+  // never drift out of sync, and narrowing a local `const cached = this.#state` inside `get()`
+  // below is what lets every branch read `cached.value` without an `as T` cast. Genuinely
+  // mutable (reassigned on every successful fetch), so `readonly` here would be actively wrong,
+  // not just unenforced: it compiles to a real TS2540 error at the reassignment site, which is
+  // exactly what `functional/prefer-readonly-type`'s own `--fix` introduced before this comment
+  // existed. Disabled, not restructured further, because there is no alternative shape that is
+  // both a cache and immutable.
   // eslint-disable-next-line functional/prefer-readonly-type
-  #value: T | null = null;
-  // eslint-disable-next-line functional/prefer-readonly-type
-  #fetchedAtMs: number | null = null;
+  #state: CachedState<T> | null = null;
 
   constructor(
     private readonly fetchFresh: () => Promise<CachedFetchResult<T, E>>,
@@ -44,22 +47,23 @@ export class Cached<T, E> {
   async get(opts?: {
     readonly refresh?: boolean;
   }): Promise<CachedGetResult<T, E>> {
-    const isStale =
-      this.#fetchedAtMs === null ||
-      this.now() - this.#fetchedAtMs >= this.ttlMs;
-    if (opts?.refresh !== true && !isStale) {
-      return { ok: true, value: this.#value as T, stale: false };
+    const cached = this.#state;
+    const isFreshEnough =
+      opts?.refresh !== true &&
+      cached !== null &&
+      this.now() - cached.fetchedAtMs < this.ttlMs;
+    if (isFreshEnough && cached !== null) {
+      return { ok: true, value: cached.value, stale: false };
     }
 
     const fresh = await this.fetchFresh();
     if (fresh.ok) {
-      this.#value = fresh.value;
-      this.#fetchedAtMs = this.now();
+      this.#state = { value: fresh.value, fetchedAtMs: this.now() };
       return { ok: true, value: fresh.value, stale: false };
     }
 
-    if (this.#value !== null) {
-      return { ok: true, value: this.#value, stale: true };
+    if (cached !== null) {
+      return { ok: true, value: cached.value, stale: true };
     }
     return { ok: false, error: fresh.error };
   }
