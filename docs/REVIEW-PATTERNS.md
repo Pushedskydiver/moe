@@ -48,11 +48,11 @@ A sibling case: validating a Slack/GitHub/status-claim payload at one call site 
 
 ### Business-hours guard misses
 
-Once the shared core-hours/weekend/UK-bank-holiday module exists (`BUILD_PLAN.md` chunk 2.7a), every persona-initiated proactive behavior is supposed to consult it before firing — `docs/VISION.md` §14 makes weekend/bank-holiday rest a hard rule, and §6.4 delegates the concrete parameters to that chunk. The failure mode: a new proactive call site added later (an intake draft, a ceremony trigger, a stall ping, anything added well after 2.7a ships) is easy to write as a plain "send this now" without threading the guard check through, especially if the new code is added by someone who never read 2.7a's own chunk text.
+The shared core-hours/weekend/UK-bank-holiday module exists as of `BUILD_PLAN.md` chunk 2.7a (`packages/core`'s `evaluateOperatingRhythm`) — every persona-initiated proactive behavior is supposed to consult it before firing, per `docs/VISION.md` §14's hard weekend/bank-holiday rest rule and §6.4's delegation of the concrete parameters to that chunk. The failure mode: a new proactive call site added later (an intake draft, a ceremony trigger, a stall ping, anything added well after 2.7a ships) is easy to write as a plain "send this now" without threading the guard check through, especially if the new code is added by someone who never read 2.7a's own chunk text. Direct DM replies are a deliberate exception, not a miss — Alex confirmed they always proceed regardless of core hours, since a DM is reactive engagement, not Moe acting unprompted.
 
 Watch for: any new function that posts to Slack, opens a GitHub comment, or otherwise initiates contact on a persona's own timing (not in direct response to a human message) without a visible call into the core-hours guard.
 
-**Status: pre-seeded per `docs/VISION.md` §12, no incident yet** — the guard module itself doesn't exist before chunk 2.7a, so nothing can miss it yet. Seeded now so the very first proactive-send call site added after 2.7a lands already has this check in the review brief.
+**Status: pre-seeded per `docs/VISION.md` §12, no incident yet** — 2.7a ships the guard module itself with no consumer wired in yet (intake, the pull loop, and the ceremony scheduler all land in later chunks), so no call site exists yet that could miss it. Seeded now so the very first proactive-send call site added after 2.7a lands already has this check in the review brief.
 
 ---
 

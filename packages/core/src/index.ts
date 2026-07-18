@@ -106,3 +106,14 @@ export type {
   TicketRepositoryError,
   TicketResult,
 } from './ticket-lifecycle/tickets-repository.js';
+
+export { createBankHolidaysCache } from './core-hours/bank-holidays-cache.js';
+export type { FetchBankHolidaysError } from './core-hours/bank-holidays-client.js';
+export { DEFAULT_CORE_HOURS_CONFIG } from './core-hours/core-hours-config.js';
+export type { CoreHoursConfig } from './core-hours/core-hours-config.js';
+export { evaluateOperatingRhythm } from './core-hours/core-hours-guard.js';
+export type {
+  OperatingRhythmDecision,
+  OperatingRhythmReason,
+} from './core-hours/core-hours-guard.js';
+export { isWithinCoreHoursWindow } from './core-hours/core-hours.js';
