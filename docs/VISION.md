@@ -354,7 +354,7 @@ Moe explicitly does not: make business/financial decisions on Alex's behalf, acc
 
 ## Appendix A — Open questions carried forward
 
-Working-hours findings, tie-breaking validation, cost calibration, per-project channel depth, persona-to-persona DM volume, sick-day handling, exit criteria, interjection-bar mechanism (the threshold governing when a persona speaks up unprompted, relevant to §1.3's Marcus example — not yet resolved), Slack-status-away parsing conventions, and the deferred persona-confidence health signal all remain open — none were touched by the diagnosis of what actually failed, so none needed re-litigating here. (Designer-role timing, formerly listed here, was resolved at BUILD_PLAN chunk 2.1 — deferred to the 5.0 gate, §4.1.)
+Working-hours findings, tie-breaking validation, cost calibration, per-project channel depth, persona-to-persona DM volume, sick-day handling, exit criteria, interjection-bar mechanism (the threshold governing when a persona speaks up unprompted, relevant to §1.3's Marcus example — not yet resolved), and the deferred persona-confidence health signal all remain open — none were touched by the diagnosis of what actually failed, so none needed re-litigating here. (Designer-role timing, formerly listed here, was resolved at BUILD_PLAN chunk 2.1 — deferred to the 5.0 gate, §4.1. Slack-status-away parsing conventions, also formerly listed here, was resolved at BUILD_PLAN chunk 2.7b — see `docs/GLOSSARY.md`'s "Away-detection" entry for the settled keyword/emoji list.)
 
 ## Appendix B — Glossary
 
