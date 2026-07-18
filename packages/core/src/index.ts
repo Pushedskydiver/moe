@@ -117,3 +117,9 @@ export type {
   OperatingRhythmReason,
 } from './core-hours/core-hours-guard.js';
 export { isWithinCoreHoursWindow } from './core-hours/core-hours.js';
+
+export type {
+  ChannelScopeConfig,
+  MessageSurface,
+} from './channel-scoping/channel-scope-config.js';
+export { isSurfaceInScope } from './channel-scoping/is-surface-in-scope.js';
