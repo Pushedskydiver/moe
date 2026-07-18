@@ -26,8 +26,8 @@ export type {
 export { fetchSlackStatus } from './away-detection/fetch-slack-status.js';
 export { isAway } from './away-detection/is-away.js';
 
-export type { ReactionOutcome } from './reaction-outcome/classify-reaction-outcome.js';
-export { classifyReactionOutcome } from './reaction-outcome/classify-reaction-outcome.js';
+export type { ReactionOutcome } from './classify-reaction-outcome.js';
+export { classifyReactionOutcome } from './classify-reaction-outcome.js';
 export type { InboundReaction } from './inbound-reaction.js';
 export type {
   ProcessableReactionEvent,

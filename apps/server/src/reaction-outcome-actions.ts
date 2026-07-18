@@ -46,7 +46,11 @@ const DEFAULT_SEVERITY = 'Medium';
  * duplicated. Atomically claims the draft first (`draftStore.resolve`'s CAS): a reaction landing on
  * an already-resolved draft (a genuine double-fire, or two reactions racing) is logged and ignored,
  * not treated as an error — exactly the double-processing guard `resolvePendingTicketDraft`'s own
- * TSDoc describes.
+ * TSDoc describes. Commits `claimed.draft`'s own title, not the `draft` parameter's — the caller's
+ * copy may be stale by the time this resolves (a concurrent 🔁 regeneration could have updated the
+ * row's content between the caller's own lookup and this claim), and `resolve`'s `RETURNING *`
+ * hands back the row's content as of the exact instant this claim won, which is the only version
+ * that's still guaranteed current.
  */
 async function commitAsTicket(
   deps: ReactionOutcomeDeps,
@@ -64,7 +68,7 @@ async function commitAsTicket(
 
   const created = await deps.ticketStore.create({
     projectKey: PROJECT_KEY,
-    title: draft.draftTitle,
+    title: claimed.draft.draftTitle,
     status,
     severity: DEFAULT_SEVERITY,
   });

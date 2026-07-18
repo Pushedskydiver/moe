@@ -176,6 +176,29 @@ describe('commitTicketDraft (✅)', () => {
     );
   });
 
+  it("commits the claim's own title, not the caller's possibly-stale copy — a concurrent 🔁 regeneration racing this claim must not commit its old content", async () => {
+    const staleDraft = makeDraft({
+      draftTitle: 'Stale title before regeneration',
+    });
+    const deps = makeDeps({
+      draftStore: makeDraftStore({
+        resolve: vi.fn<DraftStore['resolve']>().mockResolvedValue({
+          ok: true,
+          draft: {
+            ...makeDraft({ draftTitle: 'Fresh title after regeneration' }),
+            resolvedAt: new Date(),
+          },
+        }),
+      }),
+    });
+
+    await commitTicketDraft(deps, staleDraft);
+
+    expect(deps.ticketStore.create).toHaveBeenCalledWith(
+      expect.objectContaining({ title: 'Fresh title after regeneration' }),
+    );
+  });
+
   it('logs and does not create a ticket when the draft is already resolved (double-processing guard)', async () => {
     const deps = makeDeps({
       draftStore: makeDraftStore({
