@@ -168,8 +168,8 @@ Consumers within a package use relative paths. Cross-package consumers use the p
 **Delta from chief-clancy: this replaces "Board Implementation Patterns."** Chief-clancy's board adapters (GitHub/Jira/Linear ticket systems) and moe's Slack/GitHub integrations solve the same structural problem — normalize a third-party API into moe's own internal shape, safely. The patterns transfer directly:
 
 - **Reuse header/auth builders.** Every integration (`slack/`, `github/`) has a single function building auth headers or an authenticated client. Never manually construct auth in other functions.
-- **Schema-validate all API responses.** Use a Zod schema and `.safeParse()` on every Slack/GitHub API response. Never use `as` on external API data without a comment justifying why a schema can't be used.
-- **Cache via a `Cached<T>` class.** No module-level `let` for caches. Invalidate by passing a `refresh` flag to the fetch function, not by storing sentinel values.
+- **Schema-validate all API responses.** Use a Zod schema and `.safeParse()` on every external API response — Slack, GitHub, and any third-party API this section's title covers (e.g. `packages/core/src/core-hours/bank-holidays-client.ts`'s GOV.UK response, BUILD_PLAN chunk 2.7a). Never use `as` on external API data without a comment justifying why a schema can't be used.
+- **Cache via a `Cached<T>` class.** No module-level `let` for caches. Invalidate by passing a `refresh` flag to the cache's own accessor (e.g. `cache.get({ refresh: true })`), not to the underlying fetch function, and not by storing sentinel values. First real implementation: `packages/core/src/core-hours/cached.ts` (BUILD_PLAN chunk 2.7a).
 - **Normalize at the boundary.** Map provider-specific shapes (a Slack message event, a GitHub issue payload) to moe's own internal types in one place per integration — not scattered across call sites.
 - **Extract helpers to stay under 50 lines.** Integration modules extract their fetch/transform/handle steps as separate module-level functions.
 
