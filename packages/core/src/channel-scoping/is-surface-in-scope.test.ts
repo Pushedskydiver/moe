@@ -26,4 +26,13 @@ describe('isSurfaceInScope', () => {
       ),
     ).toBe(false);
   });
+
+  it('treats a channel as out of scope against a completely empty allow-list', () => {
+    expect(
+      isSurfaceInScope(
+        { kind: 'channel', channelId: 'C_ANYTHING' },
+        { workRelevantChannelIds: new Set() },
+      ),
+    ).toBe(false);
+  });
 });
