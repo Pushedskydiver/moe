@@ -37,3 +37,11 @@ export type {
 export { parseCostCapConfig } from './cost-cap-config.js';
 export type { CostCapEvaluation } from './evaluate-cost-cap.js';
 export { evaluateCostCap } from './evaluate-cost-cap.js';
+export type {
+  ClassifyMessageConfidenceParams,
+  ClassifyMessageConfidenceResult,
+  MessageClassification,
+} from './classify-message-confidence.js';
+export { classifyMessageConfidence } from './classify-message-confidence.js';
+export type { ParseChannelScopeConfigResult } from './channel-scope-config.js';
+export { parseChannelScopeConfig } from './channel-scope-config.js';

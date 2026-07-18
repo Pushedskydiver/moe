@@ -1,6 +1,6 @@
 import type { Logger } from './logger.js';
 import type { CostCapConfig, PersonaConfig } from '@moe/agents';
-import type { Database } from '@moe/core';
+import type { ChannelScopeConfig, Database } from '@moe/core';
 import type { Kysely } from 'kysely';
 
 import { createAnthropicClient } from '@moe/agents';
@@ -20,7 +20,6 @@ import {
 } from '@moe/slack';
 
 import { createInboundMessageHandler } from './handle-inbound-message.js';
-import { makeRootCandidateBuffer } from './root-candidate-buffer.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 // Bundled into one object, not two extra params, to stay under eslint's max-params: 3 — the
@@ -33,6 +32,7 @@ export type StartSlackListenerDeps = {
   readonly anthropicApiKey: string;
   readonly db: Kysely<Database>;
   readonly costCapConfig: CostCapConfig;
+  readonly channelScopeConfig: ChannelScopeConfig;
 };
 
 export type StartSlackListenerFn = (
@@ -82,7 +82,8 @@ export const startSlackListener: StartSlackListenerFn = (
   logger,
   exit,
 ) => {
-  const { config, anthropicApiKey, db, costCapConfig } = deps;
+  const { config, anthropicApiKey, db, costCapConfig, channelScopeConfig } =
+    deps;
   const webClient = createWebClient(config.slackBotToken, logger);
   const socketModeClient = createSocketModeClient(config.slackAppToken, logger);
   const anthropicClient = createAnthropicClient(anthropicApiKey, logger);
@@ -98,7 +99,7 @@ export const startSlackListener: StartSlackListenerFn = (
       costCapConfig,
       personaId: config.id,
       threadQueue: makeThreadQueue(),
-      rootCandidateBuffer: makeRootCandidateBuffer(),
+      channelScopeConfig,
     }),
     logger,
   });
