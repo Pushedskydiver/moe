@@ -10,10 +10,10 @@ import { z } from 'zod';
 const MODEL = 'claude-sonnet-5';
 const MAX_TOKENS = 512;
 
-// BUILD_PLAN 3.4a-i's own scope: "at this stage ... a link-only draft (the URL plus whatever the
-// message said)" — no enrichment, no invented detail, since Stage 3 has no GitHub client to fetch
-// real issue content from a URL yet (that's chunk 4.1/4.4b). The prompt is written to keep the
-// model from fabricating specifics the source message never stated.
+// BUILD_PLAN's Stage 3 exit criterion: "at this stage ... a link-only draft (the URL plus whatever
+// the message said)" — no enrichment, no invented detail, since Stage 3 has no GitHub client to
+// fetch real issue content from a URL yet (that's chunk 4.1/4.4b). The prompt is written to keep
+// the model from fabricating specifics the source message never stated.
 const DRAFT_SYSTEM_PROMPT =
   'You compose a short work-ticket draft from a single Slack message that has already been ' +
   'identified as describing real work. Produce a concise title (a few words, like a git commit ' +
