@@ -28,7 +28,8 @@ const DRAFT_REACTION_LEGEND = ['📦', '🔁', '✅'] as const;
  * BUILD_PLAN 3.4a-i's High-band action: composes a ticket draft from the classified message and
  * logs it — no real Slack post, no real reactions, per Alex's explicit confirmation that
  * auto-posting stays shadow/log-only until 3.4a-iii's situational-appropriateness gate exists
- * (VISION §9, same "shadow only" precedent as chunk 6.5a-i for the same class of risk). Gated by
+ * (VISION §9, same "shadow only" precedent as chunk 3.3 for the same class of risk — chunk 6.5a-i
+ * later follows this same pattern too, per its own text). Gated by
  * its own fresh `checkCostCapAndAlert` call, not the classify step's already-stale result — the
  * classify call's own cost may itself be what crosses the cap, so this call needs to see the
  * post-classify total, not a total read before that cost was recorded. Also respects the 2.7a
@@ -41,6 +42,11 @@ async function composeAndLogDraft(
   message: InboundMessage,
   now: Date,
 ): Promise<void> {
+  // Cost-cap checked before the operating-rhythm guard, not after — DA review noted the reverse
+  // order would save a DB round-trip during the (majority of) off-hours wall-clock time, but this
+  // order lets the existing cost-cap-only tests below pin the cap without also needing to pin
+  // `now` into the core-hours window, since `checkCostCapAndAlert`'s halt short-circuits before
+  // `evaluateOperatingRhythm` ever runs.
   const capCheck = await checkCostCapAndAlert(deps, now);
   if (capCheck.halt) {
     deps.logger.info(

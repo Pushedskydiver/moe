@@ -52,7 +52,7 @@ The shared core-hours/weekend/UK-bank-holiday module exists as of `BUILD_PLAN.md
 
 Watch for: any new function that posts to Slack, opens a GitHub comment, or otherwise initiates contact on a persona's own timing (not in direct response to a human message) without a visible call into the core-hours guard.
 
-**Status: pre-seeded per `docs/VISION.md` §12, no incident yet** — 2.7a ships the guard module itself with no consumer wired in yet (intake, the pull loop, and the ceremony scheduler all land in later chunks), so no call site exists yet that could miss it. Seeded now so the very first proactive-send call site added after 2.7a lands already has this check in the review brief.
+**Status: Caught — `BUILD_PLAN.md` chunk 3.4a-i**, the first real consumer wired against 2.7a's guard (`composeAndLogDraft`'s ticket-draft composition, `apps/server/src/handle-ambient-channel-message.ts`). The predicted failure happened exactly as described: the chunk's own first implementation pass wired the High-band auto-draft action without threading `evaluateOperatingRhythm` through it at all — caught by the author during pre-PR docs sync (re-reading `BUILD_PLAN.md`'s own chunk text against the code), not by a reviewer, and fixed before the diff was ever reviewed. The pull loop (6.1a-i) and the ceremony scheduler (7.2a) are still open future call sites this pattern should keep watching.
 
 ---
 
