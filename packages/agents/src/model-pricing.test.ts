@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { sonnetCostUsdMicros } from './model-pricing.js';
+import { haikuCostUsdMicros, sonnetCostUsdMicros } from './model-pricing.js';
 
 describe('sonnetCostUsdMicros', () => {
   it('prices at the introductory $2/$10-per-MTok rate before the 2026-08-31 cutover', () => {
@@ -46,6 +46,21 @@ describe('sonnetCostUsdMicros', () => {
       { inputTokens: 0, outputTokens: 0 },
       new Date('2026-07-17T09:00:00.000Z'),
     );
+
+    expect(cost).toBe(0);
+  });
+});
+
+describe('haikuCostUsdMicros', () => {
+  it('prices at the flat $1/$5-per-MTok rate', () => {
+    const cost = haikuCostUsdMicros({ inputTokens: 1_000, outputTokens: 500 });
+
+    // 1_000 * 1 + 500 * 5 = 3_500 micro-USD
+    expect(cost).toBe(3_500);
+  });
+
+  it('returns zero for a zero-token call', () => {
+    const cost = haikuCostUsdMicros({ inputTokens: 0, outputTokens: 0 });
 
     expect(cost).toBe(0);
   });

@@ -30,3 +30,24 @@ export function sonnetCostUsdMicros(
     usage.outputTokens * pricing.outputMicrosPerToken
   );
 }
+
+// Claude Haiku 4.5 pricing (`docs/decisions/STAGE-1-CLASSIFIER.md`'s Decision 2, verified against
+// current pricing): flat $1/$5 per MTok — unlike Sonnet 5, no introductory/standard date split to
+// track, so this takes no `now` parameter at all.
+const HAIKU_PRICING = { inputMicrosPerToken: 1, outputMicrosPerToken: 5 };
+
+/**
+ * Converts one Stage-1 classifier call's token usage into its cost in micro-USD, same unit and
+ * shape as `sonnetCostUsdMicros` — BUILD_PLAN 3.3's second real LLM call site, priced separately
+ * since it's a different model at a different rate, accumulated into the same per-persona monthly
+ * cost bucket `checkCostCapAndAlert` reads from (`apps/server/src/handle-inbound-message.ts`).
+ */
+export function haikuCostUsdMicros(usage: {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+}): number {
+  return (
+    usage.inputTokens * HAIKU_PRICING.inputMicrosPerToken +
+    usage.outputTokens * HAIKU_PRICING.outputMicrosPerToken
+  );
+}

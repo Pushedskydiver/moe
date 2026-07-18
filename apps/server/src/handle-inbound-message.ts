@@ -1,6 +1,6 @@
 import type { CapStore } from './check-cost-cap.js';
 import type { ThreadQueue } from './thread-queue.js';
-import type { CostCapConfig, GenerateReplyUsage, PersonaId } from '@moe/agents';
+import type { CostCapConfig, PersonaId } from '@moe/agents';
 import type {
   ChannelScopeConfig,
   ConversationTurn,
@@ -17,6 +17,7 @@ import {
   classifyMessageConfidence,
   composeGatedReply,
   generateReply,
+  haikuCostUsdMicros,
   sonnetCostUsdMicros,
   STATUS_CLAIM_TOOL,
 } from '@moe/agents';
@@ -142,22 +143,32 @@ async function appendTurnLogged(
 }
 
 /**
- * Accounts for one turn's LLM token usage against the persona/day cost bucket (BUILD_PLAN 2.6a) —
- * "log, don't throw" on failure, same as `appendTurnLogged` above; a cost-tracking write should
- * never be why a reply doesn't reach Slack. Only called when `generateReply` itself succeeded —
- * a failed API call returns no `usage` to account for.
+ * Accounts for one LLM call's token usage against the persona/day cost bucket (BUILD_PLAN 2.6a,
+ * extended at 3.3 to a second model/call site) — "log, don't throw" on failure, same as
+ * `appendTurnLogged` above; a cost-tracking write should never be why a reply doesn't reach Slack
+ * (or, for the ambient path, why classification doesn't complete). Model-agnostic — the caller
+ * prices `usage` with whichever model it just called (`sonnetCostUsdMicros` for the DM chat-reply
+ * path, `haikuCostUsdMicros` for the Stage 1 classifier) and passes the result in, so this function
+ * only ever persists, never decides pricing. Only called after its own LLM call succeeded — a
+ * failed API call has no real `usage` to account for.
  */
 async function recordUsageLogged(
   deps: HandlerDeps,
-  usage: GenerateReplyUsage,
+  input: {
+    readonly usage: {
+      readonly inputTokens: number;
+      readonly outputTokens: number;
+    };
+    readonly costUsdMicros: number;
+  },
   now: Date,
 ): Promise<void> {
   const result = await deps.costStore.recordUsage({
     personaId: deps.personaId,
     day: toUtcDay(now.toISOString()),
-    inputTokens: usage.inputTokens,
-    outputTokens: usage.outputTokens,
-    costUsdMicros: sonnetCostUsdMicros(usage, now),
+    inputTokens: input.usage.inputTokens,
+    outputTokens: input.usage.outputTokens,
+    costUsdMicros: input.costUsdMicros,
   });
   if (!result.ok) {
     deps.logger.error('failed to record LLM cost usage', {
@@ -221,7 +232,14 @@ async function generateAndPost(
       message: generated.error.message,
     });
   } else {
-    await recordUsageLogged(deps, generated.usage, now);
+    await recordUsageLogged(
+      deps,
+      {
+        usage: generated.usage,
+        costUsdMicros: sonnetCostUsdMicros(generated.usage, now),
+      },
+      now,
+    );
   }
 
   // Composed once and reused for both the Slack post and the persisted/buffered history entry
@@ -287,6 +305,13 @@ async function handleThreadedMessage(
  * thresholds" before 3.4a-i starts routing on it. No reply is posted either way; this replaces the
  * old "chat back to every message" behavior for ambient surfaces (BUILD_PLAN 3.3's own
  * DMs-only decision) — a DM still gets the full conversational reply path, unchanged, below.
+ *
+ * A real, billed Anthropic call regardless of which model it's on — gated by the same
+ * `checkCostCapAndAlert` the DM reply path uses (BUILD_PLAN 2.6b), not a separate or looser check,
+ * since both call sites draw against the same per-persona monthly cap (DA review, chunk 3.3: this
+ * path originally shipped completely uncapped and unaccounted-for). A halted persona skips
+ * classification entirely rather than posting anything — there's no reply path here to carry a
+ * visible `HALT_TEXT`-style signal, so the skip is logged instead, for Alex's own visibility.
  */
 async function handleAmbientChannelMessage(
   deps: HandlerDeps,
@@ -298,6 +323,16 @@ async function handleAmbientChannelMessage(
   );
   if (!inScope) return;
 
+  const now = new Date();
+  const capCheck = await checkCostCapAndAlert(deps, now);
+  if (capCheck.halt) {
+    deps.logger.info('skipping classification — monthly cost cap reached', {
+      personaId: deps.personaId,
+      channelId: message.channelId,
+    });
+    return;
+  }
+
   const classified = await classifyMessageConfidence(deps.anthropicClient, {
     text: message.text,
   });
@@ -307,6 +342,15 @@ async function handleAmbientChannelMessage(
     });
     return;
   }
+
+  await recordUsageLogged(
+    deps,
+    {
+      usage: classified.usage,
+      costUsdMicros: haikuCostUsdMicros(classified.usage),
+    },
+    now,
+  );
 
   deps.logger.info('classified inbound message', {
     personaId: deps.personaId,

@@ -29,7 +29,7 @@ export {
 export type { GatedReplyEvidence } from './compose-gated-reply.js';
 export { composeGatedReply } from './compose-gated-reply.js';
 export { STATUS_CLAIM_TOOL } from './status-claim-tool.js';
-export { sonnetCostUsdMicros } from './model-pricing.js';
+export { haikuCostUsdMicros, sonnetCostUsdMicros } from './model-pricing.js';
 export type {
   CostCapConfig,
   ParseCostCapConfigResult,
@@ -40,6 +40,7 @@ export { evaluateCostCap } from './evaluate-cost-cap.js';
 export type {
   ClassifyMessageConfidenceParams,
   ClassifyMessageConfidenceResult,
+  ClassifyMessageConfidenceUsage,
   MessageClassification,
 } from './classify-message-confidence.js';
 export { classifyMessageConfidence } from './classify-message-confidence.js';

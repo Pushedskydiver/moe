@@ -1,5 +1,6 @@
 import type { Anthropic } from '@anthropic-ai/sdk';
 
+import { AnthropicError, APIError } from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 
@@ -47,7 +48,13 @@ type ClassifyMessageConfidenceClient = {
       params: Anthropic.MessageCreateParamsNonStreaming & {
         readonly output_config: { readonly format: typeof OUTPUT_FORMAT };
       },
-    ) => Promise<{ readonly parsed_output: MessageClassification | null }>;
+    ) => Promise<{
+      readonly parsed_output: MessageClassification | null;
+      readonly usage: {
+        readonly input_tokens: number;
+        readonly output_tokens: number;
+      };
+    }>;
   };
 };
 
@@ -55,12 +62,23 @@ export type ClassifyMessageConfidenceParams = {
   readonly text: string;
 };
 
+export type ClassifyMessageConfidenceUsage = {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+};
+
 export type ClassifyMessageConfidenceResult =
-  | ({ readonly ok: true } & MessageClassification)
+  | ({
+      readonly ok: true;
+      readonly usage: ClassifyMessageConfidenceUsage;
+    } & MessageClassification)
   | {
       readonly ok: false;
       readonly error: {
-        readonly kind: 'anthropic-api-error' | 'no-parsed-output';
+        readonly kind:
+          | 'anthropic-api-error'
+          | 'invalid-classification-output'
+          | 'no-parsed-output';
         readonly message: string;
       };
     };
@@ -70,11 +88,53 @@ export type ClassifyMessageConfidenceResult =
  * output call, Claude Haiku 4.5, a single 0-100 integer confidence score. Uses `zodOutputFormat` +
  * `.parse()` (not raw `.create()` + manual `JSON.parse`) so the response is validated against the
  * same Zod schema this function's own return type is built from — matching CLAUDE.md's "full Zod
- * v4 for all runtime validation" constraint, not a workaround. `parsed_output` coming back `null`
- * (the SDK's own documented possibility, e.g. a refusal or a non-`end_turn` stop) is a distinct
- * error kind from a request-level failure, same "expected failure gets its own kind" shape as
- * `generateReply`'s `no-content`.
+ * v4 for all runtime validation" constraint, not a workaround. `usage` passes through the API
+ * response's own token counts, same "stateless, reports usage rather than accounting for it"
+ * precedent as `generateReply` — the real call site (`apps/server/src/handle-inbound-message.ts`)
+ * turns this into a cost-cap check before the call and a persisted cost record after it, exactly
+ * like the DM reply path already does (BUILD_PLAN 2.6a/2.6b) — a real, billed Anthropic call needs
+ * the same gate and accounting regardless of which model or call site it's on.
+ *
+ * Three distinct failure kinds, verified against the installed SDK's actual source (not assumed):
+ * a genuine request-level failure (rate limit, timeout, auth) throws an `APIError` — bucketed as
+ * `anthropic-api-error`. `zodOutputFormat`'s own `.parse()` throws a bare `AnthropicError` (not an
+ * `APIError`) when the model's raw text isn't valid JSON or fails the Zod schema (a refusal,
+ * `max_tokens`-truncated output, or an out-of-range score realistically land here, not as
+ * `parsed_output: null`) — bucketed separately as `invalid-classification-output`, so a caller (or
+ * future monitoring against the ADR's own "Triggers for re-evaluation") can tell "the API call
+ * failed" apart from "the model's output didn't conform to the schema." `parsed_output` itself
+ * coming back `null` is the SDK's own fallback for a response with no text content block at all —
+ * a rare edge case, not the refusal/non-`end_turn` case an earlier draft of this comment claimed.
  */
+// Extracted purely to stay under `max-lines-per-function` — same "composition code extracts
+// aggressively" precedent as `apps/server/src/start-slack-listener.ts`'s `createStores`.
+// Discriminates by class, not by message content: `APIError` (rate limit, timeout, auth — all its
+// subclasses) is a genuine request-level failure; a bare `AnthropicError` that isn't an `APIError`
+// is `zodOutputFormat`'s own thrown parse/validation failure (see the TSDoc above this function).
+function toClassifyMessageConfidenceError(
+  error: unknown,
+): Extract<ClassifyMessageConfidenceResult, { readonly ok: false }> {
+  if (error instanceof APIError) {
+    return {
+      ok: false,
+      error: { kind: 'anthropic-api-error', message: error.message },
+    };
+  }
+  if (error instanceof AnthropicError) {
+    return {
+      ok: false,
+      error: { kind: 'invalid-classification-output', message: error.message },
+    };
+  }
+  return {
+    ok: false,
+    error: {
+      kind: 'anthropic-api-error',
+      message: error instanceof Error ? error.message : String(error),
+    },
+  };
+}
+
 export async function classifyMessageConfidence(
   client: ClassifyMessageConfidenceClient,
   params: ClassifyMessageConfidenceParams,
@@ -98,14 +158,15 @@ export async function classifyMessageConfidence(
       };
     }
 
-    return { ok: true, ...message.parsed_output };
-  } catch (error) {
     return {
-      ok: false,
-      error: {
-        kind: 'anthropic-api-error',
-        message: error instanceof Error ? error.message : String(error),
+      ok: true,
+      ...message.parsed_output,
+      usage: {
+        inputTokens: message.usage.input_tokens,
+        outputTokens: message.usage.output_tokens,
       },
     };
+  } catch (error) {
+    return toClassifyMessageConfidenceError(error);
   }
 }

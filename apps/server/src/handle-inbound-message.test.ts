@@ -52,7 +52,10 @@ function makeAnthropicClient(
       parse:
         typeof parseResponse === 'function'
           ? vi.fn(parseResponse)
-          : vi.fn().mockResolvedValue({ parsed_output: parseResponse }),
+          : vi.fn().mockResolvedValue({
+              parsed_output: parseResponse,
+              usage: { input_tokens: 40, output_tokens: 12 },
+            }),
     },
   };
 }
@@ -696,6 +699,81 @@ describe('createInboundMessageHandler', () => {
     );
     expect(deps.logger.info).not.toHaveBeenCalled();
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+  });
+
+  it("records the classifier call's token usage and its Haiku-priced cost against the persona/day bucket, same cap-accounting mechanism as the DM path (DA fold, BUILD_PLAN 3.3)", async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+        confidence: 82,
+        reasoning: 'describes a real bug',
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    });
+
+    // The classifier mock's default usage is {input_tokens: 40, output_tokens: 12}; Haiku 4.5 is
+    // a flat $1/$5 per MTok: 40 * 1 + 12 * 5 = 100 micro-USD.
+    expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        personaId: 'sarah',
+        inputTokens: 40,
+        outputTokens: 12,
+        costUsdMicros: 100,
+      }),
+    );
+  });
+
+  it('does not record cost usage when classifying an ambient channel message fails — there is no token usage to account for', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, () => {
+        throw new Error('rate limited');
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    });
+
+    expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
+  });
+
+  it('hard-halts and skips classification entirely once monthly spend reaches the cap — ambient messages are gated by the same cap as the DM path (DA fold, BUILD_PLAN 3.3)', async () => {
+    const deps = makeDeps({
+      capStore: makeCapStore({
+        getMonthlyCost: vi.fn<CapStore['getMonthlyCost']>().mockResolvedValue({
+          ok: true,
+          total: {
+            personaId: 'sarah',
+            month: '2026-07',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsdMicros: 100_000_000,
+          },
+        }),
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    });
+
+    expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+    expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'skipping classification — monthly cost cap reached',
+      { personaId: 'sarah', channelId: 'C123' },
+    );
   });
 
   it('persists the user turn but not an assistant turn when the LLM call fails', async () => {
