@@ -17,6 +17,12 @@ export type CachedGetResult<T, E> =
  * never been a successful fetch at all, in which case the failure surfaces, since there is
  * nothing to fall back to. `now` is an injected clock (`docs/TESTING.md`'s "mock time" boundary),
  * not a directly-called `Date.now()`, so tests can advance time deterministically.
+ *
+ * Deliberately not re-exported from `@moe/core`'s package entry despite being general-purpose
+ * infrastructure — `bank-holidays-cache.js` is its only consumer today, and
+ * `docs/CONVENTIONS.md`'s `shared/` discipline ("extract only at 2+ consumers") argues against a
+ * public surface with one caller. Promote it to the package entry the day a second integration
+ * (Slack, GitHub) needs the same cache-with-serve-stale-on-failure shape.
  */
 export class Cached<T, E> {
   // Genuinely mutable — `get()` below reassigns both on every successful fetch. `readonly` here

@@ -72,4 +72,19 @@ describe('fetchUkBankHolidays', () => {
     expect(result.ok).toBe(false);
     expect(!result.ok && result.error.kind).toBe('validation-failed');
   });
+
+  it('returns an invalid-json result instead of throwing when a 2xx response body is not valid JSON', async () => {
+    const htmlMaintenancePage = new Response('<html>gov.uk is down</html>', {
+      status: 200,
+      headers: { 'content-type': 'application/json' },
+    });
+    const mockFetch = vi
+      .fn<typeof fetch>()
+      .mockResolvedValue(htmlMaintenancePage);
+
+    const result = await fetchUkBankHolidays(mockFetch);
+
+    expect(result.ok).toBe(false);
+    expect(!result.ok && result.error.kind).toBe('invalid-json');
+  });
 });

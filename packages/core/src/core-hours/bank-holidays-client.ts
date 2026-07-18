@@ -26,6 +26,7 @@ const BANK_HOLIDAYS_URL = 'https://www.gov.uk/bank-holidays.json';
 export type FetchBankHolidaysError =
   | { readonly kind: 'network-error'; readonly cause: unknown }
   | { readonly kind: 'http-error'; readonly status: number }
+  | { readonly kind: 'invalid-json'; readonly cause: unknown }
   | { readonly kind: 'validation-failed'; readonly issues: string };
 
 export type FetchBankHolidaysResult =
@@ -44,6 +45,24 @@ async function fetchRaw(fetchFn: typeof fetch): Promise<FetchRawResult> {
     return { ok: true, response: await fetchFn(BANK_HOLIDAYS_URL) };
   } catch (cause) {
     return { ok: false, error: { kind: 'network-error', cause } };
+  }
+}
+
+type ParseJsonBodyResult =
+  | { readonly ok: true; readonly body: unknown }
+  | { readonly ok: false; readonly error: FetchBankHolidaysError };
+
+// A 2xx response with an unparseable body (an HTML maintenance page served with the wrong
+// content-type, a truncated download) makes `Response.json()` reject a `SyntaxError` — same
+// "expected domain failure, not a thrown exception" reasoning as `fetchRaw` above, isolated the
+// same way. Left unguarded, that rejection would propagate all the way through `Cached.get()`'s
+// unguarded `await this.fetchFresh()` and crash a long-running persona process on what is really
+// just a transient upstream hiccup.
+async function parseJsonBody(response: Response): Promise<ParseJsonBodyResult> {
+  try {
+    return { ok: true, body: await response.json() };
+  } catch (cause) {
+    return { ok: false, error: { kind: 'invalid-json', cause } };
   }
 }
 
@@ -67,8 +86,10 @@ export async function fetchUkBankHolidays(
     };
   }
 
-  const body: unknown = await raw.response.json();
-  const parsed = bankHolidaysResponseSchema.safeParse(body);
+  const parsedBody = await parseJsonBody(raw.response);
+  if (!parsedBody.ok) return parsedBody;
+
+  const parsed = bankHolidaysResponseSchema.safeParse(parsedBody.body);
   if (!parsed.success) {
     return {
       ok: false,

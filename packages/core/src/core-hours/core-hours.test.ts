@@ -46,6 +46,20 @@ describe('isWithinCoreHoursWindow', () => {
     expect(isWithinCoreHoursWindow(mondayWinter0730Utc)).toBe(false);
   });
 
+  it('reflects BST starting on the Sunday of the spring clock change (2026-03-29) from the following Monday', () => {
+    // The transition itself always lands on a Sunday, outside the Mon-Fri window, so the first
+    // weekday it's observable on is the following Monday (2026-03-30): 07:30 UTC = 08:30 BST.
+    const mondayAfterSpringForward = new Date('2026-03-30T07:30:00Z');
+    expect(isWithinCoreHoursWindow(mondayAfterSpringForward)).toBe(true);
+  });
+
+  it('reflects GMT resuming on the Sunday of the autumn clock change (2026-10-25) from the following Monday', () => {
+    // Same reasoning in reverse: the following Monday (2026-10-26) is back to GMT, so 08:30 UTC
+    // is 08:30 local again — 07:30 UTC (which was within the window under BST) no longer is.
+    const mondayAfterAutumnBack = new Date('2026-10-26T07:30:00Z');
+    expect(isWithinCoreHoursWindow(mondayAfterAutumnBack)).toBe(false);
+  });
+
   it('respects a custom config over the default', () => {
     const nineToFiveConfig = {
       timeZone: 'Europe/London',
