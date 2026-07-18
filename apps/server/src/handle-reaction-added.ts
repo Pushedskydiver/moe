@@ -23,7 +23,8 @@ type ReactionOutcomeDeps = Parameters<typeof commitTicketDraft>[0];
 //
 // KNOWN GAP for 3.4a-iii to close before wiring `reactions.add`: there is no self-authored-
 // reaction filter here, unlike `raw-message-event.ts`'s sibling `isProcessableMessageEvent` (which
-// filters `bot_id` specifically "to stop a reply loop"). Once 3.4a-iii's own `reactions.add` call
+// filters `bot_id` specifically — "skipping these is what stops a reply loop," per its own
+// comment). Once 3.4a-iii's own `reactions.add` call
 // seeds the 📦/🔁/✅ legend onto the persona's own posted draft message, that action itself emits a
 // real `reaction_added` event with `user` = the persona's own bot user ID — undetected today, since
 // no `botUserId`-equivalent field exists anywhere in `PersonaConfig`/`HandlerDeps` to filter it
