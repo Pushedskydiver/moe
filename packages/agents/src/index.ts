@@ -46,3 +46,10 @@ export type {
 export { classifyMessageConfidence } from './classify-message-confidence.js';
 export type { ParseChannelScopeConfigResult } from './channel-scope-config.js';
 export { parseChannelScopeConfig } from './channel-scope-config.js';
+export type {
+  ComposeTicketDraftParams,
+  ComposeTicketDraftResult,
+  ComposeTicketDraftUsage,
+  TicketDraft,
+} from './compose-ticket-draft.js';
+export { composeTicketDraft } from './compose-ticket-draft.js';

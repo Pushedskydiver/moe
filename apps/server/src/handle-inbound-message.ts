@@ -1,11 +1,17 @@
 import type { CapStore } from './check-cost-cap.js';
 import type { ThreadQueue } from './thread-queue.js';
-import type { CostCapConfig, PersonaId } from '@moe/agents';
+import type {
+  classifyMessageConfidence,
+  composeTicketDraft,
+  CostCapConfig,
+  PersonaId,
+} from '@moe/agents';
 import type {
   ChannelScopeConfig,
   ConversationTurn,
   ConversationTurnListResult,
   ConversationTurnResult,
+  createBankHolidaysCache,
   NewConversationTurn,
   NewPersonaCostUsage,
   PersonaCostUsageResult,
@@ -14,17 +20,16 @@ import type { InboundMessage } from '@moe/slack';
 
 import {
   buildPersonaSystemPrompt,
-  classifyMessageConfidence,
   composeGatedReply,
   generateReply,
-  haikuCostUsdMicros,
   sonnetCostUsdMicros,
   STATUS_CLAIM_TOOL,
 } from '@moe/agents';
-import { isSurfaceInScope, toUtcDay } from '@moe/core';
 import { postMessage } from '@moe/slack';
 
 import { checkCostCapAndAlert } from './check-cost-cap.js';
+import { handleAmbientChannelMessage } from './handle-ambient-channel-message.js';
+import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import { resolveThreadKey } from './resolve-thread-key.js';
 
@@ -32,7 +37,14 @@ const MAX_HISTORY_TURNS = 20;
 
 type GenerateReplyClient = Parameters<typeof generateReply>[0];
 type ClassifierClient = Parameters<typeof classifyMessageConfidence>[0];
+type ComposeDraftClient = Parameters<typeof composeTicketDraft>[0];
 type PostMessageClient = Parameters<typeof postMessage>[0];
+// BUILD_PLAN 3.4a-i's own operating-rhythm requirement (below) needs to reference the cache's
+// type without `@moe/core` publicly exporting the `Cached` class itself (deliberately not
+// re-exported yet, per `cached.ts`'s own TSDoc) — deriving it from the one function that *is*
+// exported avoids that question entirely, same `ReturnType<typeof X>` idiom this file already
+// uses for `GenerateReplyClient`/`ClassifierClient` above.
+type BankHolidaysCache = ReturnType<typeof createBankHolidaysCache>;
 type InboundMessageLogger = {
   readonly info: (
     message: string,
@@ -81,7 +93,9 @@ type CostStore = {
 // `createAnthropicClient` structurally satisfies both, same "one client, many call sites" pattern
 // as the rest of this file's DI seams.
 export type HandlerDeps = {
-  readonly anthropicClient: GenerateReplyClient & ClassifierClient;
+  readonly anthropicClient: GenerateReplyClient &
+    ClassifierClient &
+    ComposeDraftClient;
   readonly slackClient: PostMessageClient;
   readonly logger: InboundMessageLogger;
   readonly historyStore: HistoryStore;
@@ -91,6 +105,7 @@ export type HandlerDeps = {
   readonly personaId: PersonaId;
   readonly threadQueue: ThreadQueue;
   readonly channelScopeConfig: ChannelScopeConfig;
+  readonly bankHolidaysCache: BankHolidaysCache;
 };
 
 // Non-persona-voiced, same spirit as chunk 2.3's ACK_TEXT — a visible reply on LLM failure beats
@@ -137,41 +152,6 @@ async function appendTurnLogged(
   const result = await deps.historyStore.appendTurn(input);
   if (!result.ok) {
     deps.logger.error('failed to persist conversation turn', {
-      message: repositoryErrorMessage(result.error),
-    });
-  }
-}
-
-/**
- * Accounts for one LLM call's token usage against the persona/day cost bucket (BUILD_PLAN 2.6a,
- * extended at 3.3 to a second model/call site) — "log, don't throw" on failure, same as
- * `appendTurnLogged` above; a cost-tracking write should never be why a reply doesn't reach Slack
- * (or, for the ambient path, why classification doesn't complete). Model-agnostic — the caller
- * prices `usage` with whichever model it just called (`sonnetCostUsdMicros` for the DM chat-reply
- * path, `haikuCostUsdMicros` for the Stage 1 classifier) and passes the result in, so this function
- * only ever persists, never decides pricing. Only called after its own LLM call succeeded — a
- * failed API call has no real `usage` to account for.
- */
-async function recordUsageLogged(
-  deps: HandlerDeps,
-  input: {
-    readonly usage: {
-      readonly inputTokens: number;
-      readonly outputTokens: number;
-    };
-    readonly costUsdMicros: number;
-  },
-  now: Date,
-): Promise<void> {
-  const result = await deps.costStore.recordUsage({
-    personaId: deps.personaId,
-    day: toUtcDay(now.toISOString()),
-    inputTokens: input.usage.inputTokens,
-    outputTokens: input.usage.outputTokens,
-    costUsdMicros: input.costUsdMicros,
-  });
-  if (!result.ok) {
-    deps.logger.error('failed to record LLM cost usage', {
       message: repositoryErrorMessage(result.error),
     });
   }
@@ -297,81 +277,16 @@ async function handleThreadedMessage(
 }
 
 /**
- * VISION §5.2's Stage 0 + Stage 1, run for every ambient channel/group message (never a DM — a DM
- * is already addressed, §5.3). Out-of-scope channels never reach the classifier at all (Stage 0,
- * BUILD_PLAN 3.2's `isSurfaceInScope`); an in-scope one gets a single classification call (Stage 1,
- * `docs/decisions/STAGE-1-CLASSIFIER.md`) and the score is logged, not yet acted on — BUILD_PLAN
- * 3.3's own scope is "run silently in prod for a few days of real traffic to sanity-check the
- * thresholds" before 3.4a-i starts routing on it. No reply is posted either way; this replaces the
- * old "chat back to every message" behavior for ambient surfaces (BUILD_PLAN 3.3's own
- * DMs-only decision) — a DM still gets the full conversational reply path, unchanged, below.
- *
- * A real, billed Anthropic call regardless of which model it's on — gated by the same
- * `checkCostCapAndAlert` the DM reply path uses (BUILD_PLAN 2.6b), not a separate or looser check,
- * since both call sites draw against the same per-persona monthly cap (DA review, chunk 3.3: this
- * path originally shipped completely uncapped and unaccounted-for). A halted persona skips
- * classification entirely rather than posting anything — there's no reply path here to carry a
- * visible `HALT_TEXT`-style signal, so the skip is logged instead, for Alex's own visibility.
- */
-async function handleAmbientChannelMessage(
-  deps: HandlerDeps,
-  message: InboundMessage,
-): Promise<void> {
-  const inScope = isSurfaceInScope(
-    { kind: 'channel', channelId: message.channelId },
-    deps.channelScopeConfig,
-  );
-  if (!inScope) return;
-
-  const now = new Date();
-  const capCheck = await checkCostCapAndAlert(deps, now);
-  if (capCheck.halt) {
-    deps.logger.info('skipping classification — monthly cost cap reached', {
-      personaId: deps.personaId,
-      channelId: message.channelId,
-    });
-    return;
-  }
-
-  const classified = await classifyMessageConfidence(deps.anthropicClient, {
-    text: message.text,
-  });
-  if (!classified.ok) {
-    deps.logger.error('failed to classify inbound message', {
-      message: classified.error.message,
-    });
-    return;
-  }
-
-  await recordUsageLogged(
-    deps,
-    {
-      usage: classified.usage,
-      costUsdMicros: haikuCostUsdMicros(classified.usage),
-    },
-    now,
-  );
-
-  deps.logger.info('classified inbound message', {
-    personaId: deps.personaId,
-    channelId: message.channelId,
-    messageText: message.text,
-    confidence: classified.confidence,
-    reasoning: classified.reasoning,
-  });
-}
-
-/**
  * Replies to every inbound DM with an LLM-generated reply in the placeholder voice (BUILD_PLAN
  * 2.4a — not the persona's real character, which is Stage 5 behind the do-not-touch gate),
  * thread-scoped (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the keying rule), serialized per
  * thread key via `threadQueue` so two overlapping messages for the same conversation can't race on
  * history. An ambient channel/group message never reaches this path at all — it's classified and
- * logged instead (`handleAmbientChannelMessage`, BUILD_PLAN 3.3's DMs-only decision, made once
- * Stage 3's intake cascade existed to give ambient messages a real, non-chatty purpose). A failed
- * LLM call is logged and still posts a generic fallback reply rather than leaving the user with
- * silence; a failed Slack post or history read/write is logged, "log, don't throw, don't retry
- * here" — this chunk proves the wiring end-to-end, not a full retry/backoff UX.
+ * logged instead (`handle-ambient-channel-message.ts`, BUILD_PLAN 3.3's DMs-only decision, made
+ * once Stage 3's intake cascade existed to give ambient messages a real, non-chatty purpose). A
+ * failed LLM call is logged and still posts a generic fallback reply rather than leaving the user
+ * with silence; a failed Slack post or history read/write is logged, "log, don't throw, don't
+ * retry here" — this chunk proves the wiring end-to-end, not a full retry/backoff UX.
  */
 export function createInboundMessageHandler(
   deps: HandlerDeps,

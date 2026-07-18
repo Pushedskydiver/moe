@@ -123,3 +123,6 @@ export type {
   MessageSurface,
 } from './channel-scoping/channel-scope-config.js';
 export { isSurfaceInScope } from './channel-scoping/is-surface-in-scope.js';
+
+export type { ConfidenceBand } from './confidence-band.js';
+export { classifyConfidenceBand } from './confidence-band.js';
