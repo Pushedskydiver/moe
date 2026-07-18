@@ -3,6 +3,8 @@ import type { ConversationTurn } from '@moe/core';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { createBankHolidaysCache } from '@moe/core';
+
 import { createInboundMessageHandler } from './handle-inbound-message.js';
 import { makeThreadQueue } from './thread-queue.js';
 
@@ -33,8 +35,9 @@ function makeAnthropicClient(
       }
     | (() => never),
   // Only exercised by ambient-channel tests (`.create` is the DM chat-reply path, `.parse` is the
-  // Stage 1 classifier, BUILD_PLAN 3.3 — no test calls both on the same client). Defaults to a
-  // generic classification so DM-only tests never need to know this mock exists.
+  // Stage 1 classifier — and, for a High-band message, the ticket-draft composer, BUILD_PLAN
+  // 3.4a-i, called second on the same client). Defaults to a generic Low-band classification so
+  // DM-only tests never need to know this mock exists.
   parseResponse:
     | { readonly confidence: number; readonly reasoning: string }
     | null
@@ -42,20 +45,38 @@ function makeAnthropicClient(
     confidence: 10,
     reasoning: 'default test classification',
   },
+  // Only set by High-band tests — the classifier's own `.parse()` call is always first, the
+  // draft composer's is always second, so this configures the *second* resolved/rejected value.
+  draftResponse?:
+    { readonly title: string; readonly body: string } | null | (() => never),
 ) {
+  const parse = vi.fn();
+  if (typeof parseResponse === 'function') {
+    parse.mockImplementationOnce(parseResponse);
+  } else {
+    parse.mockResolvedValueOnce({
+      parsed_output: parseResponse,
+      usage: { input_tokens: 40, output_tokens: 12 },
+    });
+  }
+  if (draftResponse !== undefined) {
+    if (typeof draftResponse === 'function') {
+      parse.mockImplementationOnce(draftResponse);
+    } else {
+      parse.mockResolvedValueOnce({
+        parsed_output: draftResponse,
+        usage: { input_tokens: 120, output_tokens: 40 },
+      });
+    }
+  }
+
   return {
     messages: {
       create:
         typeof createResponse === 'function'
           ? vi.fn(createResponse)
           : vi.fn().mockResolvedValue(createResponse),
-      parse:
-        typeof parseResponse === 'function'
-          ? vi.fn(parseResponse)
-          : vi.fn().mockResolvedValue({
-              parsed_output: parseResponse,
-              usage: { input_tokens: 40, output_tokens: 12 },
-            }),
+      parse,
     },
   };
 }
@@ -149,6 +170,31 @@ function makeCapStore(
   };
 }
 
+// A real `Cached` instance (via the one publicly exported constructor), not a hand-rolled mock —
+// `Cached` uses a native `#private` field, so a plain object literal isn't structurally
+// assignable to `HandlerDeps['bankHolidaysCache']` at all. `dates` defaults to empty (no bank
+// holidays), which combined with a pinned in-window `now` (see the High-band tests below) lets
+// `evaluateOperatingRhythm` resolve `withinCoreHours: true` without a real network call.
+function makeBankHolidaysCache(dates: readonly string[] = []) {
+  return createBankHolidaysCache({
+    fetchFn: vi.fn().mockResolvedValue({
+      ok: true,
+      json: () =>
+        Promise.resolve({
+          'england-and-wales': {
+            division: 'england-and-wales',
+            events: dates.map((date) => ({
+              title: 'Bank holiday',
+              date,
+              notes: '',
+              bunting: true,
+            })),
+          },
+        }),
+    }),
+  });
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly anthropicClient: ReturnType<typeof makeAnthropicClient>;
@@ -161,6 +207,7 @@ function makeDeps(
     readonly personaId: HandlerDeps['personaId'];
     readonly threadQueue: ReturnType<typeof makeThreadQueue>;
     readonly channelScopeConfig: HandlerDeps['channelScopeConfig'];
+    readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
   }> = {},
 ) {
   return {
@@ -177,6 +224,7 @@ function makeDeps(
     personaId: 'sarah' as const,
     threadQueue: makeThreadQueue(),
     channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
+    bankHolidaysCache: makeBankHolidaysCache(),
     ...overrides,
   };
 }
@@ -772,6 +820,254 @@ describe('createInboundMessageHandler', () => {
     expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
     expect(deps.logger.info).toHaveBeenCalledWith(
       'skipping classification — monthly cost cap reached',
+      { personaId: 'sarah', channelId: 'C123' },
+    );
+  });
+
+  it('composes and logs a ticket draft for a High-band ambient message, with its own cost accounting (BUILD_PLAN 3.4a-i)', async () => {
+    // Thursday 10:00 Europe/London (09:00 UTC, BST) — within the 08:30-17:00 core-hours window
+    // (BUILD_PLAN 2.7a), so the operating-rhythm guard doesn't block this test's draft-composition
+    // path. Real-clock `new Date()` would make this test's pass/fail depend on the time of day it
+    // happens to run.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(
+          REPLY_MESSAGE,
+          { confidence: 88, reasoning: 'describes a concrete bug' },
+          {
+            title: 'CLI hangs on large repos',
+            body: 'The CLI hangs when run against large repos.',
+          },
+        ),
+      });
+      const handler = createInboundMessageHandler(deps);
+      const channelMessage = {
+        ...DM_MESSAGE,
+        channelId: 'C123',
+        channelType: 'channel' as const,
+        text: 'hey, there is an issue about the CLI hanging on large repos — someone want to take a look?',
+      };
+
+      await handler(channelMessage);
+
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
+      const secondCall = deps.anthropicClient.messages.parse.mock
+        .calls[1]?.[0] as {
+        model: string;
+        messages: ReadonlyArray<{ role: string; content: string }>;
+      };
+      expect(secondCall.model).toBe('claude-sonnet-5');
+      expect(secondCall.messages).toEqual([
+        { role: 'user', content: channelMessage.text },
+      ]);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'would post high-band ticket draft',
+        {
+          personaId: 'sarah',
+          channelId: 'C123',
+          draftTitle: 'CLI hangs on large repos',
+          draftBody: 'The CLI hangs when run against large repos.',
+          wouldPostReactions: ['📦', '🔁', '✅'],
+        },
+      );
+      // Two LLM calls this turn (classify + compose) — the classifier's default usage
+      // (40 input/12 output, Haiku) plus the draft composer's (120 input/40 output, Sonnet 5
+      // introductory pricing $2/$10 per MTok): 40*1 + 12*5 = 100, and 120*2 + 40*10 = 640,
+      // recorded as two separate calls to recordUsage.
+      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(2);
+      expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          inputTokens: 120,
+          outputTokens: 40,
+          costUsdMicros: 640,
+        }),
+      );
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('defers ticket-draft composition outside core hours, without calling the draft composer (BUILD_PLAN 3.4a-i, 2.7a operating-rhythm guard)', async () => {
+    // Thursday 22:00 Europe/London — well past the 17:00 core-hours cutoff.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T21:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          confidence: 88,
+          reasoning: 'describes a concrete bug',
+        }),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler({
+        ...DM_MESSAGE,
+        channelId: 'C123',
+        channelType: 'channel' as const,
+      });
+
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'deferring ticket-draft composition — outside core hours',
+        {
+          personaId: 'sarah',
+          channelId: 'C123',
+          reason: 'outside-window',
+        },
+      );
+      expect(deps.logger.info).not.toHaveBeenCalledWith(
+        'would post high-band ticket draft',
+        expect.anything(),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('defers ticket-draft composition on a bank holiday, even within the core-hours window (BUILD_PLAN 3.4a-i, 2.7a operating-rhythm guard)', async () => {
+    // Same in-window instant as the successful High-band test above, but this persona's
+    // bank-holidays cache reports that exact London-local date as a bank holiday.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          confidence: 88,
+          reasoning: 'describes a concrete bug',
+        }),
+        bankHolidaysCache: makeBankHolidaysCache(['2026-07-16']),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler({
+        ...DM_MESSAGE,
+        channelId: 'C123',
+        channelType: 'channel' as const,
+      });
+
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'deferring ticket-draft composition — outside core hours',
+        {
+          personaId: 'sarah',
+          channelId: 'C123',
+          reason: 'bank-holiday',
+        },
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not compose a draft for a Mid-band ambient message — only High crosses into drafting (BUILD_PLAN 3.4a-i)', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+        confidence: 50,
+        reasoning: 'ambiguous',
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    });
+
+    expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+    expect(deps.logger.info).not.toHaveBeenCalledWith(
+      'would post high-band ticket draft',
+      expect.anything(),
+    );
+  });
+
+  it('logs an error and records no cost when composing the ticket draft fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(
+          REPLY_MESSAGE,
+          { confidence: 88, reasoning: 'describes a concrete bug' },
+          () => {
+            throw new Error('rate limited');
+          },
+        ),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler({
+        ...DM_MESSAGE,
+        channelId: 'C123',
+        channelType: 'channel' as const,
+      });
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to compose ticket draft',
+        {
+          message: 'rate limited',
+        },
+      );
+      expect(deps.logger.info).not.toHaveBeenCalledWith(
+        'would post high-band ticket draft',
+        expect.anything(),
+      );
+      // Only the classifier's own usage was recorded — the draft call never succeeded.
+      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('skips drafting (but keeps the classification) when the cost cap is reached between the classify and compose calls', async () => {
+    const getMonthlyCost = vi
+      .fn<CapStore['getMonthlyCost']>()
+      .mockResolvedValueOnce({
+        ok: true,
+        total: {
+          personaId: 'sarah',
+          month: '2026-07',
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsdMicros: 0,
+        },
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        total: {
+          personaId: 'sarah',
+          month: '2026-07',
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsdMicros: 100_000_000,
+        },
+      });
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+        confidence: 88,
+        reasoning: 'describes a concrete bug',
+      }),
+      capStore: makeCapStore({ getMonthlyCost }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler({
+      ...DM_MESSAGE,
+      channelId: 'C123',
+      channelType: 'channel' as const,
+    });
+
+    expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'classified inbound message',
+      expect.objectContaining({ confidence: 88 }),
+    );
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'skipping ticket-draft composition — monthly cost cap reached',
       { personaId: 'sarah', channelId: 'C123' },
     );
   });

@@ -7,6 +7,7 @@ import { createAnthropicClient } from '@moe/agents';
 import {
   appendTurn,
   claimAlertThreshold,
+  createBankHolidaysCache,
   getAlertState,
   getPersonaCostForMonth,
   getRecentTurns,
@@ -88,6 +89,10 @@ export const startSlackListener: StartSlackListenerFn = (
   const socketModeClient = createSocketModeClient(config.slackAppToken, logger);
   const anthropicClient = createAnthropicClient(anthropicApiKey, logger);
   const { historyStore, costStore, capStore } = createStores(db);
+  // Constructed once here, not per-message — amortizes the 24h-TTL bank-holidays cache
+  // (BUILD_PLAN 2.7a) across the whole process lifetime, same reasoning as `makeThreadQueue()`
+  // just below.
+  const bankHolidaysCache = createBankHolidaysCache();
   const listener = createSocketModeListener(socketModeClient, {
     onMessage: createInboundMessageHandler({
       anthropicClient,
@@ -100,6 +105,7 @@ export const startSlackListener: StartSlackListenerFn = (
       personaId: config.id,
       threadQueue: makeThreadQueue(),
       channelScopeConfig,
+      bankHolidaysCache,
     }),
     logger,
   });
