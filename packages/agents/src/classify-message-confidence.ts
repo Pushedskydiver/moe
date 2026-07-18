@@ -6,7 +6,7 @@ import { z } from 'zod';
 
 // docs/decisions/STAGE-1-CLASSIFIER.md's Decision 2 — the eval's own evidence, not a guess: Haiku
 // separated genuine-work-signal messages (score >= 72) from non-actionable ones (score <= 35)
-// with a clean, unoccupied 36-70 band, at a fraction of Sonnet 5's cost.
+// with a clean, unoccupied 36-71 band, at a fraction of Sonnet 5's cost.
 const MODEL = 'claude-haiku-4-5';
 const MAX_TOKENS = 256;
 
