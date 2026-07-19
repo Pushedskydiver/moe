@@ -63,21 +63,22 @@ type SocketModeEventPayload = {
   // sibling of `event`, not the same object) — its `event_id` is Slack's own stable id across
   // retries, unlike `envelope_id` (a per-WebSocket-delivery-attempt id with no documented
   // cross-retry stability guarantee). Untyped at this boundary since it's external data; see
-  // `extractEventId` below for the validated extraction.
+  // `resolveEventId` below for the validated extraction.
   readonly body?: unknown;
 };
 
-// `z.looseObject`, not `z.object` — this module only cares about one field out of a real Slack
-// Events API envelope's many others (`team_id`, `api_app_id`, `event`, etc.), so the rest must
-// validate through, not fail the whole parse. `event_id` missing/malformed is a real possibility
-// (a malformed or synthetic payload), handled by returning `undefined`, not by throwing; both
-// `handleSocketModeEvent`/`handleSocketModeReactionEvent` already fail OPEN (process normally,
-// skip dedup) when `eventId` is `undefined` — see their own TSDoc for why.
-const eventEnvelopeSchema = z.looseObject({
+// Only `event_id` is read out of a real Slack Events API envelope's many other fields (`team_id`,
+// `api_app_id`, `event`, etc.) — a plain `z.object` already strips (doesn't reject) unrecognized
+// keys by default, so no `.passthrough()`/`z.looseObject` is needed just to let the rest of the
+// envelope through; only `z.strictObject` would reject on them. `event_id` missing/malformed is a
+// real possibility (a malformed or synthetic payload), handled by returning `undefined`, not by
+// throwing; both `handleSocketModeEvent`/`handleSocketModeReactionEvent` already fail OPEN
+// (process normally, skip dedup) when `eventId` is `undefined` — see their own TSDoc for why.
+const eventEnvelopeSchema = z.object({
   event_id: z.string().min(1).optional(),
 });
 
-function extractEventId(body: unknown): string | undefined {
+function resolveEventId(body: unknown): string | undefined {
   const parsed = eventEnvelopeSchema.safeParse(body);
   return parsed.success ? parsed.data.event_id : undefined;
 }
@@ -91,13 +92,22 @@ function registerMessageListener(
   opts: CreateSocketModeListenerOpts,
 ): void {
   client.on('message', ({ ack, event, body }: SocketModeEventPayload) => {
-    handleSocketModeEvent(event, extractEventId(body), {
+    const eventId = resolveEventId(body);
+    handleSocketModeEvent(event, eventId, {
       ack,
       onMessage: opts.onMessage,
       logger: opts.logger,
       seenEventCache: opts.seenEventCache,
     }).catch((error: unknown) => {
+      // A thrown/rejected dispatch means the event was marked seen (`handleSocketModeEvent`'s own
+      // dedup check) but never actually finished processing — forget it so a genuine Slack retry
+      // of the same event_id within the TTL window gets a real second attempt rather than being
+      // silently swallowed (DA review, this file's own follow-up commit).
+      if (eventId !== undefined) {
+        opts.seenEventCache.forget(eventId);
+      }
       opts.logger.error('failed to handle slack message event', {
+        eventId,
         message: error instanceof Error ? error.message : String(error),
       });
     });
@@ -112,14 +122,21 @@ function registerReactionAddedListener(
   client.on(
     'reaction_added',
     ({ ack, event, body }: SocketModeEventPayload) => {
-      handleSocketModeReactionEvent(event, extractEventId(body), {
+      const eventId = resolveEventId(body);
+      handleSocketModeReactionEvent(event, eventId, {
         ack,
         onReactionAdded: opts.onReactionAdded,
         botUserId: opts.botUserId,
         logger: opts.logger,
         seenEventCache: opts.seenEventCache,
       }).catch((error: unknown) => {
+        // Same forget-on-failure reasoning as `registerMessageListener` above — most consequential
+        // here, since 🔁 redo has no other retry/CAS protection at all.
+        if (eventId !== undefined) {
+          opts.seenEventCache.forget(eventId);
+        }
         opts.logger.error('failed to handle slack reaction_added event', {
+          eventId,
           message: error instanceof Error ? error.message : String(error),
         });
       });

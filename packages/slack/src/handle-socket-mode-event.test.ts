@@ -14,6 +14,7 @@ function makeDeps(
     seenEventCache: {
       hasSeen: vi.fn(overrides.hasSeen ?? (() => false)),
       markSeen: vi.fn(),
+      forget: vi.fn(),
     },
   };
 }
@@ -90,13 +91,17 @@ describe('handleSocketModeEvent', () => {
     expect(deps.onMessage).not.toHaveBeenCalled();
   });
 
-  it("marks a new event id as seen before dispatching to onMessage (BUILD_PLAN follow-up on 3.4c's DA finding)", async () => {
+  it("marks a new event id as seen before dispatching to onMessage, not after (BUILD_PLAN follow-up on 3.4c's DA finding)", async () => {
     const deps = makeDeps();
 
     await handleSocketModeEvent(VALID_EVENT, 'Ev123', deps);
 
     expect(deps.seenEventCache.hasSeen).toHaveBeenCalledWith('Ev123');
     expect(deps.seenEventCache.markSeen).toHaveBeenCalledWith('Ev123');
+    const markSeenOrder =
+      deps.seenEventCache.markSeen.mock.invocationCallOrder[0];
+    const onMessageOrder = deps.onMessage.mock.invocationCallOrder[0];
+    expect(markSeenOrder).toBeLessThan(onMessageOrder);
   });
 
   it('acks but does not call onMessage or mark-seen-again for a redelivered event id already seen', async () => {

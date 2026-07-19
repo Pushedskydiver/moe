@@ -71,6 +71,22 @@ describe('createSeenEventCache', () => {
     expect(cache.hasSeen('Ev456')).toBe(false);
   });
 
+  it('reports a forgotten event id as not seen again', () => {
+    const cache = createSeenEventCache();
+
+    cache.markSeen('Ev123');
+    cache.forget('Ev123');
+
+    expect(cache.hasSeen('Ev123')).toBe(false);
+  });
+
+  it('does nothing when forgetting an event id that was never marked seen', () => {
+    const cache = createSeenEventCache();
+
+    expect(() => cache.forget('Ev123')).not.toThrow();
+    expect(cache.hasSeen('Ev123')).toBe(false);
+  });
+
   it('defaults to a real wall-clock TTL long enough to cover Slack’s own retry window (~6 minutes across 3 attempts) when no options are given', () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));

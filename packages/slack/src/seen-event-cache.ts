@@ -1,6 +1,15 @@
 export type SeenEventCache = {
   readonly hasSeen: (eventId: string) => boolean;
   readonly markSeen: (eventId: string) => void;
+  // Reverses a `markSeen` call — for when dispatch fails after an event id was marked seen but
+  // before it was actually, successfully processed (DA review: marking seen unconditionally
+  // before dispatch, with no way back, meant a failed attempt would silently swallow Slack's own
+  // legitimate retry of that same event for the rest of the TTL window — most consequential on
+  // the 🔁 redo path, which has no other retry/CAS protection at all). Callers forget only on a
+  // genuine processing failure, not on a normal skip (an already-seen duplicate, a filtered-out
+  // event) — see `handle-socket-mode-event.ts`/`handle-socket-mode-reaction-event.ts`'s own
+  // callers for where this fires.
+  readonly forget: (eventId: string) => void;
 };
 
 // Slack's own documented retry backoff for a failed/timed-out event delivery is nearly immediate,
@@ -40,6 +49,10 @@ class SeenEventCacheImpl implements SeenEventCache {
 
   readonly markSeen = (eventId: string): void => {
     this.#seenAtMs.set(eventId, this.now());
+  };
+
+  readonly forget = (eventId: string): void => {
+    this.#seenAtMs.delete(eventId);
   };
 
   #prune(): void {

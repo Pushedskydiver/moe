@@ -199,4 +199,64 @@ describe('createSocketModeListener', () => {
     });
     await vi.waitFor(() => expect(onMessage).toHaveBeenCalledTimes(2));
   });
+
+  it("forgets a failed message event's id so a genuine Slack retry gets a real second attempt, rather than being silently swallowed (DA review follow-up)", async () => {
+    const client = makeFakeClient();
+    const onMessage = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('db unavailable'));
+    const ack = vi.fn().mockResolvedValue(undefined);
+    const logger = makeLogger();
+    createSocketModeListener(client, makeOpts({ onMessage, logger }));
+
+    client.emit('message', {
+      ack,
+      event: VALID_EVENT,
+      body: { event_id: 'Ev123' },
+    });
+    await vi.waitFor(() =>
+      expect(logger.error).toHaveBeenCalledWith(
+        'failed to handle slack message event',
+        expect.objectContaining({ eventId: 'Ev123' }),
+      ),
+    );
+
+    client.emit('message', {
+      ack,
+      event: VALID_EVENT,
+      body: { event_id: 'Ev123' },
+    });
+
+    await vi.waitFor(() => expect(onMessage).toHaveBeenCalledTimes(2));
+  });
+
+  it("forgets a failed reaction_added event's id so a genuine Slack retry gets a real second attempt — most consequential for 🔁 redo, which has no other retry protection", async () => {
+    const client = makeFakeClient();
+    const onReactionAdded = vi
+      .fn()
+      .mockRejectedValueOnce(new Error('anthropic rate limited'));
+    const ack = vi.fn().mockResolvedValue(undefined);
+    const logger = makeLogger();
+    createSocketModeListener(client, makeOpts({ onReactionAdded, logger }));
+
+    client.emit('reaction_added', {
+      ack,
+      event: VALID_REACTION_EVENT,
+      body: { event_id: 'Ev456' },
+    });
+    await vi.waitFor(() =>
+      expect(logger.error).toHaveBeenCalledWith(
+        'failed to handle slack reaction_added event',
+        expect.objectContaining({ eventId: 'Ev456' }),
+      ),
+    );
+
+    client.emit('reaction_added', {
+      ack,
+      event: VALID_REACTION_EVENT,
+      body: { event_id: 'Ev456' },
+    });
+
+    await vi.waitFor(() => expect(onReactionAdded).toHaveBeenCalledTimes(2));
+  });
 });

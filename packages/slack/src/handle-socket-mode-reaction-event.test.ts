@@ -16,6 +16,7 @@ function makeDeps(
     seenEventCache: {
       hasSeen: vi.fn(overrides.hasSeen ?? (() => false)),
       markSeen: vi.fn(),
+      forget: vi.fn(),
     },
   };
 }
@@ -90,13 +91,18 @@ describe('handleSocketModeReactionEvent', () => {
     expect(deps.onReactionAdded).not.toHaveBeenCalled();
   });
 
-  it("marks a new event id as seen before dispatching to onReactionAdded — closes the known 🔁-redo double-fire gap (3.4a-ii's own documented gap)", async () => {
+  it("marks a new event id as seen before dispatching to onReactionAdded, not after — closes the known 🔁-redo double-fire gap (3.4a-ii's own documented gap)", async () => {
     const deps = makeDeps();
 
     await handleSocketModeReactionEvent(VALID_EVENT, 'Ev123', deps);
 
     expect(deps.seenEventCache.hasSeen).toHaveBeenCalledWith('Ev123');
     expect(deps.seenEventCache.markSeen).toHaveBeenCalledWith('Ev123');
+    const markSeenOrder =
+      deps.seenEventCache.markSeen.mock.invocationCallOrder[0];
+    const onReactionAddedOrder =
+      deps.onReactionAdded.mock.invocationCallOrder[0];
+    expect(markSeenOrder).toBeLessThan(onReactionAddedOrder);
   });
 
   it('acks but does not call onReactionAdded or mark-seen-again for a redelivered event id already seen', async () => {
