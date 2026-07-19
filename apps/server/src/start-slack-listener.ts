@@ -20,6 +20,7 @@ import {
   updatePendingTicketDraftContent,
 } from '@moe/core';
 import {
+  createSeenEventCache,
   createSocketModeClient,
   createSocketModeListener,
   createWebClient,
@@ -111,6 +112,7 @@ type ListenerContext = {
   readonly costCapConfig: CostCapConfig;
   readonly channelScopeConfig: ChannelScopeConfig;
   readonly bankHolidaysCache: ReturnType<typeof createBankHolidaysCache>;
+  readonly seenEventCache: ReturnType<typeof createSeenEventCache>;
   readonly botUserId: string;
   readonly logger: Logger;
   readonly exit: (code: number) => void;
@@ -150,6 +152,7 @@ function wireAndStartListener(ctx: ListenerContext): void {
     }),
     botUserId: ctx.botUserId,
     logger: ctx.logger,
+    seenEventCache: ctx.seenEventCache,
   });
 
   listener.start().catch((error: unknown) => {
@@ -189,6 +192,9 @@ export const startSlackListener: StartSlackListenerFn = (
   // (BUILD_PLAN 2.7a) across the whole process lifetime, same reasoning as `makeThreadQueue()`
   // inside `wireAndStartListener`.
   const bankHolidaysCache = createBankHolidaysCache();
+  // Same "construct once, share across the process lifetime" reasoning — a per-message instance
+  // would defeat the whole point of tracking recently-seen event ids across separate deliveries.
+  const seenEventCache = createSeenEventCache();
 
   fetchBotUserId(webClient)
     .then((botUserIdResult) => {
@@ -208,6 +214,7 @@ export const startSlackListener: StartSlackListenerFn = (
         costCapConfig,
         channelScopeConfig,
         bankHolidaysCache,
+        seenEventCache,
         botUserId: botUserIdResult.botUserId,
         logger,
         exit,

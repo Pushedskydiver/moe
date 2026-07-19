@@ -4,6 +4,7 @@ import { EventEmitter } from 'node:events';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { createSeenEventCache } from './seen-event-cache.js';
 import { createSocketModeListener } from './socket-mode-listener.js';
 
 function makeFakeClient() {
@@ -24,6 +25,7 @@ function makeOpts(
     readonly onReactionAdded: CreateSocketModeListenerOpts['onReactionAdded'];
     readonly botUserId: string;
     readonly logger: ReturnType<typeof makeLogger>;
+    readonly seenEventCache: CreateSocketModeListenerOpts['seenEventCache'];
   }> = {},
 ): CreateSocketModeListenerOpts {
   return {
@@ -31,6 +33,7 @@ function makeOpts(
     onReactionAdded: vi.fn(),
     botUserId: 'UBOTSARAH',
     logger: makeLogger(),
+    seenEventCache: createSeenEventCache(),
     ...overrides,
   };
 }
@@ -79,7 +82,11 @@ describe('createSocketModeListener', () => {
     const ack = vi.fn().mockResolvedValue(undefined);
     createSocketModeListener(client, makeOpts({ onMessage }));
 
-    client.emit('message', { ack, event: VALID_EVENT });
+    client.emit('message', {
+      ack,
+      event: VALID_EVENT,
+      body: { event_id: 'Ev123' },
+    });
 
     await vi.waitFor(() => expect(onMessage).toHaveBeenCalledTimes(1));
     expect(onMessage).toHaveBeenCalledWith({
@@ -98,7 +105,11 @@ describe('createSocketModeListener', () => {
     const ack = vi.fn().mockResolvedValue(undefined);
     createSocketModeListener(client, makeOpts({ onReactionAdded }));
 
-    client.emit('reaction_added', { ack, event: VALID_REACTION_EVENT });
+    client.emit('reaction_added', {
+      ack,
+      event: VALID_REACTION_EVENT,
+      body: { event_id: 'Ev456' },
+    });
 
     await vi.waitFor(() => expect(onReactionAdded).toHaveBeenCalledTimes(1));
     expect(onReactionAdded).toHaveBeenCalledWith({
@@ -120,5 +131,72 @@ describe('createSocketModeListener', () => {
     expect(logger.error).toHaveBeenCalledWith('slack socket mode error', {
       message: 'websocket blew up',
     });
+  });
+
+  it("acks but does not call onMessage twice for a redelivered message event sharing the same event_id (BUILD_PLAN follow-up on 3.4c's DA finding)", async () => {
+    const client = makeFakeClient();
+    const onMessage = vi.fn();
+    const ack = vi.fn().mockResolvedValue(undefined);
+    createSocketModeListener(client, makeOpts({ onMessage }));
+
+    client.emit('message', {
+      ack,
+      event: VALID_EVENT,
+      body: { event_id: 'Ev123' },
+    });
+    await vi.waitFor(() => expect(onMessage).toHaveBeenCalledTimes(1));
+
+    client.emit('message', {
+      ack,
+      event: VALID_EVENT,
+      body: { event_id: 'Ev123' },
+    });
+    await vi.waitFor(() => expect(ack).toHaveBeenCalledTimes(2));
+
+    expect(onMessage).toHaveBeenCalledTimes(1);
+  });
+
+  it('acks but does not call onReactionAdded twice for a redelivered reaction_added event sharing the same event_id — closes the known 🔁-redo double-fire gap', async () => {
+    const client = makeFakeClient();
+    const onReactionAdded = vi.fn();
+    const ack = vi.fn().mockResolvedValue(undefined);
+    createSocketModeListener(client, makeOpts({ onReactionAdded }));
+
+    client.emit('reaction_added', {
+      ack,
+      event: VALID_REACTION_EVENT,
+      body: { event_id: 'Ev456' },
+    });
+    await vi.waitFor(() => expect(onReactionAdded).toHaveBeenCalledTimes(1));
+
+    client.emit('reaction_added', {
+      ack,
+      event: VALID_REACTION_EVENT,
+      body: { event_id: 'Ev456' },
+    });
+    await vi.waitFor(() => expect(ack).toHaveBeenCalledTimes(2));
+
+    expect(onReactionAdded).toHaveBeenCalledTimes(1);
+  });
+
+  it('still processes a message event with a different event_id after a prior one — dedup is per event_id, not a global one-shot switch', async () => {
+    const client = makeFakeClient();
+    const onMessage = vi.fn();
+    const ack = vi.fn().mockResolvedValue(undefined);
+    createSocketModeListener(client, makeOpts({ onMessage }));
+
+    client.emit('message', {
+      ack,
+      event: VALID_EVENT,
+      body: { event_id: 'Ev123' },
+    });
+    await vi.waitFor(() => expect(onMessage).toHaveBeenCalledTimes(1));
+
+    client.emit('message', {
+      ack,
+      event: { ...VALID_EVENT, ts: '1700000000.000200' },
+      body: { event_id: 'Ev999' },
+    });
+    await vi.waitFor(() => expect(onMessage).toHaveBeenCalledTimes(2));
   });
 });

@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   createWebClient: vi.fn(),
   createSocketModeClient: vi.fn(),
   createSocketModeListener: vi.fn(),
+  createSeenEventCache: vi.fn(),
   fetchBotUserId: vi.fn(),
   isUnrecoverableStartError: vi.fn(),
   createAnthropicClient: vi.fn(),
@@ -17,6 +18,7 @@ vi.mock('@moe/slack', () => ({
   createWebClient: mocks.createWebClient,
   createSocketModeClient: mocks.createSocketModeClient,
   createSocketModeListener: mocks.createSocketModeListener,
+  createSeenEventCache: mocks.createSeenEventCache,
   fetchBotUserId: mocks.fetchBotUserId,
   isUnrecoverableStartError: mocks.isUnrecoverableStartError,
 }));

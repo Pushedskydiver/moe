@@ -1,4 +1,5 @@
 import type { InboundReaction } from './inbound-reaction.js';
+import type { SeenEventCache } from './seen-event-cache.js';
 
 import { normalizeInboundReaction } from './normalize-inbound-reaction.js';
 import {
@@ -26,18 +27,32 @@ export type HandleSocketModeReactionEventDeps = {
   // 3.4a-ii's own documented known gap).
   readonly botUserId: string;
   readonly logger: EventLogger;
+  readonly seenEventCache: SeenEventCache;
 };
 
 /**
  * Orchestrates one Socket Mode `reaction_added` event: ack immediately (same reasoning as
- * `handle-socket-mode-event.ts`'s `message` sibling), validate the raw payload, skip a reaction on
- * an unsupported item type (not a message) or a self-authored one, normalize, then hand off.
+ * `handle-socket-mode-event.ts`'s `message` sibling), skip a redelivery of an event id already
+ * processed (`eventId` — see `seen-event-cache.ts`'s own TSDoc; this closes a real gap 3.4c's own
+ * DA review found: 🔁 redo isn't CAS-gated the way ✅/📦 are, so a duplicate delivery here could
+ * otherwise trigger a real, billed duplicate Sonnet-5 regeneration call), validate the raw
+ * payload, skip a reaction on an unsupported item type (not a message) or a self-authored one,
+ * normalize, then hand off. `eventId` can be `undefined` — dedup is skipped entirely in that case
+ * rather than blocking, same fail-open reasoning as the `message` sibling.
  */
 export async function handleSocketModeReactionEvent(
   rawEvent: unknown,
+  eventId: string | undefined,
   deps: HandleSocketModeReactionEventDeps,
 ): Promise<void> {
   await deps.ack();
+
+  if (eventId !== undefined) {
+    if (deps.seenEventCache.hasSeen(eventId)) {
+      return;
+    }
+    deps.seenEventCache.markSeen(eventId);
+  }
 
   const parsed = rawSlackReactionEventSchema.safeParse(rawEvent);
   if (!parsed.success) {
