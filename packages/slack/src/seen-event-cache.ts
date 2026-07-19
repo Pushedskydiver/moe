@@ -12,19 +12,27 @@ export type SeenEventCache = {
   readonly forget: (eventId: string) => void;
 };
 
-// Slack's own documented retry backoff for a failed/timed-out event delivery is nearly immediate,
-// then +1 minute, then +5 minutes (docs.slack.dev/apis/events-api) — a real redelivery can arrive
-// up to ~6 minutes after the original. 15 minutes gives comfortable margin over that without
-// holding entries indefinitely.
+// Slack's own documented retry backoff — nearly immediate, then +1 minute, then +5 minutes,
+// ~6 minutes total across 3 attempts — is written for the HTTP Events API's request-URL delivery
+// mode specifically (docs.slack.dev/apis/events-api §Retries); Slack doesn't publish an equivalent
+// schedule for Socket Mode itself, but real-world reports of Socket Mode replays on the same
+// ~3-second handler-delay threshold (e.g. slackapi/bolt-python#868) support reusing this schedule
+// as a reasonable working assumption here, not a directly-documented guarantee. 15 minutes gives
+// comfortable margin over that ~6-minute figure without holding entries indefinitely.
 const DEFAULT_TTL_MS = 15 * 60 * 1000;
 
 /**
  * Tracks Slack event ids seen within a trailing TTL window, so a Socket Mode redelivery (a retry
  * after a timed-out/lost ack, or a reconnection racing an in-flight one) doesn't dispatch the same
- * event twice. Slack's own `event_id` is "globally unique" and "remains consistent across retries
- * of the same event" (docs.slack.dev/apis/events-api) — the correct dedup key; `envelope_id` is a
- * per-WebSocket-delivery-attempt id with no documented cross-retry stability guarantee, so it
- * isn't used here. In-memory, not persisted: the ~6-minute real-world retry window (see
+ * event twice. Slack's own `event_id` field is documented as "globally unique across all
+ * workspaces" (docs.slack.dev/apis/events-api) — a real, direct quote, unlike the claim that
+ * follows: Slack doesn't explicitly document `event_id` staying fixed across a retry of the same
+ * event, but a `retry_attempt`/`retry_num` field carried *alongside* `event_id` on a redelivery
+ * (confirmed by reading the installed `@slack/socket-mode` SDK's own source below) only makes
+ * sense as a design if `event_id` itself is the stable identity a retry counter increments
+ * against — the correct dedup key on that reasoning; `envelope_id` is a per-WebSocket-delivery-
+ * attempt id with no such signal at all, so it isn't used here. In-memory, not persisted: the
+ * ~6-minute real-world retry window (see
  * `DEFAULT_TTL_MS` above) is comfortably covered by a bounded TTL, with no migration and no write
  * on the hot path of every inbound event — the only gap this leaves is a process restart landing
  * inside that window on top of an already-rare duplicate-delivery event, an intentional trade-off

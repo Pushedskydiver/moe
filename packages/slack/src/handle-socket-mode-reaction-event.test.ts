@@ -91,7 +91,7 @@ describe('handleSocketModeReactionEvent', () => {
     expect(deps.onReactionAdded).not.toHaveBeenCalled();
   });
 
-  it("marks a new event id as seen before dispatching to onReactionAdded, not after — closes the known 🔁-redo double-fire gap (3.4a-ii's own documented gap)", async () => {
+  it("marks a new event id as seen before dispatching to onReactionAdded, not after — closes the 🔁-redo double-fire gap 3.4c's own DA review found", async () => {
     const deps = makeDeps();
 
     await handleSocketModeReactionEvent(VALID_EVENT, 'Ev123', deps);
