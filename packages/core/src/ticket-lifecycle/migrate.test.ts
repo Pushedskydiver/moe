@@ -41,6 +41,7 @@ describe('runMigrations', () => {
         '0007_create_review_queue.sql',
         '0008_create_pending_confirming_questions.sql',
         '0009_widen_review_queue_outcome_reason.sql',
+        '0010_create_sweep_state.sql',
       ],
     });
 
@@ -57,6 +58,7 @@ describe('runMigrations', () => {
       { id: '0007_create_review_queue.sql' },
       { id: '0008_create_pending_confirming_questions.sql' },
       { id: '0009_widen_review_queue_outcome_reason.sql' },
+      { id: '0010_create_sweep_state.sql' },
     ]);
   });
 
@@ -374,5 +376,28 @@ describe('runMigrations', () => {
         ],
       ),
     ).rejects.toThrow();
+  });
+
+  it('creates a sweep_state table that accepts one row per persona_id and upserts on conflict (BUILD_PLAN 3.5)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const first = new Date('2026-07-19T09:00:00.000Z');
+    const second = new Date('2026-07-20T09:00:00.000Z');
+
+    await pool.query(
+      `INSERT INTO sweep_state (persona_id, last_swept_at) VALUES ($1, $2)`,
+      ['sarah', first],
+    );
+    await pool.query(
+      `INSERT INTO sweep_state (persona_id, last_swept_at) VALUES ($1, $2)
+       ON CONFLICT (persona_id) DO UPDATE SET last_swept_at = excluded.last_swept_at`,
+      ['sarah', second],
+    );
+
+    const { rows } = await pool.query<{ last_swept_at: Date }>(
+      'SELECT last_swept_at FROM sweep_state WHERE persona_id = $1',
+      ['sarah'],
+    );
+    expect(rows).toHaveLength(1);
+    expect(rows[0]?.last_swept_at.toISOString()).toBe(second.toISOString());
   });
 });

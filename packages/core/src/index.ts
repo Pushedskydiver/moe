@@ -145,9 +145,13 @@ export type {
 
 export { reviewQueueEntrySchema } from './intake/review-queue-entry.js';
 export type { ReviewQueueEntry } from './intake/review-queue-entry.js';
-export { createReviewQueueEntry } from './intake/review-queue-repository.js';
+export {
+  createReviewQueueEntry,
+  listReviewQueueEntriesSince,
+} from './intake/review-queue-repository.js';
 export type {
   NewReviewQueueEntry,
+  ReviewQueueEntryListResult,
   ReviewQueueEntryResult,
   ReviewQueueRepositoryError,
 } from './intake/review-queue-repository.js';
@@ -156,6 +160,7 @@ export { pendingConfirmingQuestionSchema } from './intake/pending-confirming-que
 export type { PendingConfirmingQuestion } from './intake/pending-confirming-question.js';
 export {
   createPendingConfirmingQuestion,
+  findStaleUnresolvedConfirmingQuestions,
   getPendingConfirmingQuestionByMessage,
   resolvePendingConfirmingQuestion,
 } from './intake/pending-confirming-questions-repository.js';
@@ -163,7 +168,20 @@ export type {
   NewPendingConfirmingQuestion,
   PendingConfirmingQuestionClaimError,
   PendingConfirmingQuestionClaimResult,
+  PendingConfirmingQuestionListResult,
   PendingConfirmingQuestionOrNullResult,
   PendingConfirmingQuestionRepositoryError,
   PendingConfirmingQuestionResult,
 } from './intake/pending-confirming-questions-repository.js';
+
+export { sweepStateSchema } from './intake/sweep-state.js';
+export type { SweepState } from './intake/sweep-state.js';
+export {
+  getSweepState,
+  recordSweepCompleted,
+} from './intake/sweep-state-repository.js';
+export type {
+  SweepStateOrNullResult,
+  SweepStateRepositoryError,
+  SweepStateResult,
+} from './intake/sweep-state-repository.js';

@@ -5,12 +5,15 @@ import type { Pool } from 'pg';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDb } from '../ticket-lifecycle/db.js';
 import { runMigrations } from '../ticket-lifecycle/migrate.js';
 import { getTestPool, resetDatabase } from '../ticket-lifecycle/test-db.js';
-import { createReviewQueueEntry } from './review-queue-repository.js';
+import {
+  createReviewQueueEntry,
+  listReviewQueueEntriesSince,
+} from './review-queue-repository.js';
 
 const migrationsDir = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -79,5 +82,69 @@ describe('review queue repository', () => {
     expect(second.ok).toBe(true);
     const all = await db.selectFrom('reviewQueue').selectAll().execute();
     expect(all).toHaveLength(2);
+  });
+
+  describe('listReviewQueueEntriesSince (BUILD_PLAN 3.5)', () => {
+    it('returns only entries created strictly after the given timestamp, oldest first', async () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
+        await createReviewQueueEntry(db, newEntryInput());
+        const cutoff = new Date('2026-07-19T10:00:00.000Z');
+
+        vi.setSystemTime(new Date('2026-07-19T11:00:00.000Z'));
+        await createReviewQueueEntry(db, {
+          ...newEntryInput(),
+          sourceMessageText: 'second, after the cutoff',
+        });
+        vi.setSystemTime(new Date('2026-07-19T12:00:00.000Z'));
+        await createReviewQueueEntry(db, {
+          ...newEntryInput(),
+          sourceMessageText: 'third, also after the cutoff',
+        });
+
+        const result = await listReviewQueueEntriesSince(db, {
+          personaId: 'sarah',
+          since: cutoff,
+        });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.entries.map((e) => e.sourceMessageText)).toEqual([
+          'second, after the cutoff',
+          'third, also after the cutoff',
+        ]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('scopes to the given persona only', async () => {
+      const since = new Date('2000-01-01T00:00:00.000Z');
+      await createReviewQueueEntry(db, newEntryInput());
+      await createReviewQueueEntry(db, {
+        ...newEntryInput(),
+        personaId: 'marcus',
+      });
+
+      const result = await listReviewQueueEntriesSince(db, {
+        personaId: 'sarah',
+        since,
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.entries).toHaveLength(1);
+      expect(result.entries[0]?.personaId).toBe('sarah');
+    });
+
+    it('returns an empty list when nothing was created after the given timestamp', async () => {
+      const result = await listReviewQueueEntriesSince(db, {
+        personaId: 'sarah',
+        since: new Date('2000-01-01T00:00:00.000Z'),
+      });
+
+      expect(result).toEqual({ ok: true, entries: [] });
+    });
   });
 });
