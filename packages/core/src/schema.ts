@@ -100,12 +100,15 @@ type PendingTicketDraftsTable = {
  * Confidence-banded routing (`./confidence-band.ts`) writes `'low-confidence'` here (chunk 3.4c);
  * BUILD_PLAN 3.4b-ii's own `logConfirmingQuestionAsNo` writes `'mid-no'` when a Mid-band confirming
  * question's 👎 reaction resolves it; `'mid-silence'` is BUILD_PLAN 3.5's own write
- * (`logStaleQuestionsAsSilent`), once an unanswered confirming question passes a 24-hour threshold.
- * Migration
+ * (`logStaleQuestionsAsSilent`), once an unanswered confirming question passes a 24-hour threshold;
+ * `'mid-yes-failed'` is the claim-then-act fallback fix's own write (`draftFromConfirmingQuestion`),
+ * once a 👍 answer's downstream draft composition/posting/persistence fails after the claim already
+ * won. Migration
  * `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii) replaced chunk 3.4c's original single
- * placeholder value, `'mid-no-response'`, with these two distinct values — "no" and
+ * placeholder value, `'mid-no-response'`, with `'mid-no'`/`'mid-silence'` — "no" and
  * "silence"/timeout stay separately identifiable for 3.5's own human-eyeballing sweep, per that
- * chunk's own DA-review-flagged question.
+ * chunk's own DA-review-flagged question. `0011_widen_review_queue_outcome_reason_again.sql`
+ * added `'mid-yes-failed'` additively on top.
  */
 type ReviewQueueTable = {
   readonly id: string;

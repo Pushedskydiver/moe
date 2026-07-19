@@ -1,5 +1,10 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
-import type { PendingConfirmingQuestion, PendingTicketDraft } from '@moe/core';
+import type {
+  CommitTicketDraftResult,
+  PendingConfirmingQuestion,
+  PendingTicketDraft,
+  ResolveConfirmingQuestionAndLogResult,
+} from '@moe/core';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -78,10 +83,6 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
     getByMessage: vi
       .fn<DraftStore['getByMessage']>()
       .mockResolvedValue({ ok: true, draft: null }),
-    resolve: vi.fn<DraftStore['resolve']>().mockResolvedValue({
-      ok: true,
-      draft: { ...makeDraft(), resolvedAt: new Date() },
-    }),
     updateContent: vi.fn<DraftStore['updateContent']>().mockResolvedValue({
       ok: true,
       draft: makeDraft(),
@@ -146,6 +147,47 @@ function makeReviewQueueStore(
   };
 }
 
+function makeCommitDraftAsTicket(result?: CommitTicketDraftResult) {
+  return vi.fn().mockResolvedValue(
+    result ?? {
+      ok: true,
+      draft: { ...makeDraft(), resolvedAt: new Date() },
+      ticket: {
+        id: '4fa85f64-5717-4562-b3fc-2c963f66afa7',
+        projectKey: 'chief-clancy',
+        title: 'CLI hangs on large repos',
+        status: 'Brief',
+        severity: 'Medium',
+        createdAt: new Date('2026-07-18T09:00:00.000Z'),
+        updatedAt: new Date('2026-07-18T09:00:00.000Z'),
+      },
+    },
+  );
+}
+
+function makeResolveConfirmingQuestionAndLog(
+  result?: ResolveConfirmingQuestionAndLogResult,
+) {
+  return vi.fn().mockResolvedValue(
+    result ?? {
+      ok: true,
+      question: { ...makeQuestion(), resolvedAt: new Date() },
+      entry: {
+        id: '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: '1700000000.000050',
+        sourceMessageText:
+          'hey, there might be an issue with the CLI on large repos',
+        confidence: 55,
+        reasoning: 'plausibly describes a bug, but not clearly actionable',
+        outcomeReason: 'mid-no',
+        createdAt: new Date('2026-07-19T09:00:00.000Z'),
+      },
+    },
+  );
+}
+
 function makeCostStore(overrides: Partial<CostStore> = {}): CostStore {
   return {
     recordUsage: vi.fn<CostStore['recordUsage']>().mockResolvedValue({
@@ -199,6 +241,10 @@ function makeDeps(
     readonly logger: ReturnType<typeof makeLogger>;
     readonly confirmingQuestionStore: ConfirmingQuestionStore;
     readonly reviewQueueStore: ReviewQueueStore;
+    readonly commitDraftAsTicket: ReturnType<typeof makeCommitDraftAsTicket>;
+    readonly resolveConfirmingQuestionAndLog: ReturnType<
+      typeof makeResolveConfirmingQuestionAndLog
+    >;
   }> = {},
 ) {
   return {
@@ -226,23 +272,26 @@ function makeDeps(
     logger: makeLogger(),
     confirmingQuestionStore: makeConfirmingQuestionStore(),
     reviewQueueStore: makeReviewQueueStore(),
+    commitDraftAsTicket: makeCommitDraftAsTicket(),
+    resolveConfirmingQuestionAndLog: makeResolveConfirmingQuestionAndLog(),
     ...overrides,
   };
 }
 
 describe('commitTicketDraft (✅)', () => {
-  it('atomically resolves the draft, then creates a real Brief ticket', async () => {
+  it('atomically commits the draft as a real Brief ticket via the transactional composed function', async () => {
     const deps = makeDeps();
     const draft = makeDraft();
 
     await commitTicketDraft(deps, draft);
 
-    expect(deps.draftStore.resolve).toHaveBeenCalledWith(draft.id);
-    expect(deps.ticketStore.create).toHaveBeenCalledWith({
-      projectKey: 'chief-clancy',
-      title: draft.draftTitle,
-      status: 'Brief',
-      severity: 'Medium',
+    expect(deps.commitDraftAsTicket).toHaveBeenCalledWith({
+      draftId: draft.id,
+      ticket: {
+        projectKey: 'chief-clancy',
+        status: 'Brief',
+        severity: 'Medium',
+      },
     });
     expect(deps.logger.info).toHaveBeenCalledWith(
       'committed ticket draft',
@@ -250,41 +299,20 @@ describe('commitTicketDraft (✅)', () => {
     );
   });
 
-  it("commits the claim's own title, not the caller's possibly-stale copy — a concurrent 🔁 regeneration racing this claim must not commit its old content", async () => {
-    const staleDraft = makeDraft({
-      draftTitle: 'Stale title before regeneration',
-    });
+  // The stale-title regression this test used to pin (the claim's own post-claim title, not the
+  // caller's possibly-stale copy) is now `createTicketFromDraft`'s own responsibility —
+  // `commitAsTicket` no longer passes a title at all. Covered by `packages/core`'s
+  // `commit-ticket-draft.test.ts` instead.
+  it('logs, without throwing, when the draft is already resolved (double-processing guard)', async () => {
     const deps = makeDeps({
-      draftStore: makeDraftStore({
-        resolve: vi.fn<DraftStore['resolve']>().mockResolvedValue({
-          ok: true,
-          draft: {
-            ...makeDraft({ draftTitle: 'Fresh title after regeneration' }),
-            resolvedAt: new Date(),
-          },
-        }),
+      commitDraftAsTicket: makeCommitDraftAsTicket({
+        ok: false,
+        error: { step: 'claim', error: { kind: 'unavailable' } },
       }),
     });
 
-    await commitTicketDraft(deps, staleDraft);
+    await expect(commitTicketDraft(deps, makeDraft())).resolves.toBeUndefined();
 
-    expect(deps.ticketStore.create).toHaveBeenCalledWith(
-      expect.objectContaining({ title: 'Fresh title after regeneration' }),
-    );
-  });
-
-  it('logs and does not create a ticket when the draft is already resolved (double-processing guard)', async () => {
-    const deps = makeDeps({
-      draftStore: makeDraftStore({
-        resolve: vi
-          .fn<DraftStore['resolve']>()
-          .mockResolvedValue({ ok: false, error: { kind: 'unavailable' } }),
-      }),
-    });
-
-    await commitTicketDraft(deps, makeDraft());
-
-    expect(deps.ticketStore.create).not.toHaveBeenCalled();
     expect(deps.logger.info).toHaveBeenCalledWith(
       'ticket draft already resolved — ignoring reaction',
       expect.objectContaining({ draftId: makeDraft().id }),
@@ -293,11 +321,12 @@ describe('commitTicketDraft (✅)', () => {
 
   it('logs an error, without throwing, when ticket creation fails after a successful claim', async () => {
     const deps = makeDeps({
-      ticketStore: makeTicketStore({
-        create: vi.fn<TicketStore['create']>().mockResolvedValue({
-          ok: false,
+      commitDraftAsTicket: makeCommitDraftAsTicket({
+        ok: false,
+        error: {
+          step: 'create-ticket',
           error: { kind: 'unknown', cause: new Error('connection reset') },
-        }),
+        },
       }),
     });
 
@@ -311,18 +340,19 @@ describe('commitTicketDraft (✅)', () => {
 });
 
 describe('parkTicketDraftToBacklog (📦)', () => {
-  it('atomically resolves the draft, then creates a real Backlog ticket', async () => {
+  it('atomically commits the draft as a real Backlog ticket via the transactional composed function', async () => {
     const deps = makeDeps();
     const draft = makeDraft();
 
     await parkTicketDraftToBacklog(deps, draft);
 
-    expect(deps.draftStore.resolve).toHaveBeenCalledWith(draft.id);
-    expect(deps.ticketStore.create).toHaveBeenCalledWith({
-      projectKey: 'chief-clancy',
-      title: draft.draftTitle,
-      status: 'Backlog',
-      severity: 'Medium',
+    expect(deps.commitDraftAsTicket).toHaveBeenCalledWith({
+      draftId: draft.id,
+      ticket: {
+        projectKey: 'chief-clancy',
+        status: 'Backlog',
+        severity: 'Medium',
+      },
     });
   });
 });
@@ -350,7 +380,7 @@ describe('regenerateTicketDraft (🔁)', () => {
       expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
         expect.objectContaining({ costUsdMicros: 640 }),
       );
-      expect(deps.draftStore.resolve).not.toHaveBeenCalled();
+      expect(deps.commitDraftAsTicket).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -490,11 +520,12 @@ describe('draftFromConfirmingQuestion (👍)', () => {
     );
   });
 
-  // Known, accepted gap (DA review, chunk 3.4b-ii, see this function's own TSDoc) — a downstream
-  // composition failure after a successful claim leaves the question permanently resolved with no
-  // fallback. Pinned here as an explicit regression test, not left as only a documented trade-off,
-  // so a future fix (or an accidental behavior change) has to touch this test deliberately.
-  it('leaves the confirming question resolved with no review-queue fallback when composition fails after a successful claim (known gap, not a regression)', async () => {
+  // The claim-then-act fallback fix (this codebase's own tracked follow-up from DA review, chunk
+  // 3.4b-ii) closes the gap this test used to pin as an accepted trade-off: a downstream
+  // composition failure after a successful claim now writes a `review_queue` fallback row instead
+  // of leaving the question's own context lost with only a logged error.
+  it('logs a review-queue fallback row when composition fails after a successful claim', async () => {
+    const question = makeQuestion();
     const deps = makeDeps({
       anthropicClient: {
         messages: {
@@ -503,26 +534,12 @@ describe('draftFromConfirmingQuestion (👍)', () => {
       },
     });
 
-    await draftFromConfirmingQuestion(deps, makeQuestion());
+    await draftFromConfirmingQuestion(deps, question);
 
     expect(deps.confirmingQuestionStore.resolve).toHaveBeenCalled();
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to compose ticket draft',
       { message: 'rate limited' },
-    );
-    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
-  });
-});
-
-describe('logConfirmingQuestionAsNo (👎)', () => {
-  it('atomically claims the confirming question, then logs a real review_queue row carrying confidence/reasoning through', async () => {
-    const deps = makeDeps();
-    const question = makeQuestion();
-
-    await logConfirmingQuestionAsNo(deps, question);
-
-    expect(deps.confirmingQuestionStore.resolve).toHaveBeenCalledWith(
-      question.id,
     );
     expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
       personaId: 'sarah',
@@ -531,6 +548,54 @@ describe('logConfirmingQuestionAsNo (👎)', () => {
       sourceMessageText: question.sourceMessageText,
       confidence: question.confidence,
       reasoning: question.reasoning,
+      outcomeReason: 'mid-yes-failed',
+    });
+  });
+
+  it('logs an error, without throwing, when the review-queue fallback write itself also fails (documented residual gap)', async () => {
+    const deps = makeDeps({
+      anthropicClient: {
+        messages: {
+          parse: vi.fn().mockRejectedValue(new Error('rate limited')),
+        },
+      },
+      reviewQueueStore: makeReviewQueueStore({
+        create: vi.fn<ReviewQueueStore['create']>().mockResolvedValue({
+          ok: false,
+          error: { kind: 'unknown', cause: new Error('connection reset') },
+        }),
+      }),
+    });
+
+    await expect(
+      draftFromConfirmingQuestion(deps, makeQuestion()),
+    ).resolves.toBeUndefined();
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to log Mid-band "yes" draft failure to review queue',
+      expect.objectContaining({ message: 'Error: connection reset' }),
+    );
+  });
+
+  it('does not write a review-queue fallback row when the draft is composed and posted successfully', async () => {
+    const deps = makeDeps();
+
+    await draftFromConfirmingQuestion(deps, makeQuestion());
+
+    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('logConfirmingQuestionAsNo (👎)', () => {
+  it('atomically claims the confirming question and logs a real review_queue row via the transactional composed function', async () => {
+    const deps = makeDeps();
+    const question = makeQuestion();
+
+    await logConfirmingQuestionAsNo(deps, question);
+
+    expect(deps.resolveConfirmingQuestionAndLog).toHaveBeenCalledWith({
+      questionId: question.id,
+      personaId: 'sarah',
       outcomeReason: 'mid-no',
     });
     expect(deps.logger.info).toHaveBeenCalledWith(
@@ -539,19 +604,19 @@ describe('logConfirmingQuestionAsNo (👎)', () => {
     );
   });
 
-  it('ignores an already-resolved confirming question (double-processing guard)', async () => {
+  it('logs, without throwing, when the confirming question is already resolved (double-processing guard)', async () => {
     const question = makeQuestion();
     const deps = makeDeps({
-      confirmingQuestionStore: makeConfirmingQuestionStore({
-        resolve: vi
-          .fn<ConfirmingQuestionStore['resolve']>()
-          .mockResolvedValue({ ok: false, error: { kind: 'unavailable' } }),
+      resolveConfirmingQuestionAndLog: makeResolveConfirmingQuestionAndLog({
+        ok: false,
+        error: { step: 'claim', error: { kind: 'unavailable' } },
       }),
     });
 
-    await logConfirmingQuestionAsNo(deps, question);
+    await expect(
+      logConfirmingQuestionAsNo(deps, question),
+    ).resolves.toBeUndefined();
 
-    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
     expect(deps.logger.info).toHaveBeenCalledWith(
       'confirming question already resolved — ignoring reaction',
       expect.objectContaining({ questionId: question.id }),
@@ -560,11 +625,12 @@ describe('logConfirmingQuestionAsNo (👎)', () => {
 
   it('logs an error, without throwing, when persisting the review-queue row fails after a successful claim', async () => {
     const deps = makeDeps({
-      reviewQueueStore: makeReviewQueueStore({
-        create: vi.fn<ReviewQueueStore['create']>().mockResolvedValue({
-          ok: false,
+      resolveConfirmingQuestionAndLog: makeResolveConfirmingQuestionAndLog({
+        ok: false,
+        error: {
+          step: 'log',
           error: { kind: 'unknown', cause: new Error('connection reset') },
-        }),
+        },
       }),
     });
 

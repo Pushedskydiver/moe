@@ -7,13 +7,12 @@ import { parsePersonaConfig } from '@moe/agents';
 import {
   createDb,
   createPool,
-  createReviewQueueEntry,
   findStaleUnresolvedConfirmingQuestions,
   getSweepState,
   listReviewQueueEntriesSince,
   parseDatabaseConfig,
   recordSweepCompleted,
-  resolvePendingConfirmingQuestion,
+  resolveConfirmingQuestionAndLog,
 } from '@moe/core';
 import { createWebClient } from '@moe/slack';
 
@@ -69,11 +68,10 @@ await runReviewQueueSweep(
     },
     reviewQueueStore: {
       listSince: (scope) => listReviewQueueEntriesSince(db, scope),
-      create: (input) => createReviewQueueEntry(db, input),
     },
     confirmingQuestionStore: {
       findStale: (scope) => findStaleUnresolvedConfirmingQuestions(db, scope),
-      resolve: (id) => resolvePendingConfirmingQuestion(db, id),
+      resolveAndLog: (input) => resolveConfirmingQuestionAndLog(db, input),
     },
   },
   new Date(),

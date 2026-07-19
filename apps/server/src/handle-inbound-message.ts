@@ -22,7 +22,6 @@ import type {
   PendingConfirmingQuestionClaimResult,
   PendingConfirmingQuestionOrNullResult,
   PendingConfirmingQuestionResult,
-  PendingTicketDraftClaimResult,
   PendingTicketDraftOrNullResult,
   PendingTicketDraftResult,
   PersonaCostUsageResult,
@@ -109,7 +108,11 @@ type TicketStore = {
 
 // Same thin DI seam, over `@moe/core`'s pending-ticket-drafts repository (BUILD_PLAN 3.4a-ii's
 // "parent-message state"). `create` is BUILD_PLAN 3.4a-iii's own addition — persists a real
-// posted draft's `(channelId, messageTs)` so a later real reaction can be looked up against it.
+// posted draft's `(channelId, messageTs)` so a later real reaction can be looked up against it. No
+// `resolve` member — the claim-then-act fallback fix moved the ✅/📦 outcomes' only caller of it
+// (`reaction-outcome-actions.ts`'s `commitAsTicket`) onto `@moe/core`'s `createTicketFromDraft`
+// instead, which claims via `resolvePendingTicketDraft` inside its own transaction, not through
+// this DI seam; `resolve` had no other caller once that landed.
 type DraftStore = {
   readonly create: (
     input: NewPendingTicketDraft,
@@ -118,7 +121,6 @@ type DraftStore = {
     readonly channelId: string;
     readonly messageTs: string;
   }) => Promise<PendingTicketDraftOrNullResult>;
-  readonly resolve: (id: string) => Promise<PendingTicketDraftClaimResult>;
   readonly updateContent: (
     id: string,
     content: { readonly draftTitle: string; readonly draftBody: string },

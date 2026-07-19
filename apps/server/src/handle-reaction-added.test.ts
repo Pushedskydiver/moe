@@ -1,5 +1,10 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
-import type { PendingConfirmingQuestion, PendingTicketDraft } from '@moe/core';
+import type {
+  CommitTicketDraftResult,
+  PendingConfirmingQuestion,
+  PendingTicketDraft,
+  ResolveConfirmingQuestionAndLogResult,
+} from '@moe/core';
 import type { InboundReaction } from '@moe/slack';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -90,10 +95,6 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
     getByMessage: vi
       .fn<DraftStore['getByMessage']>()
       .mockResolvedValue({ ok: true, draft: makeDraft() }),
-    resolve: vi.fn<DraftStore['resolve']>().mockResolvedValue({
-      ok: true,
-      draft: { ...makeDraft(), resolvedAt: new Date() },
-    }),
     updateContent: vi.fn<DraftStore['updateContent']>().mockResolvedValue({
       ok: true,
       draft: makeDraft(),
@@ -184,6 +185,47 @@ function makeLogger() {
   return { info: vi.fn(), error: vi.fn() };
 }
 
+function makeCommitDraftAsTicket(result?: CommitTicketDraftResult) {
+  return vi.fn().mockResolvedValue(
+    result ?? {
+      ok: true,
+      draft: { ...makeDraft(), resolvedAt: new Date() },
+      ticket: {
+        id: '4fa85f64-5717-4562-b3fc-2c963f66afa7',
+        projectKey: 'chief-clancy',
+        title: 'CLI hangs on large repos',
+        status: 'Brief',
+        severity: 'Medium',
+        createdAt: new Date('2026-07-18T09:00:00.000Z'),
+        updatedAt: new Date('2026-07-18T09:00:00.000Z'),
+      },
+    },
+  );
+}
+
+function makeResolveConfirmingQuestionAndLog(
+  result?: ResolveConfirmingQuestionAndLogResult,
+) {
+  return vi.fn().mockResolvedValue(
+    result ?? {
+      ok: true,
+      question: { ...makeQuestion(), resolvedAt: new Date() },
+      entry: {
+        id: '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: '1700000000.000050',
+        sourceMessageText:
+          'hey, there might be an issue with the CLI on large repos',
+        confidence: 55,
+        reasoning: 'plausibly describes a bug, but not clearly actionable',
+        outcomeReason: 'mid-no',
+        createdAt: new Date('2026-07-19T09:00:00.000Z'),
+      },
+    },
+  );
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly ticketStore: TicketStore;
@@ -193,6 +235,10 @@ function makeDeps(
     readonly logger: ReturnType<typeof makeLogger>;
     readonly confirmingQuestionStore: ConfirmingQuestionStore;
     readonly reviewQueueStore: ReviewQueueStore;
+    readonly commitDraftAsTicket: ReturnType<typeof makeCommitDraftAsTicket>;
+    readonly resolveConfirmingQuestionAndLog: ReturnType<
+      typeof makeResolveConfirmingQuestionAndLog
+    >;
   }> = {},
 ) {
   return {
@@ -224,6 +270,8 @@ function makeDeps(
     logger: makeLogger(),
     confirmingQuestionStore: makeConfirmingQuestionStore(),
     reviewQueueStore: makeReviewQueueStore(),
+    commitDraftAsTicket: makeCommitDraftAsTicket(),
+    resolveConfirmingQuestionAndLog: makeResolveConfirmingQuestionAndLog(),
     ...overrides,
   };
 }
@@ -237,9 +285,11 @@ describe('handleReactionAdded', () => {
       makeReaction({ reactionName: 'white_check_mark' }),
     );
 
-    expect(deps.draftStore.resolve).toHaveBeenCalledWith(makeDraft().id);
-    expect(deps.ticketStore.create).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'Brief' }),
+    expect(deps.commitDraftAsTicket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftId: makeDraft().id,
+        ticket: expect.objectContaining({ status: 'Brief' }) as unknown,
+      }),
     );
   });
 
@@ -248,8 +298,10 @@ describe('handleReactionAdded', () => {
 
     await handleReactionAdded(deps, makeReaction({ reactionName: 'package' }));
 
-    expect(deps.ticketStore.create).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'Backlog' }),
+    expect(deps.commitDraftAsTicket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        ticket: expect.objectContaining({ status: 'Backlog' }) as unknown,
+      }),
     );
   });
 
@@ -260,7 +312,7 @@ describe('handleReactionAdded', () => {
 
     expect(deps.anthropicClient.messages.parse).toHaveBeenCalled();
     expect(deps.draftStore.updateContent).toHaveBeenCalled();
-    expect(deps.draftStore.resolve).not.toHaveBeenCalled();
+    expect(deps.commitDraftAsTicket).not.toHaveBeenCalled();
   });
 
   it('ignores a reaction outside both the 📦/🔁/✅ and 👍/👎 legends, without looking up any draft or confirming question', async () => {
@@ -294,7 +346,7 @@ describe('handleReactionAdded', () => {
 
     await handleReactionAdded(deps, makeReaction());
 
-    expect(deps.ticketStore.create).not.toHaveBeenCalled();
+    expect(deps.commitDraftAsTicket).not.toHaveBeenCalled();
   });
 
   it('logs an error, without throwing, when the draft lookup fails', async () => {
@@ -362,11 +414,11 @@ describe('handleReactionAdded — confirming-question dispatch (BUILD_PLAN 3.4b-
       makeReaction({ reactionName: 'thumbsdown' }),
     );
 
-    expect(deps.confirmingQuestionStore.resolve).toHaveBeenCalledWith(
-      makeQuestion().id,
-    );
-    expect(deps.reviewQueueStore.create).toHaveBeenCalledWith(
-      expect.objectContaining({ outcomeReason: 'mid-no' }),
+    expect(deps.resolveConfirmingQuestionAndLog).toHaveBeenCalledWith(
+      expect.objectContaining({
+        questionId: makeQuestion().id,
+        outcomeReason: 'mid-no',
+      }),
     );
   });
 
@@ -435,9 +487,11 @@ describe('createReactionHandler', () => {
 
     await handler(makeReaction({ reactionName: 'white_check_mark' }));
 
-    expect(deps.draftStore.resolve).toHaveBeenCalledWith(makeDraft().id);
-    expect(deps.ticketStore.create).toHaveBeenCalledWith(
-      expect.objectContaining({ status: 'Brief' }),
+    expect(deps.commitDraftAsTicket).toHaveBeenCalledWith(
+      expect.objectContaining({
+        draftId: makeDraft().id,
+        ticket: expect.objectContaining({ status: 'Brief' }) as unknown,
+      }),
     );
   });
 });

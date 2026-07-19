@@ -1,12 +1,10 @@
 import type { Logger } from './logger.js';
 import type {
-  NewReviewQueueEntry,
   PendingConfirmingQuestion,
-  PendingConfirmingQuestionClaimResult,
   PendingConfirmingQuestionListResult,
+  ResolveConfirmingQuestionAndLogResult,
   ReviewQueueEntry,
   ReviewQueueEntryListResult,
-  ReviewQueueEntryResult,
   SweepStateOrNullResult,
   SweepStateResult,
 } from '@moe/core';
@@ -53,35 +51,32 @@ export type SweepDeps = {
       readonly personaId: string;
       readonly since: Date;
     }) => Promise<ReviewQueueEntryListResult>;
-    readonly create: (
-      input: NewReviewQueueEntry,
-    ) => Promise<ReviewQueueEntryResult>;
   };
   readonly confirmingQuestionStore: {
     readonly findStale: (scope: {
       readonly personaId: string;
       readonly olderThan: Date;
     }) => Promise<PendingConfirmingQuestionListResult>;
-    readonly resolve: (
-      id: string,
-    ) => Promise<PendingConfirmingQuestionClaimResult>;
+    readonly resolveAndLog: (input: {
+      readonly questionId: string;
+      readonly personaId: string;
+      readonly outcomeReason: 'mid-no' | 'mid-silence';
+    }) => Promise<ResolveConfirmingQuestionAndLogResult>;
   };
 };
 
 // Recursive, not a loop or `.reduce()` (`docs/CONVENTIONS.md`'s Code Style section bans the
 // latter outright) — matches `check-cost-cap.ts`'s `sendCostAlerts` precedent for sequential-by-
-// design async work over a short list. Each question gets its own atomic claim
-// (`confirmingQuestionStore.resolve`) before being logged as silent — the same race-safe backstop
-// `draftFromConfirmingQuestion`/`logConfirmingQuestionAsNo` already use, so a real 👍/👎 answer
-// racing this sweep always wins: a claim that fails here (`ok: false`) means a real answer got
-// there first, silently skipped, not an error.
-//
-// Known, accepted gap (DA review, chunk 3.5): a third instance of the claim-then-act shape
-// `reaction-outcome-actions.ts`'s own `draftFromConfirmingQuestion`/`commitAsTicket` already carry
-// — if the claim above succeeds but `reviewQueueStore.create` then fails, the question is left
-// permanently resolved with no `review_queue` row and no future retry path (this question can
-// never match `findStaleUnresolvedConfirmingQuestions` again). Same tracked follow-up as the other
-// two instances (a shared fallback design across all three call sites, not a one-off patch here).
+// design async work over a short list. `deps.confirmingQuestionStore.resolveAndLog` (`@moe/core`'s
+// `resolveConfirmingQuestionAndLog`) atomically claims each question and writes its `review_queue`
+// row in one transaction — the claim-then-act failure-recovery fix, shared with
+// `reaction-outcome-actions.ts`'s own `logConfirmingQuestionAsNo` (`outcomeReason: 'mid-no'`),
+// which had the identical shape before this fix. A claim that legitimately loses (`error.step ===
+// 'claim'`, e.g. `'unavailable'`) means a real 👍/👎 answer raced this sweep and got there first —
+// silently skipped, not an error; a downstream write failure (`error.step === 'log'`) is a real
+// bug and gets logged, but the transaction has already rolled the claim back, so the question
+// remains unresolved and will match `findStaleUnresolvedConfirmingQuestions` again on the next
+// sweep run.
 async function logStaleQuestionsAsSilent(
   deps: SweepDeps,
   questions: readonly PendingConfirmingQuestion[],
@@ -89,32 +84,26 @@ async function logStaleQuestionsAsSilent(
   const [question, ...rest] = questions;
   if (question === undefined) return;
 
-  const claimed = await deps.confirmingQuestionStore.resolve(question.id);
-  if (claimed.ok) {
-    const created = await deps.reviewQueueStore.create({
+  const result = await deps.confirmingQuestionStore.resolveAndLog({
+    questionId: question.id,
+    personaId: deps.personaId,
+    outcomeReason: 'mid-silence',
+  });
+  if (!result.ok && result.error.step === 'log') {
+    deps.logger.error('failed to log Mid-band silence to review queue', {
       personaId: deps.personaId,
-      channelId: claimed.question.channelId,
-      messageTs: claimed.question.sourceMessageTs,
-      sourceMessageText: claimed.question.sourceMessageText,
-      confidence: claimed.question.confidence,
-      reasoning: claimed.question.reasoning,
-      outcomeReason: 'mid-silence',
+      questionId: question.id,
+      message: repositoryErrorMessage(result.error.error),
     });
-    if (!created.ok) {
-      deps.logger.error('failed to log Mid-band silence to review queue', {
-        personaId: deps.personaId,
-        questionId: question.id,
-        message: repositoryErrorMessage(created.error),
-      });
-    }
   }
 
   await logStaleQuestionsAsSilent(deps, rest);
 }
 
-// Alex confirmed via `AskUserQuestion` (BUILD_PLAN 3.5): surface the three-way `outcomeReason`
+// Alex confirmed via `AskUserQuestion` (BUILD_PLAN 3.5): surface the per-cause `outcomeReason`
 // origin to the human reader, not one flat list — grouped so Alex can tell "nobody answered" from
-// "the classifier itself wasn't confident" at a glance, not just a bare score.
+// "the classifier itself wasn't confident" at a glance, not just a bare score. Three-way at ship
+// time; the claim-then-act fallback fix later added a 4th value, `'mid-yes-failed'`.
 const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   ReviewQueueEntry['outcomeReason'],
   string
@@ -122,6 +111,7 @@ const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   'low-confidence': 'Low confidence',
   'mid-no': 'Answered no',
   'mid-silence': 'No response',
+  'mid-yes-failed': 'Draft failed',
 };
 
 function formatSweepSection(
@@ -137,10 +127,22 @@ function formatSweepSection(
   ].join('\n');
 }
 
+// Section order/coverage derives from `SECTION_LABEL_BY_OUTCOME_REASON`'s own keys, not a second
+// hardcoded literal array — a bare array here previously fell out of sync with a new
+// `outcomeReason` value (the claim-then-act fallback fix's `'mid-yes-failed'` was added to the
+// `Record` above, which TypeScript's exhaustiveness check would have caught, but not to a
+// separate array, which has no such check — the exact "nothing is silently eaten" failure this
+// whole sweep exists to prevent, recurring inside its own digest). `Object.keys` loses the
+// literal-union typing `Record`'s own keys have — the cast recovers it, safe here specifically
+// because `SECTION_LABEL_BY_OUTCOME_REASON`'s own `Record<ReviewQueueEntry['outcomeReason'],
+// string>` type already guarantees its keys are exactly `ReviewQueueEntry['outcomeReason']`.
 function formatSweepMessage(entries: readonly ReviewQueueEntry[]): string {
   const header = `📋 Review-queue sweep — ${entries.length} item${entries.length === 1 ? '' : 's'} since last run`;
 
-  const sections = (['low-confidence', 'mid-no', 'mid-silence'] as const)
+  const outcomeReasons = Object.keys(
+    SECTION_LABEL_BY_OUTCOME_REASON,
+  ) as ReviewQueueEntry['outcomeReason'][];
+  const sections = outcomeReasons
     .map((outcomeReason) => ({
       outcomeReason,
       group: entries.filter((entry) => entry.outcomeReason === outcomeReason),

@@ -186,7 +186,6 @@ function makeDeps(
     draftStore: {
       create: vi.fn<HandlerDeps['draftStore']['create']>(),
       getByMessage: vi.fn<HandlerDeps['draftStore']['getByMessage']>(),
-      resolve: vi.fn<HandlerDeps['draftStore']['resolve']>(),
       updateContent: vi.fn<HandlerDeps['draftStore']['updateContent']>(),
     },
     reviewQueueStore: {

@@ -42,6 +42,7 @@ describe('runMigrations', () => {
         '0008_create_pending_confirming_questions.sql',
         '0009_widen_review_queue_outcome_reason.sql',
         '0010_create_sweep_state.sql',
+        '0011_widen_review_queue_outcome_reason_again.sql',
       ],
     });
 
@@ -59,6 +60,7 @@ describe('runMigrations', () => {
       { id: '0008_create_pending_confirming_questions.sql' },
       { id: '0009_widen_review_queue_outcome_reason.sql' },
       { id: '0010_create_sweep_state.sql' },
+      { id: '0011_widen_review_queue_outcome_reason_again.sql' },
     ]);
   });
 
@@ -308,6 +310,29 @@ describe('runMigrations', () => {
         ],
       ),
     ).rejects.toThrow();
+  });
+
+  it('accepts a review_queue row with the widened mid-yes-failed outcome_reason value (claim-then-act fallback fix)', async () => {
+    await runMigrations(pool, migrationsDir);
+    await pool.query(
+      `INSERT INTO review_queue
+         (id, persona_id, channel_id, message_ts, source_message_text, confidence, reasoning, outcome_reason, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+        'sarah',
+        'C123',
+        '1700000000.000100',
+        'hey, there might be an issue with the CLI on large repos',
+        55,
+        'plausibly describes a bug, but not clearly actionable',
+        'mid-yes-failed',
+        new Date(),
+      ],
+    );
+
+    const { rows } = await pool.query('SELECT * FROM review_queue');
+    expect(rows).toHaveLength(1);
   });
 
   it('creates a pending_confirming_questions table that accepts a valid unresolved row', async () => {

@@ -12,14 +12,15 @@ import {
   createPendingTicketDraft,
   createReviewQueueEntry,
   createTicket,
+  createTicketFromDraft,
   getAlertState,
   getPendingConfirmingQuestionByMessage,
   getPendingTicketDraftByMessage,
   getPersonaCostForMonth,
   getRecentTurns,
   recordUsage,
+  resolveConfirmingQuestionAndLog,
   resolvePendingConfirmingQuestion,
-  resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
 } from '@moe/core';
 import {
@@ -56,6 +57,9 @@ export type StartSlackListenerFn = (
 
 // Extracted from `createStores` purely to stay under eslint's `max-lines-per-function`
 // (`docs/CONVENTIONS.md` §Code Style) — the two multi-method stores are the bulk of its length.
+// No `resolve` binding — the claim-then-act fallback fix's own `commitDraftAsTicket` (below) claims
+// via `resolvePendingTicketDraft` inside its own transaction instead; this store's `resolve` had no
+// other caller once that landed, so it was removed rather than left dead.
 function createDraftStore(db: Kysely<Database>) {
   return {
     create: (input: Parameters<typeof createPendingTicketDraft>[1]) =>
@@ -63,8 +67,6 @@ function createDraftStore(db: Kysely<Database>) {
     getByMessage: (
       scope: Parameters<typeof getPendingTicketDraftByMessage>[1],
     ) => getPendingTicketDraftByMessage(db, scope),
-    resolve: (id: Parameters<typeof resolvePendingTicketDraft>[1]) =>
-      resolvePendingTicketDraft(db, id),
     updateContent: (
       id: Parameters<typeof updatePendingTicketDraftContent>[1],
       content: Parameters<typeof updatePendingTicketDraftContent>[2],
@@ -119,6 +121,19 @@ function createStores(db: Kysely<Database>) {
         createReviewQueueEntry(db, input),
     },
     confirmingQuestionStore: createConfirmingQuestionStore(db),
+    // The claim-then-act fallback fix's own composed primitives — each atomically claims a row
+    // and performs its downstream write in one transaction, closing the failure-recovery gap
+    // `draftStore.resolve`+`ticketStore.create`/`confirmingQuestionStore.resolve`+
+    // `reviewQueueStore.create` used to leave open. Reaction-outcome-only concerns, bound here
+    // alongside every other store but wired only into `createReactionHandler` below, not
+    // `createInboundMessageHandler` (`reaction-outcome-actions.ts`'s own `ReactionOutcomeDeps`
+    // TSDoc has the full reasoning for why these live off `ReactionOutcomeDeps` directly rather
+    // than `HandlerDeps`).
+    commitDraftAsTicket: (input: Parameters<typeof createTicketFromDraft>[1]) =>
+      createTicketFromDraft(db, input),
+    resolveConfirmingQuestionAndLog: (
+      input: Parameters<typeof resolveConfirmingQuestionAndLog>[1],
+    ) => resolveConfirmingQuestionAndLog(db, input),
   };
 }
 
@@ -174,6 +189,8 @@ function wireAndStartListener(ctx: ListenerContext): void {
       personaId: ctx.config.id,
       confirmingQuestionStore: ctx.confirmingQuestionStore,
       reviewQueueStore: ctx.reviewQueueStore,
+      commitDraftAsTicket: ctx.commitDraftAsTicket,
+      resolveConfirmingQuestionAndLog: ctx.resolveConfirmingQuestionAndLog,
     }),
     botUserId: ctx.botUserId,
     logger: ctx.logger,

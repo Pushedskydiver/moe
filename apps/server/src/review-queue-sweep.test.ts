@@ -80,16 +80,13 @@ function makeDeps(
       listSince: vi
         .fn<ReviewQueueStore['listSince']>()
         .mockResolvedValue({ ok: true, entries: [] }),
-      create: vi
-        .fn<ReviewQueueStore['create']>()
-        .mockResolvedValue({ ok: true, entry: makeEntry() }),
       ...overrides.reviewQueueStore,
     },
     confirmingQuestionStore: {
       findStale: vi
         .fn<ConfirmingQuestionStore['findStale']>()
         .mockResolvedValue({ ok: true, questions: [] }),
-      resolve: vi.fn<ConfirmingQuestionStore['resolve']>(),
+      resolveAndLog: vi.fn<ConfirmingQuestionStore['resolveAndLog']>(),
       ...overrides.confirmingQuestionStore,
     },
   };
@@ -111,7 +108,6 @@ describe('runReviewQueueSweep', () => {
             }),
           ],
         }),
-        create: vi.fn<ReviewQueueStore['create']>(),
       },
     });
 
@@ -149,7 +145,6 @@ describe('runReviewQueueSweep', () => {
           ok: true,
           entries: [makeEntry()],
         }),
-        create: vi.fn<ReviewQueueStore['create']>(),
       },
     });
 
@@ -183,10 +178,13 @@ describe('runReviewQueueSweep', () => {
         findStale: vi
           .fn<ConfirmingQuestionStore['findStale']>()
           .mockResolvedValue({ ok: true, questions: [question] }),
-        resolve: vi.fn<ConfirmingQuestionStore['resolve']>().mockResolvedValue({
-          ok: true,
-          question: { ...question, resolvedAt: now },
-        }),
+        resolveAndLog: vi
+          .fn<ConfirmingQuestionStore['resolveAndLog']>()
+          .mockResolvedValue({
+            ok: true,
+            question: { ...question, resolvedAt: now },
+            entry: makeEntry({ outcomeReason: 'mid-silence' }),
+          }),
       },
     });
 
@@ -196,18 +194,43 @@ describe('runReviewQueueSweep', () => {
       personaId: 'sarah',
       olderThan: new Date(now.getTime() - 24 * 60 * 60 * 1000),
     });
-    expect(deps.confirmingQuestionStore.resolve).toHaveBeenCalledWith(
-      question.id,
-    );
-    expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+    expect(deps.confirmingQuestionStore.resolveAndLog).toHaveBeenCalledWith({
+      questionId: question.id,
       personaId: 'sarah',
-      channelId: question.channelId,
-      messageTs: question.sourceMessageTs,
-      sourceMessageText: question.sourceMessageText,
-      confidence: question.confidence,
-      reasoning: question.reasoning,
       outcomeReason: 'mid-silence',
     });
+  });
+
+  it('logs an error, without throwing, when logging a stale confirming question as silent fails after a successful claim', async () => {
+    const now = new Date('2026-07-19T12:00:00.000Z');
+    const question = makeQuestion();
+    const deps = makeDeps({
+      confirmingQuestionStore: {
+        findStale: vi
+          .fn<ConfirmingQuestionStore['findStale']>()
+          .mockResolvedValue({ ok: true, questions: [question] }),
+        resolveAndLog: vi
+          .fn<ConfirmingQuestionStore['resolveAndLog']>()
+          .mockResolvedValue({
+            ok: false,
+            error: {
+              step: 'log',
+              error: { kind: 'unknown', cause: new Error('connection reset') },
+            },
+          }),
+      },
+    });
+
+    await expect(runReviewQueueSweep(deps, now)).resolves.toBeUndefined();
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to log Mid-band silence to review queue',
+      expect.objectContaining({
+        personaId: 'sarah',
+        questionId: question.id,
+        message: 'Error: connection reset',
+      }),
+    );
   });
 
   it('skips a stale confirming question that a real reaction already resolved (race)', async () => {
@@ -217,15 +240,17 @@ describe('runReviewQueueSweep', () => {
         findStale: vi
           .fn<ConfirmingQuestionStore['findStale']>()
           .mockResolvedValue({ ok: true, questions: [makeQuestion()] }),
-        resolve: vi
-          .fn<ConfirmingQuestionStore['resolve']>()
-          .mockResolvedValue({ ok: false, error: { kind: 'unavailable' } }),
+        resolveAndLog: vi
+          .fn<ConfirmingQuestionStore['resolveAndLog']>()
+          .mockResolvedValue({
+            ok: false,
+            error: { step: 'claim', error: { kind: 'unavailable' } },
+          }),
       },
     });
 
     await runReviewQueueSweep(deps, now);
 
-    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
     expect(deps.logger.error).not.toHaveBeenCalled();
   });
 
@@ -237,7 +262,6 @@ describe('runReviewQueueSweep', () => {
           ok: false,
           error: { kind: 'unknown', cause: new Error('connection reset') },
         }),
-        create: vi.fn<ReviewQueueStore['create']>(),
       },
     });
 
@@ -292,7 +316,7 @@ describe('runReviewQueueSweep', () => {
             ok: false,
             error: { kind: 'unknown', cause: new Error('connection reset') },
           }),
-        resolve: vi.fn<ConfirmingQuestionStore['resolve']>(),
+        resolveAndLog: vi.fn<ConfirmingQuestionStore['resolveAndLog']>(),
       },
     });
 

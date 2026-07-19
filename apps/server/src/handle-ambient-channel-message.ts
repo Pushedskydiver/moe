@@ -146,6 +146,16 @@ async function composeDraftContent(
   return drafted;
 }
 
+// The claim-then-act fallback fix's own success signal — `draftFromConfirmingQuestion`
+// (`reaction-outcome-actions.ts`) needs to know whether this succeeded so it can write a
+// `review_queue` fallback row on failure; `composeAndPostDraft` below (the other caller) has no
+// claim to fall back from, so it keeps ignoring the return value, same as `postMessage`'s own
+// `ts`-on-success field being added at BUILD_PLAN 3.4a-iii without its other call sites needing to
+// change. No `error` detail on the `false` branch — the specific failure reason is already logged
+// at the exact sub-step that failed, below; same no-detail shape as `handle-inbound-message.ts`'s
+// own `GenerateAndPostResult`.
+type PostAndPersistDraftResult = { readonly ok: true } | { readonly ok: false };
+
 // Posts the composed draft in-thread on the source message, persists the "parent-message state"
 // (`pending_ticket_drafts`) keyed on the real posted message, and seeds the 📦/🔁/✅ reaction-gate
 // legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii. This function itself runs no
@@ -162,9 +172,9 @@ export async function postAndPersistDraft(
   deps: DraftPostingDeps,
   message: DraftSourceMessage,
   now: Date,
-): Promise<void> {
+): Promise<PostAndPersistDraftResult> {
   const drafted = await composeDraftContent(deps, message, now);
-  if (drafted === undefined) return;
+  if (drafted === undefined) return { ok: false };
 
   const posted = await postMessage(deps.slackClient, {
     channelId: message.channelId,
@@ -175,7 +185,7 @@ export async function postAndPersistDraft(
     deps.logger.error('failed to post ticket draft', {
       message: posted.error.message,
     });
-    return;
+    return { ok: false };
   }
 
   const created = await deps.draftStore.create({
@@ -190,7 +200,7 @@ export async function postAndPersistDraft(
     deps.logger.error('failed to persist pending ticket draft', {
       message: repositoryErrorMessage(created.error),
     });
-    return;
+    return { ok: false };
   }
 
   await seedReactionLegend(deps, {
@@ -206,6 +216,7 @@ export async function postAndPersistDraft(
     draftTitle: drafted.title,
     draftBody: drafted.body,
   });
+  return { ok: true };
 }
 
 /**
@@ -239,10 +250,13 @@ async function composeAndPostDraft(
 // `createReviewQueueEntry`) rather than dropping it, for BUILD_PLAN 3.5's own `review-queue-sweep`
 // script to list. `outcomeReason: 'low-confidence'` — the only value this call site ever writes;
 // BUILD_PLAN 3.4b-ii's own `logConfirmingQuestionAsNo` (`reaction-outcome-actions.ts`) writes
-// `'mid-no'` through the same repository, and 3.5's own `logStaleQuestionsAsSilent`
-// (`review-queue-sweep.ts`) writes `'mid-silence'` — both distinct values
-// `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii) added in place of chunk 3.4c's
-// original single placeholder, `'mid-no-response'`. "Log, don't throw" on
+// `'mid-no'` through the same repository, 3.5's own `logStaleQuestionsAsSilent`
+// (`review-queue-sweep.ts`) writes `'mid-silence'`, and the claim-then-act fallback fix's own
+// `draftFromConfirmingQuestion` writes `'mid-yes-failed'` when a 👍 answer's own downstream draft
+// composition/posting/persistence fails. `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii)
+// added `'mid-no'`/`'mid-silence'` in place of chunk 3.4c's original single placeholder,
+// `'mid-no-response'`; `0011_widen_review_queue_outcome_reason_again.sql` added `'mid-yes-failed'`
+// additively on top. "Log, don't throw" on
 // failure, same as `recordUsageLogged`'s
 // own precedent — a review-queue write failing should never surface as a visible error, since
 // there's no reply path here to carry one.

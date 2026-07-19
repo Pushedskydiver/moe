@@ -185,3 +185,15 @@ export type {
   SweepStateRepositoryError,
   SweepStateResult,
 } from './intake/sweep-state-repository.js';
+
+export { createTicketFromDraft } from './intake/commit-ticket-draft.js';
+export type {
+  CommitTicketDraftError,
+  CommitTicketDraftResult,
+} from './intake/commit-ticket-draft.js';
+
+export { resolveConfirmingQuestionAndLog } from './intake/resolve-confirming-question-and-log.js';
+export type {
+  ResolveConfirmingQuestionAndLogError,
+  ResolveConfirmingQuestionAndLogResult,
+} from './intake/resolve-confirming-question-and-log.js';
