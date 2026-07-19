@@ -94,8 +94,10 @@ type PendingTicketDraftsTable = {
 /**
  * Kysely's compile-time shape for `review_queue` (`./intake/review-queue-entry.ts`'s DB-backed
  * counterpart, BUILD_PLAN 3.4c). `outcomeReason` is `TEXT` with a SQL `CHECK` constraint, not a
- * Postgres `ENUM` — same reasoning as `TicketsTable.status`/`.severity` above it in this file.
- * Confidence-banded routing (`../confidence-band.ts`) only ever writes `'low-confidence'` here as
+ * Postgres `ENUM` — same shape as `TicketsTable.status`/`.severity` above it in this file, though
+ * that table's own comment doesn't spell out why: a `CHECK` constraint stays queryable/alterable
+ * with plain SQL, where a Postgres `ENUM` needs `ALTER TYPE` to add a value later.
+ * Confidence-banded routing (`./confidence-band.ts`) only ever writes `'low-confidence'` here as
  * of this chunk; `'mid-no-response'` is BUILD_PLAN 3.4b's own future write, once its confirming
  * question resolves to "no" or silence — the column exists now so 3.4b needs no further migration.
  */

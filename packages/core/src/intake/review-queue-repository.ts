@@ -36,9 +36,10 @@ function parseReviewQueueRow(row: unknown): ReviewQueueEntryResult {
 
 /**
  * Persists a "nothing is silently eaten" backstop row (`docs/VISION.md` §5.2, BUILD_PLAN 3.4c) —
- * a plain append-only log entry, unlike `pending-ticket-drafts-repository.ts`'s `create` (no
- * resolved/claimed state, no uniqueness constraint on `(channelId, messageTs)`, since a
- * review-queue row is never looked up or claimed by a later reaction). Validates the full
+ * a plain append-only log entry, unlike `pending-ticket-drafts-repository.ts`'s
+ * `createPendingTicketDraft` (no resolved/claimed state, no uniqueness constraint on
+ * `(channelId, messageTs)`, since a review-queue row is never looked up or claimed by a later
+ * reaction). Validates the full
  * candidate row through `reviewQueueEntrySchema` before writing, so an invalid input never reaches
  * the database.
  */
