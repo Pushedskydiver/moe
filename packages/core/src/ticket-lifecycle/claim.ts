@@ -34,14 +34,18 @@ function parseTicketClaim(row: unknown): ClaimResult {
 
 /**
  * Atomically claims an unclaimed ticket for `claimedBy`. Under Postgres's default READ COMMITTED
- * isolation (this codebase's assumption throughout — nothing here opens an explicit transaction),
- * two concurrent `UPDATE ... WHERE claimedBy IS NULL` on the same row don't race in the naive
- * "both see the old row" sense: the loser blocks on the row lock, and once the winner commits,
- * Postgres re-evaluates the loser's WHERE clause against the now-updated row (EvalPlanQual) before
- * it proceeds — since `claimedBy` is no longer NULL, the loser's WHERE no longer matches and it
- * affects zero rows. A caller that wrapped this in an explicit REPEATABLE READ/SERIALIZABLE
- * transaction would see the loser throw a serialization error instead of cleanly returning
- * `{ kind: 'unavailable' }` — not handled here, since nothing in this codebase does that today.
+ * isolation (nothing in `claimTicket`/`releaseTicket` themselves opens an explicit transaction —
+ * `../intake/commit-ticket-draft.ts`'s `createTicketFromDraft` and `../intake/resolve-confirming-
+ * question-and-log.ts`'s `resolveConfirmingQuestionAndLog` are this codebase's two transactional
+ * callers, both deliberately left at this same default isolation level for the identical
+ * EvalPlanQual reasoning below), two concurrent `UPDATE ... WHERE claimedBy IS NULL` on the same
+ * row don't race in the naive "both see the old row" sense: the loser blocks on the row lock, and
+ * once the winner commits, Postgres re-evaluates the loser's WHERE clause against the now-updated
+ * row (EvalPlanQual) before it proceeds — since `claimedBy` is no longer NULL, the loser's WHERE no
+ * longer matches and it affects zero rows. A caller that wrapped this in an explicit REPEATABLE
+ * READ/SERIALIZABLE transaction would see the loser throw a serialization error instead of cleanly
+ * returning `{ kind: 'unavailable' }` — not handled here, since nothing in this codebase does that
+ * today.
  */
 export async function claimTicket(
   db: Kysely<Database>,

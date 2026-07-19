@@ -47,9 +47,11 @@ async function dispatchDraftOutcome(
 
   // Ignored for every outcome, not just ✅/📦 — a resolved draft's ticket already exists, so a 🔁
   // redo would waste a real Anthropic call regenerating content nothing reads anymore.
-  // `commitTicketDraft`/`parkTicketDraftToBacklog`'s own atomic claim (`draftStore.resolve`) is
-  // the race-safe backstop for the narrow window between this check and that claim; this check is
-  // the common-case fast path and the only guard `regenerateTicketDraft` gets.
+  // `commitTicketDraft`/`parkTicketDraftToBacklog`'s own atomic claim (`deps.commitDraftAsTicket`,
+  // `@moe/core`'s `createTicketFromDraft` — the claim-then-act fallback fix's own transactional
+  // claim, not `draftStore.resolve` directly) is the race-safe backstop for the narrow window
+  // between this check and that claim; this check is the common-case fast path and the only guard
+  // `regenerateTicketDraft` gets.
   if (found.draft.resolvedAt !== null) {
     deps.logger.info('ignoring reaction on an already-resolved ticket draft', {
       personaId: deps.personaId,
@@ -70,9 +72,12 @@ async function dispatchDraftOutcome(
 
 // BUILD_PLAN 3.4b-ii's own 👍/👎 dispatch — same lookup → null-check → resolved-check →
 // outcome-switch shape as `dispatchDraftOutcome` above, over `pending_confirming_questions`
-// instead of `pending_ticket_drafts`. `draftFromConfirmingQuestion`/`logConfirmingQuestionAsNo`
-// each run their own atomic claim (`confirmingQuestionStore.resolve`) as their race-safe backstop,
-// same relationship this resolved-check has to `draftStore.resolve` above.
+// instead of `pending_ticket_drafts`. `draftFromConfirmingQuestion` still claims directly via
+// `deps.confirmingQuestionStore.resolve` (it can't use the transactional fix — see its own TSDoc);
+// `logConfirmingQuestionAsNo` claims via `deps.resolveConfirmingQuestionAndLog` (`@moe/core`'s
+// `resolveConfirmingQuestionAndLog`, the claim-then-act fallback fix's shared transactional
+// primitive). Either way, each outcome runs its own atomic claim as its race-safe backstop, same
+// relationship this resolved-check has to `commitDraftAsTicket`'s own claim above.
 async function dispatchConfirmingQuestionOutcome(
   deps: ReactionOutcomeDeps,
   reaction: InboundReaction,

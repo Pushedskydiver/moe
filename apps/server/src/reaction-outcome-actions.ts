@@ -1,5 +1,11 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
-import type { PendingConfirmingQuestion, PendingTicketDraft } from '@moe/core';
+import type {
+  CommitTicketDraftResult,
+  NewTicket,
+  PendingConfirmingQuestion,
+  PendingTicketDraft,
+  ResolveConfirmingQuestionAndLogResult,
+} from '@moe/core';
 
 import { composeTicketDraft, sonnetCostUsdMicros } from '@moe/agents';
 
@@ -16,7 +22,12 @@ type ComposeDraftClient = Parameters<typeof composeTicketDraft>[0];
 
 // `confirmingQuestionStore`/`reviewQueueStore` added at BUILD_PLAN 3.4b-ii — the 👍/👎
 // answer-side outcomes below need them, same as the pre-existing ✅/🔁/📦 outcomes needed
-// `ticketStore`/`draftStore`.
+// `ticketStore`/`draftStore`. `commitDraftAsTicket`/`resolveConfirmingQuestionAndLog` added by
+// the claim-then-act fallback fix — bound directly on `ReactionOutcomeDeps` itself, not threaded
+// through `HandlerDeps`, since they're a reaction-outcome-only concern the message-handling path
+// (`handle-inbound-message.ts`'s own separate `HandlerDeps`-typed construction in
+// `start-slack-listener.ts`) never needs; adding them to `HandlerDeps` would force that unrelated
+// path to also supply them.
 type ReactionOutcomeDeps = Omit<
   Pick<
     HandlerDeps,
@@ -35,6 +46,15 @@ type ReactionOutcomeDeps = Omit<
   'anthropicClient'
 > & {
   readonly anthropicClient: ComposeDraftClient;
+  readonly commitDraftAsTicket: (input: {
+    readonly draftId: string;
+    readonly ticket: Omit<NewTicket, 'title'>;
+  }) => Promise<CommitTicketDraftResult>;
+  readonly resolveConfirmingQuestionAndLog: (input: {
+    readonly questionId: string;
+    readonly personaId: string;
+    readonly outcomeReason: 'mid-no' | 'mid-silence';
+  }) => Promise<ResolveConfirmingQuestionAndLogResult>;
 };
 
 // VISION §3.4's single-project scope ("Single-project today (chief-clancy)", `project-key.ts`'s
@@ -49,46 +69,45 @@ const DEFAULT_SEVERITY = 'Medium';
 
 /**
  * The ✅/📦 outcomes share everything except the resulting board status — factored out rather than
- * duplicated. Atomically claims the draft first (`draftStore.resolve`'s CAS): a reaction landing on
- * an already-resolved draft (a genuine double-fire, or two reactions racing) is logged and ignored,
- * not treated as an error — exactly the double-processing guard `resolvePendingTicketDraft`'s own
- * TSDoc describes. Commits `claimed.draft`'s own title, not the `draft` parameter's — the caller's
- * copy may be stale by the time this resolves (a concurrent 🔁 regeneration could have updated the
- * row's content between the caller's own lookup and this claim), and `resolve`'s `RETURNING *`
- * hands back the row's content as of the exact instant this claim won, which is the only version
- * that's still guaranteed current.
+ * duplicated. `deps.commitDraftAsTicket` (`@moe/core`'s `createTicketFromDraft`) atomically claims
+ * the draft and creates the ticket in one transaction: a reaction landing on an already-resolved
+ * draft (a genuine double-fire, or two reactions racing) is logged and ignored, not treated as an
+ * error — the same double-processing guard `resolvePendingTicketDraft`'s own TSDoc describes — and
+ * a downstream ticket-creation failure now rolls back the claim too (the claim-then-act
+ * failure-recovery fix), leaving the draft available for a future retry rather than permanently
+ * burning it on a logged error. `createTicketFromDraft`'s own TSDoc has the full reasoning,
+ * including why the ticket's title is read from the claimed row inside the transaction rather than
+ * passed in from here — the caller's own `draft` parameter can be stale by the time the claim
+ * resolves (a concurrent 🔁 regeneration isn't gated on `resolvedAt`), so only the post-claim row
+ * is still guaranteed current.
  */
 async function commitAsTicket(
   deps: ReactionOutcomeDeps,
   draft: PendingTicketDraft,
   status: 'Backlog' | 'Brief',
 ): Promise<void> {
-  const claimed = await deps.draftStore.resolve(draft.id);
-  if (!claimed.ok) {
-    deps.logger.info('ticket draft already resolved — ignoring reaction', {
-      personaId: deps.personaId,
-      draftId: draft.id,
-    });
-    return;
-  }
-
-  const created = await deps.ticketStore.create({
-    projectKey: PROJECT_KEY,
-    title: claimed.draft.draftTitle,
-    status,
-    severity: DEFAULT_SEVERITY,
+  const result = await deps.commitDraftAsTicket({
+    draftId: draft.id,
+    ticket: { projectKey: PROJECT_KEY, status, severity: DEFAULT_SEVERITY },
   });
-  if (!created.ok) {
-    deps.logger.error('failed to create ticket from draft', {
-      message: repositoryErrorMessage(created.error),
-    });
+  if (!result.ok) {
+    if (result.error.step === 'claim') {
+      deps.logger.info('ticket draft already resolved — ignoring reaction', {
+        personaId: deps.personaId,
+        draftId: draft.id,
+      });
+    } else {
+      deps.logger.error('failed to create ticket from draft', {
+        message: repositoryErrorMessage(result.error.error),
+      });
+    }
     return;
   }
 
   deps.logger.info('committed ticket draft', {
     personaId: deps.personaId,
     draftId: draft.id,
-    ticketId: created.ticket.id,
+    ticketId: result.ticket.id,
     status,
   });
 }
@@ -176,6 +195,45 @@ export async function regenerateTicketDraft(
   });
 }
 
+// Extracted from `draftFromConfirmingQuestion` purely to stay under eslint's
+// `max-lines-per-function` — the claim-then-act fallback fix's own last-resort write: once a
+// confirming question's claim has won but `postAndPersistDraft` then fails (composition, the
+// Slack post, or persistence — see that function's own TSDoc for the sub-step breakdown), this
+// logs a `review_queue` row (`outcomeReason: 'mid-yes-failed'`) so the confirming question's own
+// context isn't lost the way it was before this fix — only a logged error, with the question left
+// permanently resolved and no trace anywhere a human would see. Unlike sites 1/3/4's own DB
+// transaction (`createTicketFromDraft`/`resolveConfirmingQuestionAndLog`), this can't roll the
+// claim itself back — `postAndPersistDraft`'s own Anthropic/Slack calls sit between the claim and
+// its final DB write, so a DB transaction can neither hold open across two slow external calls nor
+// undo an already-sent Slack message — so this is a best-effort fallback, not a full close: if
+// this write also fails, or the process crashes/restarts between the claim winning and this write
+// completing, the gap is accepted as a documented residual risk, the same shape `check-cost-
+// cap.ts`'s own fail-open reasoning already uses elsewhere in this codebase.
+async function logFailedDraftAttempt(
+  deps: ReactionOutcomeDeps,
+  question: PendingConfirmingQuestion,
+): Promise<void> {
+  const created = await deps.reviewQueueStore.create({
+    personaId: deps.personaId,
+    channelId: question.channelId,
+    messageTs: question.sourceMessageTs,
+    sourceMessageText: question.sourceMessageText,
+    confidence: question.confidence,
+    reasoning: question.reasoning,
+    outcomeReason: 'mid-yes-failed',
+  });
+  if (!created.ok) {
+    deps.logger.error(
+      'failed to log Mid-band "yes" draft failure to review queue',
+      {
+        personaId: deps.personaId,
+        questionId: question.id,
+        message: repositoryErrorMessage(created.error),
+      },
+    );
+  }
+}
+
 /**
  * BUILD_PLAN 3.4b-ii's 👍 outcome: composes and posts a real ticket draft via the exact same
  * posting flow the High-band path uses (`postAndPersistDraft`, `handle-ambient-channel-message.ts`
@@ -184,18 +242,10 @@ export async function regenerateTicketDraft(
  * posted message. Cost-cap checked before the atomic claim, not after — a halted persona leaves
  * the confirming question unresolved, so a later retry (once the cap resets) still has a real
  * question to act on, rather than silently burning the claim on an attempt that never composed
- * anything.
- *
- * Known, accepted gap (DA review, chunk 3.4b-ii, recurred a third time at chunk 3.5's own
- * `logStaleQuestionsAsSilent`, `review-queue-sweep.ts`): once the claim above succeeds, a
- * downstream failure inside `postAndPersistDraft` (a failed `composeTicketDraft` call, a failed
- * Slack post, a failed `draftStore.create`) leaves the question permanently resolved with no
- * ticket drafted and no `review_queue` fallback row — only a logged error, nothing chunk 3.5's own
- * `review-queue-sweep` script will ever surface. `commitTicketDraft`/`parkTicketDraftToBacklog`
- * above have the identical claim-then-act shape and the same unaddressed gap; fixing this needs a
- * shared design across all three call sites (e.g. a fallback log-to-review-queue on any post-claim
- * failure), not a one-off patch here — out of this chunk's own scope, tracked as a follow-up
- * rather than fixed unilaterally.
+ * anything. If `postAndPersistDraft` fails after the claim wins, `logFailedDraftAttempt` writes a
+ * `review_queue` fallback row (the claim-then-act fallback fix) — see its own TSDoc for why this
+ * site needs a fallback write rather than the transactional fix `commitAsTicket`/
+ * `logConfirmingQuestionAsNo`/chunk 3.5's `logStaleQuestionsAsSilent` all use instead.
  */
 export async function draftFromConfirmingQuestion(
   deps: ReactionOutcomeDeps,
@@ -220,7 +270,7 @@ export async function draftFromConfirmingQuestion(
     return;
   }
 
-  await postAndPersistDraft(
+  const posted = await postAndPersistDraft(
     deps,
     {
       channelId: claimed.question.channelId,
@@ -229,6 +279,9 @@ export async function draftFromConfirmingQuestion(
     },
     now,
   );
+  if (!posted.ok) {
+    await logFailedDraftAttempt(deps, claimed.question);
+  }
 }
 
 /**
@@ -236,42 +289,40 @@ export async function draftFromConfirmingQuestion(
  * `0009_widen_review_queue_outcome_reason.sql`'s own new value) carrying the Stage 1 classifier's
  * own `confidence`/`reasoning` through — the same context the Low-band path already provides
  * (`handle-ambient-channel-message.ts`'s `logToReviewQueue`). No billed call here, so no cost-cap
- * check, unlike the 👍 outcome above.
+ * check, unlike the 👍 outcome above. `deps.resolveConfirmingQuestionAndLog` (`@moe/core`'s
+ * `resolveConfirmingQuestionAndLog`) atomically claims the question and writes the row in one
+ * transaction — the claim-then-act failure-recovery fix, shared with chunk 3.5's
+ * `logStaleQuestionsAsSilent` (`review-queue-sweep.ts`), which had the identical shape before this
+ * fix.
  */
 export async function logConfirmingQuestionAsNo(
   deps: ReactionOutcomeDeps,
   question: PendingConfirmingQuestion,
 ): Promise<void> {
-  const claimed = await deps.confirmingQuestionStore.resolve(question.id);
-  if (!claimed.ok) {
-    deps.logger.info(
-      'confirming question already resolved — ignoring reaction',
-      { personaId: deps.personaId, questionId: question.id },
-    );
-    return;
-  }
-
-  const created = await deps.reviewQueueStore.create({
+  const result = await deps.resolveConfirmingQuestionAndLog({
+    questionId: question.id,
     personaId: deps.personaId,
-    channelId: claimed.question.channelId,
-    messageTs: claimed.question.sourceMessageTs,
-    sourceMessageText: claimed.question.sourceMessageText,
-    confidence: claimed.question.confidence,
-    reasoning: claimed.question.reasoning,
     outcomeReason: 'mid-no',
   });
-  if (!created.ok) {
-    deps.logger.error('failed to log Mid-band "no" answer to review queue', {
-      personaId: deps.personaId,
-      questionId: question.id,
-      message: repositoryErrorMessage(created.error),
-    });
+  if (!result.ok) {
+    if (result.error.step === 'claim') {
+      deps.logger.info(
+        'confirming question already resolved — ignoring reaction',
+        { personaId: deps.personaId, questionId: question.id },
+      );
+    } else {
+      deps.logger.error('failed to log Mid-band "no" answer to review queue', {
+        personaId: deps.personaId,
+        questionId: question.id,
+        message: repositoryErrorMessage(result.error.error),
+      });
+    }
     return;
   }
 
   deps.logger.info('logged Mid-band "no" answer to review queue', {
     personaId: deps.personaId,
     questionId: question.id,
-    entryId: created.entry.id,
+    entryId: result.entry.id,
   });
 }

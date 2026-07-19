@@ -12,12 +12,14 @@ import {
   createPendingTicketDraft,
   createReviewQueueEntry,
   createTicket,
+  createTicketFromDraft,
   getAlertState,
   getPendingConfirmingQuestionByMessage,
   getPendingTicketDraftByMessage,
   getPersonaCostForMonth,
   getRecentTurns,
   recordUsage,
+  resolveConfirmingQuestionAndLog,
   resolvePendingConfirmingQuestion,
   resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
@@ -119,6 +121,19 @@ function createStores(db: Kysely<Database>) {
         createReviewQueueEntry(db, input),
     },
     confirmingQuestionStore: createConfirmingQuestionStore(db),
+    // The claim-then-act fallback fix's own composed primitives — each atomically claims a row
+    // and performs its downstream write in one transaction, closing the failure-recovery gap
+    // `draftStore.resolve`+`ticketStore.create`/`confirmingQuestionStore.resolve`+
+    // `reviewQueueStore.create` used to leave open. Reaction-outcome-only concerns, bound here
+    // alongside every other store but wired only into `createReactionHandler` below, not
+    // `createInboundMessageHandler` (`reaction-outcome-actions.ts`'s own `ReactionOutcomeDeps`
+    // TSDoc has the full reasoning for why these live off `ReactionOutcomeDeps` directly rather
+    // than `HandlerDeps`).
+    commitDraftAsTicket: (input: Parameters<typeof createTicketFromDraft>[1]) =>
+      createTicketFromDraft(db, input),
+    resolveConfirmingQuestionAndLog: (
+      input: Parameters<typeof resolveConfirmingQuestionAndLog>[1],
+    ) => resolveConfirmingQuestionAndLog(db, input),
   };
 }
 
@@ -174,6 +189,8 @@ function wireAndStartListener(ctx: ListenerContext): void {
       personaId: ctx.config.id,
       confirmingQuestionStore: ctx.confirmingQuestionStore,
       reviewQueueStore: ctx.reviewQueueStore,
+      commitDraftAsTicket: ctx.commitDraftAsTicket,
+      resolveConfirmingQuestionAndLog: ctx.resolveConfirmingQuestionAndLog,
     }),
     botUserId: ctx.botUserId,
     logger: ctx.logger,

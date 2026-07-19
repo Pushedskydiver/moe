@@ -15,11 +15,15 @@ const nonBlankStringSchema = z
  * `'mid-no'` is BUILD_PLAN 3.4b-ii's own write, when a Mid-band confirming question's 👎 reaction
  * resolves it to "no" (`apps/server`'s `logConfirmingQuestionAsNo`); `'mid-silence'` is BUILD_PLAN
  * 3.5's own write (`apps/server`'s `logStaleQuestionsAsSilent`), once an unanswered confirming
- * question passes a 24-hour threshold. Migration
+ * question passes a 24-hour threshold; `'mid-yes-failed'` is the claim-then-act fallback fix's own
+ * write (`apps/server`'s `draftFromConfirmingQuestion`), when a 👍 answer's downstream draft
+ * composition/posting/persistence fails after the confirming question was already claimed. Migration
  * `0009_widen_review_queue_outcome_reason.sql` replaced chunk 3.4c's original single placeholder
- * value, `'mid-no-response'`, with these two distinct values — "no" and "silence"/timeout stay
+ * value, `'mid-no-response'`, with `'mid-no'`/`'mid-silence'` — "no" and "silence"/timeout stay
  * separately identifiable for 3.5's own human-eyeballing sweep, per that chunk's own DA-review-
- * flagged question. Unlike `pending-ticket-draft.ts`'s sibling table,
+ * flagged question. Migration `0011_widen_review_queue_outcome_reason_again.sql` added
+ * `'mid-yes-failed'` on top of those two, additively (not a replacement, unlike `0009`'s own
+ * change). Unlike `pending-ticket-draft.ts`'s sibling table,
  * this one has no resolved/claimed state — a review-queue row is a plain log entry, not a
  * workflow object a reaction can act on.
  */
@@ -31,7 +35,12 @@ export const reviewQueueEntrySchema = z.object({
   sourceMessageText: nonBlankStringSchema,
   confidence: z.number().int().min(0).max(100),
   reasoning: nonBlankStringSchema,
-  outcomeReason: z.enum(['low-confidence', 'mid-no', 'mid-silence']),
+  outcomeReason: z.enum([
+    'low-confidence',
+    'mid-no',
+    'mid-silence',
+    'mid-yes-failed',
+  ]),
   createdAt: z.date(),
 });
 
