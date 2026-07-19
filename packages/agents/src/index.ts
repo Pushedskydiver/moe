@@ -53,3 +53,10 @@ export type {
   TicketDraft,
 } from './compose-ticket-draft.js';
 export { composeTicketDraft } from './compose-ticket-draft.js';
+export type {
+  EvaluateSituationalAppropriatenessParams,
+  EvaluateSituationalAppropriatenessResult,
+  EvaluateSituationalAppropriatenessUsage,
+  SituationalAppropriateness,
+} from './evaluate-situational-appropriateness.js';
+export { evaluateSituationalAppropriateness } from './evaluate-situational-appropriateness.js';

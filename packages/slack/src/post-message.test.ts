@@ -4,7 +4,9 @@ import { describe, expect, it, vi } from 'vitest';
 import { postMessage } from './post-message.js';
 
 function makeClient(
-  response: { readonly ok: boolean; readonly error?: string } | (() => never),
+  response:
+    | { readonly ok: boolean; readonly error?: string; readonly ts?: string }
+    | (() => never),
 ) {
   return {
     chat: {
@@ -18,11 +20,11 @@ function makeClient(
 
 describe('postMessage', () => {
   it('returns ok:true and passes channel/text through when Slack accepts the message', async () => {
-    const client = makeClient({ ok: true });
+    const client = makeClient({ ok: true, ts: '1700000000.000100' });
 
     const result = await postMessage(client, { channelId: 'C123', text: 'hi' });
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toEqual({ ok: true, ts: '1700000000.000100' });
     expect(client.chat.postMessage).toHaveBeenCalledWith({
       channel: 'C123',
       text: 'hi',
@@ -30,7 +32,7 @@ describe('postMessage', () => {
   });
 
   it('passes thread_ts through when replying in a thread', async () => {
-    const client = makeClient({ ok: true });
+    const client = makeClient({ ok: true, ts: '1700000000.000200' });
 
     await postMessage(client, {
       channelId: 'C123',
@@ -42,6 +44,20 @@ describe('postMessage', () => {
       channel: 'C123',
       text: 'hi',
       thread_ts: '1700.0001',
+    });
+  });
+
+  it('returns ok:false when the client resolves ok:true with no ts — a malformed test-double case, since the real Slack API always includes it on success', async () => {
+    const client = makeClient({ ok: true });
+
+    const result = await postMessage(client, { channelId: 'C123', text: 'hi' });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        kind: 'slack-api-error',
+        message: 'chat.postMessage response had no ts',
+      },
     });
   });
 

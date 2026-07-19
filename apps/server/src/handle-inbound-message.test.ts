@@ -1,5 +1,5 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
-import type { ConversationTurn } from '@moe/core';
+import type { ConversationTurn, PendingTicketDraft } from '@moe/core';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -12,12 +12,60 @@ type HistoryStore = HandlerDeps['historyStore'];
 type CostStore = HandlerDeps['costStore'];
 type CapStore = HandlerDeps['capStore'];
 
-function makeSlackClient(response: {
-  readonly ok: boolean;
-  readonly error?: string;
-}) {
-  return { chat: { postMessage: vi.fn().mockResolvedValue(response) } };
+function makeSlackClient(
+  response: {
+    readonly ok: boolean;
+    readonly error?: string;
+    readonly ts?: string;
+  },
+  // Per-call overrides for `reactions.add`, consumed in order (📦 first, then 🔁, then ✅) — only
+  // the calls a test cares about need an entry; the rest default to `{ok: true}`.
+  reactionResponses: ReadonlyArray<{
+    readonly ok: boolean;
+    readonly error?: string;
+  }> = [],
+) {
+  const add = vi.fn();
+  reactionResponses.forEach((reactionResponse) => {
+    add.mockResolvedValueOnce(reactionResponse);
+  });
+  add.mockResolvedValue({ ok: true });
+
+  return {
+    chat: {
+      postMessage: vi.fn().mockResolvedValue({
+        ts: response.ok ? '1700000000.000100' : undefined,
+        ...response,
+      }),
+    },
+    reactions: { add },
+  };
 }
+
+// Bundled into one options object, not further positional params — a 4th positional param would
+// cross eslint's `max-params: 3` ceiling, same reasoning `HandlerDeps` itself already documents.
+type MakeAnthropicClientOptions = {
+  // Only exercised by ambient-channel tests (`.create` is the DM chat-reply path, `.parse` is the
+  // Stage 1 classifier, then — for a High-band message — the situational-appropriateness gate,
+  // then the ticket-draft composer, BUILD_PLAN 3.4a-i/3.4a-iii, in that call order on the same
+  // client). Defaults to a generic Low-band classification so DM-only tests never need to know
+  // this mock exists.
+  readonly parseResponse?:
+    | { readonly confidence: number; readonly reasoning: string }
+    | null
+    | (() => never);
+  // Only reached for a High-band message — the classifier's own `.parse()` call is always first,
+  // this configures the *second* resolved/rejected value. Defaults to `appropriate: true` so
+  // High-band tests that don't care about the gate itself don't need to know it exists.
+  readonly appropriatenessResponse?:
+    | { readonly appropriate: boolean; readonly reasoning: string }
+    | null
+    | (() => never);
+  // Only reached when the appropriateness gate passed — configures the *third* resolved/rejected
+  // value (the ticket-draft composer's own response).
+  readonly draftResponse?:
+    { readonly title: string; readonly body: string } | null | (() => never);
+};
 
 function makeAnthropicClient(
   createResponse:
@@ -34,22 +82,19 @@ function makeAnthropicClient(
         };
       }
     | (() => never),
-  // Only exercised by ambient-channel tests (`.create` is the DM chat-reply path, `.parse` is the
-  // Stage 1 classifier — and, for a High-band message, the ticket-draft composer, BUILD_PLAN
-  // 3.4a-i, called second on the same client). Defaults to a generic Low-band classification so
-  // DM-only tests never need to know this mock exists.
-  parseResponse:
-    | { readonly confidence: number; readonly reasoning: string }
-    | null
-    | (() => never) = {
-    confidence: 10,
-    reasoning: 'default test classification',
-  },
-  // Only set by High-band tests — the classifier's own `.parse()` call is always first, the
-  // draft composer's is always second, so this configures the *second* resolved/rejected value.
-  draftResponse?:
-    { readonly title: string; readonly body: string } | null | (() => never),
+  options: MakeAnthropicClientOptions = {},
 ) {
+  const {
+    parseResponse = {
+      confidence: 10,
+      reasoning: 'default test classification',
+    },
+    appropriatenessResponse = {
+      appropriate: true,
+      reasoning: 'default: nothing sensitive here',
+    },
+    draftResponse,
+  } = options;
   const parse = vi.fn();
   if (typeof parseResponse === 'function') {
     parse.mockImplementationOnce(parseResponse);
@@ -57,6 +102,14 @@ function makeAnthropicClient(
     parse.mockResolvedValueOnce({
       parsed_output: parseResponse,
       usage: { input_tokens: 40, output_tokens: 12 },
+    });
+  }
+  if (typeof appropriatenessResponse === 'function') {
+    parse.mockImplementationOnce(appropriatenessResponse);
+  } else {
+    parse.mockResolvedValueOnce({
+      parsed_output: appropriatenessResponse,
+      usage: { input_tokens: 20, output_tokens: 8 },
     });
   }
   if (draftResponse !== undefined) {
@@ -195,20 +248,62 @@ function makeBankHolidaysCache(dates: readonly string[] = []) {
   });
 }
 
-// BUILD_PLAN 3.4a-ii's ticket/draft stores — this file never exercises the reaction-outcome path
-// (no consumer wired yet, `reaction-outcome-actions.test.ts` owns that coverage), so these are
-// trivial stubs satisfying `HandlerDeps`'s shape, not meaningfully-behaving fakes.
-function makeTicketStore(): HandlerDeps['ticketStore'] {
+function makePendingTicketDraft(
+  overrides: Partial<PendingTicketDraft> = {},
+): PendingTicketDraft {
   return {
-    create: vi.fn<HandlerDeps['ticketStore']['create']>(),
+    id: '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+    personaId: 'sarah',
+    channelId: 'C123',
+    messageTs: '1700000000.000100',
+    sourceMessageText: 'the CLI hangs on large repos',
+    draftTitle: 'CLI hangs on large repos',
+    draftBody: 'The CLI hangs when run against large repos.',
+    resolvedAt: null,
+    createdAt: new Date('2026-07-16T09:00:00.000Z'),
+    ...overrides,
   };
 }
 
-function makeDraftStore(): HandlerDeps['draftStore'] {
+// BUILD_PLAN 3.4a-ii's ticket store — this file's own reaction-outcome coverage lives in
+// `handle-reaction-added.test.ts`/`reaction-outcome-actions.test.ts`; here it's only ever the
+// target of a real ✅/📦 write via `composeAndPostDraft`'s own callers, none of which this file
+// exercises directly, so a sensible default resolved value is enough.
+function makeTicketStore(
+  overrides: Partial<HandlerDeps['ticketStore']> = {},
+): HandlerDeps['ticketStore'] {
   return {
+    create: vi.fn<HandlerDeps['ticketStore']['create']>().mockResolvedValue({
+      ok: true,
+      ticket: {
+        id: '6fa85f64-5717-4562-b3fc-2c963f66afa9',
+        projectKey: 'chief-clancy',
+        title: 'CLI hangs on large repos',
+        status: 'Brief',
+        severity: 'Medium',
+        createdAt: new Date('2026-07-16T09:00:00.000Z'),
+        updatedAt: new Date('2026-07-16T09:00:00.000Z'),
+      },
+    }),
+    ...overrides,
+  };
+}
+
+// BUILD_PLAN 3.4a-iii's own real consumer: `composeAndPostDraft` calls `create` after a real post
+// succeeds, keyed on the posted message's own `ts` (`makeSlackClient`'s default,
+// `1700000000.000100`) — matched here so the default wiring is internally consistent end to end.
+function makeDraftStore(
+  overrides: Partial<HandlerDeps['draftStore']> = {},
+): HandlerDeps['draftStore'] {
+  return {
+    create: vi.fn<HandlerDeps['draftStore']['create']>().mockResolvedValue({
+      ok: true,
+      draft: makePendingTicketDraft(),
+    }),
     getByMessage: vi.fn<HandlerDeps['draftStore']['getByMessage']>(),
     resolve: vi.fn<HandlerDeps['draftStore']['resolve']>(),
     updateContent: vi.fn<HandlerDeps['draftStore']['updateContent']>(),
+    ...overrides,
   };
 }
 
@@ -683,8 +778,7 @@ describe('createInboundMessageHandler', () => {
   it('classifies and logs an in-scope ambient channel message, without fetching/persisting history or posting a reply (BUILD_PLAN 3.3)', async () => {
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
-        confidence: 82,
-        reasoning: 'describes a real bug',
+        parseResponse: { confidence: 82, reasoning: 'describes a real bug' },
       }),
     });
     const handler = createInboundMessageHandler(deps);
@@ -750,8 +844,10 @@ describe('createInboundMessageHandler', () => {
 
   it('logs an error and posts no reply when classifying an ambient channel message fails', async () => {
     const deps = makeDeps({
-      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, () => {
-        throw new Error('rate limited');
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+        parseResponse: () => {
+          throw new Error('rate limited');
+        },
       }),
     });
     const handler = createInboundMessageHandler(deps);
@@ -773,8 +869,7 @@ describe('createInboundMessageHandler', () => {
   it("records the classifier call's token usage and its Haiku-priced cost against the persona/day bucket, same cap-accounting mechanism as the DM path (DA fold, BUILD_PLAN 3.3)", async () => {
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
-        confidence: 82,
-        reasoning: 'describes a real bug',
+        parseResponse: { confidence: 82, reasoning: 'describes a real bug' },
       }),
     });
     const handler = createInboundMessageHandler(deps);
@@ -799,8 +894,10 @@ describe('createInboundMessageHandler', () => {
 
   it('does not record cost usage when classifying an ambient channel message fails — there is no token usage to account for', async () => {
     const deps = makeDeps({
-      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, () => {
-        throw new Error('rate limited');
+      anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+        parseResponse: () => {
+          throw new Error('rate limited');
+        },
       }),
     });
     const handler = createInboundMessageHandler(deps);
@@ -845,7 +942,7 @@ describe('createInboundMessageHandler', () => {
     );
   });
 
-  it('composes and logs a ticket draft for a High-band ambient message, with its own cost accounting (BUILD_PLAN 3.4a-i)', async () => {
+  it('composes, posts, persists, and seeds the reaction legend for a High-band ambient message, with its own cost accounting (BUILD_PLAN 3.4a-i/3.4a-iii)', async () => {
     // Thursday 10:00 Europe/London (09:00 UTC, BST) — within the 08:30-17:00 core-hours window
     // (BUILD_PLAN 2.7a), so the operating-rhythm guard doesn't block this test's draft-composition
     // path. Real-clock `new Date()` would make this test's pass/fail depend on the time of day it
@@ -854,59 +951,305 @@ describe('createInboundMessageHandler', () => {
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
       const deps = makeDeps({
-        anthropicClient: makeAnthropicClient(
-          REPLY_MESSAGE,
-          { confidence: 88, reasoning: 'describes a concrete bug' },
-          {
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: {
+            appropriate: true,
+            reasoning: 'a routine bug report',
+          },
+          draftResponse: {
             title: 'CLI hangs on large repos',
             body: 'The CLI hangs when run against large repos.',
           },
-        ),
+        }),
+        slackClient: makeSlackClient({ ok: true, ts: '1700000099.000100' }),
       });
       const handler = createInboundMessageHandler(deps);
       const channelMessage = {
         ...DM_MESSAGE,
         channelId: 'C123',
         channelType: 'channel' as const,
+        ts: '1700000000.000050',
         text: 'hey, there is an issue about the CLI hanging on large repos — someone want to take a look?',
       };
 
       await handler(channelMessage);
 
-      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
-      const secondCall = deps.anthropicClient.messages.parse.mock
-        .calls[1]?.[0] as {
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(3);
+      const thirdCall = deps.anthropicClient.messages.parse.mock
+        .calls[2]?.[0] as {
         model: string;
         messages: ReadonlyArray<{ role: string; content: string }>;
       };
-      expect(secondCall.model).toBe('claude-sonnet-5');
-      expect(secondCall.messages).toEqual([
+      expect(thirdCall.model).toBe('claude-sonnet-5');
+      expect(thirdCall.messages).toEqual([
         { role: 'user', content: channelMessage.text },
       ]);
+
+      // Posted as a threaded reply on the source message, not a new top-level message.
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'C123',
+          thread_ts: '1700000000.000050',
+          text: expect.stringContaining('CLI hangs on large repos') as string,
+        }),
+      );
+
+      // Persisted keyed on the real posted message's own ts, not the source message's ts.
+      expect(deps.draftStore.create).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: '1700000099.000100',
+        sourceMessageText: channelMessage.text,
+        draftTitle: 'CLI hangs on large repos',
+        draftBody: 'The CLI hangs when run against large repos.',
+      });
+
+      // The 📦/🔁/✅ legend, seeded in order onto the real posted message.
+      expect(deps.slackClient.reactions.add).toHaveBeenNthCalledWith(1, {
+        channel: 'C123',
+        timestamp: '1700000099.000100',
+        name: 'package',
+      });
+      expect(deps.slackClient.reactions.add).toHaveBeenNthCalledWith(2, {
+        channel: 'C123',
+        timestamp: '1700000099.000100',
+        name: 'repeat',
+      });
+      expect(deps.slackClient.reactions.add).toHaveBeenNthCalledWith(3, {
+        channel: 'C123',
+        timestamp: '1700000099.000100',
+        name: 'white_check_mark',
+      });
+
       expect(deps.logger.info).toHaveBeenCalledWith(
-        'would post high-band ticket draft',
+        'posted high-band ticket draft',
         {
           personaId: 'sarah',
           channelId: 'C123',
+          draftId: '5fa85f64-5717-4562-b3fc-2c963f66afa8',
           draftTitle: 'CLI hangs on large repos',
           draftBody: 'The CLI hangs when run against large repos.',
-          wouldPostReactions: ['📦', '🔁', '✅'],
         },
       );
-      // Two LLM calls this turn (classify + compose) — the classifier's default usage
-      // (40 input/12 output, Haiku) plus the draft composer's (120 input/40 output, Sonnet 5
-      // introductory pricing $2/$10 per MTok): 40*1 + 12*5 = 100, and 120*2 + 40*10 = 640,
-      // recorded as two separate calls to recordUsage.
-      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(2);
+
+      // Three LLM calls this turn (classify + appropriateness + compose) — classifier usage
+      // (40in/12out, Haiku: 40*1+12*5=100), appropriateness usage (20in/8out, Haiku:
+      // 20*1+8*5=60), and the draft composer's (120in/40out, Sonnet 5 introductory $2/$10 per
+      // MTok: 120*2+40*10=640) — three separate calls to recordUsage, in that order.
+      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(3);
+      expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(
+        1,
+        expect.objectContaining({ costUsdMicros: 100 }),
+      );
       expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(
         2,
-        expect.objectContaining({
-          inputTokens: 120,
-          outputTokens: 40,
-          costUsdMicros: 640,
-        }),
+        expect.objectContaining({ costUsdMicros: 60 }),
       );
+      expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(
+        3,
+        expect.objectContaining({ costUsdMicros: 640 }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('fails closed — skips composing and posting — when the situational-appropriateness gate itself errors (BUILD_PLAN 3.4a-iii)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: () => {
+            throw new Error('rate limited');
+          },
+        }),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler({
+        ...DM_MESSAGE,
+        channelId: 'C123',
+        channelType: 'channel' as const,
+      });
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to evaluate situational appropriateness — deferring draft composition (fail-closed)',
+        expect.objectContaining({ message: 'rate limited' }),
+      );
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+      // Only the classifier's own usage was recorded — the gate call never succeeded.
+      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('skips composing and posting when the situational-appropriateness gate says inappropriate (BUILD_PLAN 3.4a-iii)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: {
+            appropriate: false,
+            reasoning: 'describes a round of layoffs',
+          },
+        }),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler({
+        ...DM_MESSAGE,
+        channelId: 'C123',
+        channelType: 'channel' as const,
+      });
+
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'skipping ticket-draft composition — situationally inappropriate',
+        {
+          personaId: 'sarah',
+          channelId: 'C123',
+          reasoning: 'describes a round of layoffs',
+        },
+      );
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+      // The gate call itself succeeded, so its usage IS recorded — only compose never ran.
+      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logs an error, without throwing, when persisting the pending ticket draft fails after a successful post', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: { appropriate: true, reasoning: 'fine' },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+        draftStore: makeDraftStore({
+          create: vi
+            .fn<HandlerDeps['draftStore']['create']>()
+            .mockResolvedValue({
+              ok: false,
+              error: { kind: 'unknown', cause: new Error('connection reset') },
+            }),
+        }),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await expect(
+        handler({
+          ...DM_MESSAGE,
+          channelId: 'C123',
+          channelType: 'channel' as const,
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to persist pending ticket draft',
+        { message: 'Error: connection reset' },
+      );
+      expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
+      expect(deps.logger.info).not.toHaveBeenCalledWith(
+        'posted high-band ticket draft',
+        expect.anything(),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logs an error, without throwing, when posting the ticket draft to Slack fails', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: { appropriate: true, reasoning: 'fine' },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+        slackClient: makeSlackClient({ ok: false, error: 'channel_not_found' }),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await expect(
+        handler({
+          ...DM_MESSAGE,
+          channelId: 'C123',
+          channelType: 'channel' as const,
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to post ticket draft',
+        { message: 'channel_not_found' },
+      );
+      expect(deps.draftStore.create).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logs an error for a reaction that fails to add, but still attempts the remaining legend reactions', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: { appropriate: true, reasoning: 'fine' },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+        slackClient: makeSlackClient({ ok: true }, [
+          { ok: false, error: 'already_reacted' },
+        ]),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler({
+        ...DM_MESSAGE,
+        channelId: 'C123',
+        channelType: 'channel' as const,
+      });
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to add reaction-gate legend reaction',
+        expect.objectContaining({ reactionName: 'package' }),
+      );
+      expect(deps.slackClient.reactions.add).toHaveBeenCalledTimes(3);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'posted high-band ticket draft',
+        expect.anything(),
+      );
     } finally {
       vi.useRealTimers();
     }
@@ -919,8 +1262,10 @@ describe('createInboundMessageHandler', () => {
     try {
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
-          confidence: 88,
-          reasoning: 'describes a concrete bug',
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
         }),
       });
       const handler = createInboundMessageHandler(deps);
@@ -941,7 +1286,7 @@ describe('createInboundMessageHandler', () => {
         },
       );
       expect(deps.logger.info).not.toHaveBeenCalledWith(
-        'would post high-band ticket draft',
+        'posted high-band ticket draft',
         expect.anything(),
       );
     } finally {
@@ -957,8 +1302,10 @@ describe('createInboundMessageHandler', () => {
     try {
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
-          confidence: 88,
-          reasoning: 'describes a concrete bug',
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
         }),
         bankHolidaysCache: makeBankHolidaysCache(['2026-07-16']),
       });
@@ -987,8 +1334,7 @@ describe('createInboundMessageHandler', () => {
   it('does not compose a draft for a Mid-band ambient message — only High crosses into drafting (BUILD_PLAN 3.4a-i)', async () => {
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
-        confidence: 50,
-        reasoning: 'ambiguous',
+        parseResponse: { confidence: 50, reasoning: 'ambiguous' },
       }),
     });
     const handler = createInboundMessageHandler(deps);
@@ -1001,7 +1347,7 @@ describe('createInboundMessageHandler', () => {
 
     expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
     expect(deps.logger.info).not.toHaveBeenCalledWith(
-      'would post high-band ticket draft',
+      'posted high-band ticket draft',
       expect.anything(),
     );
   });
@@ -1011,13 +1357,16 @@ describe('createInboundMessageHandler', () => {
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
       const deps = makeDeps({
-        anthropicClient: makeAnthropicClient(
-          REPLY_MESSAGE,
-          { confidence: 88, reasoning: 'describes a concrete bug' },
-          () => {
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: { appropriate: true, reasoning: 'fine' },
+          draftResponse: () => {
             throw new Error('rate limited');
           },
-        ),
+        }),
       });
       const handler = createInboundMessageHandler(deps);
 
@@ -1034,11 +1383,11 @@ describe('createInboundMessageHandler', () => {
         },
       );
       expect(deps.logger.info).not.toHaveBeenCalledWith(
-        'would post high-band ticket draft',
+        'posted high-band ticket draft',
         expect.anything(),
       );
-      // Only the classifier's own usage was recorded — the draft call never succeeded.
-      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(1);
+      // Classifier + appropriateness-gate usage were recorded — the draft call never succeeded.
+      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(2);
     } finally {
       vi.useRealTimers();
     }
@@ -1069,8 +1418,10 @@ describe('createInboundMessageHandler', () => {
       });
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient(REPLY_MESSAGE, {
-        confidence: 88,
-        reasoning: 'describes a concrete bug',
+        parseResponse: {
+          confidence: 88,
+          reasoning: 'describes a concrete bug',
+        },
       }),
       capStore: makeCapStore({ getMonthlyCost }),
     });

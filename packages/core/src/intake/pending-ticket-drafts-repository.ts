@@ -50,11 +50,10 @@ function parseDraftRow(row: unknown): PendingTicketDraftResult {
 
 /**
  * Persists a High-band ticket draft (BUILD_PLAN 3.4a-i's `composeTicketDraft`) as the "parent-
- * message state" BUILD_PLAN 3.4a-ii's own text names — no real consumer wired yet (Alex confirmed
- * via `AskUserQuestion`: 3.4a-i stays shadow/log-only until 3.4a-iii's situational-appropriateness
- * gate exists, so nothing calls this from a real compose step today). Validates the full candidate
- * row through `pendingTicketDraftSchema` before writing, so an invalid input never reaches the
- * database.
+ * message state" BUILD_PLAN 3.4a-ii's own text names — a real consumer as of BUILD_PLAN 3.4a-iii
+ * (`apps/server`'s `postAndPersistDraft`, called once the real post to Slack succeeds, keyed on
+ * the posted message's own `ts`). Validates the full candidate row through
+ * `pendingTicketDraftSchema` before writing, so an invalid input never reaches the database.
  */
 export async function createPendingTicketDraft(
   db: Kysely<Database>,

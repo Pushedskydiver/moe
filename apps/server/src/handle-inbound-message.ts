@@ -4,6 +4,7 @@ import type {
   classifyMessageConfidence,
   composeTicketDraft,
   CostCapConfig,
+  evaluateSituationalAppropriateness,
   PersonaId,
 } from '@moe/agents';
 import type {
@@ -13,6 +14,7 @@ import type {
   ConversationTurnResult,
   createBankHolidaysCache,
   NewConversationTurn,
+  NewPendingTicketDraft,
   NewPersonaCostUsage,
   NewTicket,
   PendingTicketDraftClaimResult,
@@ -21,7 +23,7 @@ import type {
   PersonaCostUsageResult,
   TicketResult,
 } from '@moe/core';
-import type { InboundMessage } from '@moe/slack';
+import type { addReaction, InboundMessage } from '@moe/slack';
 
 import {
   buildPersonaSystemPrompt,
@@ -43,7 +45,11 @@ const MAX_HISTORY_TURNS = 20;
 type GenerateReplyClient = Parameters<typeof generateReply>[0];
 type ClassifierClient = Parameters<typeof classifyMessageConfidence>[0];
 type ComposeDraftClient = Parameters<typeof composeTicketDraft>[0];
+type SituationalGateClient = Parameters<
+  typeof evaluateSituationalAppropriateness
+>[0];
 type PostMessageClient = Parameters<typeof postMessage>[0];
+type AddReactionClient = Parameters<typeof addReaction>[0];
 // BUILD_PLAN 3.4a-i's own operating-rhythm requirement (below) needs to reference the cache's
 // type without `@moe/core` publicly exporting the `Cached` class itself (deliberately not
 // re-exported yet, per `cached.ts`'s own TSDoc) — deriving it from the one function that *is*
@@ -90,16 +96,18 @@ type CostStore = {
 };
 
 // Same thin DI seam, over `@moe/core`'s ticket repository — BUILD_PLAN 3.4a-ii's ✅/📦 outcome
-// paths are its only consumer so far (`reaction-outcome-actions.ts`); no reaction listener is
-// wired into a real Socket Mode client yet (Alex confirmed via `AskUserQuestion`: build the
-// primitive, no live consumer, until 3.4a-iii's situational-appropriateness gate exists).
+// paths, real consumers as of BUILD_PLAN 3.4a-iii's live Socket Mode `reaction_added` wiring.
 type TicketStore = {
   readonly create: (input: NewTicket) => Promise<TicketResult>;
 };
 
 // Same thin DI seam, over `@moe/core`'s pending-ticket-drafts repository (BUILD_PLAN 3.4a-ii's
-// "parent-message state") — same no-live-consumer caveat as `TicketStore` above.
+// "parent-message state"). `create` is BUILD_PLAN 3.4a-iii's own addition — persists a real
+// posted draft's `(channelId, messageTs)` so a later real reaction can be looked up against it.
 type DraftStore = {
+  readonly create: (
+    input: NewPendingTicketDraft,
+  ) => Promise<PendingTicketDraftResult>;
   readonly getByMessage: (scope: {
     readonly channelId: string;
     readonly messageTs: string;
@@ -122,8 +130,9 @@ type DraftStore = {
 export type HandlerDeps = {
   readonly anthropicClient: GenerateReplyClient &
     ClassifierClient &
-    ComposeDraftClient;
-  readonly slackClient: PostMessageClient;
+    ComposeDraftClient &
+    SituationalGateClient;
+  readonly slackClient: PostMessageClient & AddReactionClient;
   readonly logger: InboundMessageLogger;
   readonly historyStore: HistoryStore;
   readonly costStore: CostStore;

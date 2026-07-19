@@ -4,12 +4,16 @@ type PostMessageClient = {
       readonly channel: string;
       readonly text: string;
       readonly thread_ts?: string;
-    }) => Promise<{ readonly ok: boolean; readonly error?: string }>;
+    }) => Promise<{
+      readonly ok: boolean;
+      readonly error?: string;
+      readonly ts?: string;
+    }>;
   };
 };
 
 export type PostMessageResult =
-  | { readonly ok: true }
+  | { readonly ok: true; readonly ts: string }
   | {
       readonly ok: false;
       readonly error: {
@@ -26,6 +30,12 @@ export type PostMessageResult =
  * through the `catch` branch below with the SDK's own `"An API error occurred: <code>"` message.
  * The `response.ok` check exists for `PostMessageClient`'s general structural contract (a test
  * double or future client isn't required to always throw), not because `@slack/web-api` uses it.
+ * `ts` (the new message's own timestamp, distinct from any `threadTs` passed in) is required on
+ * success, added for BUILD_PLAN 3.4a-iii's ticket-draft posting — it needs the posted message's
+ * own identity to persist a `pending_ticket_drafts` row and seed reactions against it. A response
+ * that resolves `ok: true` with no `ts` is treated as a failure, same as a missing required field
+ * anywhere else in this codebase (e.g. a classifier's `parsed_output: null`) — the real Slack API
+ * always includes it on success, so this only fires against a malformed test double.
  */
 export async function postMessage(
   client: PostMessageClient,
@@ -41,15 +51,25 @@ export async function postMessage(
       text: params.text,
       ...(params.threadTs !== undefined ? { thread_ts: params.threadTs } : {}),
     });
-    return response.ok
-      ? { ok: true }
-      : {
-          ok: false,
-          error: {
-            kind: 'slack-api-error',
-            message: response.error ?? 'unknown error',
-          },
-        };
+    if (!response.ok) {
+      return {
+        ok: false,
+        error: {
+          kind: 'slack-api-error',
+          message: response.error ?? 'unknown error',
+        },
+      };
+    }
+    if (response.ts === undefined) {
+      return {
+        ok: false,
+        error: {
+          kind: 'slack-api-error',
+          message: 'chat.postMessage response had no ts',
+        },
+      };
+    }
+    return { ok: true, ts: response.ts };
   } catch (error) {
     return {
       ok: false,
