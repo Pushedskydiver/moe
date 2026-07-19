@@ -42,3 +42,6 @@ export {
   rawSlackReactionEventSchema,
 } from './raw-reaction-event.js';
 export { normalizeInboundReaction } from './normalize-inbound-reaction.js';
+
+export type { SeenEventCache } from './seen-event-cache.js';
+export { createSeenEventCache } from './seen-event-cache.js';
