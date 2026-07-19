@@ -1,10 +1,12 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
-import type { PendingTicketDraft } from '@moe/core';
+import type { PendingConfirmingQuestion, PendingTicketDraft } from '@moe/core';
 
 import { describe, expect, it, vi } from 'vitest';
 
 import {
   commitTicketDraft,
+  draftFromConfirmingQuestion,
+  logConfirmingQuestionAsNo,
   parkTicketDraftToBacklog,
   regenerateTicketDraft,
 } from './reaction-outcome-actions.js';
@@ -13,6 +15,8 @@ type TicketStore = HandlerDeps['ticketStore'];
 type DraftStore = HandlerDeps['draftStore'];
 type CapStore = HandlerDeps['capStore'];
 type CostStore = HandlerDeps['costStore'];
+type ConfirmingQuestionStore = HandlerDeps['confirmingQuestionStore'];
+type ReviewQueueStore = HandlerDeps['reviewQueueStore'];
 
 function makeDraft(
   overrides: Partial<PendingTicketDraft> = {},
@@ -86,6 +90,62 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   };
 }
 
+function makeQuestion(
+  overrides: Partial<PendingConfirmingQuestion> = {},
+): PendingConfirmingQuestion {
+  return {
+    id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
+    personaId: 'sarah',
+    channelId: 'C123',
+    messageTs: '1700000099.000100',
+    sourceMessageTs: '1700000000.000050',
+    sourceMessageText:
+      'hey, there might be an issue with the CLI on large repos',
+    confidence: 55,
+    reasoning: 'plausibly describes a bug, but not clearly actionable',
+    resolvedAt: null,
+    createdAt: new Date('2026-07-19T09:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function makeConfirmingQuestionStore(
+  overrides: Partial<ConfirmingQuestionStore> = {},
+): ConfirmingQuestionStore {
+  return {
+    create: vi.fn<ConfirmingQuestionStore['create']>(),
+    getByMessage: vi.fn<ConfirmingQuestionStore['getByMessage']>(),
+    resolve: vi.fn<ConfirmingQuestionStore['resolve']>().mockResolvedValue({
+      ok: true,
+      question: { ...makeQuestion(), resolvedAt: new Date() },
+    }),
+    ...overrides,
+  };
+}
+
+function makeReviewQueueStore(
+  overrides: Partial<ReviewQueueStore> = {},
+): ReviewQueueStore {
+  return {
+    create: vi.fn<ReviewQueueStore['create']>().mockResolvedValue({
+      ok: true,
+      entry: {
+        id: '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: '1700000000.000050',
+        sourceMessageText:
+          'hey, there might be an issue with the CLI on large repos',
+        confidence: 55,
+        reasoning: 'plausibly describes a bug, but not clearly actionable',
+        outcomeReason: 'mid-no',
+        createdAt: new Date('2026-07-19T09:00:00.000Z'),
+      },
+    }),
+    ...overrides,
+  };
+}
+
 function makeCostStore(overrides: Partial<CostStore> = {}): CostStore {
   return {
     recordUsage: vi.fn<CostStore['recordUsage']>().mockResolvedValue({
@@ -137,6 +197,8 @@ function makeDeps(
     readonly costStore: CostStore;
     readonly capStore: CapStore;
     readonly logger: ReturnType<typeof makeLogger>;
+    readonly confirmingQuestionStore: ConfirmingQuestionStore;
+    readonly reviewQueueStore: ReviewQueueStore;
   }> = {},
 ) {
   return {
@@ -154,10 +216,16 @@ function makeDeps(
     },
     personaId: 'sarah' as const,
     slackClient: {
-      chat: { postMessage: vi.fn() },
-      reactions: { add: vi.fn() },
+      chat: {
+        postMessage: vi
+          .fn()
+          .mockResolvedValue({ ok: true, ts: '1700000200.000100' }),
+      },
+      reactions: { add: vi.fn().mockResolvedValue({ ok: true }) },
     },
     logger: makeLogger(),
+    confirmingQuestionStore: makeConfirmingQuestionStore(),
+    reviewQueueStore: makeReviewQueueStore(),
     ...overrides,
   };
 }
@@ -348,6 +416,165 @@ describe('regenerateTicketDraft (🔁)', () => {
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to persist regenerated ticket draft',
       { message: 'Error: connection reset' },
+    );
+  });
+});
+
+describe('draftFromConfirmingQuestion (👍)', () => {
+  it('checks the cost cap, atomically claims the confirming question, then composes and posts a real ticket draft threaded on the original source message', async () => {
+    const deps = makeDeps();
+    const question = makeQuestion();
+
+    await draftFromConfirmingQuestion(deps, question);
+
+    expect(deps.confirmingQuestionStore.resolve).toHaveBeenCalledWith(
+      question.id,
+    );
+    expect(deps.anthropicClient.messages.parse).toHaveBeenCalledWith(
+      expect.objectContaining({
+        messages: [{ role: 'user', content: question.sourceMessageText }],
+      }),
+    );
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channel: question.channelId,
+        thread_ts: question.sourceMessageTs,
+      }),
+    );
+    expect(deps.draftStore.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        channelId: question.channelId,
+        sourceMessageText: question.sourceMessageText,
+      }),
+    );
+  });
+
+  it('skips drafting, without claiming the confirming question, when the monthly cost cap is reached', async () => {
+    const deps = makeDeps({
+      capStore: makeCapStore({
+        getMonthlyCost: vi.fn<CapStore['getMonthlyCost']>().mockResolvedValue({
+          ok: true,
+          total: {
+            personaId: 'sarah',
+            month: '2026-07',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsdMicros: 100_000_000,
+          },
+        }),
+      }),
+    });
+
+    await draftFromConfirmingQuestion(deps, makeQuestion());
+
+    expect(deps.confirmingQuestionStore.resolve).not.toHaveBeenCalled();
+    expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+  });
+
+  it('ignores an already-resolved confirming question (double-processing guard)', async () => {
+    const question = makeQuestion();
+    const deps = makeDeps({
+      confirmingQuestionStore: makeConfirmingQuestionStore({
+        resolve: vi
+          .fn<ConfirmingQuestionStore['resolve']>()
+          .mockResolvedValue({ ok: false, error: { kind: 'unavailable' } }),
+      }),
+    });
+
+    await draftFromConfirmingQuestion(deps, question);
+
+    expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'confirming question already resolved — ignoring reaction',
+      expect.objectContaining({ questionId: question.id }),
+    );
+  });
+
+  // Known, accepted gap (DA review, chunk 3.4b-ii, see this function's own TSDoc) — a downstream
+  // composition failure after a successful claim leaves the question permanently resolved with no
+  // fallback. Pinned here as an explicit regression test, not left as only a documented trade-off,
+  // so a future fix (or an accidental behavior change) has to touch this test deliberately.
+  it('leaves the confirming question resolved with no review-queue fallback when composition fails after a successful claim (known gap, not a regression)', async () => {
+    const deps = makeDeps({
+      anthropicClient: {
+        messages: {
+          parse: vi.fn().mockRejectedValue(new Error('rate limited')),
+        },
+      },
+    });
+
+    await draftFromConfirmingQuestion(deps, makeQuestion());
+
+    expect(deps.confirmingQuestionStore.resolve).toHaveBeenCalled();
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to compose ticket draft',
+      { message: 'rate limited' },
+    );
+    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+  });
+});
+
+describe('logConfirmingQuestionAsNo (👎)', () => {
+  it('atomically claims the confirming question, then logs a real review_queue row carrying confidence/reasoning through', async () => {
+    const deps = makeDeps();
+    const question = makeQuestion();
+
+    await logConfirmingQuestionAsNo(deps, question);
+
+    expect(deps.confirmingQuestionStore.resolve).toHaveBeenCalledWith(
+      question.id,
+    );
+    expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: question.channelId,
+      messageTs: question.sourceMessageTs,
+      sourceMessageText: question.sourceMessageText,
+      confidence: question.confidence,
+      reasoning: question.reasoning,
+      outcomeReason: 'mid-no',
+    });
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'logged Mid-band "no" answer to review queue',
+      expect.objectContaining({ questionId: question.id }),
+    );
+  });
+
+  it('ignores an already-resolved confirming question (double-processing guard)', async () => {
+    const question = makeQuestion();
+    const deps = makeDeps({
+      confirmingQuestionStore: makeConfirmingQuestionStore({
+        resolve: vi
+          .fn<ConfirmingQuestionStore['resolve']>()
+          .mockResolvedValue({ ok: false, error: { kind: 'unavailable' } }),
+      }),
+    });
+
+    await logConfirmingQuestionAsNo(deps, question);
+
+    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'confirming question already resolved — ignoring reaction',
+      expect.objectContaining({ questionId: question.id }),
+    );
+  });
+
+  it('logs an error, without throwing, when persisting the review-queue row fails after a successful claim', async () => {
+    const deps = makeDeps({
+      reviewQueueStore: makeReviewQueueStore({
+        create: vi.fn<ReviewQueueStore['create']>().mockResolvedValue({
+          ok: false,
+          error: { kind: 'unknown', cause: new Error('connection reset') },
+        }),
+      }),
+    });
+
+    await expect(
+      logConfirmingQuestionAsNo(deps, makeQuestion()),
+    ).resolves.toBeUndefined();
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to log Mid-band "no" answer to review queue',
+      expect.objectContaining({ message: 'Error: connection reset' }),
     );
   });
 });

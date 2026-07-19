@@ -30,6 +30,8 @@ export type {
 export { fetchSlackStatus } from './away-detection/fetch-slack-status.js';
 export { isAway } from './away-detection/is-away.js';
 
+export type { ConfirmingQuestionOutcome } from './classify-confirming-question-outcome.js';
+export { classifyConfirmingQuestionOutcome } from './classify-confirming-question-outcome.js';
 export type { ReactionOutcome } from './classify-reaction-outcome.js';
 export { classifyReactionOutcome } from './classify-reaction-outcome.js';
 export type { InboundReaction } from './inbound-reaction.js';

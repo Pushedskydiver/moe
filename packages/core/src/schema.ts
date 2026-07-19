@@ -97,13 +97,15 @@ type PendingTicketDraftsTable = {
  * Postgres `ENUM` — same shape as `TicketsTable.status`/`.severity` above it in this file, though
  * that table's own comment doesn't spell out why: a `CHECK` constraint stays queryable/alterable
  * with plain SQL, where a Postgres `ENUM` needs `ALTER TYPE` to add a value later.
- * Confidence-banded routing (`./confidence-band.ts`) only ever writes `'low-confidence'` here as
- * of this chunk; `'mid-no-response'` is a placeholder value BUILD_PLAN 3.4c pre-seeded into the
- * `CHECK` constraint for the Mid-band confirming question's future write. BUILD_PLAN 3.4b-ii's own
- * text later resolves "no" and "silence"/timeout as needing to stay distinguishable, not collapsed
- * into that one placeholder value — so 3.4b-ii still needs its own migration, widening the `CHECK`
- * constraint to `'mid-no'`/`'mid-silence'` in place of `'mid-no-response'`, not an additive change
- * to an already-single-value constraint.
+ * Confidence-banded routing (`./confidence-band.ts`) writes `'low-confidence'` here (chunk 3.4c);
+ * BUILD_PLAN 3.4b-ii's own `logConfirmingQuestionAsNo` writes `'mid-no'` when a Mid-band confirming
+ * question's 👎 reaction resolves it; `'mid-silence'` is a placeholder value pre-seeded here ahead
+ * of a real writer — BUILD_PLAN 3.5's own future scheduled sweep is what logs it, once an
+ * unanswered confirming question passes some age threshold. Migration
+ * `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii) replaced chunk 3.4c's original single
+ * placeholder value, `'mid-no-response'`, with these two distinct values — "no" and
+ * "silence"/timeout stay separately identifiable for 3.5's own human-eyeballing sweep, per that
+ * chunk's own DA-review-flagged question.
  */
 type ReviewQueueTable = {
   readonly id: string;

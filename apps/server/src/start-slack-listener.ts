@@ -172,6 +172,8 @@ function wireAndStartListener(ctx: ListenerContext): void {
       capStore: ctx.capStore,
       costCapConfig: ctx.costCapConfig,
       personaId: ctx.config.id,
+      confirmingQuestionStore: ctx.confirmingQuestionStore,
+      reviewQueueStore: ctx.reviewQueueStore,
     }),
     botUserId: ctx.botUserId,
     logger: ctx.logger,

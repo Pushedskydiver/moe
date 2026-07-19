@@ -137,11 +137,13 @@ type ReviewQueueStore = {
 };
 
 // Same thin DI seam, over `@moe/core`'s pending-confirming-questions repository (BUILD_PLAN
-// 3.4b-i's own "parent-message state"). `create` is this chunk's own real consumer
-// (`compose-and-post-confirming-question.ts`); `getByMessage`/`resolve` have no live caller yet —
-// both are BUILD_PLAN 3.4b-ii's own future consumers (the 👍/👎 reaction-dispatch lookup and its
-// atomic claim), included now so the primitive is complete, matching `DraftStore`'s own precedent
-// at BUILD_PLAN 3.4a-ii (built whole, wired to a live reaction listener a later chunk).
+// 3.4b-i's own "parent-message state"). `create` is 3.4b-i's own real consumer
+// (`compose-and-post-confirming-question.ts`); `getByMessage`/`resolve` are BUILD_PLAN 3.4b-ii's
+// own real consumers — the 👍/👎 reaction-dispatch lookup (`handle-reaction-added.ts`'s
+// `dispatchConfirmingQuestionOutcome`) and its atomic claim (`reaction-outcome-actions.ts`'s
+// `draftFromConfirmingQuestion`/`logConfirmingQuestionAsNo`) — matching `DraftStore`'s own
+// precedent at BUILD_PLAN 3.4a-ii/3.4a-iii (built whole, wired to a live reaction listener a
+// later chunk).
 type ConfirmingQuestionStore = {
   readonly create: (
     input: NewPendingConfirmingQuestion,
