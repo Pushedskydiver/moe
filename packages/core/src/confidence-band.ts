@@ -1,7 +1,7 @@
 /**
  * VISION §5.2's three-band routing outcome, `docs/decisions/STAGE-1-CLASSIFIER.md`'s thresholds
  * (calibrated against a real 24-message eval, not chosen from theory): High >= 70 auto-drafts a
- * ticket (BUILD_PLAN 3.4a-i); Mid 35-69 asks a confirming question (3.4b); Low < 35 logs silently
+ * ticket (BUILD_PLAN 3.4a-i); Mid 35-69 asks a confirming question (3.4b-i); Low < 35 logs silently
  * to the review queue (3.4c). The Low ceiling is a strict `< 35`, not `<= 35` — the ADR's own
  * Decision 3 deliberately lands its one boundary case (a score of exactly 35) in Mid, not Low.
  */

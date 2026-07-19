@@ -14,10 +14,14 @@ import type {
   ConversationTurnResult,
   createBankHolidaysCache,
   NewConversationTurn,
+  NewPendingConfirmingQuestion,
   NewPendingTicketDraft,
   NewPersonaCostUsage,
   NewReviewQueueEntry,
   NewTicket,
+  PendingConfirmingQuestionClaimResult,
+  PendingConfirmingQuestionOrNullResult,
+  PendingConfirmingQuestionResult,
   PendingTicketDraftClaimResult,
   PendingTicketDraftOrNullResult,
   PendingTicketDraftResult,
@@ -132,6 +136,25 @@ type ReviewQueueStore = {
   ) => Promise<ReviewQueueEntryResult>;
 };
 
+// Same thin DI seam, over `@moe/core`'s pending-confirming-questions repository (BUILD_PLAN
+// 3.4b-i's own "parent-message state"). `create` is this chunk's own real consumer
+// (`compose-and-post-confirming-question.ts`); `getByMessage`/`resolve` have no live caller yet —
+// both are BUILD_PLAN 3.4b-ii's own future consumers (the 👍/👎 reaction-dispatch lookup and its
+// atomic claim), included now so the primitive is complete, matching `DraftStore`'s own precedent
+// at BUILD_PLAN 3.4a-ii (built whole, wired to a live reaction listener a later chunk).
+type ConfirmingQuestionStore = {
+  readonly create: (
+    input: NewPendingConfirmingQuestion,
+  ) => Promise<PendingConfirmingQuestionResult>;
+  readonly getByMessage: (scope: {
+    readonly channelId: string;
+    readonly messageTs: string;
+  }) => Promise<PendingConfirmingQuestionOrNullResult>;
+  readonly resolve: (
+    id: string,
+  ) => Promise<PendingConfirmingQuestionClaimResult>;
+};
+
 // `historyStore`/`costStore`/`capStore`/`costCapConfig`/`personaId`/`threadQueue`/
 // `channelScopeConfig` bundled alongside the pre-existing 3 params into one options object — the
 // 3-param signature was already at eslint's `max-params: 3` ceiling, same bundling pattern
@@ -158,6 +181,7 @@ export type HandlerDeps = {
   readonly ticketStore: TicketStore;
   readonly draftStore: DraftStore;
   readonly reviewQueueStore: ReviewQueueStore;
+  readonly confirmingQuestionStore: ConfirmingQuestionStore;
 };
 
 // Non-persona-voiced, same spirit as chunk 2.3's ACK_TEXT — a visible reply on LLM failure beats

@@ -12,8 +12,11 @@ const nonBlankStringSchema = z
  * for a message that didn't become a real ticket draft, captured so BUILD_PLAN 3.5's own sweep can
  * list it for a human. `outcomeReason` records why the row exists: `'low-confidence'` is this
  * chunk's own write (a Stage 1 score below the Low threshold, `../confidence-band.ts`);
- * `'mid-no-response'` is BUILD_PLAN 3.4b's future write, once its Mid-band confirming question
- * resolves to "no" or silence rather than "yes". Unlike `pending-ticket-draft.ts`'s sibling table,
+ * `'mid-no-response'` is a placeholder value pre-seeded here for BUILD_PLAN 3.4b-i's Mid-band
+ * confirming question, ahead of a real writer — BUILD_PLAN 3.4b-ii's own text later resolves "no"
+ * and "silence"/timeout as needing to stay distinguishable, not collapsed into this one placeholder
+ * value, so 3.4b-ii replaces it with `'mid-no'`/`'mid-silence'` (its own schema + migration change,
+ * not an additive one). Unlike `pending-ticket-draft.ts`'s sibling table,
  * this one has no resolved/claimed state — a review-queue row is a plain log entry, not a
  * workflow object a reaction can act on.
  */

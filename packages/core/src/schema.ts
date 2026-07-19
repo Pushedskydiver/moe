@@ -98,8 +98,12 @@ type PendingTicketDraftsTable = {
  * that table's own comment doesn't spell out why: a `CHECK` constraint stays queryable/alterable
  * with plain SQL, where a Postgres `ENUM` needs `ALTER TYPE` to add a value later.
  * Confidence-banded routing (`./confidence-band.ts`) only ever writes `'low-confidence'` here as
- * of this chunk; `'mid-no-response'` is BUILD_PLAN 3.4b's own future write, once its confirming
- * question resolves to "no" or silence — the column exists now so 3.4b needs no further migration.
+ * of this chunk; `'mid-no-response'` is a placeholder value BUILD_PLAN 3.4c pre-seeded into the
+ * `CHECK` constraint for the Mid-band confirming question's future write. BUILD_PLAN 3.4b-ii's own
+ * text later resolves "no" and "silence"/timeout as needing to stay distinguishable, not collapsed
+ * into that one placeholder value — so 3.4b-ii still needs its own migration, widening the `CHECK`
+ * constraint to `'mid-no'`/`'mid-silence'` in place of `'mid-no-response'`, not an additive change
+ * to an already-single-value constraint.
  */
 type ReviewQueueTable = {
   readonly id: string;
@@ -113,6 +117,32 @@ type ReviewQueueTable = {
   readonly createdAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `pending_confirming_questions`
+ * (`./intake/pending-confirming-question.ts`'s DB-backed counterpart, BUILD_PLAN 3.4b-i) — the
+ * Mid-band "parent-message state" `resolvePendingConfirmingQuestion` claims against, same CAS
+ * shape as `PendingTicketDraftsTable.resolvedAt` above (a workflow object with resolve-once
+ * semantics, unlike `ReviewQueueTable`'s deliberately different plain-log shape). `messageTs` keys
+ * the confirming question's own posted message (for a later reaction lookup, mirroring
+ * `PendingTicketDraftsTable`'s own `messageTs` exactly); `sourceMessageTs`/`sourceMessageText` are
+ * this table's own addition — needed so a "yes" answer (3.4b-ii) can thread the real ticket draft
+ * as a reply on the *original* ambient message, not the confirming question itself, and so a "no"
+ * answer can carry the classifier's own `confidence`/`reasoning` through to `review_queue` the same
+ * way the Low-band path already does.
+ */
+type PendingConfirmingQuestionsTable = {
+  readonly id: string;
+  readonly personaId: string;
+  readonly channelId: string;
+  readonly messageTs: string;
+  readonly sourceMessageTs: string;
+  readonly sourceMessageText: string;
+  readonly confidence: number;
+  readonly reasoning: string;
+  readonly resolvedAt: Date | null;
+  readonly createdAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
@@ -120,4 +150,5 @@ export type Database = {
   readonly personaCostAlerts: PersonaCostAlertsTable;
   readonly pendingTicketDrafts: PendingTicketDraftsTable;
   readonly reviewQueue: ReviewQueueTable;
+  readonly pendingConfirmingQuestions: PendingConfirmingQuestionsTable;
 };

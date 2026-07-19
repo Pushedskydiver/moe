@@ -39,6 +39,7 @@ describe('runMigrations', () => {
         '0005_create_persona_cost_alerts.sql',
         '0006_create_pending_ticket_drafts.sql',
         '0007_create_review_queue.sql',
+        '0008_create_pending_confirming_questions.sql',
       ],
     });
 
@@ -53,6 +54,7 @@ describe('runMigrations', () => {
       { id: '0005_create_persona_cost_alerts.sql' },
       { id: '0006_create_pending_ticket_drafts.sql' },
       { id: '0007_create_review_queue.sql' },
+      { id: '0008_create_pending_confirming_questions.sql' },
     ]);
   });
 
@@ -253,6 +255,55 @@ describe('runMigrations', () => {
           new Date(),
         ],
       ),
+    ).rejects.toThrow();
+  });
+
+  it('creates a pending_confirming_questions table that accepts a valid unresolved row', async () => {
+    await runMigrations(pool, migrationsDir);
+    await pool.query(
+      `INSERT INTO pending_confirming_questions
+         (id, persona_id, channel_id, message_ts, source_message_ts, source_message_text, confidence, reasoning, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'sarah',
+        'C123',
+        '1700000099.000100',
+        '1700000000.000050',
+        'hey, there might be an issue with the CLI on large repos',
+        55,
+        'plausibly describes a bug, but not clearly actionable',
+        new Date(),
+      ],
+    );
+    const { rows } = await pool.query(
+      'SELECT * FROM pending_confirming_questions',
+    );
+    expect(rows).toHaveLength(1);
+  });
+
+  it('rejects a second pending_confirming_questions row for the same (channel_id, message_ts) pair via the UNIQUE constraint', async () => {
+    await runMigrations(pool, migrationsDir);
+    const insert = (id: string) =>
+      pool.query(
+        `INSERT INTO pending_confirming_questions
+           (id, persona_id, channel_id, message_ts, source_message_ts, source_message_text, confidence, reasoning, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          id,
+          'sarah',
+          'C123',
+          '1700000099.000100',
+          '1700000000.000050',
+          'hey, there might be an issue with the CLI on large repos',
+          55,
+          'plausibly describes a bug, but not clearly actionable',
+          new Date(),
+        ],
+      );
+    await insert('3fa85f64-5717-4562-b3fc-2c963f66afa6');
+    await expect(
+      insert('4fa85f64-5717-4562-b3fc-2c963f66afa7'),
     ).rejects.toThrow();
   });
 

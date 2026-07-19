@@ -8,14 +8,17 @@ import {
   appendTurn,
   claimAlertThreshold,
   createBankHolidaysCache,
+  createPendingConfirmingQuestion,
   createPendingTicketDraft,
   createReviewQueueEntry,
   createTicket,
   getAlertState,
+  getPendingConfirmingQuestionByMessage,
   getPendingTicketDraftByMessage,
   getPersonaCostForMonth,
   getRecentTurns,
   recordUsage,
+  resolvePendingConfirmingQuestion,
   resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
 } from '@moe/core';
@@ -51,6 +54,36 @@ export type StartSlackListenerFn = (
   exit: (code: number) => void,
 ) => void;
 
+// Extracted from `createStores` purely to stay under eslint's `max-lines-per-function`
+// (`docs/CONVENTIONS.md` §Code Style) — the two multi-method stores are the bulk of its length.
+function createDraftStore(db: Kysely<Database>) {
+  return {
+    create: (input: Parameters<typeof createPendingTicketDraft>[1]) =>
+      createPendingTicketDraft(db, input),
+    getByMessage: (
+      scope: Parameters<typeof getPendingTicketDraftByMessage>[1],
+    ) => getPendingTicketDraftByMessage(db, scope),
+    resolve: (id: Parameters<typeof resolvePendingTicketDraft>[1]) =>
+      resolvePendingTicketDraft(db, id),
+    updateContent: (
+      id: Parameters<typeof updatePendingTicketDraftContent>[1],
+      content: Parameters<typeof updatePendingTicketDraftContent>[2],
+    ) => updatePendingTicketDraftContent(db, id, content),
+  };
+}
+
+function createConfirmingQuestionStore(db: Kysely<Database>) {
+  return {
+    create: (input: Parameters<typeof createPendingConfirmingQuestion>[1]) =>
+      createPendingConfirmingQuestion(db, input),
+    getByMessage: (
+      scope: Parameters<typeof getPendingConfirmingQuestionByMessage>[1],
+    ) => getPendingConfirmingQuestionByMessage(db, scope),
+    resolve: (id: Parameters<typeof resolvePendingConfirmingQuestion>[1]) =>
+      resolvePendingConfirmingQuestion(db, id),
+  };
+}
+
 // Pre-binds every `@moe/core` repository function to one shared `db` handle — extracted from
 // `startSlackListener` itself purely to stay under eslint's `max-lines-per-function`; composition
 // code like this extracts aggressively (`docs/CONVENTIONS.md` §Code Style).
@@ -80,23 +113,12 @@ function createStores(db: Kysely<Database>) {
       create: (input: Parameters<typeof createTicket>[1]) =>
         createTicket(db, input),
     },
-    draftStore: {
-      create: (input: Parameters<typeof createPendingTicketDraft>[1]) =>
-        createPendingTicketDraft(db, input),
-      getByMessage: (
-        scope: Parameters<typeof getPendingTicketDraftByMessage>[1],
-      ) => getPendingTicketDraftByMessage(db, scope),
-      resolve: (id: Parameters<typeof resolvePendingTicketDraft>[1]) =>
-        resolvePendingTicketDraft(db, id),
-      updateContent: (
-        id: Parameters<typeof updatePendingTicketDraftContent>[1],
-        content: Parameters<typeof updatePendingTicketDraftContent>[2],
-      ) => updatePendingTicketDraftContent(db, id, content),
-    },
+    draftStore: createDraftStore(db),
     reviewQueueStore: {
       create: (input: Parameters<typeof createReviewQueueEntry>[1]) =>
         createReviewQueueEntry(db, input),
     },
+    confirmingQuestionStore: createConfirmingQuestionStore(db),
   };
 }
 
@@ -138,6 +160,7 @@ function wireAndStartListener(ctx: ListenerContext): void {
       ticketStore: ctx.ticketStore,
       draftStore: ctx.draftStore,
       reviewQueueStore: ctx.reviewQueueStore,
+      confirmingQuestionStore: ctx.confirmingQuestionStore,
     }),
     onReactionAdded: createReactionHandler({
       anthropicClient: ctx.anthropicClient,

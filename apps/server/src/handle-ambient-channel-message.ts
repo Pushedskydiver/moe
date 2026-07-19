@@ -4,20 +4,20 @@ import type { InboundMessage } from '@moe/slack';
 import {
   classifyMessageConfidence,
   composeTicketDraft,
-  evaluateSituationalAppropriateness,
   haikuCostUsdMicros,
   sonnetCostUsdMicros,
 } from '@moe/agents';
-import {
-  classifyConfidenceBand,
-  evaluateOperatingRhythm,
-  isSurfaceInScope,
-} from '@moe/core';
+import { classifyConfidenceBand, isSurfaceInScope } from '@moe/core';
 import { addReaction, postMessage } from '@moe/slack';
 
 import { checkCostCapAndAlert } from './check-cost-cap.js';
+import { composeAndPostConfirmingQuestion } from './compose-and-post-confirming-question.js';
 import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
+import {
+  isCostAndRhythmGuardSatisfied,
+  isSituationallyAppropriate,
+} from './standing-proactive-guards.js';
 
 // VISION §5.2's High-band reaction-gate legend (✅ commit the draft as a ticket; 🔁 redo —
 // regenerate from the thread; 📦 park it to Backlog untriaged). BUILD_PLAN 3.4a-iii wires these as
@@ -84,94 +84,8 @@ async function seedReactionLegend(
   await seedReactionLegend(deps, { ...input, remaining: rest });
 }
 
-// Cost-cap checked before the operating-rhythm guard, not after — DA review noted the reverse
-// order would save a DB round-trip during the (majority of) off-hours wall-clock time, but this
-// order lets the existing cost-cap-only tests below pin the cap without also needing to pin `now`
-// into the core-hours window, since `checkCostCapAndAlert`'s halt short-circuits before
-// `evaluateOperatingRhythm` ever runs. Extracted from `composeAndPostDraft` purely to stay under
-// eslint's `max-lines-per-function` (`docs/CONVENTIONS.md` §Code Style).
-async function isPreDraftGuardsSatisfied(
-  deps: HandlerDeps,
-  message: InboundMessage,
-  now: Date,
-): Promise<boolean> {
-  const capCheck = await checkCostCapAndAlert(deps, now);
-  if (capCheck.halt) {
-    deps.logger.info(
-      'skipping ticket-draft composition — monthly cost cap reached',
-      { personaId: deps.personaId, channelId: message.channelId },
-    );
-    return false;
-  }
-
-  const rhythm = await evaluateOperatingRhythm(now, deps.bankHolidaysCache);
-  if (!rhythm.withinCoreHours) {
-    deps.logger.info(
-      'deferring ticket-draft composition — outside core hours',
-      {
-        personaId: deps.personaId,
-        channelId: message.channelId,
-        reason: rhythm.reason,
-      },
-    );
-    return false;
-  }
-
-  return true;
-}
-
-// BUILD_PLAN 3.4a-iii's own situational-appropriateness gate (VISION §9), run before composing
-// anything — Alex confirmed via `AskUserQuestion` that only this unprompted, standing-proactive
-// draft-post needs the check, not the reaction-outcome dispatch (a human's own reaction is a
-// response to the bot, not the bot acting unprompted, same distinction 2.7a's core-hours guard
-// already draws for DM replies). **Fails CLOSED** on any gate failure (an API error, not just
-// `appropriate: false`) — see `evaluateSituationalAppropriateness`'s own TSDoc for why this is the
-// opposite of `checkCostCapAndAlert`'s fail-open design.
-async function isSituationallyAppropriate(
-  deps: HandlerDeps,
-  message: InboundMessage,
-  now: Date,
-): Promise<boolean> {
-  const appropriateness = await evaluateSituationalAppropriateness(
-    deps.anthropicClient,
-    { text: message.text },
-  );
-  if (!appropriateness.ok) {
-    deps.logger.error(
-      'failed to evaluate situational appropriateness — deferring draft composition (fail-closed)',
-      {
-        personaId: deps.personaId,
-        channelId: message.channelId,
-        message: appropriateness.error.message,
-      },
-    );
-    return false;
-  }
-
-  await recordUsageLogged(
-    deps,
-    {
-      usage: appropriateness.usage,
-      costUsdMicros: haikuCostUsdMicros(appropriateness.usage),
-    },
-    now,
-  );
-
-  if (!appropriateness.appropriate) {
-    deps.logger.info(
-      'skipping ticket-draft composition — situationally inappropriate',
-      {
-        personaId: deps.personaId,
-        channelId: message.channelId,
-        reasoning: appropriateness.reasoning,
-      },
-    );
-    return false;
-  }
-
-  return true;
-}
-
+// Both guard functions moved to `standing-proactive-guards.ts` (BUILD_PLAN 3.4b-i) once the
+// Mid-band confirming-question post needed the exact same checks — see that file's own TSDoc.
 // Extracted from `postAndPersistDraft` purely to stay under eslint's `max-lines-per-function`
 // (`docs/CONVENTIONS.md` §Code Style) — composes the draft and records its own cost accounting,
 // returning `undefined` on failure (already logged) so the caller can short-circuit.
@@ -259,18 +173,24 @@ async function postAndPersistDraft(
 /**
  * BUILD_PLAN 3.4a-i's High-band action, real end-to-end as of BUILD_PLAN 3.4a-iii: gated by a
  * fresh cost-cap check, the 2.7a operating-rhythm guard, and BUILD_PLAN 3.4a-iii's own
- * situational-appropriateness gate (`isPreDraftGuardsSatisfied`/`isSituationallyAppropriate` above), then
- * composes, posts, persists, and seeds the reaction-gate legend (`postAndPersistDraft`).
+ * situational-appropriateness gate (`isCostAndRhythmGuardSatisfied`/`isSituationallyAppropriate`,
+ * `standing-proactive-guards.ts`), then composes, posts, persists, and seeds the reaction-gate
+ * legend (`postAndPersistDraft`).
  */
 async function composeAndPostDraft(
   deps: HandlerDeps,
   message: InboundMessage,
   now: Date,
 ): Promise<void> {
-  const guardsPassed = await isPreDraftGuardsSatisfied(deps, message, now);
+  const guardInput = {
+    message,
+    now,
+    actionDescription: 'ticket-draft composition',
+  };
+  const guardsPassed = await isCostAndRhythmGuardSatisfied(deps, guardInput);
   if (!guardsPassed) return;
 
-  const gatePassed = await isSituationallyAppropriate(deps, message, now);
+  const gatePassed = await isSituationallyAppropriate(deps, guardInput);
   if (!gatePassed) return;
 
   await postAndPersistDraft(deps, message, now);
@@ -280,8 +200,11 @@ async function composeAndPostDraft(
 // message as a plain review-queue log row (`docs/VISION.md` §5.2, `@moe/core`'s
 // `createReviewQueueEntry`) rather than dropping it, for BUILD_PLAN 3.5's own future sweep to
 // list. `outcomeReason: 'low-confidence'` — the only value this call site ever writes; BUILD_PLAN
-// 3.4b's own future "no or silence" Mid-band outcome writes `'mid-no-response'` through the same
-// repository once that chunk lands. "Log, don't throw" on failure, same as `recordUsageLogged`'s
+// 3.4b-ii's own future "no or silence" Mid-band outcome writes through the same repository once
+// that chunk lands — with its own migration widening `outcomeReason`'s CHECK constraint from
+// `'mid-no-response'` to the two distinct `'mid-no'`/`'mid-silence'` values 3.4b-ii's own text
+// settles on, not an additive change to an already-single-value constraint. "Log, don't throw" on
+// failure, same as `recordUsageLogged`'s
 // own precedent — a review-queue write failing should never surface as a visible error, since
 // there's no reply path here to carry one.
 async function logToReviewQueue(
@@ -307,6 +230,56 @@ async function logToReviewQueue(
   }
 }
 
+// Extracted from `handleAmbientChannelMessage` purely to stay under eslint's
+// `max-lines-per-function` (`docs/CONVENTIONS.md` §Code Style) — the cap-check-then-classify-then-
+// account-for-usage sequence, returning `undefined` on either a halt or a classification failure
+// (both already logged) so the caller can short-circuit, same shape as `composeDraftContent` above.
+async function classifyAmbientMessage(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  now: Date,
+): Promise<
+  { readonly confidence: number; readonly reasoning: string } | undefined
+> {
+  const capCheck = await checkCostCapAndAlert(deps, now);
+  if (capCheck.halt) {
+    deps.logger.info('skipping classification — monthly cost cap reached', {
+      personaId: deps.personaId,
+      channelId: message.channelId,
+    });
+    return undefined;
+  }
+
+  const classified = await classifyMessageConfidence(deps.anthropicClient, {
+    text: message.text,
+  });
+  if (!classified.ok) {
+    deps.logger.error('failed to classify inbound message', {
+      message: classified.error.message,
+    });
+    return undefined;
+  }
+
+  await recordUsageLogged(
+    deps,
+    {
+      usage: classified.usage,
+      costUsdMicros: haikuCostUsdMicros(classified.usage),
+    },
+    now,
+  );
+
+  deps.logger.info('classified inbound message', {
+    personaId: deps.personaId,
+    channelId: message.channelId,
+    messageText: message.text,
+    confidence: classified.confidence,
+    reasoning: classified.reasoning,
+  });
+
+  return classified;
+}
+
 /**
  * VISION §5.2's Stage 0 + Stage 1, run for every ambient channel/group message (never a DM — a DM
  * is already addressed, §5.3). Out-of-scope channels never reach the classifier at all (Stage 0,
@@ -314,9 +287,9 @@ async function logToReviewQueue(
  * `docs/decisions/STAGE-1-CLASSIFIER.md`) and the score is logged. A High-band score (VISION
  * §5.2's Stage 2 routing, `docs/decisions/STAGE-1-CLASSIFIER.md`'s thresholds) additionally
  * composes and posts a real ticket draft (`composeAndPostDraft`, BUILD_PLAN 3.4a-i/3.4a-iii); a
- * Low-band score logs a real review-queue row (`logToReviewQueue`, BUILD_PLAN 3.4c) — Mid-band is
- * still a plain classification log only, until 3.4b wires its own confirming-question action. No
- * reply is posted either way; this replaces the old "chat back to every message" behavior for
+ * Mid-band score posts a real confirming question (`composeAndPostConfirmingQuestion`, BUILD_PLAN
+ * 3.4b-i); a Low-band score logs a real review-queue row (`logToReviewQueue`, BUILD_PLAN 3.4c).
+ * This replaces the old "chat back to every message" behavior for
  * ambient surfaces (BUILD_PLAN 3.3's own DMs-only decision) — a DM still gets the full
  * conversational reply path, unchanged (`handle-inbound-message.ts`).
  *
@@ -338,46 +311,15 @@ export async function handleAmbientChannelMessage(
   if (!inScope) return;
 
   const now = new Date();
-  const capCheck = await checkCostCapAndAlert(deps, now);
-  if (capCheck.halt) {
-    deps.logger.info('skipping classification — monthly cost cap reached', {
-      personaId: deps.personaId,
-      channelId: message.channelId,
-    });
-    return;
-  }
-
-  const classified = await classifyMessageConfidence(deps.anthropicClient, {
-    text: message.text,
-  });
-  if (!classified.ok) {
-    deps.logger.error('failed to classify inbound message', {
-      message: classified.error.message,
-    });
-    return;
-  }
-
-  await recordUsageLogged(
-    deps,
-    {
-      usage: classified.usage,
-      costUsdMicros: haikuCostUsdMicros(classified.usage),
-    },
-    now,
-  );
-
-  deps.logger.info('classified inbound message', {
-    personaId: deps.personaId,
-    channelId: message.channelId,
-    messageText: message.text,
-    confidence: classified.confidence,
-    reasoning: classified.reasoning,
-  });
+  const classified = await classifyAmbientMessage(deps, message, now);
+  if (classified === undefined) return;
 
   const band = classifyConfidenceBand(classified.confidence);
   if (band === 'high') {
     await composeAndPostDraft(deps, message, now);
-  } else if (band === 'low') {
+  } else if (band === 'mid') {
+    await composeAndPostConfirmingQuestion(deps, { message, now, classified });
+  } else {
     await logToReviewQueue(deps, message, classified);
   }
 }

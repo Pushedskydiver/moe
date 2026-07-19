@@ -151,3 +151,19 @@ export type {
   ReviewQueueEntryResult,
   ReviewQueueRepositoryError,
 } from './intake/review-queue-repository.js';
+
+export { pendingConfirmingQuestionSchema } from './intake/pending-confirming-question.js';
+export type { PendingConfirmingQuestion } from './intake/pending-confirming-question.js';
+export {
+  createPendingConfirmingQuestion,
+  getPendingConfirmingQuestionByMessage,
+  resolvePendingConfirmingQuestion,
+} from './intake/pending-confirming-questions-repository.js';
+export type {
+  NewPendingConfirmingQuestion,
+  PendingConfirmingQuestionClaimError,
+  PendingConfirmingQuestionClaimResult,
+  PendingConfirmingQuestionOrNullResult,
+  PendingConfirmingQuestionRepositoryError,
+  PendingConfirmingQuestionResult,
+} from './intake/pending-confirming-questions-repository.js';
