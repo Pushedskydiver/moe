@@ -45,33 +45,43 @@ function formatDraftMessageText(draft: DraftContent): string {
   );
 }
 
-// Sequential, not parallel — Slack's own rate limits apply per-call, and there's no correctness
-// reason for these three to race; a failure on one reaction is logged and the remaining ones are
-// still attempted, rather than aborting the whole legend over one miss. A `for...of` loop, not
-// `.reduce()` (`docs/CONVENTIONS.md`'s Code Style section bans it outright) — the documented
-// escape hatch for `functional/no-loop-statements` ("warn", "Disable for orchestration where
-// loops are clearer") is exactly this: a scoped disable on genuinely sequential async work.
+// `message`/`draftMessageTs` bundled with the recursion's own `remaining` state into one `input`
+// object — `deps` plus 3 more positional params would cross eslint's `max-params: 3`, same
+// reasoning `check-cost-cap.ts`'s own `sendCostAlerts` input bundling already documents.
+type SeedReactionLegendInput = {
+  readonly message: InboundMessage;
+  readonly draftMessageTs: string;
+  readonly remaining: readonly (typeof DRAFT_REACTION_LEGEND)[number][];
+};
+
+// Recursive, not a loop or `.reduce()` (`docs/CONVENTIONS.md`'s Code Style section bans the
+// latter outright) — matches `check-cost-cap.ts`'s `sendCostAlerts` precedent for sequential-by-
+// design async work over a short list. Sequential, not parallel: Slack's own rate limits apply
+// per-call, and there's no correctness reason for these three to race; a failure on one reaction
+// is logged and the remaining ones are still attempted, rather than aborting the whole legend
+// over one miss.
 async function seedReactionLegend(
   deps: HandlerDeps,
-  message: InboundMessage,
-  draftMessageTs: string,
+  input: SeedReactionLegendInput,
 ): Promise<void> {
-  // eslint-disable-next-line functional/no-loop-statements
-  for (const emoji of DRAFT_REACTION_LEGEND) {
-    const added = await addReaction(deps.slackClient, {
-      channelId: message.channelId,
-      messageTs: draftMessageTs,
+  const [emoji, ...rest] = input.remaining;
+  if (emoji === undefined) return;
+
+  const added = await addReaction(deps.slackClient, {
+    channelId: input.message.channelId,
+    messageTs: input.draftMessageTs,
+    reactionName: REACTION_NAME_BY_LEGEND_EMOJI[emoji],
+  });
+  if (!added.ok) {
+    deps.logger.error('failed to add reaction-gate legend reaction', {
+      personaId: deps.personaId,
+      channelId: input.message.channelId,
       reactionName: REACTION_NAME_BY_LEGEND_EMOJI[emoji],
+      message: added.error.message,
     });
-    if (!added.ok) {
-      deps.logger.error('failed to add reaction-gate legend reaction', {
-        personaId: deps.personaId,
-        channelId: message.channelId,
-        reactionName: REACTION_NAME_BY_LEGEND_EMOJI[emoji],
-        message: added.error.message,
-      });
-    }
   }
+
+  await seedReactionLegend(deps, { ...input, remaining: rest });
 }
 
 // Cost-cap checked before the operating-rhythm guard, not after — DA review noted the reverse
@@ -231,7 +241,11 @@ async function postAndPersistDraft(
     return;
   }
 
-  await seedReactionLegend(deps, message, posted.ts);
+  await seedReactionLegend(deps, {
+    message,
+    draftMessageTs: posted.ts,
+    remaining: DRAFT_REACTION_LEGEND,
+  });
 
   deps.logger.info('posted high-band ticket draft', {
     personaId: deps.personaId,
