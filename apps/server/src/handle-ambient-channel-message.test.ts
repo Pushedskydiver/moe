@@ -13,6 +13,7 @@ type CostStore = HandlerDeps['costStore'];
 type TicketStore = HandlerDeps['ticketStore'];
 type DraftStore = HandlerDeps['draftStore'];
 type ReviewQueueStore = HandlerDeps['reviewQueueStore'];
+type ConfirmingQuestionStore = HandlerDeps['confirmingQuestionStore'];
 
 function makeSlackClient(
   response: {
@@ -281,6 +282,38 @@ function makeReviewQueueStore(
   };
 }
 
+// `create` is the real consumer of a Mid-band message (`composeAndPostConfirmingQuestion`,
+// BUILD_PLAN 3.4b-i) — keyed on the posted confirming question's own `ts` (matches
+// `makeSlackClient`'s default, `1700000000.000100`), mirroring `makeReviewQueueStore`'s own
+// pattern. `getByMessage`/`resolve` have no caller in this file yet — both are BUILD_PLAN
+// 3.4b-ii's own future consumers (the 👍/👎 reaction-dispatch lookup and its atomic claim),
+// bare typed stubs matching `makeDraftStore`'s own precedent for its unused methods.
+function makeConfirmingQuestionStore(
+  overrides: Partial<ConfirmingQuestionStore> = {},
+): ConfirmingQuestionStore {
+  return {
+    create: vi.fn<ConfirmingQuestionStore['create']>().mockResolvedValue({
+      ok: true,
+      question: {
+        id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: '1700000000.000100',
+        sourceMessageTs: '1700000000.000050',
+        sourceMessageText:
+          'hey, there might be an issue with the CLI on large repos',
+        confidence: 55,
+        reasoning: 'plausibly describes a bug, but not clearly actionable',
+        resolvedAt: null,
+        createdAt: new Date('2026-07-16T09:00:00.000Z'),
+      },
+    }),
+    getByMessage: vi.fn<ConfirmingQuestionStore['getByMessage']>(),
+    resolve: vi.fn<ConfirmingQuestionStore['resolve']>(),
+    ...overrides,
+  };
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly anthropicClient: ReturnType<typeof makeAnthropicClient>;
@@ -292,6 +325,7 @@ function makeDeps(
     readonly ticketStore: HandlerDeps['ticketStore'];
     readonly draftStore: HandlerDeps['draftStore'];
     readonly reviewQueueStore: HandlerDeps['reviewQueueStore'];
+    readonly confirmingQuestionStore: HandlerDeps['confirmingQuestionStore'];
   }> = {},
 ) {
   return {
@@ -319,6 +353,7 @@ function makeDeps(
     ticketStore: makeTicketStore(),
     draftStore: makeDraftStore(),
     reviewQueueStore: makeReviewQueueStore(),
+    confirmingQuestionStore: makeConfirmingQuestionStore(),
     ...overrides,
   };
 }
@@ -589,7 +624,7 @@ describe('handleAmbientChannelMessage', () => {
       await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
       expect(deps.logger.error).toHaveBeenCalledWith(
-        'failed to evaluate situational appropriateness — deferring draft composition (fail-closed)',
+        'failed to evaluate situational appropriateness — deferring ticket-draft composition (fail-closed)',
         expect.objectContaining({ message: 'rate limited' }),
       );
       expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
@@ -806,21 +841,57 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
-  it('does not compose a draft or log a review-queue entry for a Mid-band ambient message — only High drafts and only Low logs (BUILD_PLAN 3.4a-i/3.4c)', async () => {
-    const deps = makeDeps({
-      anthropicClient: makeAnthropicClient({
-        parseResponse: { confidence: 50, reasoning: 'ambiguous' },
-      }),
-    });
+  it('posts a real confirming question, not a ticket draft or a review-queue entry, for a Mid-band ambient message (BUILD_PLAN 3.4b-i)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: { confidence: 50, reasoning: 'ambiguous' },
+        }),
+      });
 
-    await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
-    expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
-    expect(deps.logger.info).not.toHaveBeenCalledWith(
-      'posted high-band ticket draft',
-      expect.anything(),
-    );
-    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+      // Two parse calls: the Stage 1 classifier, then the situational-appropriateness gate
+      // composeAndPostConfirmingQuestion itself runs — Mid-band no longer stops at classification
+      // alone, unlike before this chunk.
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'C123',
+          text: expect.stringContaining('👍') as string,
+        }),
+      );
+      expect(deps.confirmingQuestionStore.create).toHaveBeenCalledTimes(1);
+      expect(deps.logger.info).not.toHaveBeenCalledWith(
+        'posted high-band ticket draft',
+        expect.anything(),
+      );
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('does not post a confirming question for a Mid-band ambient message outside core hours — same operating-rhythm guard as High-band', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T21:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: { confidence: 50, reasoning: 'ambiguous' },
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+      expect(deps.confirmingQuestionStore.create).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("logs a Low-band ambient message to the review queue, carrying the classifier's own confidence/reasoning through — nothing is silently eaten (BUILD_PLAN 3.4c)", async () => {

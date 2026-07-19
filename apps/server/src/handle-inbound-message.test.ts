@@ -280,6 +280,38 @@ function makeReviewQueueStore(
   };
 }
 
+// BUILD_PLAN 3.4b-i's own real consumer, `compose-and-post-confirming-question.ts` — this file's
+// DM-path tests never exercise it directly (that coverage lives in
+// `handle-ambient-channel-message.test.ts`), so a sensible default resolved value is enough.
+function makeConfirmingQuestionStore(
+  overrides: Partial<HandlerDeps['confirmingQuestionStore']> = {},
+): HandlerDeps['confirmingQuestionStore'] {
+  return {
+    create: vi
+      .fn<HandlerDeps['confirmingQuestionStore']['create']>()
+      .mockResolvedValue({
+        ok: true,
+        question: {
+          id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
+          personaId: 'sarah',
+          channelId: 'C123',
+          messageTs: '1700000000.000100',
+          sourceMessageTs: '1700000000.000050',
+          sourceMessageText:
+            'hey, there might be an issue with the CLI on large repos',
+          confidence: 55,
+          reasoning: 'plausibly describes a bug, but not clearly actionable',
+          resolvedAt: null,
+          createdAt: new Date('2026-07-16T09:00:00.000Z'),
+        },
+      }),
+    getByMessage:
+      vi.fn<HandlerDeps['confirmingQuestionStore']['getByMessage']>(),
+    resolve: vi.fn<HandlerDeps['confirmingQuestionStore']['resolve']>(),
+    ...overrides,
+  };
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly anthropicClient: ReturnType<typeof makeAnthropicClient>;
@@ -296,6 +328,7 @@ function makeDeps(
     readonly ticketStore: HandlerDeps['ticketStore'];
     readonly draftStore: HandlerDeps['draftStore'];
     readonly reviewQueueStore: HandlerDeps['reviewQueueStore'];
+    readonly confirmingQuestionStore: HandlerDeps['confirmingQuestionStore'];
   }> = {},
 ) {
   return {
@@ -316,6 +349,7 @@ function makeDeps(
     ticketStore: makeTicketStore(),
     draftStore: makeDraftStore(),
     reviewQueueStore: makeReviewQueueStore(),
+    confirmingQuestionStore: makeConfirmingQuestionStore(),
     ...overrides,
   };
 }
