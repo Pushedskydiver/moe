@@ -4,7 +4,10 @@ import type { InboundReaction } from '@moe/slack';
 
 import { describe, expect, it, vi } from 'vitest';
 
-import { handleReactionAdded } from './handle-reaction-added.js';
+import {
+  createReactionHandler,
+  handleReactionAdded,
+} from './handle-reaction-added.js';
 
 type TicketStore = HandlerDeps['ticketStore'];
 type DraftStore = HandlerDeps['draftStore'];
@@ -60,6 +63,9 @@ function makeTicketStore(overrides: Partial<TicketStore> = {}): TicketStore {
 
 function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   return {
+    create: vi
+      .fn<DraftStore['create']>()
+      .mockResolvedValue({ ok: true, draft: makeDraft() }),
     getByMessage: vi
       .fn<DraftStore['getByMessage']>()
       .mockResolvedValue({ ok: true, draft: makeDraft() }),
@@ -145,7 +151,10 @@ function makeDeps(
       alertSlackUserId: 'U0ALEX',
     },
     personaId: 'sarah' as const,
-    slackClient: { chat: { postMessage: vi.fn() } },
+    slackClient: {
+      chat: { postMessage: vi.fn() },
+      reactions: { add: vi.fn() },
+    },
     logger: makeLogger(),
     ...overrides,
   };
@@ -244,6 +253,20 @@ describe('handleReactionAdded', () => {
     expect(deps.logger.info).toHaveBeenCalledWith(
       'ignoring reaction on an already-resolved ticket draft',
       expect.objectContaining({ outcome: 'redo' }),
+    );
+  });
+});
+
+describe('createReactionHandler', () => {
+  it('returns a handler that dispatches a reaction against the bound deps, same as calling handleReactionAdded directly', async () => {
+    const deps = makeDeps();
+    const handler = createReactionHandler(deps);
+
+    await handler(makeReaction({ reactionName: 'white_check_mark' }));
+
+    expect(deps.draftStore.resolve).toHaveBeenCalledWith(makeDraft().id);
+    expect(deps.ticketStore.create).toHaveBeenCalledWith(
+      expect.objectContaining({ status: 'Brief' }),
     );
   });
 });

@@ -4,6 +4,7 @@ import type { InboundMessage } from '@moe/slack';
 import {
   classifyMessageConfidence,
   composeTicketDraft,
+  evaluateSituationalAppropriateness,
   haikuCostUsdMicros,
   sonnetCostUsdMicros,
 } from '@moe/agents';
@@ -12,48 +13,95 @@ import {
   evaluateOperatingRhythm,
   isSurfaceInScope,
 } from '@moe/core';
+import { addReaction, postMessage } from '@moe/slack';
 
 import { checkCostCapAndAlert } from './check-cost-cap.js';
 import { recordUsageLogged } from './record-usage-logged.js';
+import { repositoryErrorMessage } from './repository-error.js';
 
 // VISION §5.2's High-band reaction-gate legend (✅ commit the draft as a ticket; 🔁 redo —
-// regenerate from the thread; 📦 park it to Backlog untriaged). BUILD_PLAN 3.4a-i's own scope
-// keeps auto-posting in log-only mode until 3.4a-iii's situational-appropriateness gate exists in
-// front of it (VISION §9 requires that gate before the *first* standing-proactive action) — this
-// constant records the intended legend in the log now, so 3.4a-iii's real `reactions.add` calls
-// have an already-established, already-tested contract to wire against.
+// regenerate from the thread; 📦 park it to Backlog untriaged). BUILD_PLAN 3.4a-iii wires these as
+// real `reactions.add` calls, seeded in this order onto the real posted draft message.
 const DRAFT_REACTION_LEGEND = ['📦', '🔁', '✅'] as const;
+const REACTION_NAME_BY_LEGEND_EMOJI: Readonly<
+  Record<(typeof DRAFT_REACTION_LEGEND)[number], string>
+> = {
+  '📦': 'package',
+  '🔁': 'repeat',
+  '✅': 'white_check_mark',
+};
 
-/**
- * BUILD_PLAN 3.4a-i's High-band action: composes a ticket draft from the classified message and
- * logs it — no real Slack post, no real reactions, per Alex's explicit confirmation that
- * auto-posting stays shadow/log-only until 3.4a-iii's situational-appropriateness gate exists
- * (VISION §9, same "shadow only" precedent as chunk 3.3 for the same class of risk — chunk 6.5a-i
- * later follows this same pattern too, per its own text). Gated by
- * its own fresh `checkCostCapAndAlert` call, not the classify step's already-stale result — the
- * classify call's own cost may itself be what crosses the cap, so this call needs to see the
- * post-classify total, not a total read before that cost was recorded. Also respects the 2.7a
- * operating-rhythm guard (`evaluateOperatingRhythm`) — 2.7a's own settled off-hours policy names
- * "intake drafts" specifically as deferring to the next core-hours window, unlike chunk 3.3's
- * classification step just above, which 2.7a's guard explicitly does not gate.
- */
-async function composeAndLogDraft(
+// Reused across `formatDraftMessageText`'s param and `composeDraftContent`'s return type below —
+// named per `docs/CONVENTIONS.md`'s "reused types earn a named type" rule.
+type DraftContent = {
+  readonly title: string;
+  readonly body: string;
+};
+
+function formatDraftMessageText(draft: DraftContent): string {
+  return (
+    `📋 *${draft.title}*\n${draft.body}\n\n` +
+    'React ✅ to commit this as a ticket, 🔁 to redo it, or 📦 to park it to Backlog.'
+  );
+}
+
+// `message`/`draftMessageTs` bundled with the recursion's own `remaining` state into one `input`
+// object — `deps` plus 3 more positional params would cross eslint's `max-params: 3`, same
+// reasoning `check-cost-cap.ts`'s own `sendCostAlerts` input bundling already documents.
+type SeedReactionLegendInput = {
+  readonly message: InboundMessage;
+  readonly draftMessageTs: string;
+  readonly remaining: readonly (typeof DRAFT_REACTION_LEGEND)[number][];
+};
+
+// Recursive, not a loop or `.reduce()` (`docs/CONVENTIONS.md`'s Code Style section bans the
+// latter outright) — matches `check-cost-cap.ts`'s `sendCostAlerts` precedent for sequential-by-
+// design async work over a short list. Sequential, not parallel: Slack's own rate limits apply
+// per-call, and there's no correctness reason for these three to race; a failure on one reaction
+// is logged and the remaining ones are still attempted, rather than aborting the whole legend
+// over one miss.
+async function seedReactionLegend(
+  deps: HandlerDeps,
+  input: SeedReactionLegendInput,
+): Promise<void> {
+  const [emoji, ...rest] = input.remaining;
+  if (emoji === undefined) return;
+
+  const added = await addReaction(deps.slackClient, {
+    channelId: input.message.channelId,
+    messageTs: input.draftMessageTs,
+    reactionName: REACTION_NAME_BY_LEGEND_EMOJI[emoji],
+  });
+  if (!added.ok) {
+    deps.logger.error('failed to add reaction-gate legend reaction', {
+      personaId: deps.personaId,
+      channelId: input.message.channelId,
+      reactionName: REACTION_NAME_BY_LEGEND_EMOJI[emoji],
+      message: added.error.message,
+    });
+  }
+
+  await seedReactionLegend(deps, { ...input, remaining: rest });
+}
+
+// Cost-cap checked before the operating-rhythm guard, not after — DA review noted the reverse
+// order would save a DB round-trip during the (majority of) off-hours wall-clock time, but this
+// order lets the existing cost-cap-only tests below pin the cap without also needing to pin `now`
+// into the core-hours window, since `checkCostCapAndAlert`'s halt short-circuits before
+// `evaluateOperatingRhythm` ever runs. Extracted from `composeAndPostDraft` purely to stay under
+// eslint's `max-lines-per-function` (`docs/CONVENTIONS.md` §Code Style).
+async function isPreDraftGuardsSatisfied(
   deps: HandlerDeps,
   message: InboundMessage,
   now: Date,
-): Promise<void> {
-  // Cost-cap checked before the operating-rhythm guard, not after — DA review noted the reverse
-  // order would save a DB round-trip during the (majority of) off-hours wall-clock time, but this
-  // order lets the existing cost-cap-only tests below pin the cap without also needing to pin
-  // `now` into the core-hours window, since `checkCostCapAndAlert`'s halt short-circuits before
-  // `evaluateOperatingRhythm` ever runs.
+): Promise<boolean> {
   const capCheck = await checkCostCapAndAlert(deps, now);
   if (capCheck.halt) {
     deps.logger.info(
       'skipping ticket-draft composition — monthly cost cap reached',
       { personaId: deps.personaId, channelId: message.channelId },
     );
-    return;
+    return false;
   }
 
   const rhythm = await evaluateOperatingRhythm(now, deps.bankHolidaysCache);
@@ -66,9 +114,72 @@ async function composeAndLogDraft(
         reason: rhythm.reason,
       },
     );
-    return;
+    return false;
   }
 
+  return true;
+}
+
+// BUILD_PLAN 3.4a-iii's own situational-appropriateness gate (VISION §9), run before composing
+// anything — Alex confirmed via `AskUserQuestion` that only this unprompted, standing-proactive
+// draft-post needs the check, not the reaction-outcome dispatch (a human's own reaction is a
+// response to the bot, not the bot acting unprompted, same distinction 2.7a's core-hours guard
+// already draws for DM replies). **Fails CLOSED** on any gate failure (an API error, not just
+// `appropriate: false`) — see `evaluateSituationalAppropriateness`'s own TSDoc for why this is the
+// opposite of `checkCostCapAndAlert`'s fail-open design.
+async function isSituationallyAppropriate(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  now: Date,
+): Promise<boolean> {
+  const appropriateness = await evaluateSituationalAppropriateness(
+    deps.anthropicClient,
+    { text: message.text },
+  );
+  if (!appropriateness.ok) {
+    deps.logger.error(
+      'failed to evaluate situational appropriateness — deferring draft composition (fail-closed)',
+      {
+        personaId: deps.personaId,
+        channelId: message.channelId,
+        message: appropriateness.error.message,
+      },
+    );
+    return false;
+  }
+
+  await recordUsageLogged(
+    deps,
+    {
+      usage: appropriateness.usage,
+      costUsdMicros: haikuCostUsdMicros(appropriateness.usage),
+    },
+    now,
+  );
+
+  if (!appropriateness.appropriate) {
+    deps.logger.info(
+      'skipping ticket-draft composition — situationally inappropriate',
+      {
+        personaId: deps.personaId,
+        channelId: message.channelId,
+        reasoning: appropriateness.reasoning,
+      },
+    );
+    return false;
+  }
+
+  return true;
+}
+
+// Extracted from `postAndPersistDraft` purely to stay under eslint's `max-lines-per-function`
+// (`docs/CONVENTIONS.md` §Code Style) — composes the draft and records its own cost accounting,
+// returning `undefined` on failure (already logged) so the caller can short-circuit.
+async function composeDraftContent(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  now: Date,
+): Promise<DraftContent | undefined> {
   const drafted = await composeTicketDraft(deps.anthropicClient, {
     text: message.text,
   });
@@ -76,7 +187,7 @@ async function composeAndLogDraft(
     deps.logger.error('failed to compose ticket draft', {
       message: drafted.error.message,
     });
-    return;
+    return undefined;
   }
 
   await recordUsageLogged(
@@ -88,13 +199,81 @@ async function composeAndLogDraft(
     now,
   );
 
-  deps.logger.info('would post high-band ticket draft', {
+  return drafted;
+}
+
+// Posts the composed draft in-thread on the source message, persists the "parent-message state"
+// (`pending_ticket_drafts`) keyed on the real posted message, and seeds the 📦/🔁/✅ reaction-gate
+// legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii, run only once both guards above
+// have passed.
+async function postAndPersistDraft(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  now: Date,
+): Promise<void> {
+  const drafted = await composeDraftContent(deps, message, now);
+  if (drafted === undefined) return;
+
+  const posted = await postMessage(deps.slackClient, {
+    channelId: message.channelId,
+    text: formatDraftMessageText(drafted),
+    threadTs: message.ts,
+  });
+  if (!posted.ok) {
+    deps.logger.error('failed to post ticket draft', {
+      message: posted.error.message,
+    });
+    return;
+  }
+
+  const created = await deps.draftStore.create({
     personaId: deps.personaId,
     channelId: message.channelId,
+    messageTs: posted.ts,
+    sourceMessageText: message.text,
     draftTitle: drafted.title,
     draftBody: drafted.body,
-    wouldPostReactions: DRAFT_REACTION_LEGEND,
   });
+  if (!created.ok) {
+    deps.logger.error('failed to persist pending ticket draft', {
+      message: repositoryErrorMessage(created.error),
+    });
+    return;
+  }
+
+  await seedReactionLegend(deps, {
+    message,
+    draftMessageTs: posted.ts,
+    remaining: DRAFT_REACTION_LEGEND,
+  });
+
+  deps.logger.info('posted high-band ticket draft', {
+    personaId: deps.personaId,
+    channelId: message.channelId,
+    draftId: created.draft.id,
+    draftTitle: drafted.title,
+    draftBody: drafted.body,
+  });
+}
+
+/**
+ * BUILD_PLAN 3.4a-i's High-band action, real end-to-end as of BUILD_PLAN 3.4a-iii: gated by a
+ * fresh cost-cap check, the 2.7a operating-rhythm guard, and BUILD_PLAN 3.4a-iii's own
+ * situational-appropriateness gate (`isPreDraftGuardsSatisfied`/`isSituationallyAppropriate` above), then
+ * composes, posts, persists, and seeds the reaction-gate legend (`postAndPersistDraft`).
+ */
+async function composeAndPostDraft(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  now: Date,
+): Promise<void> {
+  const guardsPassed = await isPreDraftGuardsSatisfied(deps, message, now);
+  if (!guardsPassed) return;
+
+  const gatePassed = await isSituationallyAppropriate(deps, message, now);
+  if (!gatePassed) return;
+
+  await postAndPersistDraft(deps, message, now);
 }
 
 /**
@@ -103,11 +282,11 @@ async function composeAndLogDraft(
  * BUILD_PLAN 3.2's `isSurfaceInScope`); an in-scope one gets a single classification call (Stage 1,
  * `docs/decisions/STAGE-1-CLASSIFIER.md`) and the score is logged. A High-band score (VISION
  * §5.2's Stage 2 routing, `docs/decisions/STAGE-1-CLASSIFIER.md`'s thresholds) additionally
- * composes and logs a ticket draft (`composeAndLogDraft`, BUILD_PLAN 3.4a-i) — Mid/Low bands are
- * logged as a plain classification only, until 3.4b/3.4c wire their own actions. No reply is
- * posted either way; this replaces the old "chat back to every message" behavior for ambient
- * surfaces (BUILD_PLAN 3.3's own DMs-only decision) — a DM still gets the full conversational
- * reply path, unchanged (`handle-inbound-message.ts`).
+ * composes and posts a real ticket draft (`composeAndPostDraft`, BUILD_PLAN 3.4a-i/3.4a-iii) —
+ * Mid/Low bands are logged as a plain classification only, until 3.4b/3.4c wire their own actions.
+ * No reply is posted either way; this replaces the old "chat back to every message" behavior for
+ * ambient surfaces (BUILD_PLAN 3.3's own DMs-only decision) — a DM still gets the full
+ * conversational reply path, unchanged (`handle-inbound-message.ts`).
  *
  * A real, billed Anthropic call regardless of which model it's on — gated by the same
  * `checkCostCapAndAlert` the DM reply path uses (BUILD_PLAN 2.6b), not a separate or looser check,
@@ -164,6 +343,6 @@ export async function handleAmbientChannelMessage(
   });
 
   if (classifyConfidenceBand(classified.confidence) === 'high') {
-    await composeAndLogDraft(deps, message, now);
+    await composeAndPostDraft(deps, message, now);
   }
 }

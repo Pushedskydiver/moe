@@ -68,6 +68,9 @@ function makeTicketStore(overrides: Partial<TicketStore> = {}): TicketStore {
 
 function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   return {
+    create: vi
+      .fn<DraftStore['create']>()
+      .mockResolvedValue({ ok: true, draft: makeDraft() }),
     getByMessage: vi
       .fn<DraftStore['getByMessage']>()
       .mockResolvedValue({ ok: true, draft: null }),
@@ -150,7 +153,10 @@ function makeDeps(
       alertSlackUserId: 'U0ALEX',
     },
     personaId: 'sarah' as const,
-    slackClient: { chat: { postMessage: vi.fn() } },
+    slackClient: {
+      chat: { postMessage: vi.fn() },
+      reactions: { add: vi.fn() },
+    },
     logger: makeLogger(),
     ...overrides,
   };

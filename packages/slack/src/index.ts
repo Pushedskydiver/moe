@@ -3,6 +3,8 @@ export function getPackageName(): string {
 }
 
 export type { InboundMessage } from './inbound-message.js';
+export type { FetchBotUserIdResult } from './fetch-bot-user-id.js';
+export { fetchBotUserId } from './fetch-bot-user-id.js';
 export type {
   CreateSocketModeListenerOpts,
   SocketModeListener,
@@ -14,6 +16,8 @@ export {
 } from './create-slack-clients.js';
 export type { PostMessageResult } from './post-message.js';
 export { postMessage } from './post-message.js';
+export type { AddReactionResult } from './add-reaction.js';
+export { addReaction } from './add-reaction.js';
 export { isUnrecoverableStartError } from './is-unrecoverable-start-error.js';
 
 export type { AwayKeywords } from './away-detection/away-keywords.js';

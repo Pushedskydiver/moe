@@ -8,6 +8,7 @@ import {
   appendTurn,
   claimAlertThreshold,
   createBankHolidaysCache,
+  createPendingTicketDraft,
   createTicket,
   getAlertState,
   getPendingTicketDraftByMessage,
@@ -21,10 +22,12 @@ import {
   createSocketModeClient,
   createSocketModeListener,
   createWebClient,
+  fetchBotUserId,
   isUnrecoverableStartError,
 } from '@moe/slack';
 
 import { createInboundMessageHandler } from './handle-inbound-message.js';
+import { createReactionHandler } from './handle-reaction-added.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 // Bundled into one object, not two extra params, to stay under eslint's max-params: 3 — the
@@ -76,6 +79,8 @@ function createStores(db: Kysely<Database>) {
         createTicket(db, input),
     },
     draftStore: {
+      create: (input: Parameters<typeof createPendingTicketDraft>[1]) =>
+        createPendingTicketDraft(db, input),
       getByMessage: (
         scope: Parameters<typeof getPendingTicketDraftByMessage>[1],
       ) => getPendingTicketDraftByMessage(db, scope),
@@ -89,13 +94,79 @@ function createStores(db: Kysely<Database>) {
   };
 }
 
+// Everything `wireAndStartListener` needs to construct the two message/reaction handlers and the
+// listener itself — bundled into one object (not more params) to stay under eslint's
+// `max-params: 3`, same reasoning `StartSlackListenerDeps` itself already documents. `botUserId`/
+// `logger`/`exit` join the rest here (rather than as their own params) for the same reason.
+type ListenerContext = {
+  readonly config: PersonaConfig;
+  readonly socketModeClient: ReturnType<typeof createSocketModeClient>;
+  readonly webClient: ReturnType<typeof createWebClient>;
+  readonly anthropicClient: ReturnType<typeof createAnthropicClient>;
+  readonly costCapConfig: CostCapConfig;
+  readonly channelScopeConfig: ChannelScopeConfig;
+  readonly bankHolidaysCache: ReturnType<typeof createBankHolidaysCache>;
+  readonly botUserId: string;
+  readonly logger: Logger;
+  readonly exit: (code: number) => void;
+} & ReturnType<typeof createStores>;
+
+// Extracted from `startSlackListener` purely to stay under eslint's `max-lines-per-function`
+// (`docs/CONVENTIONS.md` §Code Style) — constructs the reply/reaction-outcome handlers and the
+// real Socket Mode listener around a now-known `botUserId`, then connects.
+function wireAndStartListener(ctx: ListenerContext): void {
+  const listener = createSocketModeListener(ctx.socketModeClient, {
+    onMessage: createInboundMessageHandler({
+      anthropicClient: ctx.anthropicClient,
+      slackClient: ctx.webClient,
+      logger: ctx.logger,
+      historyStore: ctx.historyStore,
+      costStore: ctx.costStore,
+      capStore: ctx.capStore,
+      costCapConfig: ctx.costCapConfig,
+      personaId: ctx.config.id,
+      threadQueue: makeThreadQueue(),
+      channelScopeConfig: ctx.channelScopeConfig,
+      bankHolidaysCache: ctx.bankHolidaysCache,
+      ticketStore: ctx.ticketStore,
+      draftStore: ctx.draftStore,
+    }),
+    onReactionAdded: createReactionHandler({
+      anthropicClient: ctx.anthropicClient,
+      slackClient: ctx.webClient,
+      logger: ctx.logger,
+      ticketStore: ctx.ticketStore,
+      draftStore: ctx.draftStore,
+      costStore: ctx.costStore,
+      capStore: ctx.capStore,
+      costCapConfig: ctx.costCapConfig,
+      personaId: ctx.config.id,
+    }),
+    botUserId: ctx.botUserId,
+    logger: ctx.logger,
+  });
+
+  listener.start().catch((error: unknown) => {
+    ctx.logger.error('failed to start slack socket mode listener', {
+      message: error instanceof Error ? error.message : String(error),
+    });
+    if (isUnrecoverableStartError(error)) {
+      ctx.exit(1);
+    }
+  });
+}
+
 /**
- * Real Slack + Anthropic wiring — constructs all three SDK clients, wires the reply handler,
- * connects. An unrecoverable start failure (permanent misconfiguration — bad token, revoked auth —
- * per isUnrecoverableStartError) exits the process so the platform's restart supervisor takes
- * over, rather than sitting "healthy" per /health while never able to receive a Slack message
- * again. A recoverable/transient failure just logs — the SDK's own auto-reconnect already handles
- * those.
+ * Real Slack + Anthropic wiring — constructs all three SDK clients, fetches this persona's own bot
+ * user id (`fetchBotUserId`, BUILD_PLAN 3.4a-iii — needed by `@moe/slack`'s
+ * `handleSocketModeReactionEvent` to filter out this persona's own `reactions.add` calls before
+ * they'd otherwise misdispatch as a real reaction-outcome), then wires the reply and
+ * reaction-outcome handlers and connects (`wireAndStartListener`). An unrecoverable start failure
+ * (permanent misconfiguration — bad token, revoked auth — per isUnrecoverableStartError, or a
+ * failed `auth.test` call, the same class of failure) exits the process so the platform's restart
+ * supervisor takes over, rather than sitting "healthy" per /health while never able to receive a
+ * Slack message again. A recoverable/transient Socket Mode failure just logs — the SDK's own
+ * auto-reconnect already handles those.
  */
 export const startSlackListener: StartSlackListenerFn = (
   deps,
@@ -107,37 +178,44 @@ export const startSlackListener: StartSlackListenerFn = (
   const webClient = createWebClient(config.slackBotToken, logger);
   const socketModeClient = createSocketModeClient(config.slackAppToken, logger);
   const anthropicClient = createAnthropicClient(anthropicApiKey, logger);
-  const { historyStore, costStore, capStore, ticketStore, draftStore } =
-    createStores(db);
+  const stores = createStores(db);
   // Constructed once here, not per-message — amortizes the 24h-TTL bank-holidays cache
   // (BUILD_PLAN 2.7a) across the whole process lifetime, same reasoning as `makeThreadQueue()`
-  // just below.
+  // inside `wireAndStartListener`.
   const bankHolidaysCache = createBankHolidaysCache();
-  const listener = createSocketModeListener(socketModeClient, {
-    onMessage: createInboundMessageHandler({
-      anthropicClient,
-      slackClient: webClient,
-      logger,
-      historyStore,
-      costStore,
-      capStore,
-      costCapConfig,
-      personaId: config.id,
-      threadQueue: makeThreadQueue(),
-      channelScopeConfig,
-      bankHolidaysCache,
-      ticketStore,
-      draftStore,
-    }),
-    logger,
-  });
 
-  listener.start().catch((error: unknown) => {
-    logger.error('failed to start slack socket mode listener', {
-      message: error instanceof Error ? error.message : String(error),
-    });
-    if (isUnrecoverableStartError(error)) {
+  fetchBotUserId(webClient)
+    .then((botUserIdResult) => {
+      if (!botUserIdResult.ok) {
+        logger.error('failed to fetch bot user id via auth.test', {
+          message: botUserIdResult.error.message,
+        });
+        exit(1);
+        return;
+      }
+
+      wireAndStartListener({
+        config,
+        socketModeClient,
+        webClient,
+        anthropicClient,
+        costCapConfig,
+        channelScopeConfig,
+        bankHolidaysCache,
+        botUserId: botUserIdResult.botUserId,
+        logger,
+        exit,
+        ...stores,
+      });
+    })
+    .catch((error: unknown) => {
+      // Covers a synchronous throw anywhere in the `.then()` wiring above, not just
+      // `fetchBotUserId` itself (which never rejects — see its own try/catch) — `exit(1)` is the
+      // right call either way, since nothing in the wiring above is expected to throw for a
+      // reason a restart would fix.
+      logger.error('failed to start slack socket mode listener', {
+        message: error instanceof Error ? error.message : String(error),
+      });
       exit(1);
-    }
-  });
+    });
 };
