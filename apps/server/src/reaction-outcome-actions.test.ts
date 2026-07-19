@@ -83,10 +83,6 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
     getByMessage: vi
       .fn<DraftStore['getByMessage']>()
       .mockResolvedValue({ ok: true, draft: null }),
-    resolve: vi.fn<DraftStore['resolve']>().mockResolvedValue({
-      ok: true,
-      draft: { ...makeDraft(), resolvedAt: new Date() },
-    }),
     updateContent: vi.fn<DraftStore['updateContent']>().mockResolvedValue({
       ok: true,
       draft: makeDraft(),

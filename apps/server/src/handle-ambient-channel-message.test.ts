@@ -244,7 +244,7 @@ function makeTicketStore(overrides: Partial<TicketStore> = {}): TicketStore {
 }
 
 // `create` is the one real consumer in this file (`postAndPersistDraft`, keyed on the posted
-// message's own `ts` — matches `makeSlackClient`'s default, `1700000000.000100`). The other three
+// message's own `ts` — matches `makeSlackClient`'s default, `1700000000.000100`). The other two
 // belong to the reaction-outcome path (`handle-reaction-added.ts`), never called here.
 function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   return {
@@ -253,7 +253,6 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
       draft: makePendingTicketDraft(),
     }),
     getByMessage: vi.fn<DraftStore['getByMessage']>(),
-    resolve: vi.fn<DraftStore['resolve']>(),
     updateContent: vi.fn<DraftStore['updateContent']>(),
     ...overrides,
   };

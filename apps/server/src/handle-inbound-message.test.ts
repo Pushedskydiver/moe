@@ -247,7 +247,6 @@ function makeDraftStore(
       draft: makePendingTicketDraft(),
     }),
     getByMessage: vi.fn<HandlerDeps['draftStore']['getByMessage']>(),
-    resolve: vi.fn<HandlerDeps['draftStore']['resolve']>(),
     updateContent: vi.fn<HandlerDeps['draftStore']['updateContent']>(),
     ...overrides,
   };

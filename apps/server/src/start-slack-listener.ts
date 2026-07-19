@@ -21,7 +21,6 @@ import {
   recordUsage,
   resolveConfirmingQuestionAndLog,
   resolvePendingConfirmingQuestion,
-  resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
 } from '@moe/core';
 import {
@@ -58,6 +57,9 @@ export type StartSlackListenerFn = (
 
 // Extracted from `createStores` purely to stay under eslint's `max-lines-per-function`
 // (`docs/CONVENTIONS.md` §Code Style) — the two multi-method stores are the bulk of its length.
+// No `resolve` binding — the claim-then-act fallback fix's own `commitDraftAsTicket` (below) claims
+// via `resolvePendingTicketDraft` inside its own transaction instead; this store's `resolve` had no
+// other caller once that landed, so it was removed rather than left dead.
 function createDraftStore(db: Kysely<Database>) {
   return {
     create: (input: Parameters<typeof createPendingTicketDraft>[1]) =>
@@ -65,8 +67,6 @@ function createDraftStore(db: Kysely<Database>) {
     getByMessage: (
       scope: Parameters<typeof getPendingTicketDraftByMessage>[1],
     ) => getPendingTicketDraftByMessage(db, scope),
-    resolve: (id: Parameters<typeof resolvePendingTicketDraft>[1]) =>
-      resolvePendingTicketDraft(db, id),
     updateContent: (
       id: Parameters<typeof updatePendingTicketDraftContent>[1],
       content: Parameters<typeof updatePendingTicketDraftContent>[2],
