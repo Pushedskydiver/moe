@@ -142,3 +142,12 @@ export type {
   PendingTicketDraftRepositoryError,
   PendingTicketDraftResult,
 } from './intake/pending-ticket-drafts-repository.js';
+
+export { reviewQueueEntrySchema } from './intake/review-queue-entry.js';
+export type { ReviewQueueEntry } from './intake/review-queue-entry.js';
+export { createReviewQueueEntry } from './intake/review-queue-repository.js';
+export type {
+  NewReviewQueueEntry,
+  ReviewQueueEntryResult,
+  ReviewQueueRepositoryError,
+} from './intake/review-queue-repository.js';

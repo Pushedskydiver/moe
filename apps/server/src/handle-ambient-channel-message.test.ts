@@ -12,6 +12,7 @@ type CapStore = HandlerDeps['capStore'];
 type CostStore = HandlerDeps['costStore'];
 type TicketStore = HandlerDeps['ticketStore'];
 type DraftStore = HandlerDeps['draftStore'];
+type ReviewQueueStore = HandlerDeps['reviewQueueStore'];
 
 function makeSlackClient(
   response: {
@@ -257,6 +258,29 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   };
 }
 
+// `create` is the real consumer of a Low-band message (`logToReviewQueue`, BUILD_PLAN 3.4c).
+function makeReviewQueueStore(
+  overrides: Partial<ReviewQueueStore> = {},
+): ReviewQueueStore {
+  return {
+    create: vi.fn<ReviewQueueStore['create']>().mockResolvedValue({
+      ok: true,
+      entry: {
+        id: '7fa85f64-5717-4562-b3fc-2c963f66afaa',
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: '1700000000.000100',
+        sourceMessageText: 'anyone know a good coffee place nearby',
+        confidence: 12,
+        reasoning: 'reads as banter, not a work request',
+        outcomeReason: 'low-confidence',
+        createdAt: new Date('2026-07-16T09:00:00.000Z'),
+      },
+    }),
+    ...overrides,
+  };
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly anthropicClient: ReturnType<typeof makeAnthropicClient>;
@@ -267,6 +291,7 @@ function makeDeps(
     readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
     readonly ticketStore: HandlerDeps['ticketStore'];
     readonly draftStore: HandlerDeps['draftStore'];
+    readonly reviewQueueStore: HandlerDeps['reviewQueueStore'];
   }> = {},
 ) {
   return {
@@ -293,6 +318,7 @@ function makeDeps(
     bankHolidaysCache: makeBankHolidaysCache(),
     ticketStore: makeTicketStore(),
     draftStore: makeDraftStore(),
+    reviewQueueStore: makeReviewQueueStore(),
     ...overrides,
   };
 }
@@ -780,7 +806,7 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
-  it('does not compose a draft for a Mid-band ambient message — only High crosses into drafting (BUILD_PLAN 3.4a-i)', async () => {
+  it('does not compose a draft or log a review-queue entry for a Mid-band ambient message — only High drafts and only Low logs (BUILD_PLAN 3.4a-i/3.4c)', async () => {
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient({
         parseResponse: { confidence: 50, reasoning: 'ambiguous' },
@@ -794,6 +820,79 @@ describe('handleAmbientChannelMessage', () => {
       'posted high-band ticket draft',
       expect.anything(),
     );
+    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+  });
+
+  it("logs a Low-band ambient message to the review queue, carrying the classifier's own confidence/reasoning through — nothing is silently eaten (BUILD_PLAN 3.4c)", async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient({
+        parseResponse: { confidence: 12, reasoning: 'reads as banter' },
+      }),
+    });
+
+    await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+    expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'C123',
+      messageTs: CHANNEL_MESSAGE.ts,
+      sourceMessageText: CHANNEL_MESSAGE.text,
+      confidence: 12,
+      reasoning: 'reads as banter',
+      outcomeReason: 'low-confidence',
+    });
+    expect(deps.anthropicClient.messages.create).not.toHaveBeenCalled();
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('logs an error, without throwing, when persisting a low-confidence message to the review queue fails', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient({
+        parseResponse: { confidence: 12, reasoning: 'reads as banter' },
+      }),
+      reviewQueueStore: makeReviewQueueStore({
+        create: vi.fn<ReviewQueueStore['create']>().mockResolvedValue({
+          ok: false,
+          error: { kind: 'unknown', cause: new Error('connection reset') },
+        }),
+      }),
+    });
+
+    await expect(
+      handleAmbientChannelMessage(deps, CHANNEL_MESSAGE),
+    ).resolves.toBeUndefined();
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to log low-confidence message to review queue',
+      {
+        personaId: 'sarah',
+        channelId: 'C123',
+        message: 'Error: connection reset',
+      },
+    );
+  });
+
+  it('does not log a review-queue entry for a High-band ambient message', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: { appropriate: true, reasoning: 'fine' },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('logs an error and records no cost when composing the ticket draft fails', async () => {

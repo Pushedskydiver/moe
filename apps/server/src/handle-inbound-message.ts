@@ -16,11 +16,13 @@ import type {
   NewConversationTurn,
   NewPendingTicketDraft,
   NewPersonaCostUsage,
+  NewReviewQueueEntry,
   NewTicket,
   PendingTicketDraftClaimResult,
   PendingTicketDraftOrNullResult,
   PendingTicketDraftResult,
   PersonaCostUsageResult,
+  ReviewQueueEntryResult,
   TicketResult,
 } from '@moe/core';
 import type { addReaction, InboundMessage } from '@moe/slack';
@@ -119,6 +121,17 @@ type DraftStore = {
   ) => Promise<PendingTicketDraftResult>;
 };
 
+// Same thin DI seam, over `@moe/core`'s review-queue repository (BUILD_PLAN 3.4c) — VISION §5.2's
+// "nothing is silently eaten" backstop. `create` is this chunk's own real consumer
+// (`handle-ambient-channel-message.ts`'s Low-band branch); no `getByMessage`/`resolve`/
+// `updateContent` counterparts exist here, unlike `DraftStore` above — a review-queue row is a
+// plain log entry, never looked up or claimed by a later reaction.
+type ReviewQueueStore = {
+  readonly create: (
+    input: NewReviewQueueEntry,
+  ) => Promise<ReviewQueueEntryResult>;
+};
+
 // `historyStore`/`costStore`/`capStore`/`costCapConfig`/`personaId`/`threadQueue`/
 // `channelScopeConfig` bundled alongside the pre-existing 3 params into one options object — the
 // 3-param signature was already at eslint's `max-params: 3` ceiling, same bundling pattern
@@ -144,6 +157,7 @@ export type HandlerDeps = {
   readonly bankHolidaysCache: BankHolidaysCache;
   readonly ticketStore: TicketStore;
   readonly draftStore: DraftStore;
+  readonly reviewQueueStore: ReviewQueueStore;
 };
 
 // Non-persona-voiced, same spirit as chunk 2.3's ACK_TEXT — a visible reply on LLM failure beats
