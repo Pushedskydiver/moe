@@ -186,14 +186,16 @@ export async function regenerateTicketDraft(
  * question to act on, rather than silently burning the claim on an attempt that never composed
  * anything.
  *
- * Known, accepted gap (DA review, chunk 3.4b-ii): once the claim above succeeds, a downstream
- * failure inside `postAndPersistDraft` (a failed `composeTicketDraft` call, a failed Slack post, a
- * failed `draftStore.create`) leaves the question permanently resolved with no ticket drafted and
- * no `review_queue` fallback row — only a logged error, nothing chunk 3.5's future sweep will ever
- * surface. `commitTicketDraft`/`parkTicketDraftToBacklog` above have the identical claim-then-act
- * shape and the same unaddressed gap; fixing this needs a shared design across both call sites
- * (e.g. a fallback log-to-review-queue on any post-claim failure), not a one-off patch here — out
- * of this chunk's own scope, tracked as a follow-up rather than fixed unilaterally.
+ * Known, accepted gap (DA review, chunk 3.4b-ii, recurred a third time at chunk 3.5's own
+ * `logStaleQuestionsAsSilent`, `review-queue-sweep.ts`): once the claim above succeeds, a
+ * downstream failure inside `postAndPersistDraft` (a failed `composeTicketDraft` call, a failed
+ * Slack post, a failed `draftStore.create`) leaves the question permanently resolved with no
+ * ticket drafted and no `review_queue` fallback row — only a logged error, nothing chunk 3.5's own
+ * `review-queue-sweep` script will ever surface. `commitTicketDraft`/`parkTicketDraftToBacklog`
+ * above have the identical claim-then-act shape and the same unaddressed gap; fixing this needs a
+ * shared design across all three call sites (e.g. a fallback log-to-review-queue on any post-claim
+ * failure), not a one-off patch here — out of this chunk's own scope, tracked as a follow-up
+ * rather than fixed unilaterally.
  */
 export async function draftFromConfirmingQuestion(
   deps: ReactionOutcomeDeps,

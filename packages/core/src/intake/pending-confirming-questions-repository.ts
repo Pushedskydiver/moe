@@ -33,6 +33,16 @@ export type PendingConfirmingQuestionOrNullResult =
       readonly error: PendingConfirmingQuestionRepositoryError;
     };
 
+export type PendingConfirmingQuestionListResult =
+  | {
+      readonly ok: true;
+      readonly questions: readonly PendingConfirmingQuestion[];
+    }
+  | {
+      readonly ok: false;
+      readonly error: PendingConfirmingQuestionRepositoryError;
+    };
+
 // Same reasoning as `pending-ticket-drafts-repository.ts`'s own `PendingTicketDraftClaimError` —
 // `'unavailable'` is specific to `resolvePendingConfirmingQuestion`'s atomic-claim semantics (the
 // conditional update legitimately matching zero rows — already resolved, or no such question — not
@@ -56,6 +66,18 @@ function parseQuestionRow(row: unknown): PendingConfirmingQuestionResult {
     };
   }
   return { ok: true, question: parsed.data };
+}
+
+function isFailedQuestionResult(
+  result: PendingConfirmingQuestionResult,
+): result is Extract<PendingConfirmingQuestionResult, { readonly ok: false }> {
+  return !result.ok;
+}
+
+function isOkQuestionResult(
+  result: PendingConfirmingQuestionResult,
+): result is Extract<PendingConfirmingQuestionResult, { readonly ok: true }> {
+  return result.ok;
 }
 
 /**
@@ -134,6 +156,44 @@ export async function resolvePendingConfirmingQuestion(
 
     if (!row) return { ok: false, error: { kind: 'unavailable' } };
     return parseQuestionRow(row);
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
+ * Lists a persona's still-unresolved confirming questions created before `olderThan` (BUILD_PLAN
+ * 3.5's own `review-queue-sweep` script) — the "no answer within some window" case the sweep
+ * treats as silence, VISION §5.2's Mid-band "silence" outcome finally getting a real writer.
+ * `resolvedAt IS NULL` excludes anything a real 👍/👎 has already claimed, same predicate
+ * `resolvePendingConfirmingQuestion`'s own CAS uses — the sweep's own caller still re-claims each
+ * match via that same function before logging it as silent, so a real answer racing the sweep
+ * always wins.
+ */
+export async function findStaleUnresolvedConfirmingQuestions(
+  db: Kysely<Database>,
+  scope: { readonly personaId: string; readonly olderThan: Date },
+): Promise<PendingConfirmingQuestionListResult> {
+  try {
+    const rows = await db
+      .selectFrom('pendingConfirmingQuestions')
+      .selectAll()
+      .where('personaId', '=', scope.personaId)
+      .where('resolvedAt', 'is', null)
+      .where('createdAt', '<', scope.olderThan)
+      .orderBy('createdAt', 'asc')
+      .execute();
+
+    const parsedRows = rows.map((row) => parseQuestionRow(row));
+    const failure = parsedRows.find((parsed) => isFailedQuestionResult(parsed));
+    if (failure) return failure;
+
+    return {
+      ok: true,
+      questions: parsedRows
+        .filter((parsed) => isOkQuestionResult(parsed))
+        .map((parsed) => parsed.question),
+    };
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };
   }

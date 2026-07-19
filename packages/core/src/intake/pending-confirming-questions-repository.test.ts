@@ -5,13 +5,14 @@ import type { Pool } from 'pg';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { afterEach, beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createDb } from '../ticket-lifecycle/db.js';
 import { runMigrations } from '../ticket-lifecycle/migrate.js';
 import { getTestPool, resetDatabase } from '../ticket-lifecycle/test-db.js';
 import {
   createPendingConfirmingQuestion,
+  findStaleUnresolvedConfirmingQuestions,
   getPendingConfirmingQuestionByMessage,
   resolvePendingConfirmingQuestion,
 } from './pending-confirming-questions-repository.js';
@@ -164,6 +165,81 @@ describe('pending confirming questions repository', () => {
     expect(second).toEqual({
       ok: false,
       error: { kind: 'unknown', cause: expect.anything() as unknown },
+    });
+  });
+
+  describe('findStaleUnresolvedConfirmingQuestions (BUILD_PLAN 3.5)', () => {
+    it('returns only unresolved questions created before the given cutoff', async () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
+        const stale = await createPendingConfirmingQuestion(db, {
+          ...newQuestionInput(),
+          messageTs: '1700000099.000101',
+        });
+        if (!stale.ok) throw new Error('setup failed');
+
+        vi.setSystemTime(new Date('2026-07-19T12:00:00.000Z'));
+        await createPendingConfirmingQuestion(db, {
+          ...newQuestionInput(),
+          messageTs: '1700000099.000102',
+        });
+
+        const cutoff = new Date('2026-07-19T10:00:00.000Z');
+        const result = await findStaleUnresolvedConfirmingQuestions(db, {
+          personaId: 'sarah',
+          olderThan: cutoff,
+        });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.questions.map((q) => q.id)).toEqual([stale.question.id]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('excludes an already-resolved question even if it is old enough', async () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
+        const created = await createPendingConfirmingQuestion(db, {
+          ...newQuestionInput(),
+          messageTs: '1700000099.000103',
+        });
+        if (!created.ok) throw new Error('setup failed');
+        await resolvePendingConfirmingQuestion(db, created.question.id);
+
+        const result = await findStaleUnresolvedConfirmingQuestions(db, {
+          personaId: 'sarah',
+          olderThan: new Date('2026-07-19T10:00:00.000Z'),
+        });
+
+        expect(result).toEqual({ ok: true, questions: [] });
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it('scopes to the given persona only', async () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
+        await createPendingConfirmingQuestion(db, {
+          ...newQuestionInput(),
+          messageTs: '1700000099.000104',
+          personaId: 'marcus',
+        });
+
+        const result = await findStaleUnresolvedConfirmingQuestions(db, {
+          personaId: 'sarah',
+          olderThan: new Date('2026-07-19T10:00:00.000Z'),
+        });
+
+        expect(result).toEqual({ ok: true, questions: [] });
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });

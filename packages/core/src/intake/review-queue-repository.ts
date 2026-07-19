@@ -23,6 +23,10 @@ export type ReviewQueueEntryResult =
   | { readonly ok: true; readonly entry: ReviewQueueEntry }
   | { readonly ok: false; readonly error: ReviewQueueRepositoryError };
 
+export type ReviewQueueEntryListResult =
+  | { readonly ok: true; readonly entries: readonly ReviewQueueEntry[] }
+  | { readonly ok: false; readonly error: ReviewQueueRepositoryError };
+
 function parseReviewQueueRow(row: unknown): ReviewQueueEntryResult {
   const parsed = reviewQueueEntrySchema.safeParse(row);
   if (!parsed.success) {
@@ -32,6 +36,18 @@ function parseReviewQueueRow(row: unknown): ReviewQueueEntryResult {
     };
   }
   return { ok: true, entry: parsed.data };
+}
+
+function isFailedEntryResult(
+  result: ReviewQueueEntryResult,
+): result is Extract<ReviewQueueEntryResult, { readonly ok: false }> {
+  return !result.ok;
+}
+
+function isOkEntryResult(
+  result: ReviewQueueEntryResult,
+): result is Extract<ReviewQueueEntryResult, { readonly ok: true }> {
+  return result.ok;
 }
 
 /**
@@ -60,6 +76,40 @@ export async function createReviewQueueEntry(
     const insert = db.insertInto('reviewQueue').values(candidate);
     const row = await insert.returningAll().executeTakeFirstOrThrow();
     return parseReviewQueueRow(row);
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
+ * Lists a persona's `review_queue` rows created strictly after `since`, oldest first (BUILD_PLAN
+ * 3.5's own `review-queue-sweep` script) — the sweep's own scope boundary, paired with
+ * `sweep-state-repository.ts`'s `getSweepState`/`recordSweepCompleted` so an irregularly-run
+ * sweep never misses a row and never double-reports one.
+ */
+export async function listReviewQueueEntriesSince(
+  db: Kysely<Database>,
+  scope: { readonly personaId: string; readonly since: Date },
+): Promise<ReviewQueueEntryListResult> {
+  try {
+    const rows = await db
+      .selectFrom('reviewQueue')
+      .selectAll()
+      .where('personaId', '=', scope.personaId)
+      .where('createdAt', '>', scope.since)
+      .orderBy('createdAt', 'asc')
+      .execute();
+
+    const parsedRows = rows.map((row) => parseReviewQueueRow(row));
+    const failure = parsedRows.find((parsed) => isFailedEntryResult(parsed));
+    if (failure) return failure;
+
+    return {
+      ok: true,
+      entries: parsedRows
+        .filter((parsed) => isOkEntryResult(parsed))
+        .map((parsed) => parsed.entry),
+    };
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };
   }

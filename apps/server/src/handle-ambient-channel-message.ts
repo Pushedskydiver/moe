@@ -236,11 +236,12 @@ async function composeAndPostDraft(
 
 // VISION §5.2's "nothing is silently eaten" backstop (BUILD_PLAN 3.4c) — persists a Low-band
 // message as a plain review-queue log row (`docs/VISION.md` §5.2, `@moe/core`'s
-// `createReviewQueueEntry`) rather than dropping it, for BUILD_PLAN 3.5's own future sweep to
-// list. `outcomeReason: 'low-confidence'` — the only value this call site ever writes; BUILD_PLAN
-// 3.4b-ii's own `logConfirmingQuestionAsNo` (`reaction-outcome-actions.ts`) writes `'mid-no'`
-// through the same repository, and 3.5's own future sweep writes `'mid-silence'` — both distinct
-// values `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii) added in place of chunk 3.4c's
+// `createReviewQueueEntry`) rather than dropping it, for BUILD_PLAN 3.5's own `review-queue-sweep`
+// script to list. `outcomeReason: 'low-confidence'` — the only value this call site ever writes;
+// BUILD_PLAN 3.4b-ii's own `logConfirmingQuestionAsNo` (`reaction-outcome-actions.ts`) writes
+// `'mid-no'` through the same repository, and 3.5's own `logStaleQuestionsAsSilent`
+// (`review-queue-sweep.ts`) writes `'mid-silence'` — both distinct values
+// `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii) added in place of chunk 3.4c's
 // original single placeholder, `'mid-no-response'`. "Log, don't throw" on
 // failure, same as `recordUsageLogged`'s
 // own precedent — a review-queue write failing should never surface as a visible error, since

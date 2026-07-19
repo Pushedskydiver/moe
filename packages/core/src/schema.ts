@@ -99,9 +99,9 @@ type PendingTicketDraftsTable = {
  * with plain SQL, where a Postgres `ENUM` needs `ALTER TYPE` to add a value later.
  * Confidence-banded routing (`./confidence-band.ts`) writes `'low-confidence'` here (chunk 3.4c);
  * BUILD_PLAN 3.4b-ii's own `logConfirmingQuestionAsNo` writes `'mid-no'` when a Mid-band confirming
- * question's 👎 reaction resolves it; `'mid-silence'` is a placeholder value pre-seeded here ahead
- * of a real writer — BUILD_PLAN 3.5's own future scheduled sweep is what logs it, once an
- * unanswered confirming question passes some age threshold. Migration
+ * question's 👎 reaction resolves it; `'mid-silence'` is BUILD_PLAN 3.5's own write
+ * (`logStaleQuestionsAsSilent`), once an unanswered confirming question passes a 24-hour threshold.
+ * Migration
  * `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii) replaced chunk 3.4c's original single
  * placeholder value, `'mid-no-response'`, with these two distinct values — "no" and
  * "silence"/timeout stay separately identifiable for 3.5's own human-eyeballing sweep, per that
@@ -145,6 +145,21 @@ type PendingConfirmingQuestionsTable = {
   readonly createdAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `sweep_state` (`./intake/sweep-state.ts`'s DB-backed
+ * counterpart, BUILD_PLAN 3.5) — one row per persona, tracking when that persona's own
+ * `review-queue-sweep` CLI script last ran (`personaId` is the `PRIMARY KEY`, not a
+ * surrogate `id`, since there's genuinely only ever one row per persona — no history, no
+ * `createdAt`). Each sweep only reports `review_queue` rows created after `lastSweptAt`,
+ * so an irregularly-run sweep never misses a row and never double-reports one — Alex
+ * confirmed this design via `AskUserQuestion` over the cheaper "fixed rolling window from
+ * now" alternative, which has real gaps if the script is skipped or run twice in one window.
+ */
+type SweepStateTable = {
+  readonly personaId: string;
+  readonly lastSweptAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
@@ -153,4 +168,5 @@ export type Database = {
   readonly pendingTicketDrafts: PendingTicketDraftsTable;
   readonly reviewQueue: ReviewQueueTable;
   readonly pendingConfirmingQuestions: PendingConfirmingQuestionsTable;
+  readonly sweepState: SweepStateTable;
 };
