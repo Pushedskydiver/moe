@@ -28,7 +28,7 @@ const DEFAULT_TTL_MS = 15 * 60 * 1000;
  * workspaces" (docs.slack.dev/apis/events-api) — a real, direct quote, unlike the claim that
  * follows: Slack doesn't explicitly document `event_id` staying fixed across a retry of the same
  * event, but a `retry_attempt`/`retry_num` field carried *alongside* `event_id` on a redelivery
- * (confirmed by reading the installed `@slack/socket-mode` SDK's own source below) only makes
+ * (confirmed by reading the installed `@slack/socket-mode` SDK's own source directly) only makes
  * sense as a design if `event_id` itself is the stable identity a retry counter increments
  * against — the correct dedup key on that reasoning; `envelope_id` is a per-WebSocket-delivery-
  * attempt id with no such signal at all, so it isn't used here. In-memory, not persisted: the
