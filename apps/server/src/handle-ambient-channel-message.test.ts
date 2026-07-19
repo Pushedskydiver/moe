@@ -285,9 +285,10 @@ function makeReviewQueueStore(
 // `create` is the real consumer of a Mid-band message (`composeAndPostConfirmingQuestion`,
 // BUILD_PLAN 3.4b-i) — keyed on the posted confirming question's own `ts` (matches
 // `makeSlackClient`'s default, `1700000000.000100`), mirroring `makeReviewQueueStore`'s own
-// pattern. `getByMessage`/`resolve` have no caller in this file yet — both are BUILD_PLAN
-// 3.4b-ii's own future consumers (the 👍/👎 reaction-dispatch lookup and its atomic claim),
-// bare typed stubs matching `makeDraftStore`'s own precedent for its unused methods.
+// pattern. `getByMessage`/`resolve` have no caller in this file — BUILD_PLAN 3.4b-ii's own real
+// consumers (the 👍/👎 reaction-dispatch lookup and its atomic claim, `handle-reaction-added.ts`/
+// `reaction-outcome-actions.ts`) live in a different file's own test suite, not this one — bare
+// typed stubs here matching `makeDraftStore`'s own precedent for its unused methods.
 function makeConfirmingQuestionStore(
   overrides: Partial<ConfirmingQuestionStore> = {},
 ): ConfirmingQuestionStore {

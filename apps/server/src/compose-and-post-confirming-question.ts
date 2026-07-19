@@ -71,10 +71,9 @@ async function seedAnswerLegend(
 
 // Bundled into one object, not 3 more params — would otherwise cross eslint's `max-params: 3`,
 // same reasoning `standing-proactive-guards.ts`'s own `StandingProactiveGuardInput` documents.
-// `classified` carries the Stage 1 classifier's own confidence/reasoning through so a future 👎
-// answer (BUILD_PLAN 3.4b-ii) can log it to `review_queue` with the same context the Low-band path
-// already provides — no live 👍/👎 consumer exists yet, same "build the primitive" shape
-// 2.7a/2.7b/3.2/3.4a-ii all used.
+// `classified` carries the Stage 1 classifier's own confidence/reasoning through so a 👎 answer
+// (`logConfirmingQuestionAsNo`, BUILD_PLAN 3.4b-ii, `reaction-outcome-actions.ts`) can log it to
+// `review_queue` with the same context the Low-band path already provides.
 export type ComposeAndPostConfirmingQuestionInput = {
   readonly message: InboundMessage;
   readonly now: Date;

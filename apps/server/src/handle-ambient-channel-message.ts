@@ -38,6 +38,36 @@ type DraftContent = {
   readonly body: string;
 };
 
+// Only what `composeDraftContent`/`postAndPersistDraft`/`seedReactionLegend` actually read off a
+// message — not the full `InboundMessage`, which carries `channelType`/`userId` fields a
+// reaction-outcome context (BUILD_PLAN 3.4b-ii's "yes" answer, `reaction-outcome-actions.ts`) has
+// no equivalent of: a `PendingConfirmingQuestion` row tracks who *reacted*, not who sent the
+// *original* source message. `InboundMessage` already satisfies this structurally, so
+// `handleAmbientChannelMessage`'s own real-message call sites below need no change.
+export type DraftSourceMessage = {
+  readonly channelId: string;
+  readonly ts: string;
+  readonly text: string;
+};
+
+// Only what `composeDraftContent`/`postAndPersistDraft`/`seedReactionLegend` actually use — not
+// the full `HandlerDeps`, so a caller outside the ambient-message path (BUILD_PLAN 3.4b-ii's "yes"
+// reaction-outcome) can reuse `postAndPersistDraft` without also needing to supply
+// `historyStore`/`threadQueue`/`channelScopeConfig`/etc., which it has no use for. Same "only
+// require what's actually used" reasoning as `check-cost-cap.ts`'s own `CostCapDeps`.
+export type DraftPostingDeps = Omit<
+  Pick<
+    HandlerDeps,
+    | 'anthropicClient'
+    | 'logger'
+    | 'costStore'
+    | 'personaId'
+    | 'slackClient'
+    | 'draftStore'
+  >,
+  'anthropicClient'
+> & { readonly anthropicClient: Parameters<typeof composeTicketDraft>[0] };
+
 function formatDraftMessageText(draft: DraftContent): string {
   return (
     `📋 *${draft.title}*\n${draft.body}\n\n` +
@@ -49,7 +79,7 @@ function formatDraftMessageText(draft: DraftContent): string {
 // object — `deps` plus 3 more positional params would cross eslint's `max-params: 3`, same
 // reasoning `check-cost-cap.ts`'s own `sendCostAlerts` input bundling already documents.
 type SeedReactionLegendInput = {
-  readonly message: InboundMessage;
+  readonly message: DraftSourceMessage;
   readonly draftMessageTs: string;
   readonly remaining: readonly (typeof DRAFT_REACTION_LEGEND)[number][];
 };
@@ -61,7 +91,7 @@ type SeedReactionLegendInput = {
 // is logged and the remaining ones are still attempted, rather than aborting the whole legend
 // over one miss.
 async function seedReactionLegend(
-  deps: HandlerDeps,
+  deps: DraftPostingDeps,
   input: SeedReactionLegendInput,
 ): Promise<void> {
   const [emoji, ...rest] = input.remaining;
@@ -90,8 +120,8 @@ async function seedReactionLegend(
 // (`docs/CONVENTIONS.md` §Code Style) — composes the draft and records its own cost accounting,
 // returning `undefined` on failure (already logged) so the caller can short-circuit.
 async function composeDraftContent(
-  deps: HandlerDeps,
-  message: InboundMessage,
+  deps: DraftPostingDeps,
+  message: DraftSourceMessage,
   now: Date,
 ): Promise<DraftContent | undefined> {
   const drafted = await composeTicketDraft(deps.anthropicClient, {
@@ -118,11 +148,19 @@ async function composeDraftContent(
 
 // Posts the composed draft in-thread on the source message, persists the "parent-message state"
 // (`pending_ticket_drafts`) keyed on the real posted message, and seeds the 📦/🔁/✅ reaction-gate
-// legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii, run only once both guards above
-// have passed.
-async function postAndPersistDraft(
-  deps: HandlerDeps,
-  message: InboundMessage,
+// legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii. This function itself runs no
+// guard checks of its own — it's the caller's job to gate it first. `composeAndPostDraft` below
+// (the High-band caller) only reaches it after both `isCostAndRhythmGuardSatisfied` and
+// `isSituationallyAppropriate` pass. `draftFromConfirmingQuestion` (BUILD_PLAN 3.4b-ii,
+// `reaction-outcome-actions.ts`, reusing this function directly rather than reimplementing it, to
+// post a real ticket draft threaded on a Mid-band confirming question's *original* source message)
+// deliberately does **not** run either guard first — a reaction-outcome dispatch is a response to
+// the human, not the bot acting unprompted, the same reactive/proactive distinction
+// `standing-proactive-guards.ts`'s own TSDoc documents — it only checks the cost cap, since
+// `composeTicketDraft` below is still a real, billed call regardless of which caller reached it.
+export async function postAndPersistDraft(
+  deps: DraftPostingDeps,
+  message: DraftSourceMessage,
   now: Date,
 ): Promise<void> {
   const drafted = await composeDraftContent(deps, message, now);
@@ -200,10 +238,10 @@ async function composeAndPostDraft(
 // message as a plain review-queue log row (`docs/VISION.md` §5.2, `@moe/core`'s
 // `createReviewQueueEntry`) rather than dropping it, for BUILD_PLAN 3.5's own future sweep to
 // list. `outcomeReason: 'low-confidence'` — the only value this call site ever writes; BUILD_PLAN
-// 3.4b-ii's own future "no or silence" Mid-band outcome writes through the same repository once
-// that chunk lands — with its own migration widening `outcomeReason`'s CHECK constraint from
-// `'mid-no-response'` to the two distinct `'mid-no'`/`'mid-silence'` values 3.4b-ii's own text
-// settles on, not an additive change to an already-single-value constraint. "Log, don't throw" on
+// 3.4b-ii's own `logConfirmingQuestionAsNo` (`reaction-outcome-actions.ts`) writes `'mid-no'`
+// through the same repository, and 3.5's own future sweep writes `'mid-silence'` — both distinct
+// values `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii) added in place of chunk 3.4c's
+// original single placeholder, `'mid-no-response'`. "Log, don't throw" on
 // failure, same as `recordUsageLogged`'s
 // own precedent — a review-queue write failing should never surface as a visible error, since
 // there's no reply path here to carry one.
