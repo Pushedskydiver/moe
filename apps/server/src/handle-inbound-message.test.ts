@@ -253,6 +253,33 @@ function makeDraftStore(
   };
 }
 
+// BUILD_PLAN 3.4c's own real consumer, `handle-ambient-channel-message.ts`'s `logToReviewQueue` —
+// this file's DM-path tests never exercise it directly (that coverage lives in
+// `handle-ambient-channel-message.test.ts`), so a sensible default resolved value is enough.
+function makeReviewQueueStore(
+  overrides: Partial<HandlerDeps['reviewQueueStore']> = {},
+): HandlerDeps['reviewQueueStore'] {
+  return {
+    create: vi
+      .fn<HandlerDeps['reviewQueueStore']['create']>()
+      .mockResolvedValue({
+        ok: true,
+        entry: {
+          id: '7fa85f64-5717-4562-b3fc-2c963f66afaa',
+          personaId: 'sarah',
+          channelId: 'C123',
+          messageTs: '1700000000.000100',
+          sourceMessageText: 'anyone know a good coffee place nearby',
+          confidence: 12,
+          reasoning: 'reads as banter, not a work request',
+          outcomeReason: 'low-confidence',
+          createdAt: new Date('2026-07-16T09:00:00.000Z'),
+        },
+      }),
+    ...overrides,
+  };
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly anthropicClient: ReturnType<typeof makeAnthropicClient>;
@@ -268,6 +295,7 @@ function makeDeps(
     readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
     readonly ticketStore: HandlerDeps['ticketStore'];
     readonly draftStore: HandlerDeps['draftStore'];
+    readonly reviewQueueStore: HandlerDeps['reviewQueueStore'];
   }> = {},
 ) {
   return {
@@ -287,6 +315,7 @@ function makeDeps(
     bankHolidaysCache: makeBankHolidaysCache(),
     ticketStore: makeTicketStore(),
     draftStore: makeDraftStore(),
+    reviewQueueStore: makeReviewQueueStore(),
     ...overrides,
   };
 }

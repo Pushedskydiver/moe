@@ -276,15 +276,47 @@ async function composeAndPostDraft(
   await postAndPersistDraft(deps, message, now);
 }
 
+// VISION §5.2's "nothing is silently eaten" backstop (BUILD_PLAN 3.4c) — persists a Low-band
+// message as a plain review-queue log row (`docs/VISION.md` §5.2, `@moe/core`'s
+// `createReviewQueueEntry`) rather than dropping it, for BUILD_PLAN 3.5's own future sweep to
+// list. `outcomeReason: 'low-confidence'` — the only value this call site ever writes; BUILD_PLAN
+// 3.4b's own future "no or silence" Mid-band outcome writes `'mid-no-response'` through the same
+// repository once that chunk lands. "Log, don't throw" on failure, same as `recordUsageLogged`'s
+// own precedent — a review-queue write failing should never surface as a visible error, since
+// there's no reply path here to carry one.
+async function logToReviewQueue(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  classified: { readonly confidence: number; readonly reasoning: string },
+): Promise<void> {
+  const created = await deps.reviewQueueStore.create({
+    personaId: deps.personaId,
+    channelId: message.channelId,
+    messageTs: message.ts,
+    sourceMessageText: message.text,
+    confidence: classified.confidence,
+    reasoning: classified.reasoning,
+    outcomeReason: 'low-confidence',
+  });
+  if (!created.ok) {
+    deps.logger.error('failed to log low-confidence message to review queue', {
+      personaId: deps.personaId,
+      channelId: message.channelId,
+      message: repositoryErrorMessage(created.error),
+    });
+  }
+}
+
 /**
  * VISION §5.2's Stage 0 + Stage 1, run for every ambient channel/group message (never a DM — a DM
  * is already addressed, §5.3). Out-of-scope channels never reach the classifier at all (Stage 0,
  * BUILD_PLAN 3.2's `isSurfaceInScope`); an in-scope one gets a single classification call (Stage 1,
  * `docs/decisions/STAGE-1-CLASSIFIER.md`) and the score is logged. A High-band score (VISION
  * §5.2's Stage 2 routing, `docs/decisions/STAGE-1-CLASSIFIER.md`'s thresholds) additionally
- * composes and posts a real ticket draft (`composeAndPostDraft`, BUILD_PLAN 3.4a-i/3.4a-iii) —
- * Mid/Low bands are logged as a plain classification only, until 3.4b/3.4c wire their own actions.
- * No reply is posted either way; this replaces the old "chat back to every message" behavior for
+ * composes and posts a real ticket draft (`composeAndPostDraft`, BUILD_PLAN 3.4a-i/3.4a-iii); a
+ * Low-band score logs a real review-queue row (`logToReviewQueue`, BUILD_PLAN 3.4c) — Mid-band is
+ * still a plain classification log only, until 3.4b wires its own confirming-question action. No
+ * reply is posted either way; this replaces the old "chat back to every message" behavior for
  * ambient surfaces (BUILD_PLAN 3.3's own DMs-only decision) — a DM still gets the full
  * conversational reply path, unchanged (`handle-inbound-message.ts`).
  *
@@ -342,7 +374,10 @@ export async function handleAmbientChannelMessage(
     reasoning: classified.reasoning,
   });
 
-  if (classifyConfidenceBand(classified.confidence) === 'high') {
+  const band = classifyConfidenceBand(classified.confidence);
+  if (band === 'high') {
     await composeAndPostDraft(deps, message, now);
+  } else if (band === 'low') {
+    await logToReviewQueue(deps, message, classified);
   }
 }

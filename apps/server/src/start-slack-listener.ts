@@ -9,6 +9,7 @@ import {
   claimAlertThreshold,
   createBankHolidaysCache,
   createPendingTicketDraft,
+  createReviewQueueEntry,
   createTicket,
   getAlertState,
   getPendingTicketDraftByMessage,
@@ -91,6 +92,10 @@ function createStores(db: Kysely<Database>) {
         content: Parameters<typeof updatePendingTicketDraftContent>[2],
       ) => updatePendingTicketDraftContent(db, id, content),
     },
+    reviewQueueStore: {
+      create: (input: Parameters<typeof createReviewQueueEntry>[1]) =>
+        createReviewQueueEntry(db, input),
+    },
   };
 }
 
@@ -130,6 +135,7 @@ function wireAndStartListener(ctx: ListenerContext): void {
       bankHolidaysCache: ctx.bankHolidaysCache,
       ticketStore: ctx.ticketStore,
       draftStore: ctx.draftStore,
+      reviewQueueStore: ctx.reviewQueueStore,
     }),
     onReactionAdded: createReactionHandler({
       anthropicClient: ctx.anthropicClient,
