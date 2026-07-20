@@ -36,6 +36,7 @@ All work branches from `main` and merges back to `main` via PR.
 
 When any predicate fails, use the PR flow.
 
+- **Create the dedicated branch as the literal first action after syncing `main`, before any edit — every single chunk/fix transition.** Not a one-time habit to remember, a step to redo explicitly each time: `git checkout main && git pull`, then `git checkout -b <next-slice>`, before touching any file. Two confirmed failure modes from skipping this: (1) after an _escalated_ (opened but not yet merged) PR, cutting the next branch without returning to `main` first stacks the un-merged commit underneath the new branch, so the new PR's diff wrongly includes both changes; (2) after a normal merge+sync, committing the next chunk's work directly onto local `main` because the branch-creation step was skipped entirely, not just misordered. Both have recurred multiple times across this project's history — the fix if it already happened: `git rebase --onto main <bad-base-branch> <slice-branch>` for case 1, or `git branch <name> <bad-commit>` followed by `git reset --hard origin/main` for case 2, then re-verify the full quality suite.
 - **Delete branches after merging.** The remote branch is deleted automatically (`delete_branch_on_merge`, see Merge Strategy below) — that half needs no action. The **local** clone's branch is not touched by GitHub and does not auto-delete: after confirming a PR merged (`gh pr view <n> --json state,mergedAt`), `git checkout main && git pull`, then `git branch -d <branch>` before starting the next chunk. Claude/Codex do this as a matter of course, not just Alex.
 - **CI must pass before merging.** Enforced via branch protection on `main`: `.github/workflows/ci.yml`'s "Quality suite" job and `.github/workflows/pr-title-check.yml`'s "Validate PR title format" job are both required status checks. Admin/owner enforcement is off (`enforce_admins: false`) — a deliberate one-person-team escape hatch for genuine emergencies, not an invitation to routinely bypass the gate.
 
@@ -96,6 +97,14 @@ The gitmoji comes first, then the conventional commit type. Scope is optional.
 ♻️ refactor: extract claim validator as pure function
 📦 chore: scaffold monorepo with pnpm workspaces
 ```
+
+**Nothing checks the gitmoji/type/scope format locally — `.husky/pre-commit` only runs `lint-staged` (eslint/prettier on staged files), no commit-msg hook.** The PR title — not any individual commit message — is what CI's "Validate PR title format" job actually enforces, and it becomes the squash-merge subject. A title that "looks right" and was never rejected by anything local can still fail CI. Three confirmed failure shapes on an otherwise well-formed title:
+
+1. **Wrong gitmoji for the type** (e.g. `🔧` — build's emoji — paired with `chore`'s type).
+2. **The wrong Unicode form of the emoji** — most types use the bare codepoint (e.g. `🔒` U+1F512 alone, no trailing selector), but `refactor` (`♻️`) and `perf` (`⚡️`) canonically include a trailing U+FE0F variation selector and the CI check's own `ALLOWED_PREFIXES` array (`.github/workflows/pr-title-check.yml`) expects it present for those two — the direction of "which form is correct" is per-emoji, not a single rule. Copy the exact character sequence from the Types table above or the CI failure output rather than hand-typing one.
+3. **Punctuation in the scope** — the scope regex is `[a-zA-Z0-9_-]+`: a literal dot (e.g. `chunk-0.6c`) or a comma-joined multi-package list (e.g. `(core,agents,server)`) both fail, since it's a single group, not a list. Use a package name as the scope (`core`, `agents`, `server`, `slack`, `progress`) — not a BUILD_PLAN chunk identifier, dash-separated or not — and put any chunk/stage reference in the description text instead (e.g. `feat(server): add Stage-1 classifier gate, DMs-only chat replies`).
+
+If the title check fails, read the CI failure output for the exact "got" vs. expected format rather than guessing, and fix with `gh pr edit <n> --title "..."` — no re-commit needed, since squash-merge takes the PR title, not the branch's own commit messages.
 
 ### No `--amend`
 
