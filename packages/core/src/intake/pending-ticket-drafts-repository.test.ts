@@ -32,6 +32,7 @@ function newDraftInput() {
     sourceMessageText: 'the CLI hangs on large repos, can someone take a look',
     draftTitle: 'CLI hangs on large repos',
     draftBody: 'The CLI hangs when run against large repos.',
+    origin: 'high-band' as const,
   };
 }
 
@@ -166,5 +167,30 @@ describe('pending ticket drafts repository', () => {
     });
 
     expect(result.ok).toBe(true);
+  });
+
+  it('increments redo_count each time content is updated (BUILD_PLAN 3.6)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+
+    await updatePendingTicketDraftContent(db, created.draft.id, {
+      draftTitle: 'First redo title',
+      draftBody: 'First redo body.',
+    });
+    const { rows: afterFirst } = await pool.query<{ redo_count: number }>(
+      'SELECT redo_count FROM pending_ticket_drafts WHERE id = $1',
+      [created.draft.id],
+    );
+    expect(afterFirst[0]?.redo_count).toBe(1);
+
+    await updatePendingTicketDraftContent(db, created.draft.id, {
+      draftTitle: 'Second redo title',
+      draftBody: 'Second redo body.',
+    });
+    const { rows: afterSecond } = await pool.query<{ redo_count: number }>(
+      'SELECT redo_count FROM pending_ticket_drafts WHERE id = $1',
+      [created.draft.id],
+    );
+    expect(afterSecond[0]?.redo_count).toBe(2);
   });
 });

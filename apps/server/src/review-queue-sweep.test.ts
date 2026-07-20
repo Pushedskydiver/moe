@@ -8,6 +8,7 @@ import { runReviewQueueSweep } from './review-queue-sweep.js';
 type SweepStateStore = SweepDeps['sweepStateStore'];
 type ReviewQueueStore = SweepDeps['reviewQueueStore'];
 type ConfirmingQuestionStore = SweepDeps['confirmingQuestionStore'];
+type DraftStore = SweepDeps['draftStore'];
 
 function makeEntry(
   overrides: Partial<ReviewQueueEntry> = {},
@@ -55,6 +56,7 @@ function makeDeps(
     readonly sweepStateStore: SweepStateStore;
     readonly reviewQueueStore: ReviewQueueStore;
     readonly confirmingQuestionStore: ConfirmingQuestionStore;
+    readonly draftStore: DraftStore;
   }> = {},
 ): SweepDeps {
   return {
@@ -88,6 +90,15 @@ function makeDeps(
         .mockResolvedValue({ ok: true, questions: [] }),
       resolveAndLog: vi.fn<ConfirmingQuestionStore['resolveAndLog']>(),
       ...overrides.confirmingQuestionStore,
+    },
+    draftStore: {
+      getOutcomeCounts: vi
+        .fn<DraftStore['getOutcomeCounts']>()
+        .mockResolvedValue({
+          ok: true,
+          counts: { committed: 12, redone: 3, ignored: 2 },
+        }),
+      ...overrides.draftStore,
     },
   };
 }
@@ -128,6 +139,110 @@ describe('runReviewQueueSweep', () => {
       personaId: 'sarah',
       sweptAt: now,
     });
+  });
+
+  it('includes a draft-outcomes summary line in the digest, with an acceptance rate over committed+ignored only (BUILD_PLAN 3.6)', async () => {
+    const now = new Date('2026-07-19T12:00:00.000Z');
+    const deps = makeDeps({
+      reviewQueueStore: {
+        listSince: vi
+          .fn<ReviewQueueStore['listSince']>()
+          .mockResolvedValue({ ok: true, entries: [makeEntry()] }),
+      },
+      draftStore: {
+        getOutcomeCounts: vi
+          .fn<DraftStore['getOutcomeCounts']>()
+          .mockResolvedValue({
+            ok: true,
+            counts: { committed: 3, redone: 1, ignored: 1 },
+          }),
+      },
+    });
+
+    await runReviewQueueSweep(deps, now);
+
+    expect(deps.draftStore.getOutcomeCounts).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      ignoredOlderThan: new Date(now.getTime() - 24 * 60 * 60 * 1000),
+    });
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          '📊 Draft outcomes (all time): 3 committed, 1 redone (open), 1 ignored — 75% acceptance rate',
+        ) as string,
+      }),
+    );
+  });
+
+  it('omits the acceptance-rate suffix when there is no terminal (committed/ignored) data yet', async () => {
+    const now = new Date('2026-07-19T12:00:00.000Z');
+    const deps = makeDeps({
+      reviewQueueStore: {
+        listSince: vi
+          .fn<ReviewQueueStore['listSince']>()
+          .mockResolvedValue({ ok: true, entries: [makeEntry()] }),
+      },
+      draftStore: {
+        getOutcomeCounts: vi
+          .fn<DraftStore['getOutcomeCounts']>()
+          .mockResolvedValue({
+            ok: true,
+            counts: { committed: 0, redone: 2, ignored: 0 },
+          }),
+      },
+    });
+
+    await runReviewQueueSweep(deps, now);
+
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining(
+          '📊 Draft outcomes (all time): 0 committed, 2 redone (open), 0 ignored\n',
+        ) as string,
+      }),
+    );
+  });
+
+  it('does not fetch draft-outcome counts when there is nothing new to report — the counts ride along with an existing post, not an independent trigger', async () => {
+    const now = new Date('2026-07-19T12:00:00.000Z');
+    const deps = makeDeps();
+
+    await runReviewQueueSweep(deps, now);
+
+    expect(deps.draftStore.getOutcomeCounts).not.toHaveBeenCalled();
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('still posts the review-queue digest, without a draft-outcomes line, when the counts fetch itself fails', async () => {
+    const now = new Date('2026-07-19T12:00:00.000Z');
+    const deps = makeDeps({
+      reviewQueueStore: {
+        listSince: vi
+          .fn<ReviewQueueStore['listSince']>()
+          .mockResolvedValue({ ok: true, entries: [makeEntry()] }),
+      },
+      draftStore: {
+        getOutcomeCounts: vi
+          .fn<DraftStore['getOutcomeCounts']>()
+          .mockResolvedValue({
+            ok: false,
+            error: { kind: 'unknown', cause: new Error('connection reset') },
+          }),
+      },
+    });
+
+    await runReviewQueueSweep(deps, now);
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to fetch draft outcome counts',
+      expect.objectContaining({ message: 'Error: connection reset' }),
+    );
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.not.stringContaining('Draft outcomes') as string,
+      }),
+    );
+    expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalled();
   });
 
   it('does not advance the sweep state when the digest post itself fails, even though there was real content to report (DA review, chunk 3.5)', async () => {

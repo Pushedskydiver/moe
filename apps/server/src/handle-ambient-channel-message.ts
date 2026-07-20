@@ -1,4 +1,5 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
+import type { DraftOrigin } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
 import {
@@ -156,6 +157,18 @@ async function composeDraftContent(
 // own `GenerateAndPostResult`.
 type PostAndPersistDraftResult = { readonly ok: true } | { readonly ok: false };
 
+// `now`/`origin` bundled into one options object rather than two more bare params — already at
+// eslint's `max-params: 3` ceiling with `deps`/`message`, same bundling reasoning
+// `StartSlackListenerDeps` itself already documents elsewhere in this codebase. `origin`
+// (BUILD_PLAN 3.6, `@moe/core`'s `DraftOrigin`) records which Stage 2 band produced this draft —
+// `getDraftOutcomeCounts` filters to `'high-band'` only, since a Mid-band-confirmed draft has
+// already passed a human-confirmation gate before drafting even happens, so it isn't the same
+// classifier-calibration signal VISION §5.4 names.
+type PostAndPersistDraftOptions = {
+  readonly now: Date;
+  readonly origin: DraftOrigin;
+};
+
 // Posts the composed draft in-thread on the source message, persists the "parent-message state"
 // (`pending_ticket_drafts`) keyed on the real posted message, and seeds the 📦/🔁/✅ reaction-gate
 // legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii. This function itself runs no
@@ -171,9 +184,9 @@ type PostAndPersistDraftResult = { readonly ok: true } | { readonly ok: false };
 export async function postAndPersistDraft(
   deps: DraftPostingDeps,
   message: DraftSourceMessage,
-  now: Date,
+  options: PostAndPersistDraftOptions,
 ): Promise<PostAndPersistDraftResult> {
-  const drafted = await composeDraftContent(deps, message, now);
+  const drafted = await composeDraftContent(deps, message, options.now);
   if (drafted === undefined) return { ok: false };
 
   const posted = await postMessage(deps.slackClient, {
@@ -195,6 +208,7 @@ export async function postAndPersistDraft(
     sourceMessageText: message.text,
     draftTitle: drafted.title,
     draftBody: drafted.body,
+    origin: options.origin,
   });
   if (!created.ok) {
     deps.logger.error('failed to persist pending ticket draft', {
@@ -209,12 +223,13 @@ export async function postAndPersistDraft(
     remaining: DRAFT_REACTION_LEGEND,
   });
 
-  deps.logger.info('posted high-band ticket draft', {
+  deps.logger.info('posted ticket draft', {
     personaId: deps.personaId,
     channelId: message.channelId,
     draftId: created.draft.id,
     draftTitle: drafted.title,
     draftBody: drafted.body,
+    origin: options.origin,
   });
   return { ok: true };
 }
@@ -242,7 +257,7 @@ async function composeAndPostDraft(
   const gatePassed = await isSituationallyAppropriate(deps, guardInput);
   if (!gatePassed) return;
 
-  await postAndPersistDraft(deps, message, now);
+  await postAndPersistDraft(deps, message, { now, origin: 'high-band' });
 }
 
 // VISION §5.2's "nothing is silently eaten" backstop (BUILD_PLAN 3.4c) — persists a Low-band

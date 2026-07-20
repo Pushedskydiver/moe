@@ -128,6 +128,8 @@ export type { ConfidenceBand } from './confidence-band.js';
 export { classifyConfidenceBand } from './confidence-band.js';
 
 export type { PendingTicketDraft } from './intake/pending-ticket-draft.js';
+export { draftOriginSchema } from './intake/pending-ticket-draft.js';
+export type { DraftOrigin } from './intake/pending-ticket-draft.js';
 export {
   createPendingTicketDraft,
   getPendingTicketDraftByMessage,
@@ -142,6 +144,16 @@ export type {
   PendingTicketDraftRepositoryError,
   PendingTicketDraftResult,
 } from './intake/pending-ticket-drafts-repository.js';
+
+export {
+  draftOutcomeCountsSchema,
+  getDraftOutcomeCounts,
+} from './intake/draft-outcome-counts.js';
+export type {
+  DraftOutcomeCounts,
+  DraftOutcomeCountsError,
+  DraftOutcomeCountsResult,
+} from './intake/draft-outcome-counts.js';
 
 export { reviewQueueEntrySchema } from './intake/review-queue-entry.js';
 export type { ReviewQueueEntry } from './intake/review-queue-entry.js';

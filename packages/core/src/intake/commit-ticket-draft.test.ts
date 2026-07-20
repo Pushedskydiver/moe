@@ -28,6 +28,7 @@ function newDraftInput() {
     sourceMessageText: 'the export CLI drops rows over 10k',
     draftTitle: 'Export CLI drops rows over 10k',
     draftBody: 'Users report the CSV export truncates past 10,000 rows.',
+    origin: 'high-band' as const,
   };
 }
 
