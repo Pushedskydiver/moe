@@ -216,6 +216,7 @@ function makePendingTicketDraft(
     draftBody: 'The CLI hangs when run against large repos.',
     resolvedAt: null,
     createdAt: new Date('2026-07-16T09:00:00.000Z'),
+    origin: 'high-band',
     ...overrides,
   };
 }
@@ -553,6 +554,7 @@ describe('handleAmbientChannelMessage', () => {
         sourceMessageText: channelMessage.text,
         draftTitle: 'CLI hangs on large repos',
         draftBody: 'The CLI hangs when run against large repos.',
+        origin: 'high-band',
       });
 
       // The 📦/🔁/✅ legend, seeded in order onto the real posted message.
@@ -572,16 +574,14 @@ describe('handleAmbientChannelMessage', () => {
         name: 'white_check_mark',
       });
 
-      expect(deps.logger.info).toHaveBeenCalledWith(
-        'posted high-band ticket draft',
-        {
-          personaId: 'sarah',
-          channelId: 'C123',
-          draftId: '5fa85f64-5717-4562-b3fc-2c963f66afa8',
-          draftTitle: 'CLI hangs on large repos',
-          draftBody: 'The CLI hangs when run against large repos.',
-        },
-      );
+      expect(deps.logger.info).toHaveBeenCalledWith('posted ticket draft', {
+        personaId: 'sarah',
+        channelId: 'C123',
+        draftId: '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+        draftTitle: 'CLI hangs on large repos',
+        draftBody: 'The CLI hangs when run against large repos.',
+        origin: 'high-band',
+      });
 
       // Three LLM calls this turn (classify + appropriateness + compose) — classifier usage
       // (40in/12out, Haiku: 40*1+12*5=100), appropriateness usage (20in/8out, Haiku:
@@ -703,7 +703,7 @@ describe('handleAmbientChannelMessage', () => {
       );
       expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
       expect(deps.logger.info).not.toHaveBeenCalledWith(
-        'posted high-band ticket draft',
+        'posted ticket draft',
         expect.anything(),
       );
     } finally {
@@ -767,7 +767,7 @@ describe('handleAmbientChannelMessage', () => {
       );
       expect(deps.slackClient.reactions.add).toHaveBeenCalledTimes(3);
       expect(deps.logger.info).toHaveBeenCalledWith(
-        'posted high-band ticket draft',
+        'posted ticket draft',
         expect.anything(),
       );
     } finally {
@@ -801,7 +801,7 @@ describe('handleAmbientChannelMessage', () => {
         },
       );
       expect(deps.logger.info).not.toHaveBeenCalledWith(
-        'posted high-band ticket draft',
+        'posted ticket draft',
         expect.anything(),
       );
     } finally {
@@ -865,7 +865,7 @@ describe('handleAmbientChannelMessage', () => {
       );
       expect(deps.confirmingQuestionStore.create).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).not.toHaveBeenCalledWith(
-        'posted high-band ticket draft',
+        'posted ticket draft',
         expect.anything(),
       );
       expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
@@ -992,7 +992,7 @@ describe('handleAmbientChannelMessage', () => {
         },
       );
       expect(deps.logger.info).not.toHaveBeenCalledWith(
-        'posted high-band ticket draft',
+        'posted ticket draft',
         expect.anything(),
       );
       // Classifier + appropriateness-gate usage were recorded — the draft call never succeeded.

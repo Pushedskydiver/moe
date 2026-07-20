@@ -1,5 +1,7 @@
 import type { Logger } from './logger.js';
 import type {
+  DraftOutcomeCounts,
+  DraftOutcomeCountsResult,
   PendingConfirmingQuestion,
   PendingConfirmingQuestionListResult,
   ResolveConfirmingQuestionAndLogResult,
@@ -22,10 +24,19 @@ type PostMessageClient = Parameters<typeof postMessage>[0];
 // schema/architecture choice worth a config parameter yet.
 const SILENCE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
+// BUILD_PLAN 3.6 — the same 24-hour value as `SILENCE_THRESHOLD_MS`, reusing chunk 3.5's own
+// "has the human had a fair chance to react" reasoning, but a separate named constant: this one
+// classifies High-band ticket drafts, a conceptually distinct object from Mid-band confirming
+// questions, and the two thresholds aren't architecturally coupled even though they share a value
+// today. Alex confirmed via `AskUserQuestion`: without this, a draft posted moments before a sweep
+// runs would count as "ignored" before anyone could plausibly have reacted to it yet.
+const IGNORED_DRAFT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
+
 // A standalone-script-scoped DI seam, not `HandlerDeps`'s own `reviewQueueStore`/
-// `confirmingQuestionStore` — this sweep needs `listSince`/`findStale`, methods the live
-// message/reaction handlers never call, so widening those shared types would leak a sweep-only
-// concern into the live server's own DI surface. `alertSlackUserId` reused as a bare string, not
+// `confirmingQuestionStore`/`draftStore` — this sweep needs `listSince`/`findStale`/
+// `getOutcomeCounts`, methods the live message/reaction handlers never call, so widening those
+// shared types would leak a sweep-only concern into the live server's own DI surface.
+// `alertSlackUserId` reused as a bare string, not
 // `HandlerDeps`'s own `costCapConfig` bundle — Alex confirmed via `AskUserQuestion` the same
 // audience as the cost-cap alert ladder (`check-cost-cap.ts`), but this script has no cost-cap
 // concern of its own to route through that bundle for. No `standing-proactive-guards.ts` check
@@ -62,6 +73,12 @@ export type SweepDeps = {
       readonly personaId: string;
       readonly outcomeReason: 'mid-no' | 'mid-silence';
     }) => Promise<ResolveConfirmingQuestionAndLogResult>;
+  };
+  readonly draftStore: {
+    readonly getOutcomeCounts: (scope: {
+      readonly personaId: string;
+      readonly ignoredOlderThan: Date;
+    }) => Promise<DraftOutcomeCountsResult>;
   };
 };
 
@@ -127,6 +144,24 @@ function formatSweepSection(
   ].join('\n');
 }
 
+// BUILD_PLAN 3.6 — the rate is over TERMINAL outcomes only (`committed`/`ignored`); `redone`
+// drafts are still open, not yet a real accept-or-reject signal, so they're shown as a raw count
+// but excluded from the rate's own denominator, matching VISION §5.4's own framing ("the rate of
+// ignored/rejected drafts"). `null` when there's no terminal data yet (a fresh persona, or every
+// draft still too young to classify) rather than a misleading `0%`/`100%`.
+function formatDraftOutcomesLine(counts: DraftOutcomeCounts): string {
+  const terminalTotal = counts.committed + counts.ignored;
+  const rate =
+    terminalTotal === 0
+      ? null
+      : Math.round((counts.committed / terminalTotal) * 100);
+  const rateSuffix = rate === null ? '' : ` — ${rate}% acceptance rate`;
+  return (
+    `📊 Draft outcomes (all time): ${counts.committed} committed, ` +
+    `${counts.redone} redone (open), ${counts.ignored} ignored${rateSuffix}`
+  );
+}
+
 // Section order/coverage derives from `SECTION_LABEL_BY_OUTCOME_REASON`'s own keys, not a second
 // hardcoded literal array — a bare array here previously fell out of sync with a new
 // `outcomeReason` value (the claim-then-act fallback fix's `'mid-yes-failed'` was added to the
@@ -136,8 +171,16 @@ function formatSweepSection(
 // literal-union typing `Record`'s own keys have — the cast recovers it, safe here specifically
 // because `SECTION_LABEL_BY_OUTCOME_REASON`'s own `Record<ReviewQueueEntry['outcomeReason'],
 // string>` type already guarantees its keys are exactly `ReviewQueueEntry['outcomeReason']`.
-function formatSweepMessage(entries: readonly ReviewQueueEntry[]): string {
+// `draftOutcomes` is `null` when the counts fetch itself failed (`postSweepDigest`'s own
+// concern, logged there) — the review-queue digest itself is the sweep's real purpose and still
+// goes out without the draft-outcomes line rather than being blocked by this enrichment failing.
+function formatSweepMessage(
+  entries: readonly ReviewQueueEntry[],
+  draftOutcomes: DraftOutcomeCounts | null,
+): string {
   const header = `📋 Review-queue sweep — ${entries.length} item${entries.length === 1 ? '' : 's'} since last run`;
+  const draftOutcomesLine =
+    draftOutcomes === null ? null : formatDraftOutcomesLine(draftOutcomes);
 
   const outcomeReasons = Object.keys(
     SECTION_LABEL_BY_OUTCOME_REASON,
@@ -152,7 +195,11 @@ function formatSweepMessage(entries: readonly ReviewQueueEntry[]): string {
       formatSweepSection(outcomeReason, group),
     );
 
-  return [header, ...sections].join('\n\n');
+  return [
+    header,
+    ...(draftOutcomesLine === null ? [] : [draftOutcomesLine]),
+    ...sections,
+  ].join('\n\n');
 }
 
 // Extracted from `runReviewQueueSweep` purely to stay under eslint's `max-lines-per-function`
@@ -194,6 +241,28 @@ async function resolveStaleQuestionsAndSweepWindow(
     : new Date(0);
 }
 
+// BUILD_PLAN 3.6 — fetches the draft-outcome counts to enrich the digest with; a failure here logs
+// and returns `null` rather than aborting `postSweepDigest`'s own real purpose (the review-queue
+// digest itself). `null` also skips the draft-outcomes line entirely in `formatSweepMessage`
+// (rather than showing a misleading all-zero line) when the fetch didn't succeed.
+async function fetchDraftOutcomeCounts(
+  deps: SweepDeps,
+  now: Date,
+): Promise<DraftOutcomeCounts | null> {
+  const result = await deps.draftStore.getOutcomeCounts({
+    personaId: deps.personaId,
+    ignoredOlderThan: new Date(now.getTime() - IGNORED_DRAFT_THRESHOLD_MS),
+  });
+  if (!result.ok) {
+    deps.logger.error('failed to fetch draft outcome counts', {
+      personaId: deps.personaId,
+      message: repositoryErrorMessage(result.error),
+    });
+    return null;
+  }
+  return result.counts;
+}
+
 // Extracted from `runReviewQueueSweep` purely to stay under eslint's `max-lines-per-function` —
 // DMs Alex a formatted digest (`formatSweepMessage`), skipped entirely (just logged) when
 // there's nothing new to report. Returns whether the sweep's own "since" window is now safe to
@@ -201,10 +270,16 @@ async function resolveStaleQuestionsAndSweepWindow(
 // real digest existed but the post itself failed (DA review, chunk 3.5: `sweep_state` must not
 // advance past rows Alex was never actually shown, or this backstop defeats its own purpose —
 // those rows would never appear in a future digest either, since `listReviewQueueEntriesSince`'s
-// own `since` boundary would already be past them).
+// own `since` boundary would already be past them). The draft-outcome counts (BUILD_PLAN 3.6) are
+// only fetched here, alongside an existing post — surfacing them "in the 3.5 sweep post" per
+// BUILD_PLAN's own text, not as an independent trigger that would post even when review_queue
+// itself has nothing new (a lifetime-cumulative count is almost never zero once any High-band
+// draft has ever existed, so treating it as its own trigger would defeat the "quiet when nothing
+// new" behavior the digest already has).
 async function postSweepDigest(
   deps: SweepDeps,
   entries: readonly ReviewQueueEntry[],
+  now: Date,
 ): Promise<boolean> {
   if (entries.length === 0) {
     deps.logger.info('review-queue sweep found nothing new', {
@@ -213,9 +288,11 @@ async function postSweepDigest(
     return true;
   }
 
+  const draftOutcomes = await fetchDraftOutcomeCounts(deps, now);
+
   const posted = await postMessage(deps.slackClient, {
     channelId: deps.alertSlackUserId,
-    text: formatSweepMessage(entries),
+    text: formatSweepMessage(entries, draftOutcomes),
   });
   if (!posted.ok) {
     deps.logger.error('failed to post review-queue sweep', {
@@ -236,7 +313,9 @@ async function postSweepDigest(
  * own future ceremony scheduler is the real home for that, not this chunk). Lists every
  * `review_queue` row created since this persona's last sweep
  * (`resolveStaleQuestionsAndSweepWindow`, including any `'mid-silence'` rows this very run just
- * wrote) and DMs a formatted digest (`postSweepDigest`). `sweep_state` is only advanced once
+ * wrote) and DMs a formatted digest (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's
+ * own lifetime-cumulative High-band draft-outcome counts (`fetchDraftOutcomeCounts`), VISION
+ * §5.4's named production metric for the whole intake cascade. `sweep_state` is only advanced once
  * both listing *and* posting actually succeed — either failure leaves it untouched, so the next
  * run re-covers the same window rather than silently skipping past rows Alex was never shown
  * (DA review, chunk 3.5: the posting-failure half of this was originally missed — `sweep_state`
@@ -260,7 +339,7 @@ export async function runReviewQueueSweep(
     return;
   }
 
-  const posted = await postSweepDigest(deps, entries.entries);
+  const posted = await postSweepDigest(deps, entries.entries, now);
   if (!posted) return;
 
   const recorded = await deps.sweepStateStore.recordSweepCompleted({

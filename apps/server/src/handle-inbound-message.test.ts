@@ -207,6 +207,7 @@ function makePendingTicketDraft(
     draftBody: 'The CLI hangs when run against large repos.',
     resolvedAt: null,
     createdAt: new Date('2026-07-16T09:00:00.000Z'),
+    origin: 'high-band',
     ...overrides,
   };
 }

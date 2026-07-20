@@ -43,6 +43,8 @@ describe('runMigrations', () => {
         '0009_widen_review_queue_outcome_reason.sql',
         '0010_create_sweep_state.sql',
         '0011_widen_review_queue_outcome_reason_again.sql',
+        '0012_add_pending_ticket_drafts_redo_count.sql',
+        '0013_add_pending_ticket_drafts_origin.sql',
       ],
     });
 
@@ -61,6 +63,8 @@ describe('runMigrations', () => {
       { id: '0009_widen_review_queue_outcome_reason.sql' },
       { id: '0010_create_sweep_state.sql' },
       { id: '0011_widen_review_queue_outcome_reason_again.sql' },
+      { id: '0012_add_pending_ticket_drafts_redo_count.sql' },
+      { id: '0013_add_pending_ticket_drafts_origin.sql' },
     ]);
   });
 
@@ -333,6 +337,89 @@ describe('runMigrations', () => {
 
     const { rows } = await pool.query('SELECT * FROM review_queue');
     expect(rows).toHaveLength(1);
+  });
+
+  it('adds a redo_count column to pending_ticket_drafts that defaults to 0 and accepts increments (chunk 3.6)', async () => {
+    await runMigrations(pool, migrationsDir);
+    await pool.query(
+      `INSERT INTO pending_ticket_drafts
+         (id, persona_id, channel_id, message_ts, source_message_text, draft_title, draft_body, resolved_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+      [
+        '6fa85f64-5717-4562-b3fc-2c963f66afa9',
+        'sarah',
+        'C123',
+        '1700000000.000100',
+        'the CLI hangs on large repos, can someone take a look',
+        'CLI hangs on large repos',
+        'The CLI hangs when run against large repos.',
+        null,
+        new Date(),
+      ],
+    );
+
+    const { rows: defaultRows } = await pool.query<{ redo_count: number }>(
+      'SELECT redo_count FROM pending_ticket_drafts WHERE id = $1',
+      ['6fa85f64-5717-4562-b3fc-2c963f66afa9'],
+    );
+    expect(defaultRows[0]?.redo_count).toBe(0);
+
+    await pool.query(
+      'UPDATE pending_ticket_drafts SET redo_count = redo_count + 1 WHERE id = $1',
+      ['6fa85f64-5717-4562-b3fc-2c963f66afa9'],
+    );
+    const { rows: incrementedRows } = await pool.query<{
+      redo_count: number;
+    }>('SELECT redo_count FROM pending_ticket_drafts WHERE id = $1', [
+      '6fa85f64-5717-4562-b3fc-2c963f66afa9',
+    ]);
+    expect(incrementedRows[0]?.redo_count).toBe(1);
+  });
+
+  it('defaults a pending_ticket_drafts row with no origin supplied to high-band (chunk 3.6)', async () => {
+    await runMigrations(pool, migrationsDir);
+    await pool.query(
+      `INSERT INTO pending_ticket_drafts
+         (id, persona_id, channel_id, message_ts, source_message_text, draft_title, draft_body, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        '7fa85f64-5717-4562-b3fc-2c963f66afaa',
+        'sarah',
+        'C123',
+        '1700000000.000100',
+        'the CLI hangs on large repos',
+        'CLI hangs on large repos',
+        'The CLI hangs when run against large repos.',
+        new Date(),
+      ],
+    );
+    const { rows } = await pool.query<{ origin: string }>(
+      'SELECT origin FROM pending_ticket_drafts WHERE id = $1',
+      ['7fa85f64-5717-4562-b3fc-2c963f66afaa'],
+    );
+    expect(rows[0]?.origin).toBe('high-band');
+  });
+
+  it('rejects a pending_ticket_drafts row with an invalid origin via the CHECK constraint (chunk 3.6)', async () => {
+    await runMigrations(pool, migrationsDir);
+    await expect(
+      pool.query(
+        `INSERT INTO pending_ticket_drafts
+           (id, persona_id, channel_id, message_ts, source_message_text, draft_title, draft_body, created_at, origin)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
+        [
+          '8fa85f64-5717-4562-b3fc-2c963f66afab',
+          'sarah',
+          'C123',
+          '1700000000.000100',
+          'the CLI hangs on large repos',
+          'CLI hangs on large repos',
+          'The CLI hangs when run against large repos.',
+          new Date(),
+          'bogus-origin',
+        ],
+      ),
+    ).rejects.toThrow();
   });
 
   it('creates a pending_confirming_questions table that accepts a valid unresolved row', async () => {

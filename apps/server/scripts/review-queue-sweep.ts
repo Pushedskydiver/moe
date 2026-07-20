@@ -8,6 +8,7 @@ import {
   createDb,
   createPool,
   findStaleUnresolvedConfirmingQuestions,
+  getDraftOutcomeCounts,
   getSweepState,
   listReviewQueueEntriesSince,
   parseDatabaseConfig,
@@ -72,6 +73,9 @@ await runReviewQueueSweep(
     confirmingQuestionStore: {
       findStale: (scope) => findStaleUnresolvedConfirmingQuestions(db, scope),
       resolveAndLog: (input) => resolveConfirmingQuestionAndLog(db, input),
+    },
+    draftStore: {
+      getOutcomeCounts: (scope) => getDraftOutcomeCounts(db, scope),
     },
   },
   new Date(),

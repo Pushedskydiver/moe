@@ -277,7 +277,7 @@ export async function draftFromConfirmingQuestion(
       ts: claimed.question.sourceMessageTs,
       text: claimed.question.sourceMessageText,
     },
-    now,
+    { now, origin: 'mid-band-confirmed' },
   );
   if (!posted.ok) {
     await logFailedDraftAttempt(deps, claimed.question);

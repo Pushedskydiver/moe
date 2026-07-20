@@ -78,6 +78,18 @@ export type PersonaCostAlertsTable = {
  * DB-backed counterpart, BUILD_PLAN 3.4a-ii). `resolvedAt` is genuinely nullable at both the SQL
  * and app-facing layers (not `Generated`) — an unresolved draft's null-ness is the CAS predicate
  * `resolvePendingTicketDraft` claims against, same shape as `TicketsTable.claimedBy` above.
+ * `redoCount` (BUILD_PLAN 3.6, migration `0012_add_pending_ticket_drafts_redo_count.sql`) is
+ * `Generated<number>` for the same reason `TicketsTable.version` is — a real DB-level `DEFAULT 0`.
+ * Deliberately excluded from `pendingTicketDraftSchema` (the pure domain `PendingTicketDraft`
+ * shape), same reasoning `ticketSchema`'s own TSDoc gives for omitting `version`/`claimedBy`: a
+ * tracking/derivation field, not part of the domain shape a caller round-trips through the app —
+ * only `./intake/draft-outcome-counts.ts`'s own aggregate queries read it directly off this table.
+ * `origin` (BUILD_PLAN 3.6, migration `0013_add_pending_ticket_drafts_origin.sql`) is `TEXT` with
+ * a `CHECK` constraint, not `Generated` — every insert supplies it explicitly (DA review, chunk
+ * 3.6: `getDraftOutcomeCounts` was originally counting both High-band and Mid-band-confirmed
+ * drafts together despite every doc claiming "High-band," skewing the reported acceptance rate).
+ * Unlike `redoCount`, `origin` IS part of `pendingTicketDraftSchema` — it's domain-meaningful
+ * (which Stage 2 band produced this draft), not a derived tracking artifact.
  */
 type PendingTicketDraftsTable = {
   readonly id: string;
@@ -89,6 +101,8 @@ type PendingTicketDraftsTable = {
   readonly draftBody: string;
   readonly resolvedAt: Date | null;
   readonly createdAt: Date;
+  readonly origin: string;
+  readonly redoCount: Generated<number>;
 };
 
 /**

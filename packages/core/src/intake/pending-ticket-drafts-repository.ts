@@ -2,6 +2,8 @@ import type { Database } from '../schema.js';
 import type { PendingTicketDraft } from './pending-ticket-draft.js';
 import type { Kysely } from 'kysely';
 
+import { sql } from 'kysely';
+
 import { pendingTicketDraftSchema } from './pending-ticket-draft.js';
 
 export type NewPendingTicketDraft = Pick<
@@ -12,6 +14,7 @@ export type NewPendingTicketDraft = Pick<
   | 'sourceMessageText'
   | 'draftTitle'
   | 'draftBody'
+  | 'origin'
 >;
 
 export type PendingTicketDraftRepositoryError =
@@ -49,10 +52,13 @@ function parseDraftRow(row: unknown): PendingTicketDraftResult {
 }
 
 /**
- * Persists a High-band ticket draft (BUILD_PLAN 3.4a-i's `composeTicketDraft`) as the "parent-
- * message state" BUILD_PLAN 3.4a-ii's own text names — a real consumer as of BUILD_PLAN 3.4a-iii
- * (`apps/server`'s `postAndPersistDraft`, called once the real post to Slack succeeds, keyed on
- * the posted message's own `ts`). Validates the full candidate row through
+ * Persists a ticket draft's "parent-message state" (BUILD_PLAN 3.4a-ii's own text names it) so a
+ * later Slack reaction on the posted message can be traced back to it — a real consumer as of
+ * BUILD_PLAN 3.4a-iii (`apps/server`'s `postAndPersistDraft`, called once the real post to Slack
+ * succeeds, keyed on the posted message's own `ts`). Shared by both `composeAndPostDraft`'s own
+ * High-band auto-draft path and `draftFromConfirmingQuestion`'s own Mid-band 👍-confirmed path
+ * (`postAndPersistDraft`'s single caller either way) — `input.origin` (BUILD_PLAN 3.6) records
+ * which one produced this particular row. Validates the full candidate row through
  * `pendingTicketDraftSchema` before writing, so an invalid input never reaches the database.
  */
 export async function createPendingTicketDraft(
@@ -135,7 +141,9 @@ export async function resolvePendingTicketDraft(
  * `resolvedAt`, unlike `resolvePendingTicketDraft`'s CAS above: regeneration isn't a terminal claim,
  * so there's no double-processing race to guard against here. Whether redo should even be offered
  * on an already-resolved draft is a business rule for the reaction-event handler that calls this,
- * not this repository function's own concern.
+ * not this repository function's own concern. Also increments `redoCount` (BUILD_PLAN 3.6) — the
+ * signal `./draft-outcome-counts.ts`'s `getDraftOutcomeCounts` uses to distinguish a still-open
+ * draft the human has engaged with from one nobody's touched at all.
  */
 export async function updatePendingTicketDraftContent(
   db: Kysely<Database>,
@@ -145,7 +153,7 @@ export async function updatePendingTicketDraftContent(
   try {
     const row = await db
       .updateTable('pendingTicketDrafts')
-      .set(content)
+      .set({ ...content, redoCount: sql`redo_count + 1` })
       .where('id', '=', id)
       .returningAll()
       .executeTakeFirst();
