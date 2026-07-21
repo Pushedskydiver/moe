@@ -1,12 +1,14 @@
+import type { AppLogger } from '@moe/core';
+
 import { redactSecrets } from './redact-secrets.js';
 
 type LogFields = Readonly<Record<string, unknown>>;
 
-export type Logger = {
-  readonly info: (message: string, fields?: LogFields) => void;
-  readonly warn: (message: string, fields?: LogFields) => void;
-  readonly error: (message: string, fields?: LogFields) => void;
-};
+// apps/server keeps its own name for this app's canonical concrete logger implementation (the
+// type createLogger() actually returns, referenced throughout this package) rather than renaming
+// every call site to the more generic cross-package AppLogger — same shape, aliased not
+// redefined, so there's a single source of truth for the shape itself.
+export type Logger = AppLogger;
 
 type CreateLoggerOpts = {
   readonly secretKeys: readonly string[];

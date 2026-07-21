@@ -209,3 +209,5 @@ export type {
   ResolveConfirmingQuestionAndLogError,
   ResolveConfirmingQuestionAndLogResult,
 } from './intake/resolve-confirming-question-and-log.js';
+
+export type { AppLogger } from './app-logger.js';

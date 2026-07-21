@@ -121,6 +121,9 @@ importers:
 
   packages/github:
     dependencies:
+      '@moe/core':
+        specifier: workspace:*
+        version: link:../core
       '@octokit/auth-app':
         specifier: ^8.2.0
         version: 8.2.0
@@ -135,6 +138,9 @@ importers:
 
   packages/slack:
     dependencies:
+      '@moe/core':
+        specifier: workspace:*
+        version: link:../core
       '@slack/logger':
         specifier: ^5.0.0
         version: 5.0.0

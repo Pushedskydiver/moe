@@ -1,17 +1,4 @@
-type AppLogger = {
-  readonly info: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly warn: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly error: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-};
+import type { AppLogger } from '@moe/core';
 
 // Structural match for @anthropic-ai/sdk's own Logger type (internal/utils/log.d.ts):
 // `{error, warn, info, debug}`, each `(message: string, ...rest: unknown[]) => void`.

@@ -1,3 +1,5 @@
+import type { AppLogger } from '@moe/core';
+
 import { Anthropic } from '@anthropic-ai/sdk';
 
 import { createAnthropicSdkLoggerAdapter } from './create-anthropic-sdk-logger-adapter.js';
@@ -10,21 +12,6 @@ import { createAnthropicSdkLoggerAdapter } from './create-anthropic-sdk-logger-a
 // cost metering, not latency tracking (BUILD_PLAN.md) — revisit this number once there's real
 // latency data from *some* source, not tied to a specific chunk.
 const REQUEST_TIMEOUT_MS = 20_000;
-
-type AppLogger = {
-  readonly info: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly warn: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly error: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-};
 
 /**
  * Single builder for the Anthropic Messages API client — never construct `Anthropic` elsewhere
