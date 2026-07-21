@@ -38,7 +38,8 @@ export type CreateSocketModeListenerOpts = {
   readonly logger: AppLogger;
   // Shared across both the `message` and `reaction_added` listeners below — one process-lifetime
   // cache of every event_id seen, regardless of event type. See `seen-event-cache.ts`'s own TSDoc
-  // for why this closes a real duplicate-delivery gap DA review found at BUILD_PLAN 3.4c.
+  // for why this closes a real duplicate-delivery gap DA review found (PR #47, not a numbered
+  // chunk — session-10's own retrospective is the source of truth here, not a BUILD_PLAN entry).
   readonly seenEventCache: SeenEventCache;
 };
 

@@ -6,7 +6,7 @@ import { createAnthropicSdkLoggerAdapter } from './create-anthropic-sdk-logger-a
 
 // The SDK defaults to a 10-minute timeout (built for long agentic/batch calls) and to a request
 // being retried on timeout, so a worst case with the default could stall far past any chat-turn
-// budget. VISION §11's sub-10s casual-reply latency target isn't enforced by this number alone,
+// budget. VISION §6.4's sub-10s casual-reply latency target isn't enforced by this number alone,
 // but 10 minutes is clearly the wrong shape for a live Slack reply — 20s per attempt leaves real
 // headroom for a genuine completion while still failing fast enough to matter. 2.6a adds token/
 // cost metering, not latency tracking (BUILD_PLAN.md) — revisit this number once there's real
