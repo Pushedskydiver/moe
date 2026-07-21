@@ -16,5 +16,10 @@
     "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@octokit/auth-app": "^8.2.0",
+    "octokit": "^5.0.5",
+    "zod": "^4.4.3"
   }
 }

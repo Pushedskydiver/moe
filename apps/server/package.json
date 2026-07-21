@@ -13,6 +13,7 @@
   "dependencies": {
     "@moe/agents": "workspace:*",
     "@moe/core": "workspace:*",
+    "@moe/github": "workspace:*",
     "@moe/slack": "workspace:*",
     "kysely": "^0.29.3"
   }
