@@ -51,6 +51,21 @@ describe('createGithubSdkLoggerAdapter', () => {
     );
   });
 
+  it('redacts every secret in a multi-secret list via the static list alone, not just the first — values deliberately shaped so GITHUB_TOKEN_PATTERN cannot also catch them, isolating this from the pattern-based redaction covered elsewhere', () => {
+    const logger = makeLogger();
+    const adapter = createGithubSdkLoggerAdapter(logger, [
+      'super-secret-one',
+      'super-secret-two',
+    ]);
+
+    adapter.error('first=super-secret-one second=super-secret-two');
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'first=[REDACTED] second=[REDACTED]',
+      {},
+    );
+  });
+
   it('redacts a known secret value inside the additionalInfo argument', () => {
     const logger = makeLogger();
     const adapter = createGithubSdkLoggerAdapter(logger, [
