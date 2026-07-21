@@ -1,6 +1,20 @@
+import type * as GithubModule from '@moe/github';
+
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { main } from './main.js';
+
+const mocks = vi.hoisted(() => ({
+  validateGithubCredentials: vi.fn(),
+}));
+
+vi.mock('@moe/github', async (importOriginal) => {
+  const actual = await importOriginal<typeof GithubModule>();
+  return {
+    ...actual,
+    validateGithubCredentials: mocks.validateGithubCredentials,
+  };
+});
 
 const VALID_ENV = {
   MOE_PERSONA_ID: 'sarah',
@@ -12,6 +26,9 @@ const VALID_ENV = {
   MOE_COST_CAP_MONTHLY: '50',
   MOE_COST_ALERT_SLACK_USER_ID: 'U0ALEX',
   MOE_WORK_RELEVANT_CHANNEL_IDS: 'C_TEAM,C_INCIDENTS,C_RESEARCH',
+  MOE_GITHUB_APP_ID: '123456',
+  MOE_GITHUB_PRIVATE_KEY: 'fake-key',
+  MOE_GITHUB_INSTALLATION_ID: '789',
   PORT: '0',
 };
 
@@ -20,6 +37,7 @@ describe('main', () => {
 
   beforeEach(() => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    mocks.validateGithubCredentials.mockReset().mockResolvedValue({ ok: true });
   });
 
   afterEach(() => {
@@ -141,6 +159,88 @@ describe('main', () => {
       message: string;
     };
     expect(emitted.message).toBe('invalid channel scope config');
+  });
+
+  it('logs an error and exits without starting a server when the github config is invalid', () => {
+    const exit = vi.fn();
+    const startSlack = vi.fn();
+
+    const server = main(
+      { ...VALID_ENV, MOE_GITHUB_APP_ID: undefined },
+      exit,
+      startSlack,
+    );
+
+    expect(server).toBeUndefined();
+    expect(exit).toHaveBeenCalledWith(1);
+    expect(startSlack).not.toHaveBeenCalled();
+    const emitted = JSON.parse(logSpy.mock.calls[0]?.[0] as string) as {
+      message: string;
+    };
+    expect(emitted.message).toBe('invalid github config');
+  });
+
+  it("logs an error and exits (closing the server) when the github app credential check fails (BUILD_PLAN 4.1's v2-outage boot-time guard)", async () => {
+    mocks.validateGithubCredentials.mockResolvedValue({
+      ok: false,
+      error: {
+        kind: 'invalid-credentials',
+        message: 'secretOrPrivateKey must be an asymmetric key',
+      },
+    });
+    const exit = vi.fn();
+
+    const server = main(VALID_ENV, exit, vi.fn());
+
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    await vi.waitFor(() => expect(server?.listening).toBe(false));
+    const emitted = logSpy.mock.calls.map(
+      (call: unknown[]) => JSON.parse(call[0] as string) as { message: string },
+    );
+    expect(
+      emitted.some(
+        (line: { message: string }) =>
+          line.message === 'invalid github app credentials',
+      ),
+    ).toBe(true);
+  });
+
+  it('logs an error and exits (closing the server) when the github app credential check throws', async () => {
+    mocks.validateGithubCredentials.mockRejectedValue(
+      new Error('ENOTFOUND api.github.com'),
+    );
+    const exit = vi.fn();
+
+    const server = main(VALID_ENV, exit, vi.fn());
+
+    await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
+    await vi.waitFor(() => expect(server?.listening).toBe(false));
+    const emitted = logSpy.mock.calls.map(
+      (call: unknown[]) => JSON.parse(call[0] as string) as { message: string },
+    );
+    expect(
+      emitted.some(
+        (line: { message: string }) =>
+          line.message === 'failed to validate github app credentials',
+      ),
+    ).toBe(true);
+  });
+
+  it('does not exit and starts the slack listener when the github app credential check succeeds', async () => {
+    const exit = vi.fn();
+    const startSlack = vi.fn();
+
+    main(VALID_ENV, exit, startSlack);
+
+    await vi.waitFor(() =>
+      expect(mocks.validateGithubCredentials).toHaveBeenCalledWith({
+        appId: '123456',
+        privateKey: 'fake-key',
+        installationId: 789,
+      }),
+    );
+    expect(exit).not.toHaveBeenCalled();
+    expect(startSlack).toHaveBeenCalledTimes(1);
   });
 
   it('logs an error and signals a failed exit when the HTTP server errors (e.g. port already in use)', async () => {

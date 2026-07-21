@@ -2,6 +2,7 @@ import type { Logger } from './logger.js';
 import type { StartSlackListenerFn } from './start-slack-listener.js';
 import type { CostCapConfig, PersonaConfig } from '@moe/agents';
 import type { ChannelScopeConfig } from '@moe/core';
+import type { GithubConfig } from '@moe/github';
 import type { Server } from 'node:http';
 
 import { createServer } from 'node:http';
@@ -13,22 +14,24 @@ import {
   parsePersonaConfig,
 } from '@moe/agents';
 import { createDb, createPool, parseDatabaseConfig } from '@moe/core';
+import { parseGithubConfig, validateGithubCredentials } from '@moe/github';
 
 import { createHealthHandler } from './health-handler.js';
 import { createLogger } from './logger.js';
 import { resolvePort } from './resolve-port.js';
 import { startSlackListener } from './start-slack-listener.js';
 
-// PersonaConfig's/AnthropicConfig's/DatabaseConfig's own camelCase field names only — not the raw
-// MOE_SLACK_BOT_TOKEN / etc. env var names they're parsed from. No call site logs raw `env`
-// today; extend this list first if one ever does, or a raw env dump would bypass redaction
-// entirely.
+// PersonaConfig's/AnthropicConfig's/DatabaseConfig's/GithubConfig's own camelCase field names
+// only — not the raw MOE_SLACK_BOT_TOKEN / etc. env var names they're parsed from. No call site
+// logs raw `env` today; extend this list first if one ever does, or a raw env dump would bypass
+// redaction entirely.
 const SECRET_KEYS = [
   'slackBotToken',
   'slackSigningSecret',
   'slackAppToken',
   'apiKey',
   'connectionString',
+  'privateKey',
 ];
 
 function startServer(
@@ -49,72 +52,113 @@ type BootConfig = {
   readonly databaseConnectionString: string;
   readonly costCap: CostCapConfig;
   readonly channelScope: ChannelScopeConfig;
+  readonly github: GithubConfig;
 };
 
-/** Parses+validates all five env-boundary configs, logging (redacted) and returning `undefined` on the first invalid one. */
+type EnvParseResult<T> =
+  | { readonly ok: true; readonly config: T }
+  | {
+      readonly ok: false;
+      readonly error: { readonly issues: readonly string[] };
+    };
+
+// Collapses the six-times-repeated "parse, log+bail on failure" shape below — extracted purely to
+// keep `parseBootConfig` under eslint's `max-lines-per-function` once a sixth (GitHub) config
+// joined persona/Anthropic/database/cost-cap/channel-scope. `label` feeds directly into the
+// existing `invalid ${label} config` log-message shape every call site below already used.
+function parseOrLog<T>(
+  result: EnvParseResult<T>,
+  label: string,
+  logger: Logger,
+): T | undefined {
+  if (!result.ok) {
+    logger.error(`invalid ${label} config`, { issues: result.error.issues });
+    return undefined;
+  }
+  return result.config;
+}
+
+/** Parses+validates all six env-boundary configs, logging (redacted) and returning `undefined` on the first invalid one. */
 function parseBootConfig(
   env: Readonly<Record<string, string | undefined>>,
   logger: Logger,
 ): BootConfig | undefined {
-  const parsed = parsePersonaConfig(env);
-  if (!parsed.ok) {
-    logger.error('invalid persona config', { issues: parsed.error.issues });
-    return undefined;
-  }
+  const persona = parseOrLog(parsePersonaConfig(env), 'persona', logger);
+  if (persona === undefined) return undefined;
 
-  const parsedAnthropic = parseAnthropicConfig(env);
-  if (!parsedAnthropic.ok) {
-    logger.error('invalid anthropic config', {
-      issues: parsedAnthropic.error.issues,
-    });
-    return undefined;
-  }
+  const anthropic = parseOrLog(parseAnthropicConfig(env), 'anthropic', logger);
+  if (anthropic === undefined) return undefined;
 
-  const parsedDatabase = parseDatabaseConfig(env);
-  if (!parsedDatabase.ok) {
-    logger.error('invalid database config', {
-      issues: parsedDatabase.error.issues,
-    });
-    return undefined;
-  }
+  const database = parseOrLog(parseDatabaseConfig(env), 'database', logger);
+  if (database === undefined) return undefined;
 
-  const parsedCostCap = parseCostCapConfig(env);
-  if (!parsedCostCap.ok) {
-    logger.error('invalid cost cap config', {
-      issues: parsedCostCap.error.issues,
-    });
-    return undefined;
-  }
+  const costCap = parseOrLog(parseCostCapConfig(env), 'cost cap', logger);
+  if (costCap === undefined) return undefined;
 
-  const parsedChannelScope = parseChannelScopeConfig(env);
-  if (!parsedChannelScope.ok) {
-    logger.error('invalid channel scope config', {
-      issues: parsedChannelScope.error.issues,
-    });
-    return undefined;
-  }
+  const channelScope = parseOrLog(
+    parseChannelScopeConfig(env),
+    'channel scope',
+    logger,
+  );
+  if (channelScope === undefined) return undefined;
+
+  const github = parseOrLog(parseGithubConfig(env), 'github', logger);
+  if (github === undefined) return undefined;
 
   return {
-    persona: parsed.config,
-    anthropicApiKey: parsedAnthropic.config.apiKey,
-    databaseConnectionString: parsedDatabase.config.connectionString,
-    costCap: parsedCostCap.config,
-    channelScope: parsedChannelScope.config,
+    persona,
+    anthropicApiKey: anthropic.apiKey,
+    databaseConnectionString: database.connectionString,
+    costCap,
+    channelScope,
+    github,
   };
 }
 
+// BUILD_PLAN 4.1's boot-time key-validation guard (the v2 outage lesson — a truncated/empty
+// secret previously took the live service down, `docs/GIT.md`'s deploy-safety note). Runs
+// fire-and-forget alongside `startSlack` (called right after this in `main`) rather than blocking
+// it — mirrors `start-slack-listener.ts`'s own `fetchBotUserId`/`auth.test` boot-time credential
+// check, which the HTTP health server also doesn't wait on. Extracted purely to keep `main` under
+// eslint's `max-lines-per-function`.
+function validateGithubAndLog(
+  githubConfig: GithubConfig,
+  logger: Logger,
+  exitAndCloseServer: (code: number) => void,
+): void {
+  validateGithubCredentials(githubConfig)
+    .then((result) => {
+      if (!result.ok) {
+        logger.error('invalid github app credentials', {
+          message: result.error.message,
+        });
+        exitAndCloseServer(1);
+        return;
+      }
+      logger.info('github app credentials validated');
+    })
+    .catch((error: unknown) => {
+      logger.error('failed to validate github app credentials', {
+        message: error instanceof Error ? error.message : String(error),
+      });
+      exitAndCloseServer(1);
+    });
+}
+
 /**
- * Boot sequence for BUILD_PLAN 2.2/2.3/2.4a/2.4b/3.3: load + validate persona, Anthropic,
- * database, cost-cap, and channel-scope config from env, start the health-check HTTP server, open
- * the shared Postgres pool (migrations are a separate manual pre-deploy step — `pnpm --filter
- * @moe/core migrate` — this boot sequence never runs them), connect to Slack over Socket Mode. A
- * DM gets a full LLM-generated reply in the placeholder voice, thread-scoped per
+ * Boot sequence for BUILD_PLAN 2.2/2.3/2.4a/2.4b/3.3/4.1: load + validate persona, Anthropic,
+ * database, cost-cap, channel-scope, and GitHub config from env, start the health-check HTTP
+ * server, open the shared Postgres pool (migrations are a separate manual pre-deploy step —
+ * `pnpm --filter @moe/core migrate` — this boot sequence never runs them), connect to Slack over
+ * Socket Mode. A DM gets a full LLM-generated reply in the placeholder voice, thread-scoped per
  * `resolve-thread-key.ts`; an ambient channel/group message is classified and logged instead
  * (BUILD_PLAN 3.3 — see `handle-inbound-message.ts`). A Slack connection failure only exits the
  * process when it's unrecoverable per isUnrecoverableStartError (permanent misconfiguration — the
- * SDK's own auto-reconnect already handles transient failures); see start-slack-listener.ts.
- * Returns `undefined` on invalid config after logging (redacted) and exiting, so a caller never
- * mistakes a failed boot for a running server.
+ * SDK's own auto-reconnect already handles transient failures); see start-slack-listener.ts. The
+ * GitHub App credential check (`validateGithubAndLog`, BUILD_PLAN 4.1's boot-time key-validation
+ * guard) runs the same way — fire-and-forget, exiting on an unrecoverable failure rather than
+ * blocking startup. Returns `undefined` on invalid config after logging (redacted) and exiting,
+ * so a caller never mistakes a failed boot for a running server.
  */
 export function main(
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -159,6 +203,7 @@ export function main(
     logger.error('server error', { message: error.message });
     exitAndCloseServer(1);
   });
+  validateGithubAndLog(config.github, logger, exitAndCloseServer);
   startSlack(
     {
       config: config.persona,
