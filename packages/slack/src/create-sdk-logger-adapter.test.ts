@@ -52,6 +52,21 @@ describe('createSdkLoggerAdapter', () => {
     );
   });
 
+  it('redacts every secret in a multi-secret list, not just the first', () => {
+    const logger = makeLogger();
+    const adapter = createSdkLoggerAdapter(logger, [
+      'xoxb-real-bot-token',
+      'xapp-real-app-token',
+    ]);
+
+    adapter.error('bot=xoxb-real-bot-token app=xapp-real-app-token');
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'bot=[REDACTED] app=[REDACTED]',
+      {},
+    );
+  });
+
   it('redacts a known secret value inside a positional detail argument (the key-based redactSecrets bypass this exists to close)', () => {
     const logger = makeLogger();
     const adapter = createSdkLoggerAdapter(logger, ['xoxb-real-secret']);
