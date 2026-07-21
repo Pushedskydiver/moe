@@ -49,6 +49,23 @@ describe('createAnthropicSdkLoggerAdapter', () => {
     );
   });
 
+  it('redacts every secret in a multi-secret list, not just the first', () => {
+    const logger = makeLogger();
+    const adapter = createAnthropicSdkLoggerAdapter(logger, [
+      'sk-ant-real-secret-one',
+      'sk-ant-real-secret-two',
+    ]);
+
+    adapter.error(
+      'primary=sk-ant-real-secret-one fallback=sk-ant-real-secret-two',
+    );
+
+    expect(logger.error).toHaveBeenCalledWith(
+      'primary=[REDACTED] fallback=[REDACTED]',
+      {},
+    );
+  });
+
   it('redacts a known secret value inside a positional rest argument', () => {
     const logger = makeLogger();
     const adapter = createAnthropicSdkLoggerAdapter(logger, [

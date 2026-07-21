@@ -17,22 +17,34 @@ const REDACTED_MARKER = '[REDACTED]';
 const GITHUB_TOKEN_PATTERN =
   /\bgh[a-z]_[A-Za-z0-9]+\b|\bgithub_pat_[A-Za-z0-9_]+\b/g;
 
+// Recurses one secret at a time (destructure head/rest, base case, recurse) rather than
+// `.reduce()`, per `docs/CONVENTIONS.md`'s ban — mirrors this codebase's own established pattern
+// for sequential-by-design work over a short list (e.g. `apps/server/src/check-cost-cap.ts`'s
+// `sendCostAlerts`, `packages/core/src/ticket-lifecycle/migrate.ts`'s `applyPending`).
+function redactSecretValues(
+  value: string,
+  secretValues: readonly string[],
+): string {
+  const [secret, ...rest] = secretValues;
+  if (secret === undefined) {
+    return value;
+  }
+
+  const redacted =
+    secret.length > 0 ? value.split(secret).join(REDACTED_MARKER) : value;
+  return redactSecretValues(redacted, rest);
+}
+
 /**
  * Value-based redaction, not key-based — Octokit's own log lines are free-text, so
- * redactSecrets' key-name matching can't reach them. Mirrors
+ * `apps/server/src/redact-secrets.ts`'s key-name matching can't reach them. Mirrors
  * packages/slack/src/create-sdk-logger-adapter.ts's approach for the same reason.
  */
 function redactValue(value: unknown, secretValues: readonly string[]): unknown {
   if (typeof value !== 'string') {
     return value;
   }
-  const staticRedacted = secretValues.reduce(
-    (redacted, secret) =>
-      secret.length > 0
-        ? redacted.split(secret).join(REDACTED_MARKER)
-        : redacted,
-    value,
-  );
+  const staticRedacted = redactSecretValues(value, secretValues);
   return staticRedacted.replace(GITHUB_TOKEN_PATTERN, REDACTED_MARKER);
 }
 
