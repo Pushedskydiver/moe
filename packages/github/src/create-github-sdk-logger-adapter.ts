@@ -1,17 +1,4 @@
-type AppLogger = {
-  readonly info: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly warn: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly error: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-};
+import type { AppLogger } from '@moe/core';
 
 type OctokitLog = {
   readonly debug: (message: string, additionalInfo?: unknown) => void;

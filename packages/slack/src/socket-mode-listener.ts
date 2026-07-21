@@ -1,26 +1,12 @@
 import type { InboundMessage } from './inbound-message.js';
 import type { InboundReaction } from './inbound-reaction.js';
 import type { SeenEventCache } from './seen-event-cache.js';
+import type { AppLogger } from '@moe/core';
 
 import { z } from 'zod';
 
 import { handleSocketModeEvent } from './handle-socket-mode-event.js';
 import { handleSocketModeReactionEvent } from './handle-socket-mode-reaction-event.js';
-
-type ListenerLogger = {
-  readonly info: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly warn: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly error: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-};
 
 // Matches the real EventEmitter#on listener signature (Node's node:events and eventemitter3,
 // which SocketModeClient extends, both type listener args this loosely) — not application data.
@@ -49,10 +35,11 @@ export type CreateSocketModeListenerOpts = {
   // Threaded straight into `handleSocketModeReactionEvent`'s own self-authored-reaction filter —
   // see that module's TSDoc for why this can't be a structural check like `message`'s `bot_id`.
   readonly botUserId: string;
-  readonly logger: ListenerLogger;
+  readonly logger: AppLogger;
   // Shared across both the `message` and `reaction_added` listeners below — one process-lifetime
   // cache of every event_id seen, regardless of event type. See `seen-event-cache.ts`'s own TSDoc
-  // for why this closes a real duplicate-delivery gap DA review found at BUILD_PLAN 3.4c.
+  // for why this closes a real duplicate-delivery gap DA review found (PR #47, not a numbered
+  // chunk — session-10's own retrospective is the source of truth here, not a BUILD_PLAN entry).
   readonly seenEventCache: SeenEventCache;
 };
 

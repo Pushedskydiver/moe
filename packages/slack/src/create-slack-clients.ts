@@ -1,22 +1,9 @@
+import type { AppLogger } from '@moe/core';
+
 import { SocketModeClient } from '@slack/socket-mode';
 import { WebClient } from '@slack/web-api';
 
 import { createSdkLoggerAdapter } from './create-sdk-logger-adapter.js';
-
-type AppLogger = {
-  readonly info: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly warn: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly error: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-};
 
 /**
  * Single builder for the authenticated Web API client — never construct WebClient elsewhere.

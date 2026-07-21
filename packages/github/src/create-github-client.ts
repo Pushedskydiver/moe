@@ -1,24 +1,10 @@
 import type { GithubConfig } from './github-config.js';
+import type { AppLogger } from '@moe/core';
 
 import { createAppAuth } from '@octokit/auth-app';
 import { Octokit } from 'octokit';
 
 import { createGithubSdkLoggerAdapter } from './create-github-sdk-logger-adapter.js';
-
-type AppLogger = {
-  readonly info: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly warn: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly error: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-};
 
 /**
  * Single builder for the authenticated Octokit client — never construct Octokit elsewhere

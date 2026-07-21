@@ -1,21 +1,7 @@
+import type { AppLogger } from '@moe/core';
 import type { Logger as SdkLogger } from '@slack/logger';
 
 import { LogLevel } from '@slack/logger';
-
-type AppLogger = {
-  readonly info: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly warn: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-  readonly error: (
-    message: string,
-    fields?: Readonly<Record<string, unknown>>,
-  ) => void;
-};
 
 const REDACTED_MARKER = '[REDACTED]';
 
