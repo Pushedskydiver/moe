@@ -45,7 +45,7 @@ export async function recordUsageLogged(
   });
   if (!result.ok) {
     deps.logger.error('failed to record LLM cost usage', {
-      message: repositoryErrorMessage(result.error),
+      errorMessage: repositoryErrorMessage(result.error),
     });
   }
 }

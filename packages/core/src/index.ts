@@ -210,4 +210,12 @@ export type {
   ResolveConfirmingQuestionAndLogResult,
 } from './intake/resolve-confirming-question-and-log.js';
 
+export type { GithubIssueTriageEntry } from './intake/github-issue-triage-entry.js';
+export { upsertGithubIssueTriageEntry } from './intake/github-issue-triage-repository.js';
+export type {
+  GithubIssueTriageEntryResult,
+  GithubIssueTriageRepositoryError,
+  NewGithubIssueTriageEntry,
+} from './intake/github-issue-triage-repository.js';
+
 export type { AppLogger } from './app-logger.js';

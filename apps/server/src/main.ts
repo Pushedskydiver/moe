@@ -130,7 +130,7 @@ function validateGithubAndLog(
     .then((result) => {
       if (!result.ok) {
         logger.error('invalid github app credentials', {
-          message: result.error.message,
+          errorMessage: result.error.message,
         });
         exitAndCloseServer(1);
         return;
@@ -139,7 +139,7 @@ function validateGithubAndLog(
     })
     .catch((error: unknown) => {
       logger.error('failed to validate github app credentials', {
-        message: error instanceof Error ? error.message : String(error),
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
       exitAndCloseServer(1);
     });
@@ -194,13 +194,13 @@ export function main(
     server.close();
     db.destroy().catch((error: unknown) => {
       logger.error('failed to close database pool', {
-        message: error instanceof Error ? error.message : String(error),
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     });
     exit(code);
   };
   server.on('error', (error) => {
-    logger.error('server error', { message: error.message });
+    logger.error('server error', { errorMessage: error.message });
     exitAndCloseServer(1);
   });
   validateGithubAndLog(config.github, logger, exitAndCloseServer);

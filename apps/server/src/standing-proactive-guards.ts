@@ -92,7 +92,7 @@ export async function isSituationallyAppropriate(
       {
         personaId: deps.personaId,
         channelId: message.channelId,
-        message: appropriateness.error.message,
+        errorMessage: appropriateness.error.message,
       },
     );
     return false;

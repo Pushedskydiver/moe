@@ -235,7 +235,7 @@ describe('runReviewQueueSweep', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to fetch draft outcome counts',
-      expect.objectContaining({ message: 'Error: connection reset' }),
+      expect.objectContaining({ errorMessage: 'Error: connection reset' }),
     );
     expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -343,7 +343,7 @@ describe('runReviewQueueSweep', () => {
       expect.objectContaining({
         personaId: 'sarah',
         questionId: question.id,
-        message: 'Error: connection reset',
+        errorMessage: 'Error: connection reset',
       }),
     );
   });
@@ -386,7 +386,7 @@ describe('runReviewQueueSweep', () => {
     expect(deps.sweepStateStore.recordSweepCompleted).not.toHaveBeenCalled();
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to list review-queue entries',
-      expect.objectContaining({ message: 'Error: connection reset' }),
+      expect.objectContaining({ errorMessage: 'Error: connection reset' }),
     );
   });
 
@@ -417,7 +417,7 @@ describe('runReviewQueueSweep', () => {
     });
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to read sweep state — falling back to sweeping from the beginning',
-      expect.objectContaining({ message: 'Error: connection reset' }),
+      expect.objectContaining({ errorMessage: 'Error: connection reset' }),
     );
   });
 
@@ -439,7 +439,7 @@ describe('runReviewQueueSweep', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to find stale confirming questions',
-      expect.objectContaining({ message: 'Error: connection reset' }),
+      expect.objectContaining({ errorMessage: 'Error: connection reset' }),
     );
     expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalled();
   });

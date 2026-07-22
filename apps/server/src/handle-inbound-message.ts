@@ -218,7 +218,7 @@ async function fetchHistory(
   );
   if (!result.ok) {
     deps.logger.error('failed to fetch conversation history', {
-      message: repositoryErrorMessage(result.error),
+      errorMessage: repositoryErrorMessage(result.error),
     });
     return [];
   }
@@ -232,7 +232,7 @@ async function appendTurnLogged(
   const result = await deps.historyStore.appendTurn(input);
   if (!result.ok) {
     deps.logger.error('failed to persist conversation turn', {
-      message: repositoryErrorMessage(result.error),
+      errorMessage: repositoryErrorMessage(result.error),
     });
   }
 }
@@ -251,7 +251,7 @@ async function postHaltReply(
   });
   if (!posted.ok) {
     deps.logger.error('failed to post halt reply', {
-      message: posted.error.message,
+      errorMessage: posted.error.message,
     });
   }
 }
@@ -289,7 +289,7 @@ async function generateAndPost(
 
   if (!generated.ok) {
     deps.logger.error('failed to generate reply', {
-      message: generated.error.message,
+      errorMessage: generated.error.message,
     });
   } else {
     await recordUsageLogged(
@@ -317,7 +317,7 @@ async function generateAndPost(
   });
   if (!posted.ok) {
     deps.logger.error('failed to post reply', {
-      message: posted.error.message,
+      errorMessage: posted.error.message,
     });
   }
 

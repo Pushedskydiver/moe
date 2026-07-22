@@ -43,6 +43,16 @@ function writeLine(opts: WriteLineOpts): void {
  * Structured (JSON-lines) logger. Every field payload is passed through `redactSecrets` before
  * serialization, so a caller can log a whole config object without hand-picking safe fields —
  * `secretKeys` is the single place that decides what never reaches stdout.
+ *
+ * **Never name a fields-object key `message`, `level`, or `timestamp`.** `writeLine`'s own spread
+ * order deliberately lets the log line's own metadata win over a caller field with the same
+ * name (`never lets a caller field named level/message/timestamp override the real ones`, this
+ * file's own test) — a real, confirmed bug class: 44 call sites — 41 in this package, plus 3 in
+ * `packages/slack`'s `socket-mode-listener.ts` (any consumer wired to this logger via `AppLogger`,
+ * not just this package) — once used `message: someErrorDetail` for their own error-detail field,
+ * silently discarding it on every single log line, undetected until BUILD_PLAN 4.2 caught it via a
+ * live run. Use `errorMessage` (the fix applied everywhere this recurred) or any other
+ * non-reserved name instead.
  */
 export function createLogger(opts: CreateLoggerOpts): Logger {
   return {

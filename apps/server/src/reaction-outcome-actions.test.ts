@@ -335,7 +335,7 @@ describe('commitTicketDraft (✅)', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to create ticket from draft',
-      { message: 'Error: connection reset' },
+      { errorMessage: 'Error: connection reset' },
     );
   });
 });
@@ -424,7 +424,7 @@ describe('regenerateTicketDraft (🔁)', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to regenerate ticket draft',
-      { message: 'rate limited' },
+      { errorMessage: 'rate limited' },
     );
     expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
     expect(deps.draftStore.updateContent).not.toHaveBeenCalled();
@@ -446,7 +446,7 @@ describe('regenerateTicketDraft (🔁)', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to persist regenerated ticket draft',
-      { message: 'Error: connection reset' },
+      { errorMessage: 'Error: connection reset' },
     );
   });
 });
@@ -541,7 +541,7 @@ describe('draftFromConfirmingQuestion (👍)', () => {
     expect(deps.confirmingQuestionStore.resolve).toHaveBeenCalled();
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to compose ticket draft',
-      { message: 'rate limited' },
+      { errorMessage: 'rate limited' },
     );
     expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
       personaId: 'sarah',
@@ -575,7 +575,7 @@ describe('draftFromConfirmingQuestion (👍)', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to log Mid-band "yes" draft failure to review queue',
-      expect.objectContaining({ message: 'Error: connection reset' }),
+      expect.objectContaining({ errorMessage: 'Error: connection reset' }),
     );
   });
 
@@ -642,7 +642,7 @@ describe('logConfirmingQuestionAsNo (👎)', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to log Mid-band "no" answer to review queue',
-      expect.objectContaining({ message: 'Error: connection reset' }),
+      expect.objectContaining({ errorMessage: 'Error: connection reset' }),
     );
   });
 });

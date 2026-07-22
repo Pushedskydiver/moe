@@ -366,7 +366,7 @@ describe('handleReactionAdded', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to look up pending ticket draft',
-      { message: 'Error: connection reset' },
+      { errorMessage: 'Error: connection reset' },
     );
   });
 
@@ -455,7 +455,7 @@ describe('handleReactionAdded — confirming-question dispatch (BUILD_PLAN 3.4b-
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to look up pending confirming question',
-      { message: 'Error: connection reset' },
+      { errorMessage: 'Error: connection reset' },
     );
   });
 

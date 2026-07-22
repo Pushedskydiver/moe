@@ -62,7 +62,7 @@ async function seedAnswerLegend(
       personaId: deps.personaId,
       channelId: input.message.channelId,
       reactionName: REACTION_NAME_BY_LEGEND_EMOJI[emoji],
-      message: added.error.message,
+      errorMessage: added.error.message,
     });
   }
 
@@ -100,7 +100,7 @@ async function postAndPersistConfirmingQuestion(
   });
   if (!posted.ok) {
     deps.logger.error('failed to post confirming question', {
-      message: posted.error.message,
+      errorMessage: posted.error.message,
     });
     return;
   }
@@ -116,7 +116,7 @@ async function postAndPersistConfirmingQuestion(
   });
   if (!created.ok) {
     deps.logger.error('failed to persist pending confirming question', {
-      message: repositoryErrorMessage(created.error),
+      errorMessage: repositoryErrorMessage(created.error),
     });
     return;
   }

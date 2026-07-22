@@ -1,9 +1,40 @@
 import { z } from 'zod';
 
+// One env var, not two — the installation this App is scoped to already covers exactly one repo
+// (`repository_selection: "selected"`, confirmed live), matching moe's own single-project posture
+// (`docs/VISION.md` §3.4 defers multi-project support). `ctx.addIssue` + `z.NEVER` rather than a
+// `.refine()` after a lossy split, so a malformed value (no slash, more than one, an empty half)
+// fails loudly instead of silently truncating to whatever the first two parts happened to be.
+const githubRepoSchema = z
+  .string()
+  .min(1)
+  .transform((raw, ctx) => {
+    const parts = raw.split('/');
+    const [owner, name] = parts;
+    if (
+      parts.length !== 2 ||
+      owner === undefined ||
+      name === undefined ||
+      owner === '' ||
+      name === '' ||
+      /\s/.test(owner) ||
+      /\s/.test(name)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'must be exactly "owner/name" (a single slash, both parts non-empty, no whitespace)',
+      });
+      return z.NEVER;
+    }
+    return { owner, name };
+  });
+
 const githubConfigSchema = z.object({
   appId: z.string().min(1),
   privateKey: z.string().min(1),
   installationId: z.coerce.number().int().positive(),
+  repo: githubRepoSchema,
 });
 
 export type GithubConfig = z.infer<typeof githubConfigSchema>;
@@ -33,6 +64,7 @@ export function parseGithubConfig(
     appId: env.MOE_GITHUB_APP_ID,
     privateKey: env.MOE_GITHUB_PRIVATE_KEY,
     installationId: env.MOE_GITHUB_INSTALLATION_ID,
+    repo: env.MOE_GITHUB_REPO,
   });
 
   return parsed.success

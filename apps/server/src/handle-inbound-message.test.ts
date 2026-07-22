@@ -425,7 +425,7 @@ describe('createInboundMessageHandler', () => {
     await expect(handler(DM_MESSAGE)).resolves.toBeUndefined();
 
     expect(deps.logger.error).toHaveBeenCalledWith('failed to generate reply', {
-      message: 'rate limited',
+      errorMessage: 'rate limited',
     });
     expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -487,7 +487,7 @@ describe('createInboundMessageHandler', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to record LLM cost usage',
-      { message: 'Error: connection reset' },
+      { errorMessage: 'Error: connection reset' },
     );
   });
 
@@ -658,7 +658,7 @@ describe('createInboundMessageHandler', () => {
     expect(deps.anthropicClient.messages.create).toHaveBeenCalled();
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to fetch monthly cost total',
-      { message: 'Error: connection reset' },
+      { errorMessage: 'Error: connection reset' },
     );
   });
 
@@ -689,7 +689,7 @@ describe('createInboundMessageHandler', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to record cost alert threshold',
-      { message: 'Error: connection reset' },
+      { errorMessage: 'Error: connection reset' },
     );
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'U0ALEX' }),
@@ -735,7 +735,7 @@ describe('createInboundMessageHandler', () => {
 
     await expect(handler(DM_MESSAGE)).resolves.toBeUndefined();
     expect(deps.logger.error).toHaveBeenCalledWith('failed to post reply', {
-      message: 'channel_not_found',
+      errorMessage: 'channel_not_found',
     });
   });
 
@@ -883,7 +883,7 @@ describe('createInboundMessageHandler', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to fetch conversation history',
-      expect.objectContaining({ message: expect.any(String) as string }),
+      expect.objectContaining({ errorMessage: expect.any(String) as string }),
     );
     expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
       expect.objectContaining({

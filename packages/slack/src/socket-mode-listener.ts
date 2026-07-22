@@ -95,7 +95,7 @@ function registerMessageListener(
       }
       opts.logger.error('failed to handle slack message event', {
         eventId,
-        message: error instanceof Error ? error.message : String(error),
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
     });
   });
@@ -124,7 +124,7 @@ function registerReactionAddedListener(
         }
         opts.logger.error('failed to handle slack reaction_added event', {
           eventId,
-          message: error instanceof Error ? error.message : String(error),
+          errorMessage: error instanceof Error ? error.message : String(error),
         });
       });
     },
@@ -143,7 +143,7 @@ export function createSocketModeListener(
 ): SocketModeListener {
   client.on('error', (error: unknown) => {
     opts.logger.error('slack socket mode error', {
-      message: error instanceof Error ? error.message : String(error),
+      errorMessage: error instanceof Error ? error.message : String(error),
     });
   });
 
