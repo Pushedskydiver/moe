@@ -219,3 +219,6 @@ export type {
 } from './intake/github-issue-triage-repository.js';
 
 export type { AppLogger } from './app-logger.js';
+
+export { PERSONA_ROSTER, personaIdSchema } from './persona-roster.js';
+export type { PersonaId } from './persona-roster.js';
