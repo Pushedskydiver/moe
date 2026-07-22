@@ -26,7 +26,15 @@ describe('composeExternalPostBody', () => {
       body: 'Approved — the diff matches the linked ticket.',
     });
 
-    expect(result).toContain('🤖 *Dom (Reviewer)*');
+    expect(result).toBe(
+      [
+        'Approved — the diff matches the linked ticket.',
+        '',
+        '---',
+        "🤖 *Dom (Reviewer)* — Moe's AI teammate system. This content is AI-generated.",
+        'Questions or concerns? @Pushedskydiver can help.',
+      ].join('\n'),
+    );
   });
 
   it('preserves the original body content verbatim, including multiple lines', () => {
@@ -35,5 +43,19 @@ describe('composeExternalPostBody', () => {
     const result = composeExternalPostBody({ personaId: 'riley', body });
 
     expect(result.startsWith(body)).toBe(true);
+  });
+
+  it('produces the attribution block on its own when the body is empty', () => {
+    const result = composeExternalPostBody({ personaId: 'nia', body: '' });
+
+    expect(result).toBe(
+      [
+        '',
+        '',
+        '---',
+        "🤖 *Nia (Scrum Master)* — Moe's AI teammate system. This content is AI-generated.",
+        'Questions or concerns? @Pushedskydiver can help.',
+      ].join('\n'),
+    );
   });
 });

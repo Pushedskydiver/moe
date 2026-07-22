@@ -221,4 +221,4 @@ export type {
 export type { AppLogger } from './app-logger.js';
 
 export { PERSONA_ROSTER, personaIdSchema } from './persona-roster.js';
-export type { PersonaId, PersonaRosterEntry } from './persona-roster.js';
+export type { PersonaId } from './persona-roster.js';

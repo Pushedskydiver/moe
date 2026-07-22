@@ -13,7 +13,7 @@ export const personaIdSchema = z.enum([
 
 export type PersonaId = z.infer<typeof personaIdSchema>;
 
-export type PersonaRosterEntry = {
+type PersonaRosterEntry = {
   readonly displayName: string;
   readonly role: string;
 };
