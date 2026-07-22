@@ -1,17 +1,10 @@
+import type { PersonaId } from '@moe/core';
+
 import { z } from 'zod';
 
-const personaIdSchema = z.enum([
-  'sarah',
-  'marcus',
-  'riley',
-  'priya',
-  'dom',
-  'theo',
-  'nia',
-]);
+import { personaIdSchema } from '@moe/core';
 
-/** The seven confirmed roster IDs (`docs/decisions/CAST-ROSTER.md`, VISION §4.1). Designer excluded — deferred to the 5.0 gate. */
-export type PersonaId = z.infer<typeof personaIdSchema>;
+export type { PersonaId };
 
 const personaConfigSchema = z.object({
   id: personaIdSchema,

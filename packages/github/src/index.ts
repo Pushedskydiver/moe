@@ -9,3 +9,5 @@ export type { ValidateGithubCredentialsResult } from './validate-github-credenti
 export { validateGithubCredentials } from './validate-github-credentials.js';
 export type { ListOpenIssuesResult, OpenIssue } from './list-open-issues.js';
 export { listOpenIssues } from './list-open-issues.js';
+export type { ComposeExternalPostBodyParams } from './compose-external-post-body.js';
+export { composeExternalPostBody } from './compose-external-post-body.js';
