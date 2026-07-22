@@ -218,6 +218,31 @@ export type {
   NewGithubIssueTriageEntry,
 } from './intake/github-issue-triage-repository.js';
 
+export type { TicketGithubIssueLink } from './intake/ticket-github-issue-link.js';
+export {
+  claimTicketForIssueCreation,
+  getTicketGithubIssueLink,
+  listStuckPendingTicketGithubIssueLinks,
+  listTicketsWithoutGithubIssueLink,
+  releaseTicketGithubIssueClaim,
+  resolveTicketGithubIssueLink,
+} from './intake/ticket-github-issue-link-repository.js';
+export type {
+  NewTicketGithubIssueLinkClaim,
+  ReleaseResult,
+  ResolvedTicketGithubIssue,
+  TicketGithubIssueLinkClaimError,
+  TicketGithubIssueLinkClaimResult,
+  TicketGithubIssueLinkListResult,
+  TicketGithubIssueLinkOrNullResult,
+  TicketGithubIssueLinkRepositoryError,
+  TicketGithubIssueLinkResolveError,
+  TicketGithubIssueLinkResolveResult,
+  TicketGithubIssueLinkResult,
+  TicketsWithoutGithubIssueLinkResult,
+  TicketWithoutGithubIssueLink,
+} from './intake/ticket-github-issue-link-repository.js';
+
 export type { AppLogger } from './app-logger.js';
 
 export { PERSONA_ROSTER, personaIdSchema } from './persona-roster.js';

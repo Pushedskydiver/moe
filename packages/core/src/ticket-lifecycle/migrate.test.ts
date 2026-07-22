@@ -46,6 +46,7 @@ describe('runMigrations', () => {
         '0012_add_pending_ticket_drafts_redo_count.sql',
         '0013_add_pending_ticket_drafts_origin.sql',
         '0014_create_github_issue_triage.sql',
+        '0015_create_ticket_github_issue_links.sql',
       ],
     });
 
@@ -67,6 +68,7 @@ describe('runMigrations', () => {
       { id: '0012_add_pending_ticket_drafts_redo_count.sql' },
       { id: '0013_add_pending_ticket_drafts_origin.sql' },
       { id: '0014_create_github_issue_triage.sql' },
+      { id: '0015_create_ticket_github_issue_links.sql' },
     ]);
   });
 

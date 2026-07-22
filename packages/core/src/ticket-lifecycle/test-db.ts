@@ -20,6 +20,9 @@ export function getTestPool(): Pool {
 
 export async function resetDatabase(pool: Pool): Promise<void> {
   await pool.query(
-    'DROP TABLE IF EXISTS tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state, github_issue_triage',
+    // `ticket_github_issue_links` references `tickets` via foreign key — listed first so its
+    // drop doesn't collide with `tickets`' own drop in the same statement (no `CASCADE` needed
+    // when the referencing table is already gone).
+    'DROP TABLE IF EXISTS ticket_github_issue_links, tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state, github_issue_triage',
   );
 }

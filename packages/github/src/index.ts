@@ -11,3 +11,9 @@ export type { ListOpenIssuesResult, OpenIssue } from './list-open-issues.js';
 export { listOpenIssues } from './list-open-issues.js';
 export type { ComposeExternalPostBodyParams } from './compose-external-post-body.js';
 export { composeExternalPostBody } from './compose-external-post-body.js';
+export type {
+  CreatedGithubIssue,
+  CreateGithubIssueParams,
+  CreateGithubIssueResult,
+} from './create-github-issue.js';
+export { createGithubIssue } from './create-github-issue.js';
