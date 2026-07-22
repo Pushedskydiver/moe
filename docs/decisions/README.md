@@ -19,14 +19,15 @@ Adapted from chief-clancy's own `docs/decisions/README.md` — the naming rule c
 
 Decision docs live at `docs/decisions/*.md` (ALLCAPS + flat, matching the top-level `docs/*.md` convention; `README.md` is the standard-casing exception).
 
-| Document                        | Purpose                                                                                                                         |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `SESSION-HANDOFF-AUTOMATION.md` | Whether to automate cross-session handoff; positions considered; why manual stays primary; revisit triggers                     |
-| `TOPOLOGY-AND-DATABASE.md`      | Process topology (N machines, one per persona) × DB choice (Neon Postgres); rejected alternatives; evidence                     |
-| `TRACK-RECORD-DEFINITION.md`    | Track record for multi-directory diffs (minimum), renames (preserved), new directories (no transfer); N = 5                     |
-| `CAST-ROSTER.md`                | Cast redline: keep the 7-role roster, defer Designer, confirm Sarah first; research-backed                                      |
-| `REVIEW-GATE-DISCRETION.md`     | Narrow `copilot-surrogate`'s discretionary trigger to mandatory; decline a gate-checker subagent for now                        |
-| `STAGE-1-CLASSIFIER.md`         | Stage-1 classifier scoring method (bundled structured-output call, no log-probs/prefill) + High/Mid/Low thresholds; eval-backed |
+| Document                        | Purpose                                                                                                                                  |
+| ------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- |
+| `SESSION-HANDOFF-AUTOMATION.md` | Whether to automate cross-session handoff; positions considered; why manual stays primary; revisit triggers                              |
+| `TOPOLOGY-AND-DATABASE.md`      | Process topology (N machines, one per persona) × DB choice (Neon Postgres); rejected alternatives; evidence                              |
+| `TRACK-RECORD-DEFINITION.md`    | Track record for multi-directory diffs (minimum), renames (preserved), new directories (no transfer); N = 5                              |
+| `CAST-ROSTER.md`                | Cast redline: keep the 7-role roster, defer Designer, confirm Sarah first; research-backed                                               |
+| `REVIEW-GATE-DISCRETION.md`     | Narrow `copilot-surrogate`'s discretionary trigger to mandatory; decline a gate-checker subagent for now                                 |
+| `STAGE-1-CLASSIFIER.md`         | Stage-1 classifier scoring method (bundled structured-output call, no log-probs/prefill) + High/Mid/Low thresholds; eval-backed          |
+| `BOARD-AND-CAPACITY-MODEL.md`   | Board home (moe's own DB, GitHub issues as mirror); classes of service (Standard/Expedite); WIP limits (Brief 3/Plan 2/Build 2/Review 2) |
 
 Other significant decisions already made this early (the package graph settled at chunk 0.3; the Messages-API-vs-Agent-SDK model-client choice) are documented in their original locations — `docs/CONVENTIONS.md` §Architecture Enforcement and `docs/VISION.md` §11, respectively — and aren't duplicated here. Backfilling them is optional, not required by this convention.
 

@@ -78,6 +78,8 @@ Tickets pull through a continuous board: `Backlog → Brief → Plan → Build �
 
 **Open question:** WIP limits and classes of service — the mechanisms that give "capacity" an actual ceiling to open against — aren't set yet, even for this single-project build. Resolve before board code is written (§3.4).
 
+**Resolved (2026-07-22), BUILD_PLAN chunk 4.3:** two classes of service (Standard, Expedite — Expedite for `#moe-incidents`-sourced or Critical-severity work), and small starting per-status WIP limits (Brief 3, Plan 2, Build 2, Review 2; Backlog/Done uncapped), revisable once real throughput data exists. Full reasoning and rejected alternatives: `docs/decisions/BOARD-AND-CAPACITY-MODEL.md`.
+
 ### 3.2 Ceremonies
 
 | Ceremony             | Cadence                     | Owner       | Where                  |
@@ -106,6 +108,8 @@ The lifecycle (`Sarah triages → Marcus plans → Riley builds (with Priya) →
 The `team.config.ts` per-project model, project-onboarding flows (greenfield and existing-project), cross-project Kanban, classes of service, and cross-project WIP limits are all real design — needed the day a second project joins — but explicitly **out of scope for the v3 build** per §1.2 and §13. Building any of this now would repeat the scope-spreading pattern that kept the last attempt from finishing the one thing that mattered most.
 
 **Single-project WIP limits and classes of service are a different, in-scope question** — chief-clancy's own board still needs _some_ capacity model even without cross-project arbitration. That's the open question flagged in §3.1; resolve it before board code is written.
+
+**Resolved (2026-07-22), BUILD_PLAN chunk 4.3:** chief-clancy's board lives in moe's own DB (the `tickets` table, already load-bearing since chunk 1.2b) — GitHub issues are an external mirror (chunk 4.2's triage queue, chunk 4.4b's create/link), not the board itself. Full reasoning: `docs/decisions/BOARD-AND-CAPACITY-MODEL.md`.
 
 ---
 
