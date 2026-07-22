@@ -129,7 +129,7 @@ describe('createSocketModeListener', () => {
     client.emit('error', new Error('websocket blew up'));
 
     expect(logger.error).toHaveBeenCalledWith('slack socket mode error', {
-      message: 'websocket blew up',
+      errorMessage: 'websocket blew up',
     });
   });
 

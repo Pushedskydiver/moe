@@ -108,7 +108,7 @@ async function seedReactionLegend(
       personaId: deps.personaId,
       channelId: input.message.channelId,
       reactionName: REACTION_NAME_BY_LEGEND_EMOJI[emoji],
-      message: added.error.message,
+      errorMessage: added.error.message,
     });
   }
 
@@ -130,7 +130,7 @@ async function composeDraftContent(
   });
   if (!drafted.ok) {
     deps.logger.error('failed to compose ticket draft', {
-      message: drafted.error.message,
+      errorMessage: drafted.error.message,
     });
     return undefined;
   }
@@ -196,7 +196,7 @@ export async function postAndPersistDraft(
   });
   if (!posted.ok) {
     deps.logger.error('failed to post ticket draft', {
-      message: posted.error.message,
+      errorMessage: posted.error.message,
     });
     return { ok: false };
   }
@@ -212,7 +212,7 @@ export async function postAndPersistDraft(
   });
   if (!created.ok) {
     deps.logger.error('failed to persist pending ticket draft', {
-      message: repositoryErrorMessage(created.error),
+      errorMessage: repositoryErrorMessage(created.error),
     });
     return { ok: false };
   }
@@ -293,7 +293,7 @@ async function logToReviewQueue(
     deps.logger.error('failed to log low-confidence message to review queue', {
       personaId: deps.personaId,
       channelId: message.channelId,
-      message: repositoryErrorMessage(created.error),
+      errorMessage: repositoryErrorMessage(created.error),
     });
   }
 }
@@ -323,7 +323,7 @@ async function classifyAmbientMessage(
   });
   if (!classified.ok) {
     deps.logger.error('failed to classify inbound message', {
-      message: classified.error.message,
+      errorMessage: classified.error.message,
     });
     return undefined;
   }

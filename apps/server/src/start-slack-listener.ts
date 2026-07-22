@@ -199,7 +199,7 @@ function wireAndStartListener(ctx: ListenerContext): void {
 
   listener.start().catch((error: unknown) => {
     ctx.logger.error('failed to start slack socket mode listener', {
-      message: error instanceof Error ? error.message : String(error),
+      errorMessage: error instanceof Error ? error.message : String(error),
     });
     if (isUnrecoverableStartError(error)) {
       ctx.exit(1);
@@ -242,7 +242,7 @@ export const startSlackListener: StartSlackListenerFn = (
     .then((botUserIdResult) => {
       if (!botUserIdResult.ok) {
         logger.error('failed to fetch bot user id via auth.test', {
-          message: botUserIdResult.error.message,
+          errorMessage: botUserIdResult.error.message,
         });
         exit(1);
         return;
@@ -269,7 +269,7 @@ export const startSlackListener: StartSlackListenerFn = (
       // right call either way, since nothing in the wiring above is expected to throw for a
       // reason a restart would fix.
       logger.error('failed to start slack socket mode listener', {
-        message: error instanceof Error ? error.message : String(error),
+        errorMessage: error instanceof Error ? error.message : String(error),
       });
       exit(1);
     });

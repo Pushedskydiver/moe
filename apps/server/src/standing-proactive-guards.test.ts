@@ -230,7 +230,7 @@ describe('isSituationallyAppropriate', () => {
     expect(result).toBe(false);
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to evaluate situational appropriateness — deferring confirming-question posting (fail-closed)',
-      { personaId: 'sarah', channelId: 'C123', message: 'rate limited' },
+      { personaId: 'sarah', channelId: 'C123', errorMessage: 'rate limited' },
     );
     expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
   });

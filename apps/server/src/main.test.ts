@@ -29,6 +29,7 @@ const VALID_ENV = {
   MOE_GITHUB_APP_ID: '123456',
   MOE_GITHUB_PRIVATE_KEY: 'fake-key',
   MOE_GITHUB_INSTALLATION_ID: '789',
+  MOE_GITHUB_REPO: 'Pushedskydiver/chief-clancy',
   PORT: '0',
 };
 
@@ -237,6 +238,7 @@ describe('main', () => {
         appId: '123456',
         privateKey: 'fake-key',
         installationId: 789,
+        repo: { owner: 'Pushedskydiver', name: 'chief-clancy' },
       }),
     );
     expect(exit).not.toHaveBeenCalled();

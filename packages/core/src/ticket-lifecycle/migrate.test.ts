@@ -45,6 +45,7 @@ describe('runMigrations', () => {
         '0011_widen_review_queue_outcome_reason_again.sql',
         '0012_add_pending_ticket_drafts_redo_count.sql',
         '0013_add_pending_ticket_drafts_origin.sql',
+        '0014_create_github_issue_triage.sql',
       ],
     });
 
@@ -65,6 +66,7 @@ describe('runMigrations', () => {
       { id: '0011_widen_review_queue_outcome_reason_again.sql' },
       { id: '0012_add_pending_ticket_drafts_redo_count.sql' },
       { id: '0013_add_pending_ticket_drafts_origin.sql' },
+      { id: '0014_create_github_issue_triage.sql' },
     ]);
   });
 

@@ -25,7 +25,12 @@ describe('createGithubClient', () => {
     mocks.createGithubSdkLoggerAdapter.mockReturnValue(fakeAdapter);
 
     createGithubClient(
-      { appId: '123456', privateKey: 'fake-key', installationId: 789 },
+      {
+        appId: '123456',
+        privateKey: 'fake-key',
+        installationId: 789,
+        repo: { owner: 'Pushedskydiver', name: 'chief-clancy' },
+      },
       logger,
     );
 

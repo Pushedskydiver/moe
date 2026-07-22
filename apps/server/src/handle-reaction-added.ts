@@ -39,7 +39,7 @@ async function dispatchDraftOutcome(
   });
   if (!found.ok) {
     deps.logger.error('failed to look up pending ticket draft', {
-      message: repositoryErrorMessage(found.error),
+      errorMessage: repositoryErrorMessage(found.error),
     });
     return;
   }
@@ -89,7 +89,7 @@ async function dispatchConfirmingQuestionOutcome(
   });
   if (!found.ok) {
     deps.logger.error('failed to look up pending confirming question', {
-      message: repositoryErrorMessage(found.error),
+      errorMessage: repositoryErrorMessage(found.error),
     });
     return;
   }

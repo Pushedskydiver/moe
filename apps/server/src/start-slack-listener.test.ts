@@ -149,7 +149,7 @@ describe('startSlackListener', () => {
     await vi.waitFor(() => expect(exit).toHaveBeenCalledWith(1));
     expect(logger.error).toHaveBeenCalledWith(
       'failed to fetch bot user id via auth.test',
-      { message: 'invalid_auth' },
+      { errorMessage: 'invalid_auth' },
     );
     expect(mocks.createSocketModeListener).not.toHaveBeenCalled();
   });

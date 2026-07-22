@@ -426,7 +426,7 @@ describe('handleAmbientChannelMessage', () => {
 
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to classify inbound message',
-      { message: 'rate limited' },
+      { errorMessage: 'rate limited' },
     );
     expect(deps.logger.info).not.toHaveBeenCalled();
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
@@ -625,7 +625,7 @@ describe('handleAmbientChannelMessage', () => {
 
       expect(deps.logger.error).toHaveBeenCalledWith(
         'failed to evaluate situational appropriateness — deferring ticket-draft composition (fail-closed)',
-        expect.objectContaining({ message: 'rate limited' }),
+        expect.objectContaining({ errorMessage: 'rate limited' }),
       );
       expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
@@ -699,7 +699,7 @@ describe('handleAmbientChannelMessage', () => {
 
       expect(deps.logger.error).toHaveBeenCalledWith(
         'failed to persist pending ticket draft',
-        { message: 'Error: connection reset' },
+        { errorMessage: 'Error: connection reset' },
       );
       expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
       expect(deps.logger.info).not.toHaveBeenCalledWith(
@@ -733,7 +733,7 @@ describe('handleAmbientChannelMessage', () => {
 
       expect(deps.logger.error).toHaveBeenCalledWith(
         'failed to post ticket draft',
-        { message: 'channel_not_found' },
+        { errorMessage: 'channel_not_found' },
       );
       expect(deps.draftStore.create).not.toHaveBeenCalled();
     } finally {
@@ -938,7 +938,7 @@ describe('handleAmbientChannelMessage', () => {
       {
         personaId: 'sarah',
         channelId: 'C123',
-        message: 'Error: connection reset',
+        errorMessage: 'Error: connection reset',
       },
     );
   });
@@ -988,7 +988,7 @@ describe('handleAmbientChannelMessage', () => {
       expect(deps.logger.error).toHaveBeenCalledWith(
         'failed to compose ticket draft',
         {
-          message: 'rate limited',
+          errorMessage: 'rate limited',
         },
       );
       expect(deps.logger.info).not.toHaveBeenCalledWith(

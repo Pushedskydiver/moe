@@ -20,6 +20,6 @@ export function getTestPool(): Pool {
 
 export async function resetDatabase(pool: Pool): Promise<void> {
   await pool.query(
-    'DROP TABLE IF EXISTS tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state',
+    'DROP TABLE IF EXISTS tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state, github_issue_triage',
   );
 }

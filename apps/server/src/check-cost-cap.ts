@@ -105,12 +105,12 @@ async function sendCostAlerts(
     });
     if (!posted.ok) {
       deps.logger.error('failed to post cost cap alert', {
-        message: posted.error.message,
+        errorMessage: posted.error.message,
       });
     }
   } else if (claimed.error.kind !== 'unavailable') {
     deps.logger.error('failed to record cost alert threshold', {
-      message: repositoryErrorMessage(claimed.error),
+      errorMessage: repositoryErrorMessage(claimed.error),
     });
   }
 
@@ -148,7 +148,7 @@ export async function checkCostCapAndAlert(
   const totalResult = await deps.capStore.getMonthlyCost(scope);
   if (!totalResult.ok) {
     deps.logger.error('failed to fetch monthly cost total', {
-      message: repositoryErrorMessage(totalResult.error),
+      errorMessage: repositoryErrorMessage(totalResult.error),
     });
     return { halt: false };
   }
@@ -156,7 +156,7 @@ export async function checkCostCapAndAlert(
   const alertStateResult = await deps.capStore.getAlertState(scope);
   if (!alertStateResult.ok) {
     deps.logger.error('failed to fetch cost alert state', {
-      message: repositoryErrorMessage(alertStateResult.error),
+      errorMessage: repositoryErrorMessage(alertStateResult.error),
     });
     return { halt: false };
   }

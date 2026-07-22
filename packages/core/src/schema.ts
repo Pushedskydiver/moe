@@ -177,6 +177,25 @@ type SweepStateTable = {
   readonly lastSweptAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `github_issue_triage`
+ * (`./intake/github-issue-triage-entry.ts`'s DB-backed counterpart, BUILD_PLAN 4.2) —
+ * `(repoOwner, repoName, issueNumber)` is a composite `PRIMARY KEY`, same no-surrogate-`id`,
+ * no-history reasoning as `SweepStateTable` above: a given issue has exactly one current tracked
+ * state, upserted on every re-poll rather than accumulating a row per poll.
+ */
+type GithubIssueTriageTable = {
+  readonly repoOwner: string;
+  readonly repoName: string;
+  readonly issueNumber: number;
+  readonly title: string;
+  readonly url: string;
+  readonly state: string;
+  readonly githubUpdatedAt: Date;
+  readonly firstSeenAt: Date;
+  readonly lastSeenAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
@@ -186,4 +205,5 @@ export type Database = {
   readonly reviewQueue: ReviewQueueTable;
   readonly pendingConfirmingQuestions: PendingConfirmingQuestionsTable;
   readonly sweepState: SweepStateTable;
+  readonly githubIssueTriage: GithubIssueTriageTable;
 };

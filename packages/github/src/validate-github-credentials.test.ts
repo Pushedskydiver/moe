@@ -19,6 +19,7 @@ describe('validateGithubCredentials', () => {
       appId: '123456',
       privateKey: 'fake-key',
       installationId: 789,
+      repo: { owner: 'Pushedskydiver', name: 'chief-clancy' },
     });
 
     expect(mocks.createAppAuth).toHaveBeenCalledWith({
@@ -42,6 +43,7 @@ describe('validateGithubCredentials', () => {
       appId: '123456',
       privateKey: 'truncated-key',
       installationId: 789,
+      repo: { owner: 'Pushedskydiver', name: 'chief-clancy' },
     });
 
     expect(result).toEqual({

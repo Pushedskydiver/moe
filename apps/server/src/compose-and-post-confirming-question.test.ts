@@ -333,7 +333,7 @@ describe('composeAndPostConfirmingQuestion', () => {
 
       expect(deps.logger.error).toHaveBeenCalledWith(
         'failed to evaluate situational appropriateness — deferring confirming-question posting (fail-closed)',
-        expect.objectContaining({ message: 'rate limited' }),
+        expect.objectContaining({ errorMessage: 'rate limited' }),
       );
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
     } finally {
@@ -390,7 +390,7 @@ describe('composeAndPostConfirmingQuestion', () => {
 
       expect(deps.logger.error).toHaveBeenCalledWith(
         'failed to post confirming question',
-        { message: 'channel_not_found' },
+        { errorMessage: 'channel_not_found' },
       );
       expect(deps.confirmingQuestionStore.create).not.toHaveBeenCalled();
     } finally {
@@ -421,7 +421,7 @@ describe('composeAndPostConfirmingQuestion', () => {
 
       expect(deps.logger.error).toHaveBeenCalledWith(
         'failed to persist pending confirming question',
-        { message: 'Error: connection reset' },
+        { errorMessage: 'Error: connection reset' },
       );
       expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
     } finally {

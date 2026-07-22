@@ -98,7 +98,7 @@ async function commitAsTicket(
       });
     } else {
       deps.logger.error('failed to create ticket from draft', {
-        message: repositoryErrorMessage(result.error.error),
+        errorMessage: repositoryErrorMessage(result.error.error),
       });
     }
     return;
@@ -162,7 +162,7 @@ export async function regenerateTicketDraft(
   });
   if (!recomposed.ok) {
     deps.logger.error('failed to regenerate ticket draft', {
-      message: recomposed.error.message,
+      errorMessage: recomposed.error.message,
     });
     return;
   }
@@ -182,7 +182,7 @@ export async function regenerateTicketDraft(
   });
   if (!updated.ok) {
     deps.logger.error('failed to persist regenerated ticket draft', {
-      message: repositoryErrorMessage(updated.error),
+      errorMessage: repositoryErrorMessage(updated.error),
     });
     return;
   }
@@ -228,7 +228,7 @@ async function logFailedDraftAttempt(
       {
         personaId: deps.personaId,
         questionId: question.id,
-        message: repositoryErrorMessage(created.error),
+        errorMessage: repositoryErrorMessage(created.error),
       },
     );
   }
@@ -314,7 +314,7 @@ export async function logConfirmingQuestionAsNo(
       deps.logger.error('failed to log Mid-band "no" answer to review queue', {
         personaId: deps.personaId,
         questionId: question.id,
-        message: repositoryErrorMessage(result.error.error),
+        errorMessage: repositoryErrorMessage(result.error.error),
       });
     }
     return;

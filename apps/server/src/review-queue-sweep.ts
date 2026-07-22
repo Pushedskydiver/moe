@@ -110,7 +110,7 @@ async function logStaleQuestionsAsSilent(
     deps.logger.error('failed to log Mid-band silence to review queue', {
       personaId: deps.personaId,
       questionId: question.id,
-      message: repositoryErrorMessage(result.error.error),
+      errorMessage: repositoryErrorMessage(result.error.error),
     });
   }
 
@@ -220,7 +220,7 @@ async function resolveStaleQuestionsAndSweepWindow(
   if (!stale.ok) {
     deps.logger.error('failed to find stale confirming questions', {
       personaId: deps.personaId,
-      message: repositoryErrorMessage(stale.error),
+      errorMessage: repositoryErrorMessage(stale.error),
     });
   } else {
     await logStaleQuestionsAsSilent(deps, stale.questions);
@@ -232,7 +232,7 @@ async function resolveStaleQuestionsAndSweepWindow(
       'failed to read sweep state — falling back to sweeping from the beginning',
       {
         personaId: deps.personaId,
-        message: repositoryErrorMessage(state.error),
+        errorMessage: repositoryErrorMessage(state.error),
       },
     );
   }
@@ -256,7 +256,7 @@ async function fetchDraftOutcomeCounts(
   if (!result.ok) {
     deps.logger.error('failed to fetch draft outcome counts', {
       personaId: deps.personaId,
-      message: repositoryErrorMessage(result.error),
+      errorMessage: repositoryErrorMessage(result.error),
     });
     return null;
   }
@@ -297,7 +297,7 @@ async function postSweepDigest(
   if (!posted.ok) {
     deps.logger.error('failed to post review-queue sweep', {
       personaId: deps.personaId,
-      message: posted.error.message,
+      errorMessage: posted.error.message,
     });
     return false;
   }
@@ -334,7 +334,7 @@ export async function runReviewQueueSweep(
   if (!entries.ok) {
     deps.logger.error('failed to list review-queue entries', {
       personaId: deps.personaId,
-      message: repositoryErrorMessage(entries.error),
+      errorMessage: repositoryErrorMessage(entries.error),
     });
     return;
   }
@@ -349,7 +349,7 @@ export async function runReviewQueueSweep(
   if (!recorded.ok) {
     deps.logger.error('failed to record sweep completion', {
       personaId: deps.personaId,
-      message: repositoryErrorMessage(recorded.error),
+      errorMessage: repositoryErrorMessage(recorded.error),
     });
   }
 }
