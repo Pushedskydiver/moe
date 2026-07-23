@@ -163,6 +163,12 @@ async function createIssuesForTickets(
  * first (a prior run's process crash between claiming and resolving/releasing) and surfaces them
  * for manual reconciliation — deliberately never auto-retried, since this codebase can't tell
  * whether that prior claim's GitHub call actually succeeded without querying GitHub directly.
+ *
+ * No `standing-proactive-guards.ts` check here, deliberately — same reasoning
+ * `review-queue-sweep.ts`'s own TSDoc gives: every real GitHub write this function makes only
+ * happens because Alex personally ran the script at a moment of his own choosing, and VISION
+ * §14's core-hours/weekend rest rule governs a persona acting unprompted, not Alex-triggered admin
+ * tooling. Revisit if this ever gets wired to a scheduler — the premise wouldn't hold anymore.
  */
 export async function createGithubIssuesForTickets(
   deps: CreateGithubIssuesForTicketsDeps,

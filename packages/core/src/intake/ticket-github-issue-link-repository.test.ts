@@ -271,4 +271,52 @@ describe('ticket github issue link repository', () => {
 
     expect(result).toEqual({ ok: true, links: [] });
   });
+
+  it('rejects two tickets resolving to the same (repoOwner, repoName, issueNumber) — the partial unique index', async () => {
+    const first = await seedTicket(db);
+    const second = await seedTicket(db);
+    await claimTicketForIssueCreation(db, {
+      ticketId: first.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+    });
+    await claimTicketForIssueCreation(db, {
+      ticketId: second.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+    });
+    await resolveTicketGithubIssueLink(db, first.id, {
+      issueNumber: 42,
+      issueUrl: 'https://github.com/Pushedskydiver/chief-clancy/issues/42',
+    });
+
+    const result = await resolveTicketGithubIssueLink(db, second.id, {
+      issueNumber: 42,
+      issueUrl: 'https://github.com/Pushedskydiver/chief-clancy/issues/42',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'unknown', cause: expect.anything() as unknown },
+    });
+  });
+
+  it('allows two different tickets to both stay pending (NULL issueNumber) at once — the partial index only scopes resolved rows', async () => {
+    const first = await seedTicket(db);
+    const second = await seedTicket(db);
+
+    const firstClaim = await claimTicketForIssueCreation(db, {
+      ticketId: first.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+    });
+    const secondClaim = await claimTicketForIssueCreation(db, {
+      ticketId: second.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+    });
+
+    expect(firstClaim.ok).toBe(true);
+    expect(secondClaim.ok).toBe(true);
+  });
 });
