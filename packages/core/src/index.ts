@@ -121,14 +121,6 @@ export type {
 } from './core-hours/core-hours-guard.js';
 export { isWithinCoreHoursWindow } from './core-hours/core-hours.js';
 
-export { evaluateWipLimit } from './capacity/wip-limit-guard.js';
-export type {
-  WipLimitDecision,
-  WipLimitReason,
-} from './capacity/wip-limit-guard.js';
-export { DEFAULT_WIP_LIMITS } from './capacity/wip-limits-config.js';
-export type { WipLimitsConfig } from './capacity/wip-limits-config.js';
-
 export type {
   ChannelScopeConfig,
   MessageSurface,
@@ -259,3 +251,11 @@ export type { AppLogger } from './app-logger.js';
 
 export { PERSONA_ROSTER, personaIdSchema } from './persona-roster.js';
 export type { PersonaId } from './persona-roster.js';
+
+export { evaluateWipLimit } from './capacity/wip-limit-guard.js';
+export type {
+  WipLimitDecision,
+  WipLimitReason,
+} from './capacity/wip-limit-guard.js';
+export { DEFAULT_WIP_LIMITS } from './capacity/wip-limits-config.js';
+export type { WipLimitsConfig } from './capacity/wip-limits-config.js';

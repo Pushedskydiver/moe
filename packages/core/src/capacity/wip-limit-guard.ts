@@ -21,8 +21,8 @@ export type WipLimitDecision = {
  *
  * Deliberately scoped to the WIP *cap* only — `classOfService`'s Expedite queue-*ordering*
  * behavior (`docs/decisions/BOARD-AND-CAPACITY-MODEL.md` Decision 2, "jumps ahead of Standard
- * within its board status") is a different concern this function doesn't address; BUILD_PLAN's
- * own 6.1a-i entry now names it as work still owed there.
+ * work within its board status") is a different concern this function doesn't address;
+ * BUILD_PLAN's own 6.1a-i entry now names it as work still owed there.
  */
 export function evaluateWipLimit(
   status: BoardStatus,
