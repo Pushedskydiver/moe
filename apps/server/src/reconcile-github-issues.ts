@@ -16,6 +16,12 @@ type ResolvedTicketGithubIssueLink = Extract<
 
 type IssueRef = { readonly issueNumber: number; readonly issueUrl: string };
 
+// What actually happened to one link — logged in aggregate by `reconcileGithubIssues` so the
+// final summary reflects real outcomes, not just the candidate count (`docs/DA-REVIEW.md`'s named
+// anti-pattern: "if operations can be skipped, track successes, not the input list").
+type ReconcileOutcome =
+  'cancelled' | 'reopened-notice' | 'no-op' | 'skipped-done' | 'error';
+
 // A standalone-script-scoped DI seam, same reasoning `create-github-issues-for-tickets.ts`'s own
 // `CreateGithubIssuesForTicketsDeps` TSDoc gives — this reconciliation poll shares none of its own
 // DI surface with any live message/reaction handler.
@@ -95,9 +101,8 @@ async function lookUpTicket(
   return ticketResult.ticket;
 }
 
-// Extracted purely to stay under `max-lines-per-function`, mirroring
-// `create-github-issues-for-tickets.ts`'s own `logClaimFailure` precedent.
-function cancelClosedTicket(
+// Extracted purely to stay under `max-lines-per-function`.
+async function cancelClosedTicket(
   deps: ReconcileGithubIssuesDeps,
   options: {
     readonly ticketId: string;
@@ -105,37 +110,36 @@ function cancelClosedTicket(
     readonly issueNumber: number;
     readonly issueUrl: string;
   },
-): Promise<TicketOrNullResult> {
+): Promise<ReconcileOutcome> {
   const { ticketId, previousStatus, issueNumber, issueUrl } = options;
-  return deps.ticketStore
-    .update(ticketId, { status: 'Cancelled' })
-    .then((updated) => {
-      if (!updated.ok) {
-        deps.logger.error(
-          'failed to cancel ticket after its linked github issue closed',
-          {
-            ticketId,
-            issueNumber,
-            errorMessage: repositoryErrorMessage(updated.error),
-          },
-        );
-        return updated;
-      }
+  const updated = await deps.ticketStore.update(ticketId, {
+    status: 'Cancelled',
+  });
+  if (!updated.ok) {
+    deps.logger.error(
+      'failed to cancel ticket after its linked github issue closed',
+      {
+        ticketId,
+        issueNumber,
+        errorMessage: repositoryErrorMessage(updated.error),
+      },
+    );
+    return 'error';
+  }
 
-      const logFields = { ticketId, issueNumber, issueUrl, previousStatus };
-      if (IN_PROGRESS_STATUSES.includes(previousStatus)) {
-        deps.logger.warn(
-          'cancelled a ticket with real work potentially in progress — its linked github issue was closed externally',
-          logFields,
-        );
-      } else {
-        deps.logger.info(
-          'cancelled ticket — its linked github issue was closed externally',
-          logFields,
-        );
-      }
-      return updated;
-    });
+  const logFields = { ticketId, issueNumber, issueUrl, previousStatus };
+  if (IN_PROGRESS_STATUSES.includes(previousStatus)) {
+    deps.logger.warn(
+      'cancelled a ticket with real work potentially in progress — its linked github issue was closed externally',
+      logFields,
+    );
+  } else {
+    deps.logger.info(
+      'cancelled ticket — its linked github issue was closed externally',
+      logFields,
+    );
+  }
+  return 'cancelled';
 }
 
 // Alex confirmed via `AskUserQuestion` (BUILD_PLAN 4.4c): `Cancelled` stays terminal even after a
@@ -145,22 +149,23 @@ function noticeIfReopened(
   deps: ReconcileGithubIssuesDeps,
   ticket: Ticket,
   ref: IssueRef,
-): void {
-  if (ticket.status !== 'Cancelled') return;
+): ReconcileOutcome {
+  if (ticket.status !== 'Cancelled') return 'no-op';
   deps.logger.warn('linked github issue reopened after ticket was cancelled', {
     ticketId: ticket.id,
     issueNumber: ref.issueNumber,
     issueUrl: ref.issueUrl,
   });
+  return 'reopened-notice';
 }
 
 async function reconcileClosedIssue(
   deps: ReconcileGithubIssuesDeps,
   ticket: Ticket,
   ref: IssueRef,
-): Promise<void> {
-  if (ticket.status === 'Cancelled') return; // already reconciled — idempotent no-op
-  await cancelClosedTicket(deps, {
+): Promise<ReconcileOutcome> {
+  if (ticket.status === 'Cancelled') return 'no-op'; // already reconciled
+  return cancelClosedTicket(deps, {
     ticketId: ticket.id,
     previousStatus: ticket.status,
     issueNumber: ref.issueNumber,
@@ -181,14 +186,14 @@ async function reconcileClosedIssue(
 async function reconcileLink(
   deps: ReconcileGithubIssuesDeps,
   link: ResolvedTicketGithubIssueLink,
-): Promise<void> {
+): Promise<ReconcileOutcome> {
   const ref = resolveIssueRef(deps, link);
-  if (!ref) return;
+  if (!ref) return 'error';
 
   const ticket = await lookUpTicket(deps, link.ticketId);
-  if (!ticket) return;
+  if (!ticket) return 'error';
 
-  if (ticket.status === 'Done') return;
+  if (ticket.status === 'Done') return 'skipped-done';
 
   const state = await deps.githubClient.getIssueState(ref.issueNumber);
   if (!state.ok) {
@@ -200,35 +205,47 @@ async function reconcileLink(
         errorMessage: getIssueStateErrorMessage(state.error),
       },
     );
-    return;
+    return 'error';
   }
 
   if (state.issue.state === 'open') {
-    noticeIfReopened(deps, ticket, ref);
-    return;
+    return noticeIfReopened(deps, ticket, ref);
   }
 
-  await reconcileClosedIssue(deps, ticket, ref);
+  return reconcileClosedIssue(deps, ticket, ref);
 }
 
 // Recursive, not a loop or `.reduce()` (`docs/CONVENTIONS.md`'s Code Style section bans the
 // latter outright) — matches `create-github-issues-for-tickets.ts`'s own `createIssuesForTickets`
 // precedent for sequential-by-design async work over a short list. One link's failure logs and
-// moves on to the next rather than aborting the whole run.
+// moves on to the next rather than aborting the whole run; each outcome is accumulated so the
+// final summary reflects what actually happened, not just how many links were candidates.
 async function reconcileLinks(
   deps: ReconcileGithubIssuesDeps,
   links: readonly ResolvedTicketGithubIssueLink[],
-): Promise<void> {
+): Promise<readonly ReconcileOutcome[]> {
   const [link, ...rest] = links;
-  if (link === undefined) return;
+  if (link === undefined) return [];
 
-  await reconcileLink(deps, link);
-  await reconcileLinks(deps, rest);
+  const outcome = await reconcileLink(deps, link);
+  return [outcome, ...(await reconcileLinks(deps, rest))];
+}
+
+function countOutcomes(
+  outcomes: readonly ReconcileOutcome[],
+): Record<ReconcileOutcome, number> {
+  return {
+    cancelled: outcomes.filter((o) => o === 'cancelled').length,
+    'reopened-notice': outcomes.filter((o) => o === 'reopened-notice').length,
+    'no-op': outcomes.filter((o) => o === 'no-op').length,
+    'skipped-done': outcomes.filter((o) => o === 'skipped-done').length,
+    error: outcomes.filter((o) => o === 'error').length,
+  };
 }
 
 /**
- * BUILD_PLAN 4.4c's own reconciliation poll — closes the loop chunk 4.4b opened. Triggered manually (same
- * no-scheduled-job-infrastructure precedent `discover-github-issues.ts`/
+ * BUILD_PLAN 4.4c's own reconciliation poll — closes the loop chunk 4.4b opened. Triggered
+ * manually (same no-scheduled-job-infrastructure precedent `discover-github-issues.ts`/
  * `create-github-issues-for-tickets.ts` already established): checks every resolved
  * ticket↔GitHub-issue link's current GitHub state and reflects an external closure as `Cancelled`
  * on the linked ticket. Purely an internal DB status change — no external post, so `4.4a`'s
@@ -250,8 +267,9 @@ export async function reconcileGithubIssues(
     return;
   }
 
-  await reconcileLinks(deps, resolved.links);
+  const outcomes = await reconcileLinks(deps, resolved.links);
   deps.logger.info('github issue reconciliation complete', {
     linkCount: resolved.links.length,
+    ...countOutcomes(outcomes),
   });
 }

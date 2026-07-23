@@ -356,6 +356,63 @@ describe('reconcileGithubIssues', () => {
     expect(update).toHaveBeenCalledWith('t2', { status: 'Cancelled' });
     expect(info).toHaveBeenCalledWith('github issue reconciliation complete', {
       linkCount: 2,
+      cancelled: 1,
+      'reopened-notice': 0,
+      'no-op': 0,
+      'skipped-done': 0,
+      error: 1,
     });
+  });
+
+  it('logs an error and moves on when a resolved link is missing its issue number/url', async () => {
+    const error = vi.fn();
+    const getIssueState = vi.fn();
+    const link = makeLink({ ticketId: 't1', issueNumber: 489 });
+    const deps = makeDeps({
+      logger: { info: vi.fn(), warn: vi.fn(), error },
+      linkStore: {
+        listResolved: vi.fn().mockResolvedValue({
+          ok: true,
+          links: [{ ...link, issueNumber: null, issueUrl: null }],
+        }),
+      },
+      githubClient: { getIssueState },
+      ticketStore: { getById: vi.fn(), update: vi.fn() },
+    });
+
+    await reconcileGithubIssues(deps);
+
+    expect(getIssueState).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      'resolved github issue link is missing its issue number/url — a data integrity violation',
+      { ticketId: 't1' },
+    );
+  });
+
+  it('logs an error and moves on when the linked ticket no longer exists', async () => {
+    const error = vi.fn();
+    const getIssueState = vi.fn();
+    const deps = makeDeps({
+      logger: { info: vi.fn(), warn: vi.fn(), error },
+      linkStore: {
+        listResolved: vi.fn().mockResolvedValue({
+          ok: true,
+          links: [makeLink({ ticketId: 't1', issueNumber: 489 })],
+        }),
+      },
+      githubClient: { getIssueState },
+      ticketStore: {
+        getById: vi.fn().mockResolvedValue({ ok: true, ticket: null }),
+        update: vi.fn(),
+      },
+    });
+
+    await reconcileGithubIssues(deps);
+
+    expect(getIssueState).not.toHaveBeenCalled();
+    expect(error).toHaveBeenCalledWith(
+      'resolved github issue link points at a ticket that no longer exists',
+      { ticketId: 't1' },
+    );
   });
 });
