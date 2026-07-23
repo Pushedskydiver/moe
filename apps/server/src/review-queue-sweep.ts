@@ -41,8 +41,8 @@ const IGNORED_DRAFT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 // audience as the cost-cap alert ladder (`check-cost-cap.ts`), but this script has no cost-cap
 // concern of its own to route through that bundle for. No `standing-proactive-guards.ts` check
 // here either, deliberately — this Slack post only ever happens because Alex personally ran the
-// script at a moment of his own choosing, and VISION §14's core-hours/weekend rest rule governs a
-// persona acting unprompted, not Alex-triggered admin tooling.
+// script at a moment of his own choosing, and VISION §6.4's core-hours rule / §14's weekend rest
+// rule govern a persona acting unprompted, not Alex-triggered admin tooling.
 export type SweepDeps = {
   readonly personaId: string;
   readonly alertSlackUserId: string;
