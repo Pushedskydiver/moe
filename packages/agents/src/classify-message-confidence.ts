@@ -12,7 +12,7 @@ const MAX_TOKENS = 256;
 
 // Freshly authored for this production call site — the ADR's own eval script was throwaway and
 // never committed (BUILD_PLAN 3.1), so this isn't a copy of the original prompt, only informed by
-// the ADR's Decision 4 finding: a real-but-low-priority complaint (its own "coffee machine is
+// the ADR's Decision 3 finding: a real-but-low-priority complaint (its own "coffee machine is
 // broken again" example) should score above pure banter, not get flattened to zero alongside it.
 const CLASSIFIER_SYSTEM_PROMPT =
   'You are a fast triage classifier for a shared team Slack channel. Given a single message, on ' +
