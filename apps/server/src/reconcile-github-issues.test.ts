@@ -29,6 +29,7 @@ function makeTicket(overrides: {
     title: 'The login page returns a 500 on submit',
     status: overrides.status,
     severity: 'Medium',
+    classOfService: 'Standard',
     createdAt: new Date(),
     updatedAt: new Date(),
   };

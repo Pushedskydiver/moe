@@ -1,6 +1,7 @@
 import { z } from 'zod';
 
 import { boardStatusSchema } from './board-status.js';
+import { classOfServiceSchema } from './class-of-service.js';
 import { isNotBlank } from './is-not-blank.js';
 import { projectKeySchema } from './project-key.js';
 import { severitySchema } from './severity.js';
@@ -23,6 +24,7 @@ export const ticketSchema = z
     title: titleSchema,
     status: boardStatusSchema,
     severity: severitySchema,
+    classOfService: classOfServiceSchema,
     createdAt: z.date(),
     updatedAt: z.date(),
   })

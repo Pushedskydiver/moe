@@ -47,6 +47,7 @@ describe('runMigrations', () => {
         '0013_add_pending_ticket_drafts_origin.sql',
         '0014_create_github_issue_triage.sql',
         '0015_create_ticket_github_issue_links.sql',
+        '0016_add_ticket_class_of_service.sql',
       ],
     });
 
@@ -69,6 +70,7 @@ describe('runMigrations', () => {
       { id: '0013_add_pending_ticket_drafts_origin.sql' },
       { id: '0014_create_github_issue_triage.sql' },
       { id: '0015_create_ticket_github_issue_links.sql' },
+      { id: '0016_add_ticket_class_of_service.sql' },
     ]);
   });
 
@@ -488,6 +490,71 @@ describe('runMigrations', () => {
           'A ticket',
           'InProgress',
           'Medium',
+          now,
+        ],
+      ),
+    ).rejects.toThrow();
+  });
+
+  it('defaults a ticket row with no class_of_service supplied to Standard (BUILD_PLAN 4.5)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const now = new Date();
+    await pool.query(
+      `INSERT INTO tickets (id, project_key, title, status, severity, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'chief-clancy',
+        'A ticket',
+        'Backlog',
+        'Medium',
+        now,
+      ],
+    );
+    const { rows } = await pool.query<{ class_of_service: string }>(
+      'SELECT class_of_service FROM tickets WHERE id = $1',
+      ['3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+    );
+    expect(rows[0]?.class_of_service).toBe('Standard');
+  });
+
+  it('accepts a ticket row with class_of_service explicitly set to Expedite (BUILD_PLAN 4.5)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const now = new Date();
+    await pool.query(
+      `INSERT INTO tickets (id, project_key, title, status, severity, class_of_service, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'chief-clancy',
+        'A ticket',
+        'Backlog',
+        'Critical',
+        'Expedite',
+        now,
+      ],
+    );
+    const { rows } = await pool.query<{ class_of_service: string }>(
+      'SELECT class_of_service FROM tickets WHERE id = $1',
+      ['3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+    );
+    expect(rows[0]?.class_of_service).toBe('Expedite');
+  });
+
+  it('rejects a ticket row with an invalid class_of_service via the CHECK constraint (BUILD_PLAN 4.5)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const now = new Date();
+    await expect(
+      pool.query(
+        `INSERT INTO tickets (id, project_key, title, status, severity, class_of_service, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $7)`,
+        [
+          '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+          'chief-clancy',
+          'A ticket',
+          'Backlog',
+          'Medium',
+          'Urgent',
           now,
         ],
       ),

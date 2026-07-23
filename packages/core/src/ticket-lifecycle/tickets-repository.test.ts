@@ -30,6 +30,7 @@ function newTicketInput() {
     title: 'Fix the Slack rate-limit tier lookup',
     status: 'Backlog' as const,
     severity: 'Medium' as const,
+    classOfService: 'Standard' as const,
   };
 }
 
@@ -59,6 +60,7 @@ describe('tickets repository', () => {
     expect(result.ticket.title).toBe('Fix the Slack rate-limit tier lookup');
     expect(result.ticket.status).toBe('Backlog');
     expect(result.ticket.severity).toBe('Medium');
+    expect(result.ticket.classOfService).toBe('Standard');
     expect(result.ticket.createdAt).toEqual(result.ticket.updatedAt);
   });
 

@@ -1,6 +1,9 @@
 export { boardStatusSchema } from './board-status.js';
 export type { BoardStatus } from './board-status.js';
 
+export { classOfServiceSchema } from './class-of-service.js';
+export type { ClassOfService } from './class-of-service.js';
+
 export { projectKeySchema } from './project-key.js';
 export type { ProjectKey } from './project-key.js';
 
@@ -117,6 +120,14 @@ export type {
   OperatingRhythmReason,
 } from './core-hours/core-hours-guard.js';
 export { isWithinCoreHoursWindow } from './core-hours/core-hours.js';
+
+export { evaluateWipLimit } from './capacity/wip-limit-guard.js';
+export type {
+  WipLimitDecision,
+  WipLimitReason,
+} from './capacity/wip-limit-guard.js';
+export { DEFAULT_WIP_LIMITS } from './capacity/wip-limits-config.js';
+export type { WipLimitsConfig } from './capacity/wip-limits-config.js';
 
 export type {
   ChannelScopeConfig,

@@ -59,6 +59,7 @@ describe('createTicketFromDraft', () => {
         projectKey: 'chief-clancy',
         status: 'Brief',
         severity: 'Medium',
+        classOfService: 'Standard',
       },
     });
 
@@ -70,6 +71,7 @@ describe('createTicketFromDraft', () => {
     expect(result.ticket.projectKey).toBe('chief-clancy');
     expect(result.ticket.status).toBe('Brief');
     expect(result.ticket.severity).toBe('Medium');
+    expect(result.ticket.classOfService).toBe('Standard');
 
     const { rows } = await pool.query('SELECT * FROM tickets WHERE id = $1', [
       result.ticket.id,
@@ -86,6 +88,7 @@ describe('createTicketFromDraft', () => {
         projectKey: 'chief-clancy',
         status: 'Brief',
         severity: 'Medium',
+        classOfService: 'Standard',
       },
     });
     if (!first.ok) throw new Error('setup failed');
@@ -96,6 +99,7 @@ describe('createTicketFromDraft', () => {
         projectKey: 'chief-clancy',
         status: 'Backlog',
         severity: 'Medium',
+        classOfService: 'Standard',
       },
     });
 
@@ -116,7 +120,12 @@ describe('createTicketFromDraft', () => {
       // A blank `projectKey` fails `ticketSchema`'s own non-blank validation inside
       // `createTicket`, forcing the transaction's rollback path without needing to simulate a
       // real connection failure.
-      ticket: { projectKey: '', status: 'Brief', severity: 'Medium' },
+      ticket: {
+        projectKey: '',
+        status: 'Brief',
+        severity: 'Medium',
+        classOfService: 'Standard',
+      },
     });
 
     expect(result.ok).toBe(false);

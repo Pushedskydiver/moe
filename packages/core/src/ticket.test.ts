@@ -11,6 +11,7 @@ function validTicket(): Record<string, unknown> {
     title: 'Fix the Slack rate-limit tier lookup',
     status: 'Backlog',
     severity: 'Medium',
+    classOfService: 'Standard',
     createdAt: new Date('2026-07-11T09:00:00.000Z'),
     updatedAt: new Date('2026-07-11T09:00:00.000Z'),
   };
@@ -56,6 +57,14 @@ describe('ticketSchema', () => {
     expect(result.success).toBe(false);
   });
 
+  it('rejects a ticket with an unrecognised class of service', () => {
+    const result = ticketSchema.safeParse({
+      ...validTicket(),
+      classOfService: 'Urgent',
+    });
+    expect(result.success).toBe(false);
+  });
+
   it('rejects a ticket missing projectKey', () => {
     const ticket = validTicket();
     delete ticket.projectKey;
@@ -89,6 +98,7 @@ describe('ticketSchema', () => {
         'Cancelled',
       ),
       severity: fc.constantFrom('Critical', 'High', 'Medium', 'Low'),
+      classOfService: fc.constantFrom('Standard', 'Expedite'),
       createdAt: fc.date({ noInvalidDate: true }),
     });
 
@@ -110,6 +120,7 @@ describe('ticketSchema', () => {
       'title',
       'status',
       'severity',
+      'classOfService',
       'createdAt',
       'updatedAt',
     ] as const;

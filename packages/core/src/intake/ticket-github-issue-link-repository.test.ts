@@ -34,6 +34,7 @@ async function seedTicket(db: Kysely<Database>) {
     title: 'The login page returns a 500 on submit',
     status: 'Brief',
     severity: 'Medium',
+    classOfService: 'Standard',
   });
   if (!created.ok) throw new Error('failed to seed ticket');
   return created.ticket;

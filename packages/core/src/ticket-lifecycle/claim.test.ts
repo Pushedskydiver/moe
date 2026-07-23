@@ -26,6 +26,7 @@ function newTicketInput() {
     title: 'Fix the Slack rate-limit tier lookup',
     status: 'Backlog' as const,
     severity: 'Medium' as const,
+    classOfService: 'Standard' as const,
   };
 }
 
