@@ -167,8 +167,9 @@ async function createIssuesForTickets(
  * No `standing-proactive-guards.ts` check here, deliberately — same reasoning
  * `review-queue-sweep.ts`'s own TSDoc gives: every real GitHub write this function makes only
  * happens because Alex personally ran the script at a moment of his own choosing, and VISION
- * §14's core-hours/weekend rest rule governs a persona acting unprompted, not Alex-triggered admin
- * tooling. Revisit if this ever gets wired to a scheduler — the premise wouldn't hold anymore.
+ * §6.4's core-hours rule / §14's weekend rest rule govern a persona acting unprompted, not
+ * Alex-triggered admin tooling. Revisit if this ever gets wired to a scheduler — the premise
+ * wouldn't hold anymore.
  */
 export async function createGithubIssuesForTickets(
   deps: CreateGithubIssuesForTicketsDeps,
