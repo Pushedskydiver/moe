@@ -236,6 +236,7 @@ function makeTicketStore(overrides: Partial<TicketStore> = {}): TicketStore {
         title: 'CLI hangs on large repos',
         status: 'Brief',
         severity: 'Medium',
+        classOfService: 'Standard',
         createdAt: new Date('2026-07-16T09:00:00.000Z'),
         updatedAt: new Date('2026-07-16T09:00:00.000Z'),
       },

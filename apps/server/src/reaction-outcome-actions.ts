@@ -67,6 +67,13 @@ const PROJECT_KEY = 'chief-clancy';
 // signal exists (Stage 4+ GitHub/board integration, or a human editing it after creation).
 const DEFAULT_SEVERITY = 'Medium';
 
+// docs/decisions/BOARD-AND-CAPACITY-MODEL.md's Decision 3: classOfService is deliberately not
+// derived from severity (a different Kanban concept), so it needs its own placeholder — every
+// auto-drafted ticket gets 'Standard' until a real Expedite-detection signal exists (an
+// #moe-incidents-sourced message, or a real, non-placeholder 'Critical' severity), same
+// hardcoded-until-real-signal shape as `DEFAULT_SEVERITY` above.
+const DEFAULT_CLASS_OF_SERVICE = 'Standard';
+
 /**
  * The ✅/📦 outcomes share everything except the resulting board status — factored out rather than
  * duplicated. `deps.commitDraftAsTicket` (`@moe/core`'s `createTicketFromDraft`) atomically claims
@@ -88,7 +95,12 @@ async function commitAsTicket(
 ): Promise<void> {
   const result = await deps.commitDraftAsTicket({
     draftId: draft.id,
-    ticket: { projectKey: PROJECT_KEY, status, severity: DEFAULT_SEVERITY },
+    ticket: {
+      projectKey: PROJECT_KEY,
+      status,
+      severity: DEFAULT_SEVERITY,
+      classOfService: DEFAULT_CLASS_OF_SERVICE,
+    },
   });
   if (!result.ok) {
     if (result.error.step === 'claim') {

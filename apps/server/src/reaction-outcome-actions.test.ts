@@ -68,6 +68,7 @@ function makeTicketStore(overrides: Partial<TicketStore> = {}): TicketStore {
         title: 'CLI hangs on large repos',
         status: 'Brief',
         severity: 'Medium',
+        classOfService: 'Standard',
         createdAt: new Date('2026-07-18T09:00:00.000Z'),
         updatedAt: new Date('2026-07-18T09:00:00.000Z'),
       },
@@ -159,6 +160,7 @@ function makeCommitDraftAsTicket(result?: CommitTicketDraftResult) {
         title: 'CLI hangs on large repos',
         status: 'Brief',
         severity: 'Medium',
+        classOfService: 'Standard',
         createdAt: new Date('2026-07-18T09:00:00.000Z'),
         updatedAt: new Date('2026-07-18T09:00:00.000Z'),
       },
@@ -292,6 +294,7 @@ describe('commitTicketDraft (✅)', () => {
         projectKey: 'chief-clancy',
         status: 'Brief',
         severity: 'Medium',
+        classOfService: 'Standard',
       },
     });
     expect(deps.logger.info).toHaveBeenCalledWith(
@@ -353,6 +356,7 @@ describe('parkTicketDraftToBacklog (📦)', () => {
         projectKey: 'chief-clancy',
         status: 'Backlog',
         severity: 'Medium',
+        classOfService: 'Standard',
       },
     });
   });

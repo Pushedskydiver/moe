@@ -1,6 +1,9 @@
 export { boardStatusSchema } from './board-status.js';
 export type { BoardStatus } from './board-status.js';
 
+export { classOfServiceSchema } from './class-of-service.js';
+export type { ClassOfService } from './class-of-service.js';
+
 export { projectKeySchema } from './project-key.js';
 export type { ProjectKey } from './project-key.js';
 
@@ -248,3 +251,11 @@ export type { AppLogger } from './app-logger.js';
 
 export { PERSONA_ROSTER, personaIdSchema } from './persona-roster.js';
 export type { PersonaId } from './persona-roster.js';
+
+export { evaluateWipLimit } from './capacity/wip-limit-guard.js';
+export type {
+  WipLimitDecision,
+  WipLimitReason,
+} from './capacity/wip-limit-guard.js';
+export { DEFAULT_WIP_LIMITS } from './capacity/wip-limits-config.js';
+export type { WipLimitsConfig } from './capacity/wip-limits-config.js';

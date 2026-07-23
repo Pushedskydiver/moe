@@ -6,7 +6,7 @@ import { ticketSchema } from '../ticket.js';
 
 export type NewTicket = Pick<
   Ticket,
-  'projectKey' | 'title' | 'status' | 'severity'
+  'projectKey' | 'title' | 'status' | 'severity' | 'classOfService'
 >;
 export type TicketPatch = Partial<NewTicket>;
 
@@ -63,6 +63,7 @@ export async function createTicket(
     title: input.title,
     status: input.status,
     severity: input.severity,
+    classOfService: input.classOfService,
     createdAt: now,
     updatedAt: now,
     claimedBy: null,
