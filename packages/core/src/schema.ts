@@ -18,10 +18,12 @@ import type { Generated } from 'kysely';
  * `classOfService` (BUILD_PLAN 4.5, migration `0016_add_ticket_class_of_service.sql`) is `TEXT`
  * with a `CHECK` constraint, same shape as `status`/`severity` above — not `Generated`, despite
  * having a real DB-level `DEFAULT 'Standard'`: that default exists solely to backfill pre-existing
- * rows on the `ALTER TABLE`, the same one-time historical-data caveat `PendingTicketDraftsTable`'s
- * own `origin` column documents below. Every new insert supplies it explicitly
- * (`tickets-repository.ts`'s `createTicket`, `NewTicket`'s Pick) — `origin` is the direct
- * precedent for this "DB default for backfill, always-explicit for new rows" shape.
+ * rows on the `ALTER TABLE`, the same one-time historical-data caveat migration
+ * `0013_add_pending_ticket_drafts_origin.sql`'s own SQL comment documents for `origin` below
+ * (`PendingTicketDraftsTable`'s own TSDoc doesn't restate it). Every new insert supplies
+ * `classOfService` explicitly (`tickets-repository.ts`'s `createTicket`, `NewTicket`'s Pick) —
+ * `origin` is the direct precedent for this "DB default for backfill, always-explicit for new
+ * rows" shape.
  */
 export type TicketsTable = {
   readonly id: string;
