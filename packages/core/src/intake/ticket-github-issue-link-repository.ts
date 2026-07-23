@@ -239,6 +239,40 @@ export async function listTicketsWithoutGithubIssueLink(
 }
 
 /**
+ * Lists every resolved link (`resolvedAt IS NOT NULL`) — BUILD_PLAN 4.4c's reconciliation poll's
+ * own candidate list, the inverse scope of `listStuckPendingTicketGithubIssueLinks` below: a link
+ * only becomes reconcilable once GitHub's `issues.create` actually succeeded and
+ * `resolveTicketGithubIssueLink` recorded a real `issueNumber`, since there's no GitHub issue yet
+ * to check the state of while a claim is still `pending`.
+ */
+export async function listResolvedTicketGithubIssueLinks(
+  db: Kysely<Database>,
+): Promise<TicketGithubIssueLinkListResult> {
+  try {
+    const rows = await db
+      .selectFrom('ticketGithubIssueLinks')
+      .selectAll()
+      .where('resolvedAt', 'is not', null)
+      .execute();
+
+    const parsedRows = rows.map((row) => parseLinkRow(row));
+    const failure = parsedRows.find((parsed) => !parsed.ok);
+    if (failure) return failure;
+
+    return {
+      ok: true,
+      links: parsedRows
+        .filter(
+          (parsed): parsed is Extract<typeof parsed, { ok: true }> => parsed.ok,
+        )
+        .map((parsed) => parsed.link),
+    };
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
  * Finds every claim left `pending` (`resolvedAt IS NULL`) — surfaced so a human can reconcile a
  * ticket a prior run's process crash left in an unknown state (did `issues.create` actually
  * succeed on GitHub before the crash, or not?) rather than either silently re-attempting it (risks

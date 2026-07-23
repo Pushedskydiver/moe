@@ -222,6 +222,7 @@ export type { TicketGithubIssueLink } from './intake/ticket-github-issue-link.js
 export {
   claimTicketForIssueCreation,
   getTicketGithubIssueLink,
+  listResolvedTicketGithubIssueLinks,
   listStuckPendingTicketGithubIssueLinks,
   listTicketsWithoutGithubIssueLink,
   releaseTicketGithubIssueClaim,

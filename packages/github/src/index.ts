@@ -17,3 +17,8 @@ export type {
   CreateGithubIssueResult,
 } from './create-github-issue.js';
 export { createGithubIssue } from './create-github-issue.js';
+export type {
+  GetGithubIssueStateResult,
+  GithubIssueState,
+} from './get-github-issue-state.js';
+export { getGithubIssueState } from './get-github-issue-state.js';
