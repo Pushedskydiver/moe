@@ -239,7 +239,7 @@ export async function listTicketsWithoutGithubIssueLink(
 }
 
 /**
- * Lists every resolved link (`resolvedAt IS NOT NULL`) — BUILD_PLAN 4.4c's reconciliation poll
+ * Lists every resolved link (`resolvedAt IS NOT NULL`) — BUILD_PLAN 4.4c's reconciliation poll's
  * own candidate list, the inverse scope of `listStuckPendingTicketGithubIssueLinks` below: a link
  * only becomes reconcilable once GitHub's `issues.create` actually succeeded and
  * `resolveTicketGithubIssueLink` recorded a real `issueNumber`, since there's no GitHub issue yet

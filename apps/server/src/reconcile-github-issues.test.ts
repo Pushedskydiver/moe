@@ -317,7 +317,7 @@ describe('reconcileGithubIssues', () => {
     );
   });
 
-  it('processes every link even if one fails, and logs the final count', async () => {
+  it('processes every link even if one fails, and logs real per-outcome counts', async () => {
     const info = vi.fn();
     const ticketA = makeTicket({ id: 't1', status: 'Brief' });
     const ticketB = makeTicket({ id: 't2', status: 'Backlog' });
