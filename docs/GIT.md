@@ -140,7 +140,7 @@ PRs touching multiple packages get multiple labels. Root-only changes (CI, docs,
 ### Rules
 
 - **Do not create ad-hoc labels.** If a new label is needed, discuss first and add it to this list.
-- **One type label per PR.**
+- **One type label per PR** — see Merge Strategy below for why splitting a bundled change into multiple commits on one branch doesn't satisfy this.
 - **Scope labels are additive.**
 
 ## Merge Strategy
@@ -149,6 +149,7 @@ PRs touching multiple packages get multiple labels. Root-only changes (CI, docs,
 - **PR title = squash commit message** — must follow the gitmoji + conventional commit format above.
 - The PR title becomes the single commit message on `main`.
 - **Enforced at the repo level**, not just by convention: merge commits and rebase merges are disabled in GitHub repo settings — squash is the only merge button available. `squash_merge_commit_title` is `PR_TITLE` and `squash_merge_commit_message` is `BLANK`, so the squash commit is exactly the PR title, nothing appended. `delete_branch_on_merge` is on, so the remote branch is deleted automatically the moment a PR merges.
+- **Two unrelated changes need two separate PRs, not two commits bundled into one PR.** Because squash-merge collapses a branch's entire commit history down to the PR title alone, splitting a bundled diff into multiple well-typed _commits_ on the same branch does not satisfy Labels' "one type label per PR" rule if those commits still land in a single PR — only one title survives to `main`, and whichever commit's own rationale isn't chosen loses its permanent record. Caught live (chunk 4.4b's own follow-up fixes, 2026-07-23): a docs-only completeness fix and an unrelated `EnvParseResult` type fix were first split into two properly-typed commits on one branch — that alone doesn't fix a "bundled unrelated changes" finding, since squash-merge is what actually determines the PR's own type. Opened as two genuinely separate PRs instead, each based independently off `main` (not one depending on the other's merge first, since they touched unrelated files).
 
 ## Deploy Flow
 
