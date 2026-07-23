@@ -14,6 +14,7 @@ import { createTicket } from '../ticket-lifecycle/tickets-repository.js';
 import {
   claimTicketForIssueCreation,
   getTicketGithubIssueLink,
+  listResolvedTicketGithubIssueLinks,
   listStuckPendingTicketGithubIssueLinks,
   listTicketsWithoutGithubIssueLink,
   releaseTicketGithubIssueClaim,
@@ -268,6 +269,39 @@ describe('ticket github issue link repository', () => {
     });
 
     const result = await listStuckPendingTicketGithubIssueLinks(db);
+
+    expect(result).toEqual({ ok: true, links: [] });
+  });
+
+  it('listResolvedTicketGithubIssueLinks finds a resolved link', async () => {
+    const ticket = await seedTicket(db);
+    await claimTicketForIssueCreation(db, {
+      ticketId: ticket.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+    });
+    await resolveTicketGithubIssueLink(db, ticket.id, {
+      issueNumber: 489,
+      issueUrl: 'https://github.com/Pushedskydiver/chief-clancy/issues/489',
+    });
+
+    const result = await listResolvedTicketGithubIssueLinks(db);
+
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.links.map((l) => l.ticketId)).toEqual([
+      ticket.id,
+    ]);
+  });
+
+  it('listResolvedTicketGithubIssueLinks excludes a still-pending claim', async () => {
+    const ticket = await seedTicket(db);
+    await claimTicketForIssueCreation(db, {
+      ticketId: ticket.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+    });
+
+    const result = await listResolvedTicketGithubIssueLinks(db);
 
     expect(result).toEqual({ ok: true, links: [] });
   });
