@@ -196,6 +196,28 @@ type GithubIssueTriageTable = {
   readonly lastSeenAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `ticket_github_issue_links`
+ * (`./intake/ticket-github-issue-link.ts`'s DB-backed counterpart, BUILD_PLAN 4.4b) — `ticketId`
+ * is the `PRIMARY KEY` (a ticket maps to at most one GitHub issue), a `REFERENCES tickets (id)`
+ * foreign key. `issueNumber`/`issueUrl`/`resolvedAt` stay nullable until the real GitHub
+ * `issues.create` call resolves them — a genuine two-phase claim-then-resolve, not
+ * `GithubIssueTriageTable`'s stateless upsert-mirror shape, since a real external API call sits
+ * between the row's insert and its resolution. A partial unique index on
+ * `(repoOwner, repoName, issueNumber)` (migration `0015`, `WHERE issueNumber IS NOT NULL`) stops
+ * two tickets from ever resolving to the same GitHub issue, without rejecting the many
+ * still-`NULL` pending rows a partial index deliberately excludes.
+ */
+type TicketGithubIssueLinksTable = {
+  readonly ticketId: string;
+  readonly repoOwner: string;
+  readonly repoName: string;
+  readonly issueNumber: number | null;
+  readonly issueUrl: string | null;
+  readonly resolvedAt: Date | null;
+  readonly createdAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
@@ -206,4 +228,5 @@ export type Database = {
   readonly pendingConfirmingQuestions: PendingConfirmingQuestionsTable;
   readonly sweepState: SweepStateTable;
   readonly githubIssueTriage: GithubIssueTriageTable;
+  readonly ticketGithubIssueLinks: TicketGithubIssueLinksTable;
 };

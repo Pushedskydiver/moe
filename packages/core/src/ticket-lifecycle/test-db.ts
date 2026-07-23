@@ -20,6 +20,13 @@ export function getTestPool(): Pool {
 
 export async function resetDatabase(pool: Pool): Promise<void> {
   await pool.query(
-    'DROP TABLE IF EXISTS tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state, github_issue_triage',
+    // `ticket_github_issue_links` references `tickets` via foreign key — a real bug once existed
+    // here where this list omitted it entirely: Postgres only errors on a dependent table missing
+    // from the same multi-table `DROP TABLE` statement, not on the two tables' relative order
+    // within it (verified directly against a real Postgres instance) — omitting it left `tickets`
+    // undroppable, so this whole statement silently failed and every test in this suite went red
+    // on the very next run. Both tables just need to appear somewhere in the same statement; no
+    // `CASCADE` needed once that's true.
+    'DROP TABLE IF EXISTS ticket_github_issue_links, tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state, github_issue_triage',
   );
 }
