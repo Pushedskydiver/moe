@@ -55,11 +55,19 @@ type BootConfig = {
   readonly github: GithubConfig;
 };
 
+// `kind: 'invalid-config'` matches every real `parse*Config` function's own declared error shape
+// (`ParsePersonaConfigResult`/`ParseAnthropicConfigResult`/etc., one per config parsed below) —
+// this local type had been narrower than what every actual value passed through it already
+// carried, an inconsistency with `docs/CONVENTIONS.md`'s stated house Result shape
+// (`{ ok: false, error: { kind: '<tag>', ...context } }`) that a repo-wide staleness sweep caught.
 type EnvParseResult<T> =
   | { readonly ok: true; readonly config: T }
   | {
       readonly ok: false;
-      readonly error: { readonly issues: readonly string[] };
+      readonly error: {
+        readonly kind: 'invalid-config';
+        readonly issues: readonly string[];
+      };
     };
 
 // Collapses the six-times-repeated "parse, log+bail on failure" shape below — extracted purely to
