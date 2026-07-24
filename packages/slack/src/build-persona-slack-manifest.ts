@@ -7,10 +7,11 @@ import { PERSONA_ROSTER } from '@moe/core';
  * (`chat.postMessage`, `reactions.add`, `auth.test`, `users.profile.get`) and from
  * config-only requirements with no direct call site (`reactions:read` for the `reaction_added`
  * event subscription below, `channels:read` alongside `channels:history` for the ambient-channel
- * classifier gate) — three of these (`reactions:write`, `reactions:read`, `channels:read`) were
- * only ever discovered live against Sarah's real app via `missing_scope` errors (BUILD_PLAN
- * 3.4a-iii, 3.3), not visible from a pure code read. `mpim:history` is deliberately excluded —
- * `raw-message-event.ts`'s own comment confirms Sarah's app has never had it.
+ * classifier gate). Of these, only `users.profile:read` has a documented live-discovery trail —
+ * Sarah's real app didn't have it and the first real `users.profile.get` call returned
+ * `missing_scope` (BUILD_PLAN 2.7b); the other three config-only-reasoned scopes above rest on
+ * that reasoning alone, not a similarly recorded discovery. `mpim:history` is deliberately
+ * excluded — `raw-message-event.ts`'s own comment confirms Alex's app has never had it.
  */
 export const PERSONA_SLACK_BOT_SCOPES: readonly string[] = [
   'chat:write',
@@ -64,8 +65,9 @@ export type SlackAppManifest = {
  * WebSocket (`create-slack-clients.ts`), not a Request URL.
  *
  * NOT independently verified against Sarah's own real, currently-working manifest — do that via
- * `apps.manifest.export` before actually provisioning the other 7 apps, given three of the scopes
- * above were only ever discovered live, never from a code read alone.
+ * `apps.manifest.export` before actually provisioning the other 7 apps, since not every scope
+ * above traces to a documented discovery (only `users.profile:read` does; the rest rest on the
+ * config/call-site reasoning above, unconfirmed against a real exported manifest).
  */
 export function buildPersonaSlackManifest(
   personaId: PersonaId,
