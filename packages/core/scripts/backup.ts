@@ -11,12 +11,17 @@ import {
   buildPgDumpCommand,
   formatEnvFileContents,
   generateBackupFileName,
+  isValidConnectionString,
   parsePgEnvFromConnectionString,
 } from '../dist/index.js';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   console.error('DATABASE_URL is not set.');
+  process.exit(1);
+}
+if (!isValidConnectionString(connectionString)) {
+  console.error('DATABASE_URL is not a valid connection string.');
   process.exit(1);
 }
 

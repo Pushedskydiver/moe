@@ -10,6 +10,7 @@ import {
   buildPgRestoreCommand,
   formatEnvFileContents,
   isShellSafeFileName,
+  isValidConnectionString,
   parsePgEnvFromConnectionString,
   redactConnectionStringForDisplay,
 } from '../dist/index.js';
@@ -17,6 +18,10 @@ import {
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
   console.error('DATABASE_URL is not set — this must be the RESTORE TARGET.');
+  process.exit(1);
+}
+if (!isValidConnectionString(connectionString)) {
+  console.error('DATABASE_URL is not a valid connection string.');
   process.exit(1);
 }
 

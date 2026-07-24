@@ -273,3 +273,4 @@ export { isShellSafeFileName } from './backup/is-shell-safe-file-name.js';
 export { parsePgEnvFromConnectionString } from './backup/pg-env-from-connection-string.js';
 export type { PgConnectionEnv } from './backup/pg-env-from-connection-string.js';
 export { redactConnectionStringForDisplay } from './backup/redact-connection-string-for-display.js';
+export { isValidConnectionString } from './backup/is-valid-connection-string.js';
