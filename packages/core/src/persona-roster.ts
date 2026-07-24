@@ -1,6 +1,6 @@
 import { z } from 'zod';
 
-/** The seven confirmed roster IDs (`docs/decisions/CAST-ROSTER.md`, VISION §4.1). Designer excluded — deferred to the 5.0 gate. */
+/** The eight confirmed roster IDs (`docs/decisions/CAST-ROSTER.md`, VISION §4.1) — Designer (Maya) activated at BUILD_PLAN chunk 5.0. */
 export const personaIdSchema = z.enum([
   'sarah',
   'marcus',
@@ -9,6 +9,7 @@ export const personaIdSchema = z.enum([
   'dom',
   'theo',
   'nia',
+  'maya',
 ]);
 
 export type PersonaId = z.infer<typeof personaIdSchema>;
@@ -33,4 +34,5 @@ export const PERSONA_ROSTER: Readonly<Record<PersonaId, PersonaRosterEntry>> = {
   dom: { displayName: 'Dom', role: 'Reviewer' },
   theo: { displayName: 'Theo', role: 'Researcher' },
   nia: { displayName: 'Nia', role: 'Scrum Master' },
+  maya: { displayName: 'Maya', role: 'Designer' },
 };

@@ -4,13 +4,22 @@ import { PERSONA_ROSTER, personaIdSchema } from './persona-roster.js';
 
 describe('personaIdSchema', () => {
   it('accepts every confirmed roster id', () => {
-    const ids = ['sarah', 'marcus', 'riley', 'priya', 'dom', 'theo', 'nia'];
+    const ids = [
+      'sarah',
+      'marcus',
+      'riley',
+      'priya',
+      'dom',
+      'theo',
+      'nia',
+      'maya',
+    ];
 
     expect(ids.every((id) => personaIdSchema.safeParse(id).success)).toBe(true);
   });
 
   it('rejects a non-roster id', () => {
-    expect(personaIdSchema.safeParse('maya').success).toBe(false);
+    expect(personaIdSchema.safeParse('zara').success).toBe(false);
   });
 });
 
@@ -24,6 +33,7 @@ describe('PERSONA_ROSTER', () => {
       dom: { displayName: 'Dom', role: 'Reviewer' },
       theo: { displayName: 'Theo', role: 'Researcher' },
       nia: { displayName: 'Nia', role: 'Scrum Master' },
+      maya: { displayName: 'Maya', role: 'Designer' },
     });
   });
 });

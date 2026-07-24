@@ -11,7 +11,8 @@
     "sweep:review-queue": "pnpm build && node scripts/review-queue-sweep.ts",
     "discover:github-issues": "pnpm build && node scripts/discover-github-issues.ts",
     "create:github-issues": "pnpm build && node scripts/create-github-issues.ts",
-    "reconcile:github-issues": "pnpm build && node scripts/reconcile-github-issues.ts"
+    "reconcile:github-issues": "pnpm build && node scripts/reconcile-github-issues.ts",
+    "provision:slack-apps": "pnpm build && node scripts/provision-slack-apps.ts"
   },
   "dependencies": {
     "@moe/agents": "workspace:*",
