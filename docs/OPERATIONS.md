@@ -95,12 +95,17 @@ client install — the image version **must track the production Neon project's 
 newer than itself. Neon's project is currently Postgres 18; this is a different pin from the
 `postgres:17-alpine` image CI/local dev use as a Neon stand-in, and the two must not be conflated.
 
-**Secret handling:** the connection string is passed to the container via `--env-file` (a path, not
-a value) rather than as a `docker`/`pg_dump` command-line argument, so it never appears in `docker`'s
-own argv (host-visible via `ps`) — only the short-lived container's own shell ever expands it. The
-temp env file is deleted immediately after the container exits, on every path (success or
-failure) — cleanup runs before any `process.exit()` call, since `process.exit()` does not run
-pending code after it.
+**Secret handling:** the connection string is never passed to `pg_dump`/`pg_restore` as a `--dbname`
+value — a `--dbname=<uri>` argument is expanded by the container's shell and lands in `pg_dump`'s/
+`pg_restore`'s _own_ argv (visible via `docker top <container>`, a distinct process from `docker`
+itself). Instead the connection string is split into discrete `PGHOST`/`PGPORT`/`PGUSER`/
+`PGPASSWORD`/`PGDATABASE`/`PGSSLMODE` values (`parsePgEnvFromConnectionString`) and written to a
+`--env-file` (a path, not a value, so nothing appears in `docker`'s own argv either) — libpq's own
+documented env-var mechanism, so no process ever receives the secret via a command-line argument.
+`pg_restore` still needs an explicit `--dbname="$PGDATABASE"` (unlike `pg_dump`, it refuses to run
+without one), but that's only the database _name_, never the credential. The temp env file is
+deleted immediately after the container exits, on every path (success, failure, or an operator
+Ctrl-C/kill mid-run — `SIGINT`/`SIGTERM` handlers plus a `try/finally` both call the same cleanup).
 
 **Running a backup:**
 
@@ -111,18 +116,24 @@ DATABASE_URL="<source-connection-string>" pnpm --filter @moe/core run backup
 
 **Running a restore — destructive, confirmation required:**
 
+`restore.ts` runs `pg_restore --clean --if-exists`, which **drops existing objects at the target
+before recreating them from the dump.** Two safeguards gate it:
+
+1. `BACKUP_FILE_PATH`'s file name is checked against a shell-safe character allowlist
+   (`isShellSafeFileName`) before it's embedded into the container's restore command — it's
+   operator-supplied input, not caller-generated, and must never be trusted as pre-sanitized.
+2. The confirmation phrase is the target's own **redacted connection string** (credentials
+   stripped, everything else visible), not a static phrase — printed by the script itself, so the
+   operator has to actually look at what they're about to destroy before confirming, and a
+   confirmation copy-pasted for a _different_ database won't match this one:
+
 ```bash
 DATABASE_URL="<TARGET-connection-string>" \
 BACKUP_FILE_PATH="<path-to-.dump-file>" \
-CONFIRM_RESTORE_TARGET=yes-drop-existing-data \
 pnpm --filter @moe/core run restore
+# refuses, printing: CONFIRM_RESTORE_TARGET=postgres://<user>@<host>:<port>/<database>
+# re-run with that exact line added to confirm
 ```
-
-`restore.ts` runs `pg_restore --clean --if-exists`, which **drops existing objects at
-`DATABASE_URL` before recreating them from the dump.** It refuses to run at all unless
-`CONFIRM_RESTORE_TARGET` exactly matches the literal phrase above — this exists to catch a
-copy-pasted wrong connection string before it destroys real data, not to gate a scenario that
-can't happen. Double-check `DATABASE_URL` points at the intended target before setting it.
 
 ---
 

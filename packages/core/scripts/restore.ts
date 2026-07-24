@@ -5,9 +5,14 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join } from 'node:path';
 
-import { buildDockerRunCommand, buildPgRestoreCommand } from '../dist/index.js';
-
-const CONFIRMATION_PHRASE = 'yes-drop-existing-data';
+import {
+  buildDockerRunCommand,
+  buildPgRestoreCommand,
+  formatEnvFileContents,
+  isShellSafeFileName,
+  parsePgEnvFromConnectionString,
+  redactConnectionStringForDisplay,
+} from '../dist/index.js';
 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) {
@@ -21,39 +26,73 @@ if (!backupFilePath) {
   process.exit(1);
 }
 
-// pg_restore runs with --clean --if-exists: it DROPS existing objects at DATABASE_URL before
-// recreating them from the dump. This confirmation exists to catch a copy-pasted wrong
-// connection string before it destroys real data, not to gate a scenario that can't happen.
-if (process.env.CONFIRM_RESTORE_TARGET !== CONFIRMATION_PHRASE) {
+// buildPgRestoreCommand embeds this directly into a shell command string — an operator-supplied
+// BACKUP_FILE_PATH is external input and must be checked before it ever reaches that boundary.
+const fileName = basename(backupFilePath);
+if (!isShellSafeFileName(fileName)) {
   console.error(
-    `This will DROP existing objects in the database at DATABASE_URL and replace them with ` +
-      `the contents of ${backupFilePath}. If that's really what you want, re-run with ` +
-      `CONFIRM_RESTORE_TARGET=${CONFIRMATION_PHRASE}.`,
+    `BACKUP_FILE_PATH's file name contains characters that aren't safe to use here: ${fileName}`,
+  );
+  process.exit(1);
+}
+
+// pg_restore runs with --clean --if-exists: it DROPS existing objects at DATABASE_URL before
+// recreating them from the dump. The confirmation phrase is the target's own redacted connection
+// string (not a static phrase) — the operator has to actually look at what they're about to
+// destroy, and a confirmation copy-pasted for a *different* database won't match this one.
+const redactedTarget = redactConnectionStringForDisplay(connectionString);
+if (process.env.CONFIRM_RESTORE_TARGET !== redactedTarget) {
+  console.error(
+    `This will DROP existing objects in the database at ${redactedTarget} and replace them ` +
+      `with the contents of ${backupFilePath}. If that's really what you want, re-run with ` +
+      `CONFIRM_RESTORE_TARGET=${redactedTarget}`,
   );
   process.exit(1);
 }
 
 const envDir = mkdtempSync(join(tmpdir(), 'moe-restore-'));
 const envFilePath = join(envDir, 'env');
-writeFileSync(envFilePath, `CONN=${connectionString}\n`, { mode: 0o600 });
-
-const dockerCommand = buildDockerRunCommand({
+writeFileSync(
   envFilePath,
-  volumeHostDir: dirname(backupFilePath),
-  shellCommand: buildPgRestoreCommand(basename(backupFilePath)),
-  readOnly: true,
+  formatEnvFileContents(parsePgEnvFromConnectionString(connectionString)),
+  { mode: 0o600 },
+);
+
+// Cleanup must run no matter how the docker invocation ends — see backup.ts's own identical
+// comment on this same pattern.
+let cleanedUp = false;
+function cleanup(): void {
+  if (cleanedUp) return;
+  cleanedUp = true;
+  rmSync(envDir, { recursive: true, force: true });
+}
+process.on('SIGINT', () => {
+  cleanup();
+  process.exit(1);
+});
+process.on('SIGTERM', () => {
+  cleanup();
+  process.exit(1);
 });
 
-const exitCode = await runDockerCommand(dockerCommand);
-// Cleanup must happen before process.exit() below — see backup.ts's own identical comment.
-rmSync(envDir, { recursive: true, force: true });
+try {
+  const dockerCommand = buildDockerRunCommand({
+    envFilePath,
+    volumeHostDir: dirname(backupFilePath),
+    shellCommand: buildPgRestoreCommand(fileName),
+    readOnly: true,
+  });
 
-if (exitCode !== 0) {
-  console.error(`pg_restore failed (exit code ${exitCode}).`);
-  process.exit(exitCode);
+  const exitCode = await runDockerCommand(dockerCommand);
+  if (exitCode !== 0) {
+    console.error(`pg_restore failed (exit code ${exitCode}).`);
+    process.exitCode = exitCode;
+  } else {
+    console.log(`Restore complete from: ${backupFilePath}`);
+  }
+} finally {
+  cleanup();
 }
-
-console.log(`Restore complete from: ${backupFilePath}`);
 
 function runDockerCommand(command: {
   command: string;

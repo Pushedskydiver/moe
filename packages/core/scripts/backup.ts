@@ -9,7 +9,9 @@ import { fileURLToPath } from 'node:url';
 import {
   buildDockerRunCommand,
   buildPgDumpCommand,
+  formatEnvFileContents,
   generateBackupFileName,
+  parsePgEnvFromConnectionString,
 } from '../dist/index.js';
 
 const connectionString = process.env.DATABASE_URL;
@@ -26,26 +28,47 @@ mkdirSync(outputDir, { recursive: true });
 const fileName = generateBackupFileName(new Date());
 const envDir = mkdtempSync(join(tmpdir(), 'moe-backup-'));
 const envFilePath = join(envDir, 'env');
-writeFileSync(envFilePath, `CONN=${connectionString}\n`, { mode: 0o600 });
-
-const dockerCommand = buildDockerRunCommand({
+writeFileSync(
   envFilePath,
-  volumeHostDir: outputDir,
-  shellCommand: buildPgDumpCommand(fileName),
+  formatEnvFileContents(parsePgEnvFromConnectionString(connectionString)),
+  { mode: 0o600 },
+);
+
+// Cleanup must run no matter how the docker invocation ends — the env file holds the plaintext
+// connection-derived credentials. try/finally covers a thrown/rejected error; the signal handlers
+// cover an operator Ctrl-C or an external kill during the (potentially long) dump.
+let cleanedUp = false;
+function cleanup(): void {
+  if (cleanedUp) return;
+  cleanedUp = true;
+  rmSync(envDir, { recursive: true, force: true });
+}
+process.on('SIGINT', () => {
+  cleanup();
+  process.exit(1);
+});
+process.on('SIGTERM', () => {
+  cleanup();
+  process.exit(1);
 });
 
-const exitCode = await runDockerCommand(dockerCommand);
-// Cleanup must happen before process.exit() below — process.exit() does not run pending code
-// after it, so deleting the temp env file (it holds the plaintext connection string) has to come
-// first on every path, success or failure.
-rmSync(envDir, { recursive: true, force: true });
+try {
+  const dockerCommand = buildDockerRunCommand({
+    envFilePath,
+    volumeHostDir: outputDir,
+    shellCommand: buildPgDumpCommand(fileName),
+  });
 
-if (exitCode !== 0) {
-  console.error(`pg_dump failed (exit code ${exitCode}).`);
-  process.exit(exitCode);
+  const exitCode = await runDockerCommand(dockerCommand);
+  if (exitCode !== 0) {
+    console.error(`pg_dump failed (exit code ${exitCode}).`);
+    process.exitCode = exitCode;
+  } else {
+    console.log(`Backup written: ${join(outputDir, fileName)}`);
+  }
+} finally {
+  cleanup();
 }
-
-console.log(`Backup written: ${join(outputDir, fileName)}`);
 
 function runDockerCommand(command: {
   command: string;
