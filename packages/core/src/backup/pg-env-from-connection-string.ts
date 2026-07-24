@@ -70,6 +70,12 @@ export function parsePgEnvFromConnectionString(
     return invalid('contains invalid percent-encoding');
   }
 
+  // url.hostname is deliberately included raw, not via tryDecode — WHATWG URL's opaque-host
+  // parsing (postgres: is a non-special scheme) percent-encodes disallowed literal bytes but never
+  // decodes an existing percent-triplet, so a control character here can only ever appear as
+  // literal `%0A`-style text, not a real `\r`/`\n`/`\0` byte. Do NOT add decoding for this field to
+  // "match" the other four without re-deriving this safety argument — that would silently turn
+  // this check into the same env-file-injection vector it currently prevents for the rest.
   const sslmode = url.searchParams.get('sslmode');
   const decodedFields = [
     url.hostname,

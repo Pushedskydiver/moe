@@ -64,4 +64,12 @@ describe('parsePgEnvFromConnectionString', () => {
     );
     expect(result.ok).toBe(false);
   });
+
+  it('keeps a percent-encoded control character in the host segment literal rather than decoding it — this is what keeps PGHOST safe without ever calling tryDecode on it', () => {
+    const result = parsePgEnvFromConnectionString(
+      'postgres://user:pass@localhost%0A:5432/db',
+    );
+    expect(result.ok).toBe(true);
+    expect(result.ok && result.env.PGHOST).toBe('localhost%0A');
+  });
 });
