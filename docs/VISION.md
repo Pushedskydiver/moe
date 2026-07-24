@@ -115,13 +115,13 @@ The `team.config.ts` per-project model, project-onboarding flows (greenfield and
 
 ## 4. The team
 
-### 4.1 Cast — settled (2026-07-15), personality/prompt detail still deferred to 5.3
+### 4.1 Cast — settled (2026-07-15, roster completed 2026-07-24), personality/prompt detail still deferred to 5.3
 
 **Decided (BUILD_PLAN chunk 2.1):** the previous cast's roster stands — Sarah (PM), Marcus (Architect), Riley (Engineer), Priya (QA), Dom (Reviewer), Theo (Researcher), Nia (Scrum Master). A deep-research pass found no evidence, for or against, on whether this specific seven-role split is well-evidenced versus redundant — so the working default is kept rather than reworked speculatively, not because it was proven optimal. **Sarah is the confirmed first/front-door persona** Stage 2 builds and proves the loop against.
 
-**The 8th role, Designer, is explicitly deferred**, not decided against — no comparable early-stage product research surfaced a reason to add it now, and chief-clancy (this rebuild's sole target through Stage 4) has no real end-user UI/UX surface yet for a Designer to work against. Revisit at the 5.0 gate, once the roster stands up together, or sooner if chief-clancy grows real UI/UX surface.
+**The 8th role, Designer (Maya), is now activated (BUILD_PLAN chunk 5.0, 2026-07-24)** — the roster is 8, not 7. Not triggered by chief-clancy itself growing UI/UX surface (its new `packages/design` was investigated and found real but immature and dev-tool-facing, not the deciding factor); the actual driver is Alex's own explicit steer: activate proactively, ahead of a second project (a real end-user web UI) he plans to bring into moe's scope later, rather than defer until that need arrives. Neither the original 2026-07-15 research nor a fresh 2026-07-24 check found evidence against activating now, so the default-yes Alex asked for stands. Full reasoning: `docs/decisions/CAST-ROSTER.md`'s Status update.
 
-The personality sketches, the Nia/Lou tribute, and the "playful + expert + real friend" characterization from the previous design are **not preserved anywhere retrievable in this repo** (this document's own front matter already notes the previous design isn't a checkable reference) — so per-persona voice and personality is genuinely new authorship, not a port. That's chunk 5.3's own scope (one persona at a time, prompt drafted directly with Alex, the do-not-touch surface), not this gate's — full reasoning and the research this decision drew on: `docs/decisions/CAST-ROSTER.md`.
+The personality sketches, the Nia/Lou tribute, and the "playful + expert + real friend" characterization from the previous design are **not preserved anywhere retrievable in this repo** (this document's own front matter already notes the previous design isn't a checkable reference) — so per-persona voice and personality is genuinely new authorship, not a port. That's chunk 5.3's own scope (one persona at a time, prompt drafted directly with Alex, the do-not-touch surface — each persona now also gets a dedicated deep-research pass feeding prompt drafting, plus an adversarial "grill" round before it's considered done, extending the existing spec-grill discipline), not this gate's — full reasoning and the research this decision drew on: `docs/decisions/CAST-ROSTER.md`.
 
 Also still open, independent of the roster itself: the **welcome ritual** for how a new persona is socially introduced to the rest of the team.
 
@@ -337,7 +337,7 @@ What's deliberately **not** adopted, same reasoning as before: `zod/mini` (Moe u
 
 ### 13.1 What's genuinely different this time
 
-The previous attempt staged rollout **by persona count** — one new persona at a time, each requiring its own prompt-iteration round. Alex was explicit this time: **a full team from day one** — 7 personas, settled at §4.1 (an 8th, Designer, deferred to the 5.0 gate). What stages instead is **capability depth**, not roster size:
+The previous attempt staged rollout **by persona count** — one new persona at a time, each requiring its own prompt-iteration round. Alex was explicit this time: **a full team from day one** — 8 personas, settled at §4.1 (the 8th, Designer, activated at the 5.0 gate). What stages instead is **capability depth**, not roster size:
 
 1. **Foundation first, before any persona exists in prose:** chief-clancy's engineering spine (§12), the evidence-gated claims schema (§7.6), the risk-tier gate (§8.1), and the ambient-intake mechanism (§5) — small, mechanical, shared by every persona, and everything else in this document depends on at least one of them existing first.
 2. **One project, not many** (§1.2, §3.4) — chief-clancy only, until the core loop is proven.
