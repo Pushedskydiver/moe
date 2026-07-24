@@ -5,3 +5,7 @@
 // as a Neon stand-in; that pin is unrelated to this one and tracks something different.
 export const BACKUP_IMAGE = 'postgres:18-alpine';
 export const CONTAINER_BACKUP_DIR = '/backups';
+
+// Shared between pg-env-from-connection-string.ts and format-env-file-contents.ts — both check for
+// a byte that would inject an arbitrary extra line into a generated --env-file.
+export const ENV_FILE_CONTROL_CHARACTER = /[\r\n\0]/;

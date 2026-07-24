@@ -1,3 +1,5 @@
+import { ENV_FILE_CONTROL_CHARACTER } from './backup-constants.js';
+
 /**
  * Every value must be free of `\r`/`\n`/`\0` — an embedded newline would inject an arbitrary
  * extra `KEY=VALUE` line into the generated file. Throws rather than silently writing an unsafe
@@ -10,7 +12,7 @@ export function formatEnvFileContents(
 ): string {
   return `${Object.entries(env)
     .map(([key, value]) => {
-      if (/[\r\n\0]/.test(value)) {
+      if (ENV_FILE_CONTROL_CHARACTER.test(value)) {
         throw new Error(
           `formatEnvFileContents: value for ${key} contains a control character`,
         );

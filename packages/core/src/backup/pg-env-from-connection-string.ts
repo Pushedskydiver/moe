@@ -1,3 +1,5 @@
+import { ENV_FILE_CONTROL_CHARACTER } from './backup-constants.js';
+
 export type PgConnectionEnv = {
   readonly PGHOST: string;
   readonly PGPORT: string;
@@ -16,8 +18,6 @@ export type ParsePgEnvResult =
         readonly message: string;
       };
     };
-
-const CONTROL_CHARACTER = /[\r\n\0]/;
 
 function tryParseUrl(value: string): URL | undefined {
   try {
@@ -84,7 +84,7 @@ export function parsePgEnvFromConnectionString(
     database,
     sslmode ?? '',
   ];
-  if (decodedFields.some((field) => CONTROL_CHARACTER.test(field))) {
+  if (decodedFields.some((field) => ENV_FILE_CONTROL_CHARACTER.test(field))) {
     return invalid('contains an embedded control character');
   }
 

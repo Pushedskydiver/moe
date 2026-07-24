@@ -13,8 +13,9 @@ export type DockerRunCommand = {
 };
 
 /**
- * `--env-file` (a path, not a value) keeps the connection string out of `docker`'s own argv —
- * only the short-lived container's shell ever expands `$CONN`. `BACKUP_IMAGE` provides a
+ * `--env-file` (a path, not a value) keeps the connection-derived `PG*` credentials out of
+ * `docker`'s own argv — they reach `pg_dump`/`pg_restore` as env vars (libpq's own documented
+ * mechanism), never as a shell-expanded command-line argument. `BACKUP_IMAGE` provides a
  * version-matched pg_dump/pg_restore source with no separate local Postgres client install
  * required — see that constant's own comment for why its version is pinned independently of
  * CI's own `postgres:17-alpine` stand-in.
