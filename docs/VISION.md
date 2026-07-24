@@ -115,13 +115,13 @@ The `team.config.ts` per-project model, project-onboarding flows (greenfield and
 
 ## 4. The team
 
-### 4.1 Cast — settled (2026-07-15), personality/prompt detail still deferred to 5.3
+### 4.1 Cast — settled (2026-07-15, roster completed 2026-07-24), personality/prompt detail still deferred to 5.3
 
 **Decided (BUILD_PLAN chunk 2.1):** the previous cast's roster stands — Sarah (PM), Marcus (Architect), Riley (Engineer), Priya (QA), Dom (Reviewer), Theo (Researcher), Nia (Scrum Master). A deep-research pass found no evidence, for or against, on whether this specific seven-role split is well-evidenced versus redundant — so the working default is kept rather than reworked speculatively, not because it was proven optimal. **Sarah is the confirmed first/front-door persona** Stage 2 builds and proves the loop against.
 
-**The 8th role, Designer, is explicitly deferred**, not decided against — no comparable early-stage product research surfaced a reason to add it now, and chief-clancy (this rebuild's sole target through Stage 4) has no real end-user UI/UX surface yet for a Designer to work against. Revisit at the 5.0 gate, once the roster stands up together, or sooner if chief-clancy grows real UI/UX surface.
+**The 8th role, Designer (Maya), is now activated (BUILD_PLAN chunk 5.0, 2026-07-24)** — the roster is 8, not 7. Not triggered by chief-clancy itself growing UI/UX surface (its new `packages/design` was investigated and found real but immature and dev-tool-facing, not the deciding factor); the actual driver is Alex's own explicit steer: activate proactively, ahead of a second project (a real end-user web UI) he plans to bring into moe's scope later, rather than defer until that need arrives. Neither the original 2026-07-15 research nor a fresh 2026-07-24 check found evidence against activating now, so the default-yes Alex asked for stands. Full reasoning: `docs/decisions/CAST-ROSTER.md`'s Status update.
 
-The personality sketches, the Nia/Lou tribute, and the "playful + expert + real friend" characterization from the previous design are **not preserved anywhere retrievable in this repo** (this document's own front matter already notes the previous design isn't a checkable reference) — so per-persona voice and personality is genuinely new authorship, not a port. That's chunk 5.3's own scope (one persona at a time, prompt drafted directly with Alex, the do-not-touch surface), not this gate's — full reasoning and the research this decision drew on: `docs/decisions/CAST-ROSTER.md`.
+The personality sketches, the Nia/Lou tribute, and the "playful + expert + real friend" characterization from the previous design are **not preserved anywhere retrievable in this repo** (this document's own front matter already notes the previous design isn't a checkable reference) — so per-persona voice and personality is genuinely new authorship, not a port. That's chunk 5.3's own scope (one persona at a time, prompt drafted directly with Alex, the do-not-touch surface — each persona now also gets a dedicated deep-research pass feeding prompt drafting, plus an adversarial "grill" round before it's considered done, extending the existing spec-grill discipline), not this gate's — full reasoning and the research this decision drew on: `docs/decisions/CAST-ROSTER.md`.
 
 Also still open, independent of the roster itself: the **welcome ritual** for how a new persona is socially introduced to the rest of the team.
 
@@ -212,7 +212,7 @@ Nia posts what shipped, what's in flight, what's blocked, and cost figures, once
 **Each persona is its own Slack App and Bot User.** The old VISION chose a single shared app to save on operational overhead. That decision is reversed here, on evidence, not preference:
 
 - A shared app with per-message username/avatar overrides is **cosmetic on a single message** — it cannot produce a real, clickable, DMable identity. There's no API path to open a DM with a display-name string layered onto a shared bot. Since this VISION requires messaging Sarah or Marcus as individuals, the shared-app model fails the requirement outright, before any cost discussion.
-- Slack's rate limits are scoped **per app**, not per workspace — seven apps multiply available quota rather than dividing one pool seven ways. Per [Slack's rate-limits doc](https://docs.slack.dev/apis/web-api/rate-limits/): standard tiers run roughly Tier 1 ≈ 1+/min, Tier 2 ≈ 20+/min, Tier 3 ≈ 50+/min, Tier 4 ≈ 100+/min, with `chat.postMessage` on its own looser special tier. A [May 2025 changelog entry](https://docs.slack.dev/changelog/2025/05/29/rate-limit-changes-for-non-marketplace-apps/) tightened some limits for Marketplace-distributed apps specifically — Moe's apps are internal/undistributed and keep the looser tier.
+- Slack's rate limits are scoped **per app**, not per workspace — eight apps multiply available quota rather than dividing one pool eight ways. Per [Slack's rate-limits doc](https://docs.slack.dev/apis/web-api/rate-limits/): standard tiers run roughly Tier 1 ≈ 1+/min, Tier 2 ≈ 20+/min, Tier 3 ≈ 50+/min, Tier 4 ≈ 100+/min, with `chat.postMessage` on its own looser special tier. A [May 2025 changelog entry](https://docs.slack.dev/changelog/2025/05/29/rate-limit-changes-for-non-marketplace-apps/) tightened some limits for Marketplace-distributed apps specifically — Moe's apps are internal/undistributed and keep the looser tier.
 - Because Moe is a single internal workspace (never distributed to the Slack Marketplace), the usual "many apps is expensive" argument doesn't apply — no marketplace review, no OAuth-redirect flow, just N sets of credentials to provision, a solved DevOps problem (secrets manager, a persona-keyed config schema).
 - Every real-world "AI teammates in Slack" build sharing this actual goal converged on one-app-per-persona independently. The only shared-single-app products found (Dust, Slack's own Assistant API, Claude's "Claude Tag") solve a different problem — one assistant with switchable skills, not a team of individuals — and none can produce a direct DM to a named persona as a result.
 
@@ -337,7 +337,7 @@ What's deliberately **not** adopted, same reasoning as before: `zod/mini` (Moe u
 
 ### 13.1 What's genuinely different this time
 
-The previous attempt staged rollout **by persona count** — one new persona at a time, each requiring its own prompt-iteration round. Alex was explicit this time: **a full team from day one** — 7 personas, settled at §4.1 (an 8th, Designer, deferred to the 5.0 gate). What stages instead is **capability depth**, not roster size:
+The previous attempt staged rollout **by persona count** — one new persona at a time, each requiring its own prompt-iteration round. Alex was explicit this time: **a full team from day one** — 8 personas, settled at §4.1 (the 8th, Designer, activated at the 5.0 gate). What stages instead is **capability depth**, not roster size:
 
 1. **Foundation first, before any persona exists in prose:** chief-clancy's engineering spine (§12), the evidence-gated claims schema (§7.6), the risk-tier gate (§8.1), and the ambient-intake mechanism (§5) — small, mechanical, shared by every persona, and everything else in this document depends on at least one of them existing first.
 2. **One project, not many** (§1.2, §3.4) — chief-clancy only, until the core loop is proven.
@@ -358,7 +358,7 @@ Moe explicitly does not: make business/financial decisions on Alex's behalf, acc
 
 ## Appendix A — Open questions carried forward
 
-Working-hours findings, tie-breaking validation, cost calibration, per-project channel depth, persona-to-persona DM volume, sick-day handling, exit criteria, interjection-bar mechanism (the threshold governing when a persona speaks up unprompted, relevant to §1.3's Marcus example — not yet resolved), and the deferred persona-confidence health signal all remain open — none were touched by the diagnosis of what actually failed, so none needed re-litigating here. (Designer-role timing, formerly listed here, was resolved at BUILD_PLAN chunk 2.1 — deferred to the 5.0 gate, §4.1. Slack-status-away parsing conventions, also formerly listed here, was resolved at BUILD_PLAN chunk 2.7b — see `docs/GLOSSARY.md`'s "Away-detection" entry for the settled keyword/emoji list.)
+Working-hours findings, tie-breaking validation, cost calibration, per-project channel depth, persona-to-persona DM volume, sick-day handling, exit criteria, interjection-bar mechanism (the threshold governing when a persona speaks up unprompted, relevant to §1.3's Marcus example — not yet resolved), and the deferred persona-confidence health signal all remain open — none were touched by the diagnosis of what actually failed, so none needed re-litigating here. (Designer-role timing, formerly listed here, was resolved at BUILD_PLAN chunk 2.1 — deferred to the 5.0 gate, §4.1, which has since activated the role (2026-07-24). Slack-status-away parsing conventions, also formerly listed here, was resolved at BUILD_PLAN chunk 2.7b — see `docs/GLOSSARY.md`'s "Away-detection" entry for the settled keyword/emoji list.)
 
 ## Appendix B — Glossary
 
@@ -413,6 +413,7 @@ Requiring the _user_ to cite sources backfires (authority cues increase deferenc
 | Riley, Dom         | 1 (permission), 4 (form) — code work; reasons must be cited                     |
 | Priya              | 1 (permission), 2 (preamble), 4 (form) — skepticism is the role; 1+4 amplify it |
 | Theo               | 5 (calibrated), 6 (priority) — he's the citation-bringer already                |
+| Maya               | TBD at 5.3 — no persona-specific layering decided yet, same as her voice/prompt |
 | All personas       | 7 (drift mitigation) — universal                                                |
 
 **Iteration discipline:** first-attempt prompts will underperform. Validate per persona with adversarial conversations (Alex as the pushy user; the persona should hold position when right, update when shown wrong). Capture failure modes; iterate. This catalogue is currently load-bearing for the disagreement-prompt track referenced in §9 — treat it as the actual source, not a placeholder.

@@ -6,16 +6,16 @@ Per-persona voice, personality, and signature moves — the human-readable compa
 
 ## Roster
 
-| Persona | Role         | Status                                                                                                                                                                                                                                 |
-| ------- | ------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Sarah   | PM           | Confirmed first/front-door persona (Stage 2) — voice/personality TBD at 5.3                                                                                                                                                            |
-| Marcus  | Architect    | Roster confirmed — voice/personality TBD at 5.3                                                                                                                                                                                        |
-| Riley   | Engineer     | Roster confirmed — voice/personality TBD at 5.3                                                                                                                                                                                        |
-| Priya   | QA           | Roster confirmed — voice/personality TBD at 5.3                                                                                                                                                                                        |
-| Dom     | Reviewer     | Roster confirmed — voice/personality TBD at 5.3                                                                                                                                                                                        |
-| Theo    | Researcher   | Roster confirmed — voice/personality TBD at 5.3                                                                                                                                                                                        |
-| Nia     | Scrum Master | Roster confirmed — voice/personality TBD at 5.3                                                                                                                                                                                        |
-| —       | Designer     | Deferred to the 5.0 gate (`docs/decisions/CAST-ROSTER.md`). A working name, "Maya," already sits in `BUILD_PLAN.md`'s "Deliberately not scheduled" section — not a formal decision, unreconciled until the role is actually activated. |
+| Persona | Role         | Status                                                                             |
+| ------- | ------------ | ---------------------------------------------------------------------------------- |
+| Sarah   | PM           | Confirmed first/front-door persona (Stage 2) — voice/personality TBD at 5.3        |
+| Marcus  | Architect    | Roster confirmed — voice/personality TBD at 5.3                                    |
+| Riley   | Engineer     | Roster confirmed — voice/personality TBD at 5.3                                    |
+| Priya   | QA           | Roster confirmed — voice/personality TBD at 5.3                                    |
+| Dom     | Reviewer     | Roster confirmed — voice/personality TBD at 5.3                                    |
+| Theo    | Researcher   | Roster confirmed — voice/personality TBD at 5.3                                    |
+| Nia     | Scrum Master | Roster confirmed — voice/personality TBD at 5.3                                    |
+| Maya    | Designer     | Roster confirmed (BUILD_PLAN chunk 5.0, 2026-07-24) — voice/personality TBD at 5.3 |
 
 ## Open, independent of the roster
 
