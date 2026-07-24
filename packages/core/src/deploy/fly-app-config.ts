@@ -1,0 +1,105 @@
+import type { PersonaId } from '../persona-roster.js';
+
+import {
+  FLY_CHECK_GRACE_PERIOD,
+  FLY_CHECK_INTERVAL,
+  FLY_CHECK_METHOD,
+  FLY_CHECK_PATH,
+  FLY_CHECK_TIMEOUT,
+  FLY_INTERNAL_PORT,
+  FLY_PRIMARY_REGION,
+  FLY_VM_MEMORY,
+  FLY_VM_SIZE,
+} from './fly-deploy-constants.js';
+
+export type FlyAppConfig = {
+  /** The Fly App this persona deploys to — one App per persona, never one App with N process groups. */
+  readonly appName: string;
+  /** Repo-root-relative, so `fly deploy -c <fileName>` resolves against the default working directory. */
+  readonly fileName: string;
+  /** Full `fly.<persona>.toml` contents, including the generated-file header. */
+  readonly toml: string;
+};
+
+/**
+ * Builds one persona's complete Fly App configuration (BUILD_PLAN 5.2).
+ *
+ * **Why one Fly App per persona, rather than one App with eight process groups.** Fly secrets are
+ * scoped to an App — "an app's secrets are available as environment variables at runtime on every
+ * Machine belonging to that Fly App" — and `fly secrets set` has no process-group flag; Fly's own
+ * multi-process guide names this limitation directly ("secrets are shared across all process
+ * groups in a single app") and points at separate Apps as the remedy (both verified live against
+ * fly.io/docs, 2026-07-25). Every persona process reads the same *unsuffixed* `MOE_SLACK_BOT_TOKEN`
+ * /`MOE_SLACK_SIGNING_SECRET`/`MOE_SLACK_APP_TOKEN` names (`packages/agents/src/persona-config.ts`),
+ * so eight personas need eight independent secret scopes. Sharing one App would mean giving those
+ * three variables persona-suffixed names — reversing the explicit decision at BUILD_PLAN 5.1 that
+ * `PersonaConfig`/`parsePersonaConfig` stays exactly as chunk 2.2 built it. The App count is this
+ * chunk's own call; the *machine* count ("N machines, one per persona") is settled upstream in
+ * `docs/decisions/TOPOLOGY-AND-DATABASE.md`, which one App per persona also satisfies.
+ *
+ * **Why `MOE_PERSONA_ID` sits in `[env]` and the Slack credentials do not.** The persona id is not
+ * a secret and is the one value that must differ per deployed config, so it belongs in the config
+ * file that is committed. The three Slack credentials are real secrets and are set per App with
+ * `fly secrets set -a <appName>` — see `docs/OPERATIONS.md` §Deploying the persona fleet.
+ *
+ * **Why a top-level `[checks]` block rather than chunk 2.2's `[[http_service.checks]]`.** A persona
+ * reaches Slack over Socket Mode, an outbound WebSocket — nothing needs to reach the process from
+ * the public internet. `[http_service]` would publish each of the eight Apps on ports 80/443;
+ * Fly's configuration reference points at the top-level `[checks]` section for exactly this case
+ * ("if your app doesn't have public-facing services... use this top-level `checks` section"). The
+ * process still serves `GET /health` on the same internal port, so `createHealthHandler` is
+ * unchanged — only its reachability from outside the Fly network is.
+ *
+ * Chunk 2.2's `auto_stop_machines`/`auto_start_machines`/`min_machines_running` settings are not
+ * carried over: all three are `[http_service]`-scoped autostop/autostart controls, and Fly
+ * documents `min_machines_running` as having "no effect unless you set `auto_stop_machines` to
+ * `"stop"` or `"suspend"`" — it was already a no-op alongside chunk 2.2's own `false`. With no
+ * service section at all, a Machine simply runs until it exits, which is what a persona wants.
+ */
+export function buildFlyAppConfig(personaId: PersonaId): FlyAppConfig {
+  const appName = `moe-${personaId}`;
+  const fileName = `fly.${personaId}.toml`;
+
+  return {
+    appName,
+    fileName,
+    toml: `${buildHeader(personaId, fileName)}
+app = "${appName}"
+primary_region = "${FLY_PRIMARY_REGION}"
+
+[env]
+  PORT = "${FLY_INTERNAL_PORT}"
+  MOE_PERSONA_ID = "${personaId}"
+
+[[vm]]
+  size = "${FLY_VM_SIZE}"
+  memory = "${FLY_VM_MEMORY}"
+
+# No [http_service] on purpose — Socket Mode is outbound-only, so nothing needs a public port.
+[checks]
+  [checks.health]
+    port = ${FLY_INTERNAL_PORT}
+    type = "http"
+    method = "${FLY_CHECK_METHOD}"
+    path = "${FLY_CHECK_PATH}"
+    grace_period = "${FLY_CHECK_GRACE_PERIOD}"
+    interval = "${FLY_CHECK_INTERVAL}"
+    timeout = "${FLY_CHECK_TIMEOUT}"
+`,
+  };
+}
+
+function buildHeader(personaId: PersonaId, fileName: string): string {
+  return `# GENERATED FILE — do not hand-edit. Run \`pnpm --filter @moe/core generate:fly-configs\`.
+# Source of truth: packages/core/src/deploy/fly-app-config.ts. CI fails if this file is stale.
+#
+# One Fly App per persona (docs/ARCHITECTURE.md "Process topology"), because Fly secrets are
+# App-scoped and every persona process reads the same unsuffixed MOE_SLACK_* variable names.
+# The three Slack credentials are set per App: fly secrets set -a moe-${personaId} ...
+#
+# Deploy (Alex-only, never CI-automated — CLAUDE.md), from the repo root:
+#   fly deploy -c ${fileName} --ha=false
+# --ha=false matters: \`fly deploy\` defaults it to true, which would create a spare Machine and
+# run a second process with the same MOE_PERSONA_ID — two Socket Mode connections, two claim
+# loops. Full runbook: docs/OPERATIONS.md §Deploying the persona fleet.`;
+}

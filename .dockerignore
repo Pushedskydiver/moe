@@ -8,3 +8,6 @@ coverage
 .claude
 .env*
 !.env.example
+# Deploy-time config read by flyctl on the host, never needed inside the image — and excluding it
+# keeps a regenerated config from invalidating the build cache.
+fly.*.toml

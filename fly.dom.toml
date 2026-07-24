@@ -1,0 +1,33 @@
+# GENERATED FILE — do not hand-edit. Run `pnpm --filter @moe/core generate:fly-configs`.
+# Source of truth: packages/core/src/deploy/fly-app-config.ts. CI fails if this file is stale.
+#
+# One Fly App per persona (docs/ARCHITECTURE.md "Process topology"), because Fly secrets are
+# App-scoped and every persona process reads the same unsuffixed MOE_SLACK_* variable names.
+# The three Slack credentials are set per App: fly secrets set -a moe-dom ...
+#
+# Deploy (Alex-only, never CI-automated — CLAUDE.md), from the repo root:
+#   fly deploy -c fly.dom.toml --ha=false
+# --ha=false matters: `fly deploy` defaults it to true, which would create a spare Machine and
+# run a second process with the same MOE_PERSONA_ID — two Socket Mode connections, two claim
+# loops. Full runbook: docs/OPERATIONS.md §Deploying the persona fleet.
+app = "moe-dom"
+primary_region = "lhr"
+
+[env]
+  PORT = "8080"
+  MOE_PERSONA_ID = "dom"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# No [http_service] on purpose — Socket Mode is outbound-only, so nothing needs a public port.
+[checks]
+  [checks.health]
+    port = 8080
+    type = "http"
+    method = "GET"
+    path = "/health"
+    grace_period = "10s"
+    interval = "15s"
+    timeout = "5s"

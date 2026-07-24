@@ -156,8 +156,14 @@ PRs touching multiple packages get multiple labels. Root-only changes (CI, docs,
 **Delta from chief-clancy: no npm publish, no changesets.** Moe doesn't distribute packages — `apps/server` is a privately-deployed service (Fly.io), not a published tool. Deploys are deliberately manual, never CI-automated on merge:
 
 1. Merge to `main` via the normal PR flow above.
-2. Alex runs `fly deploy --app moe` by hand.
-3. Confirm the health check passes before considering the deploy done.
+2. Alex runs `pnpm --filter @moe/core migrate` once (all personas share one database), then
+   `fly deploy -c fly.<persona>.toml --ha=false` by hand, once per persona being deployed.
+3. Confirm the health check passes (`fly checks list -a moe-<persona>`) before considering the
+   deploy done — there is no public URL to curl, by design.
+
+`docs/OPERATIONS.md` §Deploying the persona fleet is the full runbook; this is only the merge-side
+summary. Since BUILD_PLAN 5.2 there are eight Fly Apps (`moe-sarah` … `moe-maya`), one per persona,
+so "the deploy" is eight invocations rather than one.
 
 This is a deliberate safety choice, not a placeholder — a prior truncated/empty secret took the live service down when deploy was more automated (see project history). Revisit only with a concrete plan for how a bad deploy gets caught before it reaches production.
 

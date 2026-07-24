@@ -24,6 +24,9 @@ const CREATE_RATE_LIMIT_WAIT_MS = 60_000;
  * One persona's own outcome, printed to stdout at the end of the run (Alex confirmed via
  * `AskUserQuestion`, BUILD_PLAN 5.1: print + manual copy into `.env.local`/Fly secrets, matching
  * today's precedent for Sarah's own hand-populated credentials — no new secrets-at-rest surface).
+ * Since BUILD_PLAN 5.2 the Fly destination is a specific per-persona App:
+ * `fly secrets set -a moe-<personaId> --stage ...` (`docs/OPERATIONS.md` §Deploying the persona
+ * fleet), because Fly secrets are App-scoped — there is no one place to paste all eight sets.
  */
 function printOutcome(
   logger: Logger,

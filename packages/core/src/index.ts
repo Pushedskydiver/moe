@@ -276,3 +276,6 @@ export type {
   PgConnectionEnv,
 } from './backup/pg-env-from-connection-string.js';
 export { redactConnectionStringForDisplay } from './backup/redact-connection-string-for-display.js';
+
+export { buildFlyAppConfig } from './deploy/fly-app-config.js';
+export type { FlyAppConfig } from './deploy/fly-app-config.js';

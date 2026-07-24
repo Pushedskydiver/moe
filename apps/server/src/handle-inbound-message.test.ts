@@ -743,7 +743,7 @@ describe('createInboundMessageHandler', () => {
   it('fetches and forwards DM history, then persists both the user and assistant turns', async () => {
     const priorTurns = [
       turn({ role: 'user', content: 'what is the deploy command?' }),
-      turn({ role: 'assistant', content: 'fly deploy --app moe' }),
+      turn({ role: 'assistant', content: 'fly deploy -c fly.sarah.toml' }),
     ];
     const deps = makeDeps({
       historyStore: makeHistoryStore({
@@ -764,7 +764,7 @@ describe('createInboundMessageHandler', () => {
       expect.objectContaining({
         messages: [
           { role: 'user', content: 'what is the deploy command?' },
-          { role: 'assistant', content: 'fly deploy --app moe' },
+          { role: 'assistant', content: 'fly deploy -c fly.sarah.toml' },
           { role: 'user', content: DM_MESSAGE.text },
         ],
       }),

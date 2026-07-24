@@ -1,21 +1,122 @@
 # Operations
 
-Manual operational runbooks for moe's production database — how to restore it, and when to use
-which path. `docs/DEVELOPMENT.md` covers day-to-day dev workflow; this doc covers what to do when
-production data is at risk. Built at BUILD_PLAN chunk 4.6, the chunk that closes Stage 4 —
+Manual operational runbooks for moe in production — how to deploy the persona fleet, how to
+restore the database, and when to use which restore path. `docs/DEVELOPMENT.md` covers day-to-day
+dev workflow; this doc covers production. The restore half was built at BUILD_PLAN chunk 4.6, the
+chunk that closes Stage 4 —
 `docs/decisions/TOPOLOGY-AND-DATABASE.md` chose Neon Postgres for production but explicitly left
 its PITR/branching retention specifics "not independently vetted in depth" and flagged this chunk
 to verify them before relying on it. That verification, and a live rehearsal of both restore paths
 below, happened directly against the real Neon project ("Moe AI Team",
 `plain-wildflower-25588697`) before this doc was written.
 
-No automation or scheduling exists for either path yet — both are manually-triggered, matching
-every other operational script in this repo (`migrate.ts`, the review-queue sweep,
+No automation or scheduling exists for any of it — every runbook here is manually triggered,
+matching every other operational script in this repo (`migrate.ts`, the review-queue sweep,
 `create:github-issues`). A scheduled/unattended backup job is future work once real production
 traffic and a scheduler exist; building one now would be inventing infrastructure ahead of need.
-Likewise, a documented production _migration_ process is a separate, not-yet-closed gap (today
-`migrate.ts` has only ever been run against local/rehearsal databases by hand) — out of scope here,
-since this doc covers restoring already-written data, not schema deployment.
+
+---
+
+## Deploying the persona fleet
+
+Built at BUILD_PLAN chunk 5.2. Each of the eight roster personas is its own Fly App, `moe-sarah`
+through `moe-maya`, all running the same image from the same `Dockerfile` and differing only in
+their `[env] MOE_PERSONA_ID` and their own three Slack secrets. **One Fly App per persona is
+forced, not stylistic:** Fly secrets are App-scoped, `fly secrets set` has no process-group flag,
+and every persona process reads the same unsuffixed `MOE_SLACK_BOT_TOKEN`/`MOE_SLACK_SIGNING_SECRET`
+/`MOE_SLACK_APP_TOKEN` names — so one App with eight process groups could not give them different
+values. `docs/decisions/TOPOLOGY-AND-DATABASE.md` settles the _machine_ count ("N machines, one
+per persona"), which this shape also satisfies.
+
+The eight `fly.<persona>.toml` files at the repo root are **generated** from
+`packages/core/src/deploy/fly-app-config.ts` — never hand-edit them. Run
+`pnpm --filter @moe/core generate:fly-configs` after changing the builder or the roster; CI's
+"Fly configs freshness" job fails the build if the committed files drift.
+
+**Deploys are Alex-only and never CI-automated** (`CLAUDE.md`, `docs/GIT.md` §Deploy Flow) — a
+truncated/empty secret has taken the live service down before, and that risk now multiplies across
+eight Apps on a manual copy-paste path.
+
+### First-time setup, once per persona
+
+```bash
+fly auth login                                    # once per machine
+fly apps create moe-sarah                         # `fly deploy` will not create a missing App
+fly secrets set -a moe-sarah --stage \
+  MOE_SLACK_BOT_TOKEN=xoxb-... \
+  MOE_SLACK_SIGNING_SECRET=... \
+  MOE_SLACK_APP_TOKEN=xapp-... \
+  ANTHROPIC_API_KEY=sk-ant-... \
+  DATABASE_URL="postgres://...-pooler.../..." \
+  MOE_COST_CAP_MONTHLY=50 \
+  MOE_COST_ALERT_SLACK_USER_ID=U... \
+  MOE_WORK_RELEVANT_CHANNEL_IDS=C...,C... \
+  MOE_GITHUB_APP_ID=... \
+  MOE_GITHUB_PRIVATE_KEY="-----BEGIN RSA PRIVATE KEY-----\n...\n-----END RSA PRIVATE KEY-----" \
+  MOE_GITHUB_INSTALLATION_ID=... \
+  MOE_GITHUB_REPO=owner/name
+```
+
+- `--stage` writes the secrets to the App's vault **without** triggering a Machine update. Without
+  it, each `fly secrets set` deploys immediately — the staged form means the first real deploy
+  below picks them all up in one go instead of rolling the Machine once per invocation.
+- `MOE_PERSONA_ID` is deliberately **not** a secret: it isn't sensitive, and it's the one value
+  that must differ per config file, so it lives in the generated `[env]` block instead.
+- Every variable above is **required** — `parseBootConfig` validates all six config groups and
+  exits on the first invalid one, so a missing `MOE_COST_CAP_MONTHLY` or
+  `MOE_WORK_RELEVANT_CHANNEL_IDS` stops the process booting rather than falling back to a default.
+  `PORT` is the one exception (`resolvePort` defaults it to 8080), and the generated `[env]` block
+  sets it anyway. `MOE_COST_CAP_MONTHLY` is not sensitive, but it lives here rather than in the
+  generated config so a cap can be re-tuned per persona without regenerating and redeploying.
+- `MOE_SLACK_APP_CONFIG_TOKEN` is **not** part of a deploy — it's the short-lived provisioning
+  credential for `pnpm --filter @moe/server provision:slack-apps` only, and expires in 12 hours.
+- **`DATABASE_URL` must be Neon's _pooled_ (`-pooler`) hostname.** A 0.25 CU Neon compute allows
+  104 direct connections with 7 reserved for its superuser, so 97 are usable; the fleet's eight
+  pools at `max: 5` each (`packages/core/src/ticket-lifecycle/db.ts`) come to 40 against that
+  budget, but the pooled endpoint accepts up to 10,000 client connections and leaves room for a
+  rolling restart holding an old and a new pool open at once. The direct hostname works and is a
+  trap: it survives a quiet fleet and fails under exactly the conditions you least want it to.
+
+### Deploying
+
+Migrations first, once — every persona shares one database, so this is not per-App:
+
+```bash
+DATABASE_URL="<production-connection-string>" pnpm --filter @moe/core migrate
+```
+
+Then, per persona, from the repo root:
+
+```bash
+fly deploy -c fly.sarah.toml --ha=false
+```
+
+- **`--ha=false` is not optional.** `fly deploy` defaults `--ha` to **true**, which creates a spare
+  Machine — a second process with the same `MOE_PERSONA_ID`, meaning two Socket Mode connections
+  and two ticket-claim loops for one persona. The ADR's "one machine per persona" is what
+  `--ha=false` enforces.
+- `-c` resolves against `fly deploy`'s working-directory argument, which defaults to the current
+  directory — so run this from the repo root, where both the config and the `Dockerfile` live.
+- To avoid eight redundant image builds, build once and reuse:
+  `fly deploy --build-only --push` prints a `registry.fly.io/...:deployment-xxxx` tag, and
+  `fly deploy -c fly.<persona>.toml --image <tag> --ha=false` deploys that exact image to each App.
+
+### Verifying
+
+There is no public URL to curl: the generated configs have no `[http_service]` section, so nothing
+is published on ports 80/443 (personas reach Slack over Socket Mode, an outbound WebSocket — no
+inbound HTTP is needed, and eight public endpoints would be attack surface for nothing). The
+health check runs on Fly's private network against `GET /health` on port 8080.
+
+```bash
+fly checks list -a moe-sarah      # the health check's own pass/fail
+fly logs -a moe-sarah             # structured boot logs, secrets redacted
+fly status -a moe-sarah           # confirm exactly ONE Machine, not two
+```
+
+A `GET /health` body is `{"status":"ok","personaId":"<persona>"}` — the `personaId` is what makes
+it a per-persona signal rather than a generic liveness ping. To reach it directly,
+`fly ssh console -a moe-sarah -C "wget -qO- localhost:8080/health"`.
 
 ---
 
@@ -190,6 +291,7 @@ run restore`.
 
 ## See also
 
-- `docs/decisions/TOPOLOGY-AND-DATABASE.md` — why Neon Postgres was chosen for production.
-- `BUILD_PLAN.md` chunk 4.6 — the chunk this doc closes out.
+- `docs/decisions/TOPOLOGY-AND-DATABASE.md` — why N machines and Neon Postgres were chosen.
+- `BUILD_PLAN.md` chunk 4.6 (restore paths) and chunk 5.2 (the persona fleet).
 - `packages/core/src/backup/` — the tested command-builder functions Path 2's scripts wrap.
+- `packages/core/src/deploy/` — the tested builder the eight `fly.<persona>.toml` files come from.
