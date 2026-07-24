@@ -14,6 +14,26 @@ export {
   createSocketModeClient,
   createWebClient,
 } from './create-slack-clients.js';
+export { createManifestClient } from './create-manifest-client.js';
+export type { SlackAppManifest } from './build-persona-slack-manifest.js';
+export {
+  PERSONA_SLACK_BOT_EVENTS,
+  PERSONA_SLACK_BOT_SCOPES,
+  buildPersonaSlackManifest,
+} from './build-persona-slack-manifest.js';
+export type {
+  ManifestClient,
+  ProvisionedPersonaSlackApp,
+  ProvisionPersonaSlackAppResult,
+} from './provision-persona-slack-app.js';
+export { provisionPersonaSlackApp } from './provision-persona-slack-app.js';
+export type {
+  ManifestProvisioningConfig,
+  ParseManifestProvisioningConfigResult,
+} from './manifest-provisioning-config.js';
+export { parseManifestProvisioningConfig } from './manifest-provisioning-config.js';
+export type { ParseProvisionPersonaIdsResult } from './parse-provision-persona-ids.js';
+export { parseProvisionPersonaIds } from './parse-provision-persona-ids.js';
 export type { PostMessageResult } from './post-message.js';
 export { postMessage } from './post-message.js';
 export type { AddReactionResult } from './add-reaction.js';

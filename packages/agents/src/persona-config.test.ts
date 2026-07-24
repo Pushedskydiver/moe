@@ -44,7 +44,7 @@ describe('parsePersonaConfig', () => {
 
   it('returns ok:false when MOE_PERSONA_ID is not a roster member', () => {
     const result = parsePersonaConfig({
-      MOE_PERSONA_ID: 'maya',
+      MOE_PERSONA_ID: 'zara',
       MOE_SLACK_BOT_TOKEN: 'fake-bot-token',
       MOE_SLACK_SIGNING_SECRET: 'test-signing-secret',
       MOE_SLACK_APP_TOKEN: 'fake-app-token',
