@@ -10,7 +10,6 @@ import {
   buildPgRestoreCommand,
   formatEnvFileContents,
   isShellSafeFileName,
-  isValidConnectionString,
   parsePgEnvFromConnectionString,
   redactConnectionStringForDisplay,
 } from '../dist/index.js';
@@ -20,8 +19,14 @@ if (!connectionString) {
   console.error('DATABASE_URL is not set — this must be the RESTORE TARGET.');
   process.exit(1);
 }
-if (!isValidConnectionString(connectionString)) {
-  console.error('DATABASE_URL is not a valid connection string.');
+
+// Parsed once, up front — before printing the confirmation prompt or creating any temp file —
+// so every failure mode of a malformed DATABASE_URL is caught here with a clean message, never as
+// an uncaught exception reached only after the operator has already confirmed the destructive
+// action (redactConnectionStringForDisplay below reuses this same, now-known-parseable string).
+const envResult = parsePgEnvFromConnectionString(connectionString);
+if (!envResult.ok) {
+  console.error(`DATABASE_URL is invalid: ${envResult.error.message}`);
   process.exit(1);
 }
 
@@ -57,11 +62,9 @@ if (process.env.CONFIRM_RESTORE_TARGET !== redactedTarget) {
 
 const envDir = mkdtempSync(join(tmpdir(), 'moe-restore-'));
 const envFilePath = join(envDir, 'env');
-writeFileSync(
-  envFilePath,
-  formatEnvFileContents(parsePgEnvFromConnectionString(connectionString)),
-  { mode: 0o600 },
-);
+writeFileSync(envFilePath, formatEnvFileContents(envResult.env), {
+  mode: 0o600,
+});
 
 // Cleanup must run no matter how the docker invocation ends — see backup.ts's own identical
 // comment on this same pattern.

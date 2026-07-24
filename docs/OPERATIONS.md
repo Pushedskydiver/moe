@@ -107,6 +107,16 @@ without one), but that's only the database _name_, never the credential. The tem
 deleted immediately after the container exits, on every path (success, failure, or an operator
 Ctrl-C/kill mid-run — `SIGINT`/`SIGTERM` handlers plus a `try/finally` both call the same cleanup).
 
+`parsePgEnvFromConnectionString` returns a `Result` rather than throwing — `DATABASE_URL` is
+operator-supplied input with several distinct ways to be malformed (not a URL at all; invalid
+percent-encoding in the credentials/database segment; a decoded field containing an embedded
+`\r`/`\n`/`\0`, which would otherwise inject an arbitrary extra line into the generated env file).
+Both scripts call it once, immediately after reading `DATABASE_URL` and before anything else
+(printing a confirmation prompt, creating a temp file), so every one of these failure modes surfaces
+as a clean, single-line error rather than an uncaught exception reached partway through a run.
+`formatEnvFileContents` itself also rejects any value containing `\r`/`\n`/`\0` as a defensive
+last check, since it's the function actually writing credentials to disk.
+
 **Running a backup:**
 
 ```bash
@@ -134,6 +144,13 @@ pnpm --filter @moe/core run restore
 # refuses, printing: CONFIRM_RESTORE_TARGET=postgres://<user>@<host>:<port>/<database>
 # re-run with that exact line added to confirm
 ```
+
+**Known limitation — untested, undocumented-until-now edge case:** `BACKUP_OUTPUT_DIR`/the dump
+file's own directory are passed to `docker run -v` as `<host-path>:/backups[:ro]`. A host path
+containing a literal `:` would break Docker's own `HOST:CONTAINER[:MODE]` volume-spec parsing.
+Not exploitable (both scripts invoke `docker` without a shell, so this isn't injectable — it would
+just fail loudly), and not a real constraint on this repo's Mac/Linux deploy targets, but there's
+no test covering it and no code guards against it either.
 
 ---
 

@@ -11,7 +11,6 @@ import {
   buildPgDumpCommand,
   formatEnvFileContents,
   generateBackupFileName,
-  isValidConnectionString,
   parsePgEnvFromConnectionString,
 } from '../dist/index.js';
 
@@ -20,8 +19,13 @@ if (!connectionString) {
   console.error('DATABASE_URL is not set.');
   process.exit(1);
 }
-if (!isValidConnectionString(connectionString)) {
-  console.error('DATABASE_URL is not a valid connection string.');
+
+// Parsed once, up front — before creating any temp file — so every failure mode of a malformed
+// DATABASE_URL (not a URL at all, invalid percent-encoding, an embedded control character) is
+// caught here with a clean message, never as an uncaught exception partway through the script.
+const envResult = parsePgEnvFromConnectionString(connectionString);
+if (!envResult.ok) {
+  console.error(`DATABASE_URL is invalid: ${envResult.error.message}`);
   process.exit(1);
 }
 
@@ -33,11 +37,9 @@ mkdirSync(outputDir, { recursive: true });
 const fileName = generateBackupFileName(new Date());
 const envDir = mkdtempSync(join(tmpdir(), 'moe-backup-'));
 const envFilePath = join(envDir, 'env');
-writeFileSync(
-  envFilePath,
-  formatEnvFileContents(parsePgEnvFromConnectionString(connectionString)),
-  { mode: 0o600 },
-);
+writeFileSync(envFilePath, formatEnvFileContents(envResult.env), {
+  mode: 0o600,
+});
 
 // Cleanup must run no matter how the docker invocation ends — the env file holds the plaintext
 // connection-derived credentials. try/finally covers a thrown/rejected error; the signal handlers

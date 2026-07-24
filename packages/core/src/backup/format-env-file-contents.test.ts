@@ -10,4 +10,10 @@ describe('formatEnvFileContents', () => {
     });
     expect(result).toBe('PGHOST=localhost\nPGPORT=5432\n');
   });
+
+  it('throws rather than silently injecting an extra line when a value contains a newline', () => {
+    expect(() =>
+      formatEnvFileContents({ PGPASSWORD: 'foo\nEXTRA=evil' }),
+    ).toThrow();
+  });
 });

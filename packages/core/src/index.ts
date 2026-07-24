@@ -271,6 +271,8 @@ export { buildPgRestoreCommand } from './backup/pg-restore-command.js';
 export { formatEnvFileContents } from './backup/format-env-file-contents.js';
 export { isShellSafeFileName } from './backup/is-shell-safe-file-name.js';
 export { parsePgEnvFromConnectionString } from './backup/pg-env-from-connection-string.js';
-export type { PgConnectionEnv } from './backup/pg-env-from-connection-string.js';
+export type {
+  ParsePgEnvResult,
+  PgConnectionEnv,
+} from './backup/pg-env-from-connection-string.js';
 export { redactConnectionStringForDisplay } from './backup/redact-connection-string-for-display.js';
-export { isValidConnectionString } from './backup/is-valid-connection-string.js';
