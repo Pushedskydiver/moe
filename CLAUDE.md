@@ -105,5 +105,6 @@ Minimal actionable rules only. Patterns and philosophy live in on-demand docs, l
 - **For product vision, ceremonies, and the cast:** read `docs/VISION.md` (and `docs/PERSONAS.md`, plus `docs/CEREMONIES.md` once written — `VISION.md` wins on conflict).
 - **For the build sequence:** read `BUILD_PLAN.md`.
 - **Before a non-trivial architecture or package-graph change:** read `docs/ARCHITECTURE.md`.
+- **Before backing up or restoring production data:** read `docs/OPERATIONS.md`.
 - **For ubiquitous-language terms** (risk tiers, ceremonies, review-gate vocabulary): read `docs/GLOSSARY.md`.
 - **Before/after a non-obvious design decision worth preserving the "why" for:** read/write `docs/decisions/`.
