@@ -5,6 +5,9 @@ dist/
 # Coverage
 coverage/
 
+# Local DB backup/restore rehearsal output (docs/OPERATIONS.md)
+packages/core/.backups/
+
 # Dependencies
 node_modules/
 

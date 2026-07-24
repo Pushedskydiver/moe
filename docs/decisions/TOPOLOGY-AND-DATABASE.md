@@ -35,7 +35,7 @@ Alex asked for real evidence before deciding, open to either option. A deep-rese
 
 - **Overmind is rejected outright**, not just de-prioritized — don't reach for it later out of habit if a single-machine shape ever gets revisited.
 - **Neon's scale-to-zero behavior** (free/low tiers idle out after 5 minutes) could introduce cold-start latency on a ticket claim after a quiet period — an ongoing operational watch-item once real traffic patterns exist, not a blocker now; unverified as of this trim.
-- **Neon offers point-in-time-recovery/branching** as part of its managed service (confirmed real on its pricing page) — a real candidate for chunk 4.6's backup/restore story, not independently vetted in depth here; 4.6 should verify current retention-window specifics before relying on it.
+- **Neon offers point-in-time-recovery/branching** as part of its managed service — chunk 4.6 verified current retention-window specifics live and built the backup/restore story on it (`docs/OPERATIONS.md`).
 
 ## Triggers for re-evaluation
 

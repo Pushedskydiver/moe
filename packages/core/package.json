@@ -16,7 +16,9 @@
     "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "migrate": "pnpm build && node scripts/migrate.ts"
+    "migrate": "pnpm build && node scripts/migrate.ts",
+    "backup": "pnpm build && node scripts/backup.ts",
+    "restore": "pnpm build && node scripts/restore.ts"
   },
   "dependencies": {
     "kysely": "^0.29.3",
