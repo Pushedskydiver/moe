@@ -45,10 +45,12 @@ renames it to the original branch's name — the connection string stays stable,
 pre-restore state isn't destroyed: it's preserved as a separate branch under whatever name
 `--preserve-under-name` specifies.
 
-**CLI syntax** (scriptable — not console-only):
+**CLI syntax** (scriptable — not console-only). Neon's current docs invoke the CLI as `neon`;
+`neonctl` is a working alias (the Homebrew formula's own name, still fully functional — this is
+what the rehearsal below actually ran):
 
 ```bash
-neonctl branches restore <branch-name-or-id> "^self@<ISO-8601-timestamp-millisecond-precision>" \
+neon branches restore <branch-name-or-id> "^self@<ISO-8601-timestamp-millisecond-precision>" \
   --project-id <project-id> \
   --preserve-under-name <name-for-the-preserved-pre-restore-branch>
 ```
@@ -57,12 +59,12 @@ neonctl branches restore <branch-name-or-id> "^self@<ISO-8601-timestamp-millisec
   timestamps (what Postgres's own `now()` returns) are rejected and must be truncated first.
 - `^self@<timestamp>` restores the branch to a point in its _own_ history. `^parent` restores to
   the head of its parent branch instead; a specific branch ID/name restores to _that_ branch's
-  head. See `neonctl branches restore --help` for the full source-format grammar.
-- The restore is asynchronous — poll `neonctl branches get <branch-id> --project-id <project-id>`
+  head. See `neon branches restore --help` for the full source-format grammar.
+- The restore is asynchronous — poll `neon branches get <branch-id> --project-id <project-id>`
   until `current_state` reads `ready` before assuming it's done.
 - Requires a Neon **API key** (Account Settings → API Keys in the console) exported as
   `NEON_API_KEY`, or passed via `--api-key` — this is a control-plane credential, distinct from the
-  database connection string, and authenticates `neonctl` non-interactively.
+  database connection string, and authenticates the CLI non-interactively.
 - Delete the preserved pre-restore branch once you've confirmed the restore is correct — it's not
   needed after that, and leaving throwaway branches around is just clutter.
 
@@ -78,9 +80,11 @@ rather than trusting a single mechanism.
 
 ## Path 2 (fallback): pg_dump / pg_restore
 
-A traditional logical backup/restore, independent of Neon's own control plane — Neon's own docs
-recommend this specifically for business continuity against a Neon-side outage or account issue,
-where Path 1 (which lives inside Neon) wouldn't help at all.
+A traditional logical backup/restore, independent of Neon's own control plane. Neon's own docs
+recommend `pg_dump`/`pg_restore` workflows generally "for business continuity, disaster recovery,
+or compliance" — they don't name "a Neon-side outage or account issue" specifically, but that's the
+concrete instance of that guidance relevant here: Path 1 lives entirely inside Neon's own control
+plane, so it wouldn't help at all if Neon itself, or this account's access to it, were the problem.
 
 **When to use it:** Neon's control plane is unavailable or malfunctioning, the account itself is
 inaccessible, or you need a portable snapshot that can be restored into _any_ Postgres instance
