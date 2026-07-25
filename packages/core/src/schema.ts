@@ -157,9 +157,9 @@ type ReviewQueueTable = {
  * semantics, unlike `ReviewQueueTable`'s deliberately different plain-log shape). `messageTs` keys
  * the confirming question's own posted message (for a later reaction lookup, mirroring
  * `PendingTicketDraftsTable`'s own `messageTs` exactly); `sourceMessageTs`/`sourceMessageText` are
- * this table's own addition — needed so a "yes" answer (3.4b-ii) can thread the real ticket draft
- * as a reply on the *original* source message (ambient, or a DM since BUILD_PLAN 3.7), not the
- * confirming question itself, and so a "no"
+ * this table's own addition — needed so a "yes" answer (3.4b-ii) can post the real ticket draft
+ * against the *original* source message rather than the confirming question itself (threaded on it
+ * for an ambient question, top-level for a DM — see `sourceSurface` below), and so a "no"
  * answer can carry the classifier's own `confidence`/`reasoning` through to `review_queue` the same
  * way the Low-band path already does.
  */

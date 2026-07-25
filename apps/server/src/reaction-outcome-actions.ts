@@ -249,7 +249,7 @@ async function logFailedDraftAttempt(
 /**
  * BUILD_PLAN 3.4b-ii's 👍 outcome: composes and posts a real ticket draft via the exact same
  * posting flow the High-band path uses (`postAndPersistDraft`, `handle-ambient-channel-message.ts`
- * — reused directly, not reimplemented), threaded on the confirming question's *original* source
+ * — reused directly, not reimplemented), posted against the confirming question's *original* source
  * message (`question.sourceMessageTs`/`sourceMessageText`), not the confirming question's own
  * posted message. Cost-cap checked before the atomic claim, not after — a halted persona leaves
  * the confirming question unresolved, so a later retry (once the cap resets) still has a real

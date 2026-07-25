@@ -183,7 +183,8 @@ type PostAndPersistDraftOptions = {
   readonly surface: QuestionSourceSurface;
 };
 
-// Posts the composed draft in-thread on the source message, persists the "parent-message state"
+// Posts the composed draft against the source message — in-thread for an ambient draft, top-level
+// for a DM one (see `surface` above) — persists the "parent-message state"
 // (`pending_ticket_drafts`) keyed on the real posted message, and seeds the 📦/🔁/✅ reaction-gate
 // legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii. This function itself runs no
 // guard checks of its own — it's the caller's job to gate it first. `composeAndPostDraft` below
@@ -194,7 +195,8 @@ type PostAndPersistDraftOptions = {
 // deliberately run **neither** guard first, because both are reactive rather than unprompted — the
 // same reactive/proactive distinction `standing-proactive-guards.ts`'s own TSDoc documents:
 // `draftFromConfirmingQuestion` (BUILD_PLAN 3.4b-ii, `reaction-outcome-actions.ts`), posting a
-// draft threaded on a Mid-band confirming question's *original* source message, and
+// draft against a Mid-band confirming question's *original* source message, placed to match how
+// that question itself was posted, and
 // `runDmIntakeCascade` (BUILD_PLAN 3.7, `run-dm-intake-cascade.ts`), posting a draft for a
 // High-band DM. Both still check the cost cap, since `composeTicketDraft` below is a real, billed
 // call regardless of which caller reached it.

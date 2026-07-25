@@ -163,8 +163,8 @@ export async function postAndPersistConfirmingQuestion(
 /**
  * BUILD_PLAN 3.4b-i's Mid-band action: gated by the same cost-cap+operating-rhythm guard and
  * situational-appropriateness gate the High-band draft path uses
- * (`standing-proactive-guards.ts`), then posts a fixed-template confirming question in-thread on
- * the source message, persists a `pending_confirming_questions` row keyed on the posted message,
+ * (`standing-proactive-guards.ts`), then posts a fixed-template confirming question against the
+ * source message — in-thread for an ambient one, top-level for a DM (`surface`) — persists a `pending_confirming_questions` row keyed on the posted message,
  * and seeds the 👍/👎 legend (`postAndPersistConfirmingQuestion`).
  */
 export async function composeAndPostConfirmingQuestion(
