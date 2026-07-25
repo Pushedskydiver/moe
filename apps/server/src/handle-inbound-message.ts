@@ -1,4 +1,5 @@
 import type { CapStore } from './check-cost-cap.js';
+import type { DmIntakeCascadeResult } from './run-dm-intake-cascade.js';
 import type { ThreadQueue } from './thread-queue.js';
 import type {
   classifyMessageConfidence,
@@ -240,6 +241,41 @@ async function persistTurns(
   }
 }
 
+// The last structural guarantee behind BUILD_PLAN 3.7's invariant. **No currently reachable path
+// throws** — every repository in `@moe/core` and every LLM wrapper in `@moe/agents` catches and
+// returns a `Result`, so each modelled failure already returns `handled: false` and falls through.
+// This guard is defence-in-depth for the unmodelled case, in the same spirit as the deliberately
+// unreachable `threadKey === undefined` narrowing guard below.
+//
+// It earns its place because the consequence is asymmetric rather than because the risk is live:
+// an escaping throw would propagate out of `handleThreadedMessage`, past `threadQueue.run`, to
+// `socket-mode-listener.ts`'s own top-level `.catch`, which logs and stops. That is silence — on
+// the one surface that is never allowed to be silent, for a DM that would have been answered
+// before 3.7. Catching here makes the cascade additive by construction rather than by audit, so a
+// future call site added inside it cannot quietly reintroduce that silence. It does not mask bugs:
+// an `error`-level log carrying the real message is strictly more visible than a rejected promise
+// swallowed two frames up, and this is the same "log, don't throw" convention
+// `recordUsageLogged`/`logToReviewQueue` already follow.
+async function runDmIntakeCascadeSafely(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  now: Date,
+): Promise<DmIntakeCascadeResult> {
+  try {
+    return await runDmIntakeCascade(deps, message, now);
+  } catch (error: unknown) {
+    deps.logger.error(
+      'DM intake cascade threw — falling back to a chat reply',
+      {
+        personaId: deps.personaId,
+        channelId: message.channelId,
+        errorMessage: String(error),
+      },
+    );
+    return { handled: false };
+  }
+}
+
 async function handleThreadedMessage(
   deps: HandlerDeps,
   message: InboundMessage,
@@ -256,7 +292,7 @@ async function handleThreadedMessage(
   // failure, failed post) falls through to exactly the reply this path produced before 3.7. That
   // ordering is the invariant: the cascade may only add to the DM response, never remove it.
   const now = new Date();
-  const cascade = await runDmIntakeCascade(deps, message, now);
+  const cascade = await runDmIntakeCascadeSafely(deps, message, now);
   if (cascade.handled) {
     await persistTurns(deps, scope, {
       user: message.text,

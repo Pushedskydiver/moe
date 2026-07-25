@@ -307,24 +307,39 @@ async function logToReviewQueue(
 }
 
 /**
- * VISION §5.2's Stage 0 + Stage 1, run for every ambient channel/group message (never a DM — a DM
- * is already addressed, §5.3). Out-of-scope channels never reach the classifier at all (Stage 0,
- * BUILD_PLAN 3.2's `isSurfaceInScope`); an in-scope one gets a single classification call (Stage 1,
+ * VISION §5.2's Stage 0 + Stage 1 for an **ambient** channel/group message — the surface nobody
+ * addressed directly. A DM runs the same two stages through its own entry point instead
+ * (`run-dm-intake-cascade.ts`, BUILD_PLAN 3.7); see below for why the two are separate functions
+ * rather than one with a flag.
+ *
+ * Out-of-scope channels never reach the classifier at all (Stage 0, BUILD_PLAN 3.2's
+ * `isSurfaceInScope`); an in-scope one gets a single classification call (Stage 1,
  * `docs/decisions/STAGE-1-CLASSIFIER.md`) and the score is logged. A High-band score (VISION
  * §5.2's Stage 2 routing, `docs/decisions/STAGE-1-CLASSIFIER.md`'s thresholds) additionally
  * composes and posts a real ticket draft (`composeAndPostDraft`, BUILD_PLAN 3.4a-i/3.4a-iii); a
  * Mid-band score posts a real confirming question (`composeAndPostConfirmingQuestion`, BUILD_PLAN
  * 3.4b-i); a Low-band score logs a real review-queue row (`logToReviewQueue`, BUILD_PLAN 3.4c).
- * This replaces the old "chat back to every message" behavior for
- * ambient surfaces (BUILD_PLAN 3.3's own DMs-only decision) — a DM still gets the full
- * conversational reply path, unchanged (`handle-inbound-message.ts`).
+ * This replaced the old "chat back to every message" behavior for ambient surfaces (BUILD_PLAN
+ * 3.3's own DMs-only *chat* decision) — a DM never reaches this function.
+ *
+ * **This path is silent by construction, and the DM path is never silent — that asymmetry is the
+ * reason they are separate.** Here, every guard block and every failure returns without posting
+ * anything, because there is no reply for a draft to replace: an ambient message nobody addressed
+ * expects no answer. On a DM there always is one, so BUILD_PLAN 3.7's invariant requires the
+ * cascade to fall back to it rather than return. Two functions, so neither behaviour can be
+ * reached by accident from the other's surface. This one additionally runs the operating-rhythm
+ * guard and the situational-appropriateness gate (`standing-proactive-guards.ts`), which a
+ * DM-triggered post deliberately does not — posting unprompted into a shared channel is exactly
+ * what those two exist to gate.
  *
  * A real, billed Anthropic call regardless of which model it's on — gated by the same
  * `checkCostCapAndAlert` the DM reply path uses (BUILD_PLAN 2.6b), not a separate or looser check,
  * since both call sites draw against the same per-persona monthly cap (DA review, chunk 3.3: this
- * path originally shipped completely uncapped and unaccounted-for). A halted persona skips
- * classification entirely rather than posting anything — there's no reply path here to carry a
- * visible `HALT_TEXT`-style signal, so the skip is logged instead, for Alex's own visibility.
+ * path originally shipped completely uncapped and unaccounted-for). That shared cap check now
+ * lives in `classifyMessageForIntake`, called by both surfaces, so the two cannot drift apart. A
+ * halted persona skips classification entirely rather than posting anything — there's no reply
+ * path here to carry a visible `HALT_TEXT`-style signal, so the skip is logged instead, for Alex's
+ * own visibility.
  */
 export async function handleAmbientChannelMessage(
   deps: HandlerDeps,

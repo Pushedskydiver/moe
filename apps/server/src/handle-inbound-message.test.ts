@@ -985,6 +985,49 @@ describe('createInboundMessageHandler', () => {
       );
     });
 
+    it('still answers the DM when the cascade throws outright, rather than going silent', async () => {
+      // Every failure the cascade *models* already returns `handled: false`, and no currently
+      // reachable path throws — every repository and LLM wrapper returns a `Result`. This pins the
+      // unmodelled case, which is why the mock has to reject rather than resolve `{ok: false}`: a
+      // throw must be logged and downgraded to a fall-through, not propagate to the Socket Mode
+      // listener's top-level `.catch`, which logs and stops, leaving a DM unanswered that would
+      // have been answered before 3.7. `draftStore.create` is the trigger because it is reached
+      // only from inside the cascade, so a rejection there cannot also break the fall-through path
+      // being asserted.
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(
+          REPLY_MESSAGE,
+          HIGH_BAND_THEN_DRAFT,
+        ),
+        draftStore: makeDraftStore({
+          create: vi
+            .fn<HandlerDeps['draftStore']['create']>()
+            .mockRejectedValue(new Error('connection terminated unexpectedly')),
+        }),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await expect(handler(DM_MESSAGE)).resolves.toBeUndefined();
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'DM intake cascade threw — falling back to a chat reply',
+        expect.objectContaining({
+          channelId: 'D123',
+          errorMessage: expect.stringContaining(
+            'connection terminated unexpectedly',
+          ) as string,
+        }),
+      );
+      // The conversational reply still happened — the whole point.
+      expect(deps.anthropicClient.messages.create).toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'D123',
+          text: 'Sure, tell me more.',
+        }),
+      );
+    });
+
     it('answers a Mid-band DM with a confirming question instead of a conversational reply', async () => {
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient(REPLY_MESSAGE, [

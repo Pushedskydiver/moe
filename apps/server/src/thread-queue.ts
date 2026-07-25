@@ -30,7 +30,10 @@ class ThreadQueueImpl implements ThreadQueue {
  * two Slack messages for the same thread arrive close together (`packages/slack`'s socket-mode
  * listener doesn't await `onMessage`, so overlapping calls are possible). Since BUILD_PLAN 3.3,
  * every call into this queue is a DM (`handle-inbound-message.ts` routes ambient channel/group
- * messages to a separate classify-and-log path that never touches this queue at all).
+ * messages to `handle-ambient-channel-message.ts`, which never touches this queue at all). As of
+ * BUILD_PLAN 3.7 a DM's serialized work is the intake cascade *and* the conversational reply, not
+ * the reply alone — so the queue now also keeps two rapid DMs from racing on the draft/question
+ * each would post, not just on history.
  */
 export function makeThreadQueue(): ThreadQueue {
   return new ThreadQueueImpl();
