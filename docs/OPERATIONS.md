@@ -108,7 +108,8 @@ fly deploy -c fly.sarah.toml --ha=false
   tag, and `fly deploy -c fly.<persona>.toml --image <tag> --ha=false` deploys that exact image to
   each App. The `-c` on the build step is **required**, not decorative: `fly deploy` resolves an app
   name before it builds anything, and since 5.2 deleted the root `fly.toml` there is no config for a
-  bare invocation to fall back on — it fails with "the config for your app is missing an app name".
+  bare invocation to fall back on — it aborts asking for an app name instead of building (paraphrased;
+  the exact flyctl wording hasn't been reproduced here, since this environment has no Fly org).
   Cross-App pulls of one App's registry tag are expected to work within a single Fly organization
   but have **not** been verified here; confirm it on the first real fleet deploy before relying on
   it, and fall back to a plain per-App `fly deploy -c ... --ha=false` if it doesn't.
@@ -127,10 +128,11 @@ fly status -a moe-sarah           # expect exactly ONE Machine (see note below)
 ```
 
 If `fly status` ever shows a second Machine marked with a `†`, that is a **standby** — a stopped
-failover Fly creates when `--ha` is left at its default, not a duplicate persona running twice.
-Deploying with `--ha=false` as above means you shouldn't see one; if you do, it's because a deploy
-omitted the flag. Destroy it with `fly machine destroy <id>` and redeploy with `--ha=false`, rather
-than assuming the fleet is double-running.
+failover, not a duplicate persona running twice. Fly creates one when `--ha` is left at its default,
+but only at specific moments: a first deploy, a redeploy after scaling to zero Machines, or when a
+new process group appears — not on every ordinary redeploy. So seeing one means a deploy at one of
+those moments omitted the flag. Destroy it with `fly machine destroy <id>` and redeploy with
+`--ha=false`, rather than assuming the fleet is double-running.
 
 A `GET /health` body is `{"status":"ok","personaId":"<persona>"}` — the `personaId` is what makes
 it a per-persona signal rather than a generic liveness ping. To reach it directly,

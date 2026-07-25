@@ -122,6 +122,10 @@ describe('claimTicket / releaseTicket', () => {
     // literal meant half these claimants would have queued behind the winner, leaving the
     // assertion green while no longer exercising a race at all. Importing the constant is what
     // stops that recurring — do not re-hardcode it.
+    // Binding to the constant fixes the mismatch, not the degenerate case: at a pool max of 1
+    // there would be a single claimant and `winners` would trivially have length 1 with no race
+    // at all. Assert the floor so that lands as a loud failure here rather than a silent pass.
+    expect(DB_POOL_MAX_CONNECTIONS).toBeGreaterThan(1);
     const claimants = Array.from(
       { length: DB_POOL_MAX_CONNECTIONS },
       (_, i) => `persona-${i}`,

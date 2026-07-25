@@ -30,10 +30,21 @@ const expected = new Set(configs.map(({ fileName }) => fileName));
 // rather than leaving a stale file behind. Without this the CI freshness gate cannot see roster
 // *shrinkage* at all: a write-only generator leaves the orphan untouched, so `git add -A` finds
 // nothing to stage and the gate passes on real drift.
-for (const entry of readdirSync(REPO_ROOT)) {
-  if (/^fly\..+\.toml$/.test(entry) && !expected.has(entry)) {
-    rmSync(join(REPO_ROOT, entry));
-    console.log(`removed orphaned ${entry}`);
+//
+// This claims the whole root `fly.<name>.toml` namespace for the generator: any file matching it
+// that isn't a current persona's is deleted, including untracked ones git could not restore. Don't
+// hand-author a `fly.staging.toml` here. A bare root `fly.toml` is deliberately outside the pattern
+// (`.+` needs a middle segment), so re-adding one wouldn't be destroyed by a regenerate.
+for (const entry of readdirSync(REPO_ROOT, { withFileTypes: true })) {
+  // `isFile()` guard: a *directory* named fly.x.toml would make rmSync throw ERR_FS_EISDIR and
+  // abort the whole generator — and the CI job with it — on a raw stack trace.
+  if (
+    entry.isFile() &&
+    /^fly\..+\.toml$/.test(entry.name) &&
+    !expected.has(entry.name)
+  ) {
+    rmSync(join(REPO_ROOT, entry.name));
+    console.log(`removed orphaned ${entry.name}`);
   }
 }
 
