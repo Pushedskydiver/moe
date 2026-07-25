@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit",
     "migrate": "pnpm build && node scripts/migrate.ts",
     "backup": "pnpm build && node scripts/backup.ts",
-    "restore": "pnpm build && node scripts/restore.ts"
+    "restore": "pnpm build && node scripts/restore.ts",
+    "generate:fly-configs": "pnpm build && node scripts/generate-fly-configs.ts"
   },
   "dependencies": {
     "kysely": "^0.29.3",

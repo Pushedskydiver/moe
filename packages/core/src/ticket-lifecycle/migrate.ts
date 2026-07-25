@@ -8,8 +8,14 @@ import { join } from 'node:path';
  * one, so it works safely through Neon's pooled (PgBouncer transaction-mode) connection string:
  * the lock is held for exactly the one transaction below, which is the unit transaction-mode
  * pooling preserves. This means migrations don't need a separate direct/unpooled connection, and
- * N persona machines can all attempt migrations on boot safely — whichever gets there first holds
- * the lock for the whole batch; the rest block, then see nothing pending and no-op.
+ * concurrent callers are safe — whichever gets there first holds the lock for the whole batch; the
+ * rest block, then see nothing pending and no-op.
+ *
+ * That safety is a property worth having, not a design moe uses: no persona process runs
+ * migrations at boot (`apps/server/src/main.ts`), and `docs/OPERATIONS.md` §Deploying the persona
+ * fleet makes `pnpm --filter @moe/core migrate` a single manual pre-deploy step against the one
+ * shared database, run once before the eight Apps deploy — not once per persona. The lock is the
+ * backstop for an operator running the script twice, or racing it against a deploy.
  */
 const MIGRATIONS_LOCK_ID = 84_213_001;
 

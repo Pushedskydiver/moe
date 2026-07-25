@@ -1,0 +1,37 @@
+# GENERATED FILE — do not hand-edit. Run `pnpm --filter @moe/core generate:fly-configs`.
+# Source of truth: packages/core/src/deploy/fly-app-config.ts. CI fails if this file is stale.
+#
+# One Fly App per persona (docs/ARCHITECTURE.md "Process topology"), because Fly secrets are
+# App-scoped and every persona process reads the same unsuffixed MOE_SLACK_* variable names.
+# The three Slack credentials are set per App: fly secrets set -a moe-marcus ...
+#
+# Deploy (Alex-only, never CI-automated — CLAUDE.md), from the repo root:
+#   fly deploy -c fly.marcus.toml --ha=false
+# --ha=false is deliberate. This config declares no services, and for a process group without
+# services Fly's default --ha=true "creates and starts one Machine and creates one stopped standby
+# Machine" — a free failover, not a second live persona. It is turned off because a standby that
+# starts while the primary is merely unreachable would put two processes on one persona's Slack
+# connection, and moe has no cross-process reply dedup. Expect exactly one Machine; if you ever see
+# a second marked with a dagger in `fly status`, that is a standby, not a duplicate persona.
+# Full runbook: docs/OPERATIONS.md §Deploying the persona fleet.
+app = "moe-marcus"
+primary_region = "lhr"
+
+[env]
+  PORT = "8080"
+  MOE_PERSONA_ID = "marcus"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"
+
+# No [http_service] on purpose — Socket Mode is outbound-only, so nothing needs a public port.
+[checks]
+  [checks.health]
+    port = 8080
+    type = "http"
+    method = "GET"
+    path = "/health"
+    grace_period = "30s"
+    interval = "15s"
+    timeout = "5s"

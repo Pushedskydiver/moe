@@ -30,11 +30,15 @@ pnpm build && pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && p
 No `publint`/`attw`/changesets yet — moe doesn't publish any package to npm today (it's a private deployed service, not a distributed CLI). This isn't a deviation from `docs/VISION.md` §12's adopted pre-push hygiene list — §12 itself scopes `publint`/`attw` to "the packages Moe actually publishes," and none do yet. Add them the day a package actually publishes.
 
 ```bash
-# Deploy (apps/server, Fly.io) — Alex-only, never automated on merge.
-fly deploy --app moe
+# Deploy one persona (apps/server, Fly.io) — Alex-only, never automated on merge.
+# One Fly App per persona: moe-sarah … moe-maya. Run from the repo root.
+fly deploy -c fly.sarah.toml --ha=false
+
+# Regenerate the eight fly.<persona>.toml files (never hand-edit them; CI gates freshness).
+pnpm --filter @moe/core generate:fly-configs
 ```
 
-Deploys are deliberately not CI-automated: a truncated/empty secret has previously taken the live service down (see project memory). A human runs the deploy command.
+Deploys are deliberately not CI-automated: a truncated/empty secret has previously taken the live service down (see project memory). A human runs the deploy command. `--ha=false` is deliberate — these configs declare no services, so `fly deploy`'s default would add a stopped standby Machine, and a standby that starts while the primary is only unreachable would put two processes on one persona's Slack connection. Full runbook, including per-App secrets and the pooled-`DATABASE_URL` requirement: `docs/OPERATIONS.md` §Deploying the persona fleet.
 
 ## Commit format
 
