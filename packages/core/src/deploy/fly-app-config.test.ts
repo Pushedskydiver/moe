@@ -30,17 +30,19 @@ describe('buildFlyAppConfig', () => {
 
   it('health-checks each persona privately — no [http_service], so no public port is published', () => {
     const { toml } = buildFlyAppConfig('sarah');
+    const lines = toml.split('\n').map((line) => line.trim());
     // Section headers only: a `#` comment naming [http_service] is fine, an actual section is not.
-    const sections = toml
-      .split('\n')
-      .map((line) => line.trim())
-      .filter((line) => line.startsWith('[') && line.endsWith(']'));
+    const sections = lines.filter(
+      (line) => line.startsWith('[') && line.endsWith(']'),
+    );
 
     expect(sections).not.toContain('[http_service]');
     expect(sections).toContain('[checks.health]');
-    expect(toml).toContain('port = 8080');
-    expect(toml).toContain('type = "http"');
-    expect(toml).toContain('path = "/health"');
+    // Whole-line, not `toContain`: the port is unquoted, so a substring assertion on
+    // `port = 8080` would pass just as happily against `port = 80808`.
+    expect(lines).toContain('port = 8080');
+    expect(lines).toContain('type = "http"');
+    expect(lines).toContain('path = "/health"');
   });
 
   it("requests the health check with an uppercase GET, the only form Node's parser accepts", () => {
