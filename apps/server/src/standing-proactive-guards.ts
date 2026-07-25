@@ -72,8 +72,11 @@ export async function isCostAndRhythmGuardSatisfied(
  * standing-proactive Slack post — Alex confirmed via `AskUserQuestion` at 3.4a-iii that only
  * unprompted posting needs the check, not reaction-outcome dispatch (a human's own reaction is a
  * response to the bot, not the bot acting unprompted, same distinction 2.7a's core-hours guard
- * already draws for DM replies); the Mid-band confirming-question post is unprompted in exactly
- * that same sense, so it needs this gate too. **Fails CLOSED** on any gate failure (an API error,
+ * already draws for DM replies); the **ambient** Mid-band confirming-question post is unprompted in
+ * exactly that same sense, so it needs this gate too. BUILD_PLAN 3.7's DM-triggered draft and
+ * confirming question sit on the other side of that line and call neither guard in this file — they
+ * go straight to the ungated `postAndPersistDraft`/`postAndPersistConfirmingQuestion` primitives,
+ * checking only the cost cap. **Fails CLOSED** on any gate failure (an API error,
  * not just `appropriate: false`) — see `evaluateSituationalAppropriateness`'s own TSDoc for why
  * this is the opposite of `checkCostCapAndAlert`'s fail-open design.
  */

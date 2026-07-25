@@ -63,6 +63,16 @@ Watch for: any new function that posts to Slack, opens a GitHub comment, or othe
 
 ---
 
+## Test placement
+
+### Extracted function ships without a co-located test file
+
+`docs/CONVENTIONS.md` requires a unit test for every exported function, no exceptions. The failure mode is specific and does **not** look like missing coverage: a function extracted out of a larger file (to stay under `max-lines`, or because a second consumer appeared) arrives already exercised through its original caller's test file, so the suite stays green, the diff adds no untested behaviour, and nothing flags it. The gap is structural rather than behavioural — the new module has no test file of its own, so the next change to it is reviewed against assertions living somewhere else, written for a different caller's concerns.
+
+Watch for: any new `src/*.ts` in a diff whose sibling `src/*.test.ts` is absent — particularly when the commit message or TSDoc describes the change as an "extraction", a "pure move", or "purely to stay under `max-lines`", since all three phrasings signal exactly this situation and simultaneously argue the change is too mechanical to need tests.
+
+**Status: Caught — three times, in the same class.** (1) `BUILD_PLAN.md` chunk 3.4a-i: `handle-ambient-channel-message.ts` was extracted from `handle-inbound-message.ts` and tested only through the latter; DA flagged it, and it was deferred as "a file-organization gap, not a coverage gap" — the reasoning that lets this recur. Its test file exists now. (2) and (3) chunk 3.7: `classify-message-for-intake.ts` and `generate-and-post-reply.ts`, both extractions, both shipped covered only indirectly, both caught by DA on the same PR and fixed there. The third occurrence is what moved this from a one-off judgement call to a pattern: "it's only a move" is true and still leaves the gap.
+
 ## How this file is used
 
 - When dispatched, `.claude/agents/da-review.md` reads `docs/DA-REVIEW.md`'s targeted sections, the `docs/CONVENTIONS.md` sections the diff touches, and this file as part of the standard brief; `docs/RATIONALIZATIONS.md` is consulted only when about to dismiss a finding.

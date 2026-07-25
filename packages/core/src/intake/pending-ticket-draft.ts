@@ -24,9 +24,17 @@ const nonBlankStringSchema = z
  * surfaces "the team already treats as work-relevant", and §5.3 settles a DM to a named persona as
  * *already* unambiguous — so a DM is a systematically higher-propensity population than an ambient
  * channel message, and mixing the two would skew the ambient rate the same way 3.6's own DA-caught
- * defect did. Surfacing a *separate* DM acceptance rate in the 3.5 sweep digest is deliberately
- * deferred, not dropped — this column is what makes it a later query change rather than a
- * migration.
+ * defect did.
+ *
+ * Surfacing a *separate* DM acceptance rate in the 3.5 sweep digest is deliberately deferred, not
+ * dropped — see BUILD_PLAN 3.7's own entry for the deferral and its re-entry condition. **The
+ * surface axis is deliberately only half-applied, and that bounds what the deferral can be:** only
+ * the High band distinguishes surfaces. A Mid-band 👍-confirmed draft writes `'mid-band-confirmed'`
+ * whatever surface it came from (`draftFromConfirmingQuestion`), so a DM-only *Mid* population
+ * would still need a migration. That is deliberate rather than an oversight — `getDraftOutcomeCounts`
+ * excludes `'mid-band-confirmed'` entirely on either surface, so nothing is being skewed today, and
+ * inventing a fourth value with no consumer would be speculative. Widen it if and when a Mid-band
+ * DM population is actually wanted.
  */
 export const draftOriginSchema = z.enum([
   'high-band',
@@ -39,8 +47,9 @@ export type DraftOrigin = z.infer<typeof draftOriginSchema>;
 /**
  * The "parent-message state" BUILD_PLAN 3.4a-ii's own text names — a ticket draft (BUILD_PLAN
  * 3.4a-i's `composeTicketDraft`) persisted so a later Slack reaction on the message it was posted
- * as can be traced back to the draft it belongs to. Written by both the High-band auto-draft path
- * and the Mid-band 👍-confirmed path (`origin` distinguishes which, above). `(channelId,
+ * as can be traced back to the draft it belongs to. Written by the ambient High-band auto-draft
+ * path, the Mid-band 👍-confirmed path, and the DM High-band path (`origin` distinguishes which,
+ * above). `(channelId,
  * messageTs)` uniquely identifies one Slack message; `resolvedAt` is null until the ✅/📦 outcome
  * path claims it (`resolvePendingTicketDraft`) — 🔁's regenerate path updates
  * `draftTitle`/`draftBody` in place instead, leaving the row open for a further reaction.

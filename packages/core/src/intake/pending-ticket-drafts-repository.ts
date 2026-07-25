@@ -55,10 +55,11 @@ function parseDraftRow(row: unknown): PendingTicketDraftResult {
  * Persists a ticket draft's "parent-message state" (BUILD_PLAN 3.4a-ii's own text names it) so a
  * later Slack reaction on the posted message can be traced back to it — a real consumer as of
  * BUILD_PLAN 3.4a-iii (`apps/server`'s `postAndPersistDraft`, called once the real post to Slack
- * succeeds, keyed on the posted message's own `ts`). Shared by both `composeAndPostDraft`'s own
- * High-band auto-draft path and `draftFromConfirmingQuestion`'s own Mid-band 👍-confirmed path
- * (`postAndPersistDraft`'s single caller either way) — `input.origin` (BUILD_PLAN 3.6) records
- * which one produced this particular row. Validates the full candidate row through
+ * succeeds, keyed on the posted message's own `ts`). Shared by all three writers —
+ * `composeAndPostDraft`'s ambient High-band auto-draft path, `draftFromConfirmingQuestion`'s
+ * Mid-band 👍-confirmed path, and `runDmIntakeCascade`'s DM High-band path (BUILD_PLAN 3.7), each
+ * going through `postAndPersistDraft` — with `input.origin` (BUILD_PLAN 3.6/3.7) recording which
+ * one produced this particular row. Validates the full candidate row through
  * `pendingTicketDraftSchema` before writing, so an invalid input never reaches the database.
  */
 export async function createPendingTicketDraft(

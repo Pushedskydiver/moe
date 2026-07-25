@@ -296,9 +296,10 @@ function makeReviewQueueStore(
   };
 }
 
-// BUILD_PLAN 3.4b-i's own real consumer, `compose-and-post-confirming-question.ts` — this file's
-// DM-path tests never exercise it directly (that coverage lives in
-// `handle-ambient-channel-message.test.ts`), so a sensible default resolved value is enough.
+// BUILD_PLAN 3.4b-i's own real consumer, `compose-and-post-confirming-question.ts`. Since
+// BUILD_PLAN 3.7 this file's own DM-path tests DO exercise it — a Mid-band DM posts a confirming
+// question in place of the chat reply — so the default resolved value is load-bearing here, not
+// just a stub to satisfy the type.
 function makeConfirmingQuestionStore(
   overrides: Partial<HandlerDeps['confirmingQuestionStore']> = {},
 ): HandlerDeps['confirmingQuestionStore'] {

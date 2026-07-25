@@ -158,9 +158,12 @@ function validateGithubAndLog(
  * database, cost-cap, channel-scope, and GitHub config from env, start the health-check HTTP
  * server, open the shared Postgres pool (migrations are a separate manual pre-deploy step —
  * `pnpm --filter @moe/core migrate` — this boot sequence never runs them), connect to Slack over
- * Socket Mode. A DM gets a full LLM-generated reply in the placeholder voice, thread-scoped per
- * `resolve-thread-key.ts`; an ambient channel/group message is classified and logged instead
- * (BUILD_PLAN 3.3 — see `handle-inbound-message.ts`). A Slack connection failure only exits the
+ * Socket Mode. Both surfaces run VISION §5.2's intake cascade: a DM is classified and, on a High
+ * or Mid band, answered with a ticket draft or a confirming question — otherwise it falls through to
+ * a full LLM-generated reply in the placeholder voice, thread-scoped per `resolve-thread-key.ts`
+ * (BUILD_PLAN 3.7 — see `run-dm-intake-cascade.ts`). An ambient channel/group message runs the same
+ * cascade but never gets a chat reply, and stays silent on a Low band or any guard block
+ * (BUILD_PLAN 3.3/3.4a-i — see `handle-ambient-channel-message.ts`). A Slack connection failure only exits the
  * process when it's unrecoverable per isUnrecoverableStartError (permanent misconfiguration — the
  * SDK's own auto-reconnect already handles transient failures); see start-slack-listener.ts. The
  * GitHub App credential check (`validateGithubAndLog`, BUILD_PLAN 4.1's boot-time key-validation

@@ -112,7 +112,8 @@ depend on `SET`, `LISTEN`/`NOTIFY`, or session-level state."
 because "tools may not support transaction pooling" — a statement about tools in general. moe's own
 `migrate.ts` was built for the pooled endpoint deliberately: it takes `pg_advisory_xact_lock`, a
 _transaction_-scoped lock rather than a session-scoped one, which is exactly the unit transaction
-pooling preserves. Verified for this repo: none of the 16 migration files uses `SET`, `RESET`,
+pooling preserves. Verified for this repo (re-run at BUILD_PLAN 3.7, which added `0017`): none of the 17 migration
+files uses `SET`, `RESET`,
 `CREATE INDEX CONCURRENTLY`, `LISTEN`, SQL-level `PREPARE`, or a temporary table. **The first
 migration that needs any of those must run against the direct endpoint instead** — `CREATE INDEX
 CONCURRENTLY` is the likely first offender, since it also cannot run inside the transaction

@@ -148,7 +148,7 @@ async function composeDraftContent(
 // claim to fall back from, so it keeps ignoring the return value, same as `postMessage`'s own
 // `ts`-on-success field being added at BUILD_PLAN 3.4a-iii without its other call sites needing to
 // change. No `error` detail on the `false` branch — the specific failure reason is already logged
-// at the exact sub-step that failed, below; same no-detail shape as `handle-inbound-message.ts`'s
+// at the exact sub-step that failed, below; same no-detail shape as `generate-and-post-reply.ts`'s
 // own `GenerateAndPostResult`.
 //
 // `postedText` (BUILD_PLAN 3.7) carries the exact text that reached Slack back to the DM cascade
@@ -165,9 +165,10 @@ type PostAndPersistDraftResult =
 // eslint's `max-params: 3` ceiling with `deps`/`message`, same bundling reasoning
 // `StartSlackListenerDeps` itself already documents elsewhere in this codebase. `origin`
 // (BUILD_PLAN 3.6, `@moe/core`'s `DraftOrigin`) records which Stage 2 band produced this draft —
-// `getDraftOutcomeCounts` filters to `'high-band'` only, since a Mid-band-confirmed draft has
-// already passed a human-confirmation gate before drafting even happens, so it isn't the same
-// classifier-calibration signal VISION §5.4 names.
+// `getDraftOutcomeCounts` filters to `'high-band'` only — a Mid-band-confirmed draft has already
+// passed a human-confirmation gate before drafting even happens, and a `'high-band-dm'` draft
+// (BUILD_PLAN 3.7) comes from a surface VISION §5.3 settles as already unambiguous, so neither is
+// the ambient-classifier calibration signal VISION §5.4 names.
 type PostAndPersistDraftOptions = {
   readonly now: Date;
   readonly origin: DraftOrigin;
@@ -177,14 +178,17 @@ type PostAndPersistDraftOptions = {
 // (`pending_ticket_drafts`) keyed on the real posted message, and seeds the 📦/🔁/✅ reaction-gate
 // legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii. This function itself runs no
 // guard checks of its own — it's the caller's job to gate it first. `composeAndPostDraft` below
-// (the High-band caller) only reaches it after both `isCostAndRhythmGuardSatisfied` and
-// `isSituationallyAppropriate` pass. `draftFromConfirmingQuestion` (BUILD_PLAN 3.4b-ii,
-// `reaction-outcome-actions.ts`, reusing this function directly rather than reimplementing it, to
-// post a real ticket draft threaded on a Mid-band confirming question's *original* source message)
-// deliberately does **not** run either guard first — a reaction-outcome dispatch is a response to
-// the human, not the bot acting unprompted, the same reactive/proactive distinction
-// `standing-proactive-guards.ts`'s own TSDoc documents — it only checks the cost cap, since
-// `composeTicketDraft` below is still a real, billed call regardless of which caller reached it.
+// (the ambient High-band caller) only reaches it after both `isCostAndRhythmGuardSatisfied` and
+// `isSituationallyAppropriate` pass.
+//
+// Two other callers reuse this function directly rather than reimplementing it, and both
+// deliberately run **neither** guard first, because both are reactive rather than unprompted — the
+// same reactive/proactive distinction `standing-proactive-guards.ts`'s own TSDoc documents:
+// `draftFromConfirmingQuestion` (BUILD_PLAN 3.4b-ii, `reaction-outcome-actions.ts`), posting a
+// draft threaded on a Mid-band confirming question's *original* source message, and
+// `runDmIntakeCascade` (BUILD_PLAN 3.7, `run-dm-intake-cascade.ts`), posting a draft for a
+// High-band DM. Both still check the cost cap, since `composeTicketDraft` below is a real, billed
+// call regardless of which caller reached it.
 export async function postAndPersistDraft(
   deps: DraftPostingDeps,
   message: DraftSourceMessage,

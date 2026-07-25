@@ -445,6 +445,64 @@ describe('runDmIntakeCascade', () => {
       expect(deps.draftStore.create).toHaveBeenCalled();
     });
 
+    it('skips drafting, and falls through, when the cost cap is reached between the classify and compose calls (DA review, chunk 3.7)', async () => {
+      // The classify that routed us to the High band is itself billed and already recorded, so
+      // spend can cross the cap *inside this turn*. The ambient path re-checks here for exactly
+      // that reason; without the same check the DM path would fire a full Sonnet
+      // `composeTicketDraft` with the cap already exceeded. `getMonthlyCost` returns under the cap
+      // on the first call (so classification proceeds) and over it on the second.
+      const getMonthlyCost = vi
+        .fn<CapStore['getMonthlyCost']>()
+        .mockResolvedValueOnce({
+          ok: true,
+          total: {
+            personaId: 'sarah',
+            month: '2026-07',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsdMicros: 0,
+          },
+        })
+        .mockResolvedValue({
+          ok: true,
+          total: {
+            personaId: 'sarah',
+            month: '2026-07',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsdMicros: 100_000_000,
+          },
+        });
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: HIGH_BAND,
+          draftResponse: DRAFT,
+        }),
+        capStore: makeCapStore({ getMonthlyCost }),
+      });
+
+      const result = await runDmIntakeCascade(
+        deps,
+        DM_MESSAGE,
+        WITHIN_CORE_HOURS,
+      );
+
+      expect(result).toEqual({ handled: false });
+      // The classification happened (one `.parse()`); the billed draft composition did not.
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      expect(deps.draftStore.create).not.toHaveBeenCalled();
+      // `postMessage` *is* called here — crossing the cap fires the 50/80/100% alert-ladder DMs to
+      // Alex (BUILD_PLAN 2.6b). What must not happen is a draft reaching the user, so assert on
+      // the content rather than the call count.
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalledWith(
+        expect.objectContaining({ channel: 'D123' }),
+      );
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'skipping DM ticket-draft composition — monthly cost cap reached',
+        { personaId: 'sarah', channelId: 'D123' },
+      );
+    });
+
     it('falls through when composing the draft fails — never leaves the DM unanswered', async () => {
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient({
@@ -560,6 +618,28 @@ describe('runDmIntakeCascade', () => {
       );
 
       expect(result.handled).toBe(true);
+    });
+
+    it('falls through when persisting the pending confirming question fails after a successful post', async () => {
+      // The High band pins compose/post/persist failures separately; this is the Mid band's own
+      // persist pin, so both bands have symmetric failure-path coverage.
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({ parseResponse: MID_BAND }),
+        confirmingQuestionStore: makeConfirmingQuestionStore({
+          create: vi.fn<ConfirmingQuestionStore['create']>().mockResolvedValue({
+            ok: false,
+            error: { kind: 'unknown', cause: new Error('connection reset') },
+          }),
+        }),
+      });
+
+      const result = await runDmIntakeCascade(
+        deps,
+        DM_MESSAGE,
+        WITHIN_CORE_HOURS,
+      );
+
+      expect(result).toEqual({ handled: false });
     });
 
     it('falls through when posting the confirming question fails', async () => {

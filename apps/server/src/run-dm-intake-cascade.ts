@@ -3,6 +3,7 @@ import type { InboundMessage } from '@moe/slack';
 
 import { classifyConfidenceBand, isSurfaceInScope } from '@moe/core';
 
+import { checkCostCapAndAlert } from './check-cost-cap.js';
 import { classifyMessageForIntake } from './classify-message-for-intake.js';
 import { postAndPersistConfirmingQuestion } from './compose-and-post-confirming-question.js';
 import { postAndPersistDraft } from './handle-ambient-channel-message.js';
@@ -81,6 +82,27 @@ export async function runDmIntakeCascade(
   if (band === 'low') return NOT_HANDLED;
 
   if (band === 'high') {
+    // A **second** cap check, between the classify above and the Sonnet `composeTicketDraft`
+    // below. Not redundant: the classify call that got us here was itself billed and has already
+    // been recorded, so spend can cross the cap inside this very turn — the ambient path checks
+    // again here for exactly that reason (`isCostAndRhythmGuardSatisfied`, pinned by its own
+    // "cost cap is reached between the classify and compose calls" test), and
+    // `draftFromConfirmingQuestion` runs the same check before reusing `postAndPersistDraft`.
+    // Skipping the guarded `composeAndPostDraft` wrapper is deliberate for the *rhythm* and
+    // *appropriateness* guards only; dropping the cap with them would be collateral, and
+    // BUILD_PLAN 3.4a-i's own rule — every real, billed call site needs this from the start —
+    // applies to a new billed call site regardless of which surface reached it.
+    const capCheck = await checkCostCapAndAlert(deps, now);
+    if (capCheck.halt) {
+      deps.logger.info(
+        'skipping DM ticket-draft composition — monthly cost cap reached',
+        { personaId: deps.personaId, channelId: message.channelId },
+      );
+      // Falls through, so the conversational path posts its own visible `HALT_TEXT` — the invariant
+      // holds through the halt rather than around it.
+      return NOT_HANDLED;
+    }
+
     // `origin: 'high-band-dm'`, not `'high-band'` — `getDraftOutcomeCounts` filters to
     // `'high-band'`, and VISION §5.4's ignored/rejected-draft rate measures the *ambient*
     // classifier's calibration. Reusing `'high-band'` would fold a systematically
@@ -94,6 +116,10 @@ export async function runDmIntakeCascade(
       ? { handled: true, postedText: posted.postedText }
       : NOT_HANDLED;
   }
+
+  // No second cap check on the Mid band, deliberately: `postAndPersistConfirmingQuestion` posts a
+  // fixed template string (BUILD_PLAN 3.4b-i — Alex chose a template over an LLM-composed question
+  // precisely so it needs no billed call site), so there is no further spend to gate here.
 
   const posted = await postAndPersistConfirmingQuestion(deps, {
     message,

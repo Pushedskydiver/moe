@@ -11,11 +11,12 @@ const nonBlankStringSchema = z
  * The Mid-band "parent-message state" (BUILD_PLAN 3.4b-i, VISION §5.2's "short, low-friction
  * confirming question") — a posted confirming question, persisted so a later 👍/👎 reaction on the
  * message it was posted as can be traced back to the question it belongs to and, through it, the
- * original ambient message. `(channelId, messageTs)` uniquely identifies the confirming question's
+ * original source message. `(channelId, messageTs)` uniquely identifies the confirming question's
  * own posted Slack message, mirroring `pending-ticket-draft.ts`'s own `messageTs` semantics exactly
  * — a workflow object with resolve-once CAS semantics, unlike `review-queue-entry.ts`'s
  * deliberately different plain-log shape. `sourceMessageTs`/`sourceMessageText` reference the
- * *original* ambient message, not the confirming question itself — needed so a 👍 answer
+ * *original* source message — an ambient channel/group message, or, since BUILD_PLAN 3.7, a DM —
+ * not the confirming question itself — needed so a 👍 answer
  * (BUILD_PLAN 3.4b-ii) can thread the real ticket draft on the message that actually prompted it,
  * the same way 🔁 redo already recomposes from the *original* source message rather than the
  * previous draft's own text. `confidence`/`reasoning` carry the Stage 1 classifier's own output

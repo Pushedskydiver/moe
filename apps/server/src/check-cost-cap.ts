@@ -46,7 +46,7 @@ type CostCapDeps = Pick<
 
 /**
  * DM'd to `costCapConfig.alertSlackUserId` (Alex) on a newly-crossed spend-alert rung — a
- * separate audience from `handle-inbound-message.ts`'s `HALT_TEXT`, which is user-facing in the
+ * separate audience from `generate-and-post-reply.ts`'s `HALT_TEXT`, which is user-facing in the
  * original channel. Dollar amounts are formatted from the same integer micro-USD values
  * `evaluateCostCap` already compared exactly — the division to dollars here is display-only,
  * never fed back into a threshold decision.
@@ -119,7 +119,7 @@ async function sendCostAlerts(
 
 /**
  * Checks a persona's current-month spend against its configured cap (BUILD_PLAN 2.6b) before a
- * turn generates a reply — `handle-inbound-message.ts`'s `generateAndPost` skips `generateReply`
+ * turn generates a reply — `generate-and-post-reply.ts`'s `generateAndPost` skips `generateReply`
  * entirely when `halt` comes back `true`, so a halted turn never reaches the Anthropic API at
  * all, not just its reply being discarded afterward. Any newly-crossed alert rung
  * (`evaluateCostCap`, `@moe/agents`) goes through `sendCostAlerts`'s own atomic claim-then-alert
