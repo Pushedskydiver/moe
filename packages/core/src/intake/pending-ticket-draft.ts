@@ -8,17 +8,31 @@ const nonBlankStringSchema = z
   .refine(isNotBlank, 'must not be blank');
 
 /**
- * BUILD_PLAN 3.6 — which Stage 2 band produced this draft: `'high-band'` is the direct
- * auto-draft path (`composeAndPostDraft`, `handle-ambient-channel-message.ts`); `'mid-band-
- * confirmed'` is a Mid-band confirming question's own 👍 outcome (`draftFromConfirmingQuestion`,
- * `reaction-outcome-actions.ts`), which has already passed a human-confirmation gate before a
- * draft is even composed. Domain-meaningful (unlike `redoCount`, below) — `getDraftOutcomeCounts`
+ * BUILD_PLAN 3.6 — which Stage 2 band, on which surface, produced this draft: `'high-band'` is
+ * the ambient channel/group auto-draft path (`composeAndPostDraft`,
+ * `handle-ambient-channel-message.ts`); `'mid-band-confirmed'` is a Mid-band confirming question's
+ * own 👍 outcome (`draftFromConfirmingQuestion`, `reaction-outcome-actions.ts`), which has already
+ * passed a human-confirmation gate before a draft is even composed; `'high-band-dm'` (BUILD_PLAN
+ * 3.7) is a DM that classified High-band (`run-dm-intake-cascade.ts`).
+ *
+ * Domain-meaningful (unlike `redoCount`, below) — `getDraftOutcomeCounts`
  * (`./draft-outcome-counts.ts`) filters to `'high-band'` only, since VISION §5.2's own text ties
  * "ignored/corrected draft" specifically to the High-confidence bullet, not Mid-confidence's
  * separate confirming-question action — a Mid-band-confirmed draft getting ignored *after* a human
- * already said yes to drafting it isn't the classifier-miscalibration signal §5.4 names.
+ * already said yes to drafting it isn't the classifier-miscalibration signal §5.4 names. A DM
+ * draft is excluded for a parallel but distinct reason: §5.2's Stage 0 scopes the cascade to
+ * surfaces "the team already treats as work-relevant", and §5.3 settles a DM to a named persona as
+ * *already* unambiguous — so a DM is a systematically higher-propensity population than an ambient
+ * channel message, and mixing the two would skew the ambient rate the same way 3.6's own DA-caught
+ * defect did. Surfacing a *separate* DM acceptance rate in the 3.5 sweep digest is deliberately
+ * deferred, not dropped — this column is what makes it a later query change rather than a
+ * migration.
  */
-export const draftOriginSchema = z.enum(['high-band', 'mid-band-confirmed']);
+export const draftOriginSchema = z.enum([
+  'high-band',
+  'mid-band-confirmed',
+  'high-band-dm',
+]);
 
 export type DraftOrigin = z.infer<typeof draftOriginSchema>;
 

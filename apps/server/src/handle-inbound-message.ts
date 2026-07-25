@@ -5,6 +5,7 @@ import type {
   composeTicketDraft,
   CostCapConfig,
   evaluateSituationalAppropriateness,
+  generateReply,
   PersonaId,
 } from '@moe/agents';
 import type {
@@ -28,22 +29,13 @@ import type {
   ReviewQueueEntryResult,
   TicketResult,
 } from '@moe/core';
-import type { addReaction, InboundMessage } from '@moe/slack';
+import type { addReaction, InboundMessage, postMessage } from '@moe/slack';
 
-import {
-  buildPersonaSystemPrompt,
-  composeGatedReply,
-  generateReply,
-  sonnetCostUsdMicros,
-  STATUS_CLAIM_TOOL,
-} from '@moe/agents';
-import { postMessage } from '@moe/slack';
-
-import { checkCostCapAndAlert } from './check-cost-cap.js';
+import { generateAndPost } from './generate-and-post-reply.js';
 import { handleAmbientChannelMessage } from './handle-ambient-channel-message.js';
-import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import { resolveThreadKey } from './resolve-thread-key.js';
+import { runDmIntakeCascade } from './run-dm-intake-cascade.js';
 
 const MAX_HISTORY_TURNS = 20;
 
@@ -188,19 +180,6 @@ export type HandlerDeps = {
   readonly confirmingQuestionStore: ConfirmingQuestionStore;
 };
 
-// Non-persona-voiced, same spirit as chunk 2.3's ACK_TEXT — a visible reply on LLM failure beats
-// the silent-to-the-user gap a bare "log and stop" would leave (caught live: DA review on this
-// chunk's own PR, comparing against chunk 2.3's baseline where every inbound message got a
-// visible ack). Retry/backoff itself stays out of scope for this chunk.
-const FALLBACK_TEXT =
-  "Sorry, I ran into a problem generating a reply — I've logged it.";
-
-// Posted to the user's own channel/thread, not Alex's alert DM (`costAlertText` below) — a hard
-// halt (BUILD_PLAN 2.6b) needs its own visible signal same as `FALLBACK_TEXT`, "never silent" per
-// this file's own established precedent.
-const HALT_TEXT =
-  "I've hit my monthly budget cap and can't generate a new reply right now — I'll be back once it resets next month.";
-
 function toHistoryEntry(turn: ConversationTurn): {
   readonly role: 'user' | 'assistant';
   readonly content: string;
@@ -237,91 +216,28 @@ async function appendTurnLogged(
   }
 }
 
-type GenerateAndPostResult =
-  { readonly ok: true; readonly text: string } | { readonly ok: false };
-
-async function postHaltReply(
+// Both the cascade's own posted text and a conversational reply land here, so the DM's
+// `conversation_turns` history matches the real Slack transcript either way. `handleThreadedMessage`
+// is the only writer of that table (BUILD_PLAN 3.7's own recorded trap): a High/Mid DM answered
+// with a draft instead of a reply and *not* routed through here would leave a hole in the history
+// the next reply is generated from.
+async function persistTurns(
   deps: HandlerDeps,
-  message: InboundMessage,
+  scope: HistoryScope,
+  content: { readonly user: string; readonly assistant?: string },
 ): Promise<void> {
-  const posted = await postMessage(deps.slackClient, {
-    channelId: message.channelId,
-    text: HALT_TEXT,
-    ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
+  await appendTurnLogged(deps, {
+    ...scope,
+    role: 'user',
+    content: content.user,
   });
-  if (!posted.ok) {
-    deps.logger.error('failed to post halt reply', {
-      errorMessage: posted.error.message,
+  if (content.assistant !== undefined) {
+    await appendTurnLogged(deps, {
+      ...scope,
+      role: 'assistant',
+      content: content.assistant,
     });
   }
-}
-
-async function generateAndPost(
-  deps: HandlerDeps,
-  message: InboundMessage,
-  history: ReadonlyArray<{
-    readonly role: 'user' | 'assistant';
-    readonly content: string;
-  }>,
-): Promise<GenerateAndPostResult> {
-  // One clock read shared by the cap check, cost accounting, and the gated-reply compose below,
-  // not a fresh `new Date()` per use — keeps all three derived from the exact same instant.
-  const now = new Date();
-
-  const capCheck = await checkCostCapAndAlert(deps, now);
-  if (capCheck.halt) {
-    await postHaltReply(deps, message);
-    // `ok: true`, not `false` — matches the line below's own "ok reflects whether there's real
-    // reply content to persist, independent of Slack delivery success" precedent. A halt genuinely
-    // produced a reply (`HALT_TEXT`, just posted above); persisting it to conversation history
-    // means a real month-long halt doesn't leave the history silently diverging from what the user
-    // actually saw in Slack — a plain LLM failure (below) has no such content to persist, which is
-    // the one case `ok: false` still covers.
-    return { ok: true, text: HALT_TEXT };
-  }
-
-  const generated = await generateReply(deps.anthropicClient, {
-    text: message.text,
-    history,
-    system: buildPersonaSystemPrompt(deps.personaId),
-    tools: [STATUS_CLAIM_TOOL],
-  });
-
-  if (!generated.ok) {
-    deps.logger.error('failed to generate reply', {
-      errorMessage: generated.error.message,
-    });
-  } else {
-    await recordUsageLogged(
-      deps,
-      {
-        usage: generated.usage,
-        costUsdMicros: sonnetCostUsdMicros(generated.usage, now),
-      },
-      now,
-    );
-  }
-
-  // Composed once and reused for both the Slack post and the persisted/buffered history entry
-  // below, so the two can never drift apart — avoids redundant work now, and once Stage 6 wires
-  // in real evidence that could itself change between calls (e.g. a re-fetched CI status), a
-  // second composeGatedReply call could otherwise return a different result than the first.
-  const text = generated.ok
-    ? composeGatedReply(generated, () => now.toISOString())
-    : FALLBACK_TEXT;
-
-  const posted = await postMessage(deps.slackClient, {
-    channelId: message.channelId,
-    text,
-    ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
-  });
-  if (!posted.ok) {
-    deps.logger.error('failed to post reply', {
-      errorMessage: posted.error.message,
-    });
-  }
-
-  return generated.ok ? { ok: true, text } : { ok: false };
 }
 
 async function handleThreadedMessage(
@@ -335,6 +251,22 @@ async function handleThreadedMessage(
     threadKey,
   };
 
+  // VISION §5.2's cascade, over a DM (BUILD_PLAN 3.7). Runs *before* the conversational reply, and
+  // replaces it only on `handled: true` — every other outcome (Low band, cost-cap halt, classifier
+  // failure, failed post) falls through to exactly the reply this path produced before 3.7. That
+  // ordering is the invariant: the cascade may only add to the DM response, never remove it.
+  const now = new Date();
+  const cascade = await runDmIntakeCascade(deps, message, now);
+  if (cascade.handled) {
+    await persistTurns(deps, scope, {
+      user: message.text,
+      assistant: cascade.postedText,
+    });
+    return;
+  }
+
+  // Fetched only on the fall-through — the cascade classifies on the message text alone and never
+  // reads history, so a High/Mid DM would otherwise pay for a history round-trip it never uses.
   const history = await fetchHistory(deps, scope);
   const generated = await generateAndPost(
     deps,
@@ -342,31 +274,33 @@ async function handleThreadedMessage(
     history.map((turn) => toHistoryEntry(turn)),
   );
 
-  await appendTurnLogged(deps, {
-    ...scope,
-    role: 'user',
-    content: message.text,
+  await persistTurns(deps, scope, {
+    user: message.text,
+    ...(generated.ok ? { assistant: generated.text } : {}),
   });
-  if (generated.ok) {
-    await appendTurnLogged(deps, {
-      ...scope,
-      role: 'assistant',
-      content: generated.text,
-    });
-  }
 }
 
 /**
- * Replies to every inbound DM with an LLM-generated reply in the placeholder voice (BUILD_PLAN
- * 2.4a — not the persona's real character, which is Stage 5 behind the do-not-touch gate),
- * thread-scoped (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the keying rule), serialized per
- * thread key via `threadQueue` so two overlapping messages for the same conversation can't race on
- * history. An ambient channel/group message never reaches this path at all — it's classified and
- * logged instead (`handle-ambient-channel-message.ts`, BUILD_PLAN 3.3's DMs-only decision, made
- * once Stage 3's intake cascade existed to give ambient messages a real, non-chatty purpose). A
- * failed LLM call is logged and still posts a generic fallback reply rather than leaving the user
+ * Handles every inbound DM, thread-scoped (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the
+ * keying rule) and serialized per thread key via `threadQueue` so two overlapping messages for the
+ * same conversation can't race on history.
+ *
+ * As of BUILD_PLAN 3.7 a DM first runs VISION §5.2's intake cascade (`run-dm-intake-cascade.ts`):
+ * a High-band DM gets a ticket draft and a Mid-band DM a confirming question, each *in place of*
+ * the chat reply. Everything else — a Low band, a cost-cap halt, a classifier failure, a failed
+ * post — falls through to the LLM-generated conversational reply in the placeholder voice
+ * (BUILD_PLAN 2.4a; not the persona's real character, which is Stage 5 behind the do-not-touch
+ * gate), exactly as this path behaved before 3.7. **The cascade may only ever add to the DM
+ * response, never remove it** — see `runDmIntakeCascade`'s own TSDoc for why that invariant is
+ * load-bearing rather than stylistic.
+ *
+ * An ambient channel/group message never reaches this path at all — it runs the same cascade
+ * through a different entry point that posts nothing on a Low band and stays silent on every guard
+ * or failure (`handle-ambient-channel-message.ts`, BUILD_PLAN 3.3's DMs-only chat decision).
+ *
+ * A failed LLM call is logged and still posts a generic fallback reply rather than leaving the user
  * with silence; a failed Slack post or history read/write is logged, "log, don't throw, don't
- * retry here" — this chunk proves the wiring end-to-end, not a full retry/backoff UX.
+ * retry here" — this proves the wiring end-to-end, not a full retry/backoff UX.
  */
 export function createInboundMessageHandler(
   deps: HandlerDeps,

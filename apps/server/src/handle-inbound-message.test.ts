@@ -43,10 +43,12 @@ function makeSlackClient(
 }
 
 // `.create` is the DM chat-reply path's own call, configurable per test. `.parse` is the Stage 1
-// classifier's call — only reached by this file's one remaining ambient-dispatch test ('routes a
-// group message through the ambient classification path'), fixed to a Low-band default so that
-// test can't cross into High-band drafting, which this file no longer covers (moved to
-// `handle-ambient-channel-message.test.ts` along with the rest of the ambient-path behavior).
+// classifier's call — reached by **every** DM as of BUILD_PLAN 3.7 (`run-dm-intake-cascade.ts`),
+// not just by this file's one ambient-dispatch test. It defaults to a Low-band score so that every
+// pre-3.7 test in this file keeps exercising the conversational-reply path it was written for: a
+// Low-band DM falls straight through the cascade, unchanged. `parseResponses` lets the few tests
+// that care queue High/Mid scores (and the draft composer's own follow-up `.parse()` call) in
+// order; the Low-band default still backstops any call past the end of the queue.
 function makeAnthropicClient(
   createResponse:
     | {
@@ -62,20 +64,33 @@ function makeAnthropicClient(
         };
       }
     | (() => never),
+  parseResponses: ReadonlyArray<{
+    readonly parsed_output: unknown;
+    readonly usage: {
+      readonly input_tokens: number;
+      readonly output_tokens: number;
+    };
+  }> = [],
 ) {
+  const parse = vi.fn();
+  parseResponses.forEach((parseResponse) => {
+    parse.mockResolvedValueOnce(parseResponse);
+  });
+  parse.mockResolvedValue({
+    parsed_output: {
+      confidence: 10,
+      reasoning: 'default test classification',
+    },
+    usage: { input_tokens: 40, output_tokens: 12 },
+  });
+
   return {
     messages: {
       create:
         typeof createResponse === 'function'
           ? vi.fn(createResponse)
           : vi.fn().mockResolvedValue(createResponse),
-      parse: vi.fn().mockResolvedValue({
-        parsed_output: {
-          confidence: 10,
-          reasoning: 'default test classification',
-        },
-        usage: { input_tokens: 40, output_tokens: 12 },
-      }),
+      parse,
     },
   };
 }
@@ -445,10 +460,26 @@ describe('createInboundMessageHandler', () => {
 
       await handler(DM_MESSAGE);
 
+      // Two billed calls per Low-band DM as of BUILD_PLAN 3.7, in order: the Stage 1 Haiku
+      // classify, then the Sonnet reply. Pinned by count and position, not just "was called
+      // with" — a bare `toHaveBeenCalledWith` would pass just as happily if the classifier's own
+      // usage silently stopped being recorded, which is precisely the uncapped/unaccounted-for
+      // defect DA caught on the ambient path at chunk 3.3.
+      expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(2);
+
+      // Default `parse` usage is 40in/12out; Haiku 4.5 at 1/5 micro-USD per token: 40 + 60 = 100.
+      expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(1, {
+        personaId: 'sarah',
+        day: '2026-07-17',
+        inputTokens: 40,
+        outputTokens: 12,
+        costUsdMicros: 100,
+      });
+
       // REPLY_MESSAGE's usage is {input_tokens: 12, output_tokens: 34}; introductory Sonnet-5
       // pricing (2026-07-17, before the 2026-08-31 cutover) is $2/$10 per MTok, i.e. 2/10
       // micro-USD per token: 12 * 2 + 34 * 10 = 364.
-      expect(deps.costStore.recordUsage).toHaveBeenCalledWith({
+      expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(2, {
         personaId: 'sarah',
         day: '2026-07-17',
         inputTokens: 12,
@@ -460,7 +491,13 @@ describe('createInboundMessageHandler', () => {
     }
   });
 
-  it('does not record cost usage when the LLM call fails — there is no token usage to account for', async () => {
+  it('records no cost usage for a failed reply call — only the Stage 1 classify that preceded it (BUILD_PLAN 3.7)', async () => {
+    // Before 3.7 this asserted `recordUsage` was never called at all, which was correct when the
+    // Sonnet reply was a DM's only billed call. A DM now runs the Haiku classifier first
+    // (`run-dm-intake-cascade.ts`), and that call really did happen and really was billed, so
+    // asserting zero calls would now be asserting a *cost-accounting* bug — the exact defect
+    // chunk 3.3's own DA review caught on the ambient path. The invariant this test still pins is
+    // the original one: the *failed* call contributes nothing.
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient(() => {
         throw new Error('rate limited');
@@ -470,7 +507,16 @@ describe('createInboundMessageHandler', () => {
 
     await handler(DM_MESSAGE);
 
-    expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
+    // Exactly one call, and it is the classifier's — default `parse` usage is 40in/12out, Haiku
+    // priced at 1/5 micro-USD per token: 40 * 1 + 12 * 5 = 100.
+    expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(1);
+    expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        inputTokens: 40,
+        outputTokens: 12,
+        costUsdMicros: 100,
+      }),
+    );
   });
 
   it('logs an error, without throwing, when recording cost usage fails', async () => {
@@ -797,6 +843,187 @@ describe('createInboundMessageHandler', () => {
 
     expect(deps.anthropicClient.messages.parse).toHaveBeenCalled();
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+  });
+
+  describe('DM intake cascade wiring (BUILD_PLAN 3.7)', () => {
+    // Queued in the order the cascade calls `.parse()`: Stage 1 classify, then the Sonnet draft
+    // composer. No situational-appropriateness slot between them — that gate does not apply to a
+    // DM-triggered post.
+    const HIGH_BAND_CLASSIFICATION = {
+      parsed_output: { confidence: 88, reasoning: 'describes a concrete bug' },
+      usage: { input_tokens: 40, output_tokens: 12 },
+    };
+    const HIGH_BAND_THEN_DRAFT = [
+      HIGH_BAND_CLASSIFICATION,
+      {
+        parsed_output: {
+          title: 'CLI hangs on large repos',
+          body: 'The CLI hangs when run against large repos.',
+        },
+        usage: { input_tokens: 120, output_tokens: 40 },
+      },
+    ];
+
+    it('answers a High-band DM with a ticket draft instead of a conversational reply — the chat LLM is never called', async () => {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(
+          REPLY_MESSAGE,
+          HIGH_BAND_THEN_DRAFT,
+        ),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'D123',
+          text: expect.stringContaining('CLI hangs on large repos') as string,
+        }),
+      );
+      // `messages.create` is the conversational reply's own call — a High-band DM replaces the
+      // reply rather than posting both, so it must never fire.
+      expect(deps.anthropicClient.messages.create).not.toHaveBeenCalled();
+      expect(deps.draftStore.create).toHaveBeenCalledWith(
+        expect.objectContaining({ origin: 'high-band-dm' }),
+      );
+    });
+
+    it('persists both the user turn and the posted draft as the assistant turn — a drafted DM leaves no hole in the history the next reply is generated from', async () => {
+      // `handleThreadedMessage` is the only writer of `conversation_turns`. A High-band DM that
+      // bypassed it would silently drop the exchange from history, so the *next* DM in the thread
+      // would be answered as if the draft had never happened. Recorded as a known trap in
+      // BUILD_PLAN 3.7 before any code moved; this is its regression pin.
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(
+          REPLY_MESSAGE,
+          HIGH_BAND_THEN_DRAFT,
+        ),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      expect(deps.historyStore.appendTurn).toHaveBeenCalledTimes(2);
+      expect(deps.historyStore.appendTurn).toHaveBeenNthCalledWith(1, {
+        personaId: 'sarah',
+        channelId: 'D123',
+        threadKey: 'dm',
+        role: 'user',
+        content: DM_MESSAGE.text,
+      });
+
+      // The assistant turn is the exact text that reached Slack, not a paraphrase or a summary.
+      const postedArg = deps.slackClient.chat.postMessage.mock
+        .calls[0]?.[0] as {
+        text: string;
+      };
+      expect(deps.historyStore.appendTurn).toHaveBeenNthCalledWith(2, {
+        personaId: 'sarah',
+        channelId: 'D123',
+        threadKey: 'dm',
+        role: 'assistant',
+        content: postedArg.text,
+      });
+    });
+
+    it('falls back to the conversational reply when the cascade cannot post its draft — the DM is never left silent', async () => {
+      // The governing invariant, end to end: a High-band classification whose draft composition
+      // then fails must still produce the ordinary reply, not nothing.
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, [
+          HIGH_BAND_CLASSIFICATION,
+          {
+            parsed_output: null,
+            usage: { input_tokens: 120, output_tokens: 40 },
+          },
+        ]),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      expect(deps.anthropicClient.messages.create).toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'D123',
+          text: 'Sure, tell me more.',
+        }),
+      );
+    });
+
+    it('still posts the visible halt message for a work-shaped DM once the cost cap is reached — a halted persona does not go mute', async () => {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(
+          REPLY_MESSAGE,
+          HIGH_BAND_THEN_DRAFT,
+        ),
+        capStore: makeCapStore({
+          getMonthlyCost: vi
+            .fn<CapStore['getMonthlyCost']>()
+            .mockResolvedValue({
+              ok: true,
+              total: {
+                personaId: 'sarah',
+                month: '2026-07',
+                inputTokens: 0,
+                outputTokens: 0,
+                costUsdMicros: 100_000_000,
+              },
+            }),
+        }),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'D123',
+          text: "I've hit my monthly budget cap and can't generate a new reply right now — I'll be back once it resets next month.",
+        }),
+      );
+    });
+
+    it('answers a Mid-band DM with a confirming question instead of a conversational reply', async () => {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(REPLY_MESSAGE, [
+          {
+            parsed_output: { confidence: 55, reasoning: 'plausibly a bug' },
+            usage: { input_tokens: 40, output_tokens: 12 },
+          },
+        ]),
+      });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'D123',
+          text: expect.stringContaining('draft a ticket') as string,
+        }),
+      );
+      expect(deps.anthropicClient.messages.create).not.toHaveBeenCalled();
+      expect(deps.confirmingQuestionStore.create).toHaveBeenCalled();
+    });
+
+    it('leaves a Low-band DM on the conversational path exactly as before 3.7, with no review-queue row', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      expect(deps.anthropicClient.messages.create).toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          channel: 'D123',
+          text: 'Sure, tell me more.',
+        }),
+      );
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+      expect(deps.draftStore.create).not.toHaveBeenCalled();
+    });
   });
 
   it('persists the user turn but not an assistant turn when the LLM call fails', async () => {

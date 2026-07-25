@@ -2,16 +2,11 @@ import type { HandlerDeps } from './handle-inbound-message.js';
 import type { DraftOrigin } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
-import {
-  classifyMessageConfidence,
-  composeTicketDraft,
-  haikuCostUsdMicros,
-  sonnetCostUsdMicros,
-} from '@moe/agents';
+import { composeTicketDraft, sonnetCostUsdMicros } from '@moe/agents';
 import { classifyConfidenceBand, isSurfaceInScope } from '@moe/core';
 import { addReaction, postMessage } from '@moe/slack';
 
-import { checkCostCapAndAlert } from './check-cost-cap.js';
+import { classifyMessageForIntake } from './classify-message-for-intake.js';
 import { composeAndPostConfirmingQuestion } from './compose-and-post-confirming-question.js';
 import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
@@ -155,7 +150,16 @@ async function composeDraftContent(
 // change. No `error` detail on the `false` branch — the specific failure reason is already logged
 // at the exact sub-step that failed, below; same no-detail shape as `handle-inbound-message.ts`'s
 // own `GenerateAndPostResult`.
-type PostAndPersistDraftResult = { readonly ok: true } | { readonly ok: false };
+//
+// `postedText` (BUILD_PLAN 3.7) carries the exact text that reached Slack back to the DM cascade
+// (`run-dm-intake-cascade.ts`), which persists it as the assistant's `conversation_turns` row —
+// `handleThreadedMessage` is the only other writer of that table, and a DM answered with a draft
+// instead of a chat reply would otherwise leave a hole in the history the *next* reply is generated
+// from. Same "history should match the real transcript, not silently diverge from it" reasoning
+// `generateAndPost` already applies to `HALT_TEXT`. Returned unconditionally rather than only for
+// the DM caller, so the two can't drift: it is the same string that was posted, by construction.
+type PostAndPersistDraftResult =
+  { readonly ok: true; readonly postedText: string } | { readonly ok: false };
 
 // `now`/`origin` bundled into one options object rather than two more bare params — already at
 // eslint's `max-params: 3` ceiling with `deps`/`message`, same bundling reasoning
@@ -189,9 +193,13 @@ export async function postAndPersistDraft(
   const drafted = await composeDraftContent(deps, message, options.now);
   if (drafted === undefined) return { ok: false };
 
+  // Composed once and reused for both the Slack post and the `postedText` returned below, so the
+  // persisted conversation turn can never drift from what the user actually saw — the same
+  // compose-once discipline `generateAndPost` applies to `composeGatedReply`.
+  const draftMessageText = formatDraftMessageText(drafted);
   const posted = await postMessage(deps.slackClient, {
     channelId: message.channelId,
-    text: formatDraftMessageText(drafted),
+    text: draftMessageText,
     threadTs: message.ts,
   });
   if (!posted.ok) {
@@ -231,7 +239,7 @@ export async function postAndPersistDraft(
     draftBody: drafted.body,
     origin: options.origin,
   });
-  return { ok: true };
+  return { ok: true, postedText: draftMessageText };
 }
 
 /**
@@ -298,56 +306,6 @@ async function logToReviewQueue(
   }
 }
 
-// Extracted from `handleAmbientChannelMessage` purely to stay under eslint's
-// `max-lines-per-function` (`docs/CONVENTIONS.md` §Code Style) — the cap-check-then-classify-then-
-// account-for-usage sequence, returning `undefined` on either a halt or a classification failure
-// (both already logged) so the caller can short-circuit, same shape as `composeDraftContent` above.
-async function classifyAmbientMessage(
-  deps: HandlerDeps,
-  message: InboundMessage,
-  now: Date,
-): Promise<
-  { readonly confidence: number; readonly reasoning: string } | undefined
-> {
-  const capCheck = await checkCostCapAndAlert(deps, now);
-  if (capCheck.halt) {
-    deps.logger.info('skipping classification — monthly cost cap reached', {
-      personaId: deps.personaId,
-      channelId: message.channelId,
-    });
-    return undefined;
-  }
-
-  const classified = await classifyMessageConfidence(deps.anthropicClient, {
-    text: message.text,
-  });
-  if (!classified.ok) {
-    deps.logger.error('failed to classify inbound message', {
-      errorMessage: classified.error.message,
-    });
-    return undefined;
-  }
-
-  await recordUsageLogged(
-    deps,
-    {
-      usage: classified.usage,
-      costUsdMicros: haikuCostUsdMicros(classified.usage),
-    },
-    now,
-  );
-
-  deps.logger.info('classified inbound message', {
-    personaId: deps.personaId,
-    channelId: message.channelId,
-    messageText: message.text,
-    confidence: classified.confidence,
-    reasoning: classified.reasoning,
-  });
-
-  return classified;
-}
-
 /**
  * VISION §5.2's Stage 0 + Stage 1, run for every ambient channel/group message (never a DM — a DM
  * is already addressed, §5.3). Out-of-scope channels never reach the classifier at all (Stage 0,
@@ -379,7 +337,7 @@ export async function handleAmbientChannelMessage(
   if (!inScope) return;
 
   const now = new Date();
-  const classified = await classifyAmbientMessage(deps, message, now);
+  const classified = await classifyMessageForIntake(deps, message, now);
   if (classified === undefined) return;
 
   const band = classifyConfidenceBand(classified.confidence);
