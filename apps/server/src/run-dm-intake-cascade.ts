@@ -57,9 +57,13 @@ const NOT_HANDLED: DmIntakeCascadeResult = { handled: false };
  * ungated `postAndPersistDraft`/`postAndPersistConfirmingQuestion` primitives rather than their
  * guarded `composeAndPost*` wrappers — which also means it cannot accidentally acquire the
  * rhythm guard later, and leaves the live ambient path untouched. The **cost cap still applies**
- * (that is about spend, not rest) and is checked inside `classifyMessageForIntake`; on a halt this
- * returns `handled: false` and the conversational path re-checks and posts its own visible
- * `HALT_TEXT`, so a halted persona keeps its visible signal rather than going mute.
+ * (that is about spend, not rest) and is checked **twice**: once inside `classifyMessageForIntake`
+ * before the billed Haiku classify, and again on the High band before the billed Sonnet
+ * `composeTicketDraft` — the classify that routed there is itself billed and already recorded, so
+ * spend can cross the cap inside a single turn (DA review, chunk 3.7; the ambient path re-checks at
+ * the same point for the same reason). On either halt this returns `handled: false` and the
+ * conversational path re-checks and posts its own visible `HALT_TEXT`, so a halted persona keeps
+ * its visible signal rather than going mute.
  */
 export async function runDmIntakeCascade(
   deps: HandlerDeps,
