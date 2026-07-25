@@ -26,10 +26,13 @@ export type FlyAppConfig = {
  *
  * **Why one Fly App per persona, rather than one App with eight process groups.** Fly secrets are
  * scoped to an App — "an app's secrets are available as environment variables at runtime on every
- * Machine belonging to that Fly App" — and `fly secrets set` has no process-group flag; Fly's own
- * multi-process guide names this limitation directly ("secrets are shared across all process
- * groups in a single app") and points at separate Apps as the remedy (both verified live against
- * fly.io/docs, 2026-07-25). Every persona process reads the same *unsuffixed* `MOE_SLACK_BOT_TOKEN`
+ * Machine belonging to that Fly App" (fly.io/docs/apps/secrets/) — and `fly secrets set` has no
+ * process-group flag; Fly's multi-process guide names the limitation directly, "secrets are shared
+ * across all process groups in a single app"
+ * (fly.io/docs/app-guides/multiple-processes/ — note that fly.io/docs/launch/processes/ is a
+ * *different* page and does not carry this sentence; a review pass read that one and reported the
+ * quote as fabricated, so the exact URL is spelled out here). Both verified verbatim against the
+ * rendered pages, 2026-07-25. Every persona process reads the same *unsuffixed* `MOE_SLACK_BOT_TOKEN`
  * /`MOE_SLACK_SIGNING_SECRET`/`MOE_SLACK_APP_TOKEN` names (`packages/agents/src/persona-config.ts`),
  * so eight personas need eight independent secret scopes. Sharing one App would mean giving those
  * three variables persona-suffixed names — reversing the explicit decision at BUILD_PLAN 5.1 that
@@ -53,8 +56,21 @@ export type FlyAppConfig = {
  * Chunk 2.2's `auto_stop_machines`/`auto_start_machines`/`min_machines_running` settings are not
  * carried over: all three are `[http_service]`-scoped autostop/autostart controls, and Fly
  * documents `min_machines_running` as having "no effect unless you set `auto_stop_machines` to
- * `"stop"` or `"suspend"`" — it was already a no-op alongside chunk 2.2's own `false`. With no
- * service section at all, a Machine simply runs until it exits, which is what a persona wants.
+ * `"stop"` or `"suspend"`" (fly.io/docs/launch/autostop-autostart/ — verified verbatim there, not
+ * on fly.io/docs/reference/configuration/, which states the same rule in different words). It was
+ * already a no-op alongside chunk 2.2's own `false`, itself the legacy boolean spelling of the
+ * current `"off"`. With no service section at all, a Machine runs until it exits.
+ *
+ * **Why the deploy command carries `--ha=false`.** Having no services changes what Fly's default
+ * `--ha=true` actually does: it "creates and starts one Machine and creates one stopped standby
+ * Machine for process groups without services" (fly.io/docs/reference/app-availability/) — a
+ * stopped failover that costs nothing until the primary becomes unavailable, *not* a second live
+ * process. The flag is still wanted, but for a narrower reason than raw duplication: if Fly ever
+ * starts the standby while the primary is merely unreachable rather than dead, two live processes
+ * would hold the same persona's Slack connection, and moe has no cross-process reply dedup —
+ * `seen-event-cache.ts` is per-process and in-memory. Ticket claims would stay correct (the
+ * optimistic-lock claim from BUILD_PLAN 1.3 is concurrency-tested), but Slack replies could
+ * double. One Machine per persona is also what `docs/decisions/TOPOLOGY-AND-DATABASE.md` says.
  */
 export function buildFlyAppConfig(personaId: PersonaId): FlyAppConfig {
   const appName = `moe-${personaId}`;
@@ -99,7 +115,11 @@ function buildHeader(personaId: PersonaId, fileName: string): string {
 #
 # Deploy (Alex-only, never CI-automated — CLAUDE.md), from the repo root:
 #   fly deploy -c ${fileName} --ha=false
-# --ha=false matters: \`fly deploy\` defaults it to true, which would create a spare Machine and
-# run a second process with the same MOE_PERSONA_ID — two Socket Mode connections, two claim
-# loops. Full runbook: docs/OPERATIONS.md §Deploying the persona fleet.`;
+# --ha=false is deliberate. This config declares no services, and for a process group without
+# services Fly's default --ha=true "creates and starts one Machine and creates one stopped standby
+# Machine" — a free failover, not a second live persona. It is turned off because a standby that
+# starts while the primary is merely unreachable would put two processes on one persona's Slack
+# connection, and moe has no cross-process reply dedup. Expect exactly one Machine; if you ever see
+# a second marked with a dagger in \`fly status\`, that is a standby, not a duplicate persona.
+# Full runbook: docs/OPERATIONS.md §Deploying the persona fleet.`;
 }

@@ -4,7 +4,7 @@
 //
 // Imports the package's own BUILT output (../dist), matching migrate.ts's own precedent — see
 // that file's comment for why Node-native TS execution requires this.
-import { writeFileSync } from 'node:fs';
+import { readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -21,8 +21,23 @@ const REPO_ROOT = join(
   '..',
 );
 
-for (const personaId of personaIdSchema.options) {
-  const { fileName, toml } = buildFlyAppConfig(personaId);
+const configs = personaIdSchema.options.map((personaId) =>
+  buildFlyAppConfig(personaId),
+);
+const expected = new Set(configs.map(({ fileName }) => fileName));
+
+// Sweep orphans before writing, so removing a persona from the roster actually removes its config
+// rather than leaving a stale file behind. Without this the CI freshness gate cannot see roster
+// *shrinkage* at all: a write-only generator leaves the orphan untouched, so `git add -A` finds
+// nothing to stage and the gate passes on real drift.
+for (const entry of readdirSync(REPO_ROOT)) {
+  if (/^fly\..+\.toml$/.test(entry) && !expected.has(entry)) {
+    rmSync(join(REPO_ROOT, entry));
+    console.log(`removed orphaned ${entry}`);
+  }
+}
+
+for (const { fileName, toml } of configs) {
   writeFileSync(join(REPO_ROOT, fileName), toml, 'utf8');
   console.log(`wrote ${fileName}`);
 }

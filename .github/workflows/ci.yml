@@ -74,6 +74,7 @@ jobs:
       - run: pnpm --filter @moe/core generate:fly-configs
       # Staged first, then diffed against HEAD, rather than a bare `git diff --exit-code`: adding a
       # ninth persona to the roster emits a brand-new fly.<id>.toml, and an *untracked* file is
-      # invisible to a plain `git diff`. `git add -A` picks up added, modified and deleted alike.
+      # invisible to a plain `git diff`. `git add -A` picks up added, modified and deleted alike —
+      # the deleted case is reachable because the generator sweeps orphaned configs before writing.
       - run: git add -A -- 'fly.*.toml'
       - run: git diff --cached --exit-code -- 'fly.*.toml'

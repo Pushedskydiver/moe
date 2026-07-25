@@ -17,9 +17,16 @@ import { Pool } from 'pg';
  * open at once. At 5 the fleet sits at 40. The pooled endpoint accepts up to 10,000 client
  * connections, so this only binds if a deploy accidentally uses the direct hostname — which is
  * exactly the case the number is chosen to survive.
+ *
+ * Exported because `claim.test.ts`'s racing-claimants test has to spawn exactly this many
+ * claimants for its race to be genuine — see the comment there. That coupling used to be a bare
+ * `10` repeated in both places, and shrinking this value silently downgraded the test to a
+ * partly-sequential one; binding it to the constant makes that impossible.
  */
+export const DB_POOL_MAX_CONNECTIONS = 5;
+
 export function createPool(connectionString: string): Pool {
-  const pool = new Pool({ connectionString, max: 5 });
+  const pool = new Pool({ connectionString, max: DB_POOL_MAX_CONNECTIONS });
   pool.on('error', (error: unknown) => {
     // An idle client can be dropped without warning (e.g. Neon scale-to-zero) — an unhandled
     // 'error' event here would crash the whole process, not just fail the next query.

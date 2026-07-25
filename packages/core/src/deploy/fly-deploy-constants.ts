@@ -18,9 +18,12 @@ export const FLY_CHECK_GRACE_PERIOD = '10s';
 export const FLY_CHECK_INTERVAL = '15s';
 export const FLY_CHECK_TIMEOUT = '5s';
 
-// Uppercase deliberately, despite Fly's own reference example writing `method = "get"`: Node's
-// HTTP parser matches methods case-sensitively against a known list, and `createHealthHandler`
-// tests `req.method === 'GET'` — a literally-lowercase `get` on the wire would miss that check.
-// Uppercase is unambiguously valid HTTP either way, so it is the safe form to emit.
+// Uppercase deliberately, despite Fly's own top-level-`[checks]` example writing `method = "get"`
+// (its `[[http_service.checks]]` example writes `"GET"`). Node's HTTP parser matches methods
+// case-sensitively against a known list, so a literally-lowercase `get` on the wire is rejected
+// with `HPE_INVALID_METHOD` — the request never reaches `createHealthHandler` at all, failing as a
+// 400 rather than falling through to its 404 branch. Go's `http.NewRequest`, which Fly's own
+// checker uses, does not upcase the method either. Uppercase is unambiguously valid HTTP, so it is
+// the safe form to emit whichever end normalizes.
 export const FLY_CHECK_METHOD = 'GET';
 export const FLY_CHECK_PATH = '/health';

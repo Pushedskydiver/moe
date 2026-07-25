@@ -38,7 +38,7 @@ fly deploy -c fly.sarah.toml --ha=false
 pnpm --filter @moe/core generate:fly-configs
 ```
 
-Deploys are deliberately not CI-automated: a truncated/empty secret has previously taken the live service down (see project memory). A human runs the deploy command. `--ha=false` is required — `fly deploy` defaults it to true, which would run a second Machine with the same `MOE_PERSONA_ID`. Full runbook, including per-App secrets and the pooled-`DATABASE_URL` requirement: `docs/OPERATIONS.md` §Deploying the persona fleet.
+Deploys are deliberately not CI-automated: a truncated/empty secret has previously taken the live service down (see project memory). A human runs the deploy command. `--ha=false` is deliberate — these configs declare no services, so `fly deploy`'s default would add a stopped standby Machine, and a standby that starts while the primary is only unreachable would put two processes on one persona's Slack connection. Full runbook, including per-App secrets and the pooled-`DATABASE_URL` requirement: `docs/OPERATIONS.md` §Deploying the persona fleet.
 
 ## Commit format
 

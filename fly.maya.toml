@@ -7,9 +7,13 @@
 #
 # Deploy (Alex-only, never CI-automated — CLAUDE.md), from the repo root:
 #   fly deploy -c fly.maya.toml --ha=false
-# --ha=false matters: `fly deploy` defaults it to true, which would create a spare Machine and
-# run a second process with the same MOE_PERSONA_ID — two Socket Mode connections, two claim
-# loops. Full runbook: docs/OPERATIONS.md §Deploying the persona fleet.
+# --ha=false is deliberate. This config declares no services, and for a process group without
+# services Fly's default --ha=true "creates and starts one Machine and creates one stopped standby
+# Machine" — a free failover, not a second live persona. It is turned off because a standby that
+# starts while the primary is merely unreachable would put two processes on one persona's Slack
+# connection, and moe has no cross-process reply dedup. Expect exactly one Machine; if you ever see
+# a second marked with a dagger in `fly status`, that is a standby, not a duplicate persona.
+# Full runbook: docs/OPERATIONS.md §Deploying the persona fleet.
 app = "moe-maya"
 primary_region = "lhr"
 

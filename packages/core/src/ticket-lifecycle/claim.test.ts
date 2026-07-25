@@ -8,7 +8,7 @@ import { fileURLToPath } from 'node:url';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { claimTicket, releaseTicket } from './claim.js';
-import { createDb } from './db.js';
+import { createDb, DB_POOL_MAX_CONNECTIONS } from './db.js';
 import { runMigrations } from './migrate.js';
 import { getTestPool, resetDatabase } from './test-db.js';
 import { createTicket } from './tickets-repository.js';
@@ -115,12 +115,17 @@ describe('claimTicket / releaseTicket', () => {
     const created = await createTicket(db, newTicketInput());
     if (!created.ok) throw new Error('setup failed');
 
-    // Claimant count matches db.ts's pool `max: 10` so every attempt can acquire its own
+    // Claimant count is bound to db.ts's own pool max so every attempt can acquire its own
     // connection at once — genuine concurrent races at the Postgres level, not just N sequential
-    // calls that happen to look atomic. If that pool max ever shrinks, some claimants would queue
-    // and run after the winner already committed, and this assertion would still pass without
-    // truly exercising the race.
-    const claimants = Array.from({ length: 10 }, (_, i) => `persona-${i}`);
+    // calls that happen to look atomic. This used to be a hardcoded `10` mirroring a hardcoded
+    // `max: 10`; BUILD_PLAN 5.2 lowered the pool to 5 for the 8-persona fleet and the duplicated
+    // literal meant half these claimants would have queued behind the winner, leaving the
+    // assertion green while no longer exercising a race at all. Importing the constant is what
+    // stops that recurring — do not re-hardcode it.
+    const claimants = Array.from(
+      { length: DB_POOL_MAX_CONNECTIONS },
+      (_, i) => `persona-${i}`,
+    );
     const results = await Promise.all(
       claimants.map((claimedBy) =>
         claimTicket(db, created.ticket.id, claimedBy),

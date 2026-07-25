@@ -70,12 +70,14 @@ fly secrets set -a moe-sarah --stage \
   generated config so a cap can be re-tuned per persona without regenerating and redeploying.
 - `MOE_SLACK_APP_CONFIG_TOKEN` is **not** part of a deploy — it's the short-lived provisioning
   credential for `pnpm --filter @moe/server provision:slack-apps` only, and expires in 12 hours.
-- **`DATABASE_URL` must be Neon's _pooled_ (`-pooler`) hostname.** A 0.25 CU Neon compute allows
-  104 direct connections with 7 reserved for its superuser, so 97 are usable; the fleet's eight
-  pools at `max: 5` each (`packages/core/src/ticket-lifecycle/db.ts`) come to 40 against that
-  budget, but the pooled endpoint accepts up to 10,000 client connections and leaves room for a
-  rolling restart holding an old and a new pool open at once. The direct hostname works and is a
-  trap: it survives a quiet fleet and fails under exactly the conditions you least want it to.
+- **`DATABASE_URL` must be Neon's _pooled_ (`-pooler`) hostname.** There are two separate budgets
+  here. Against the **direct** endpoint, a 0.25 CU compute allows 104 connections with 7 reserved
+  for the Neon superuser, so 97 are usable — and the fleet's eight pools at `max: 5` each
+  (`packages/core/src/ticket-lifecycle/db.ts`) come to 40 of those, leaving headroom for a rolling
+  restart that briefly holds an old and a new pool open at once. Against the **pooled** endpoint
+  the ceiling is 10,000 client connections, so the fleet is nowhere near it. The direct hostname
+  therefore works today and is still a trap: it leaves far less margin, and it degrades under
+  exactly the conditions you least want it to.
 
 ### Deploying
 
@@ -91,15 +93,25 @@ Then, per persona, from the repo root:
 fly deploy -c fly.sarah.toml --ha=false
 ```
 
-- **`--ha=false` is not optional.** `fly deploy` defaults `--ha` to **true**, which creates a spare
-  Machine — a second process with the same `MOE_PERSONA_ID`, meaning two Socket Mode connections
-  and two ticket-claim loops for one persona. The ADR's "one machine per persona" is what
-  `--ha=false` enforces.
+- **`--ha=false` is deliberate.** `fly deploy` defaults `--ha` to **true**. Because these configs
+  declare no services, that default "creates and starts one Machine and creates one stopped standby
+  Machine" — a failover that costs nothing until the primary becomes unavailable, **not** a second
+  live persona. It's turned off anyway because if Fly ever starts the standby while the primary is
+  merely unreachable rather than dead, two processes would hold one persona's Slack connection, and
+  moe has no cross-process reply dedup (`seen-event-cache.ts` is per-process, in-memory). Ticket
+  claims would stay correct — the optimistic-lock claim is concurrency-tested — but Slack replies
+  could double. `docs/decisions/TOPOLOGY-AND-DATABASE.md`'s "one machine per persona" agrees.
 - `-c` resolves against `fly deploy`'s working-directory argument, which defaults to the current
   directory — so run this from the repo root, where both the config and the `Dockerfile` live.
 - To avoid eight redundant image builds, build once and reuse:
-  `fly deploy --build-only --push` prints a `registry.fly.io/...:deployment-xxxx` tag, and
-  `fly deploy -c fly.<persona>.toml --image <tag> --ha=false` deploys that exact image to each App.
+  `fly deploy -c fly.sarah.toml --build-only --push` prints a `registry.fly.io/...:deployment-xxxx`
+  tag, and `fly deploy -c fly.<persona>.toml --image <tag> --ha=false` deploys that exact image to
+  each App. The `-c` on the build step is **required**, not decorative: `fly deploy` resolves an app
+  name before it builds anything, and since 5.2 deleted the root `fly.toml` there is no config for a
+  bare invocation to fall back on — it fails with "the config for your app is missing an app name".
+  Cross-App pulls of one App's registry tag are expected to work within a single Fly organization
+  but have **not** been verified here; confirm it on the first real fleet deploy before relying on
+  it, and fall back to a plain per-App `fly deploy -c ... --ha=false` if it doesn't.
 
 ### Verifying
 
@@ -111,8 +123,14 @@ health check runs on Fly's private network against `GET /health` on port 8080.
 ```bash
 fly checks list -a moe-sarah      # the health check's own pass/fail
 fly logs -a moe-sarah             # structured boot logs, secrets redacted
-fly status -a moe-sarah           # confirm exactly ONE Machine, not two
+fly status -a moe-sarah           # expect exactly ONE Machine (see note below)
 ```
+
+If `fly status` ever shows a second Machine marked with a `†`, that is a **standby** — a stopped
+failover Fly creates when `--ha` is left at its default, not a duplicate persona running twice.
+Deploying with `--ha=false` as above means you shouldn't see one; if you do, it's because a deploy
+omitted the flag. Destroy it with `fly machine destroy <id>` and redeploy with `--ha=false`, rather
+than assuming the fleet is double-running.
 
 A `GET /health` body is `{"status":"ok","personaId":"<persona>"}` — the `personaId` is what makes
 it a per-persona signal rather than a generic liveness ping. To reach it directly,

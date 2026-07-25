@@ -277,5 +277,7 @@ export type {
 } from './backup/pg-env-from-connection-string.js';
 export { redactConnectionStringForDisplay } from './backup/redact-connection-string-for-display.js';
 
+// `FlyAppConfig` is deliberately not re-exported: `generate-fly-configs.ts` destructures the
+// result structurally, so nothing consumes the type by name across the package boundary
+// (`docs/CONVENTIONS.md` — types start internal).
 export { buildFlyAppConfig } from './deploy/fly-app-config.js';
-export type { FlyAppConfig } from './deploy/fly-app-config.js';
