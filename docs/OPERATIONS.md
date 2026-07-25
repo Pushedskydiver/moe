@@ -151,9 +151,10 @@ fly deploy -c fly.sarah.toml --ha=false
   name before it builds anything, and since 5.2 deleted the root `fly.toml` there is no config for a
   bare invocation to fall back on — it aborts asking for an app name instead of building (paraphrased;
   the exact flyctl wording hasn't been reproduced here, since this environment has no Fly org).
-  Cross-App pulls of one App's registry tag are expected to work within a single Fly organization
-  but have **not** been verified here; confirm it on the first real fleet deploy before relying on
-  it, and fall back to a plain per-App `fly deploy -c ... --ha=false` if it doesn't.
+  Cross-App pulls of one App's registry tag work within a single Fly organization — **verified on
+  the first real fleet deploy, 2026-07-25**: all seven remaining personas deployed from one
+  `registry.fly.io/moe-marcus:deployment-...` tag built once with `--build-only --push`, and every
+  one came up healthy. If it ever fails, fall back to a plain per-App `fly deploy -c ... --ha=false`.
 
 ### Verifying
 
