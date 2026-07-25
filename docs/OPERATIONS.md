@@ -95,7 +95,10 @@ fly secrets set -a moe-sarah --stage \
 ### Which endpoint for which job
 
 Neon's pooled endpoint runs PgBouncer in transaction mode, which does not support `SET`/`RESET`,
-`LISTEN`/`NOTIFY`, session-level prepared statements, or temporary tables. Neon's own guidance is to
+`LISTEN`/`NOTIFY`, SQL-level `PREPARE`/`DEALLOCATE`, `WITH HOLD` cursors, `LOAD`, temporary tables,
+or **session-level advisory locks**. That last one is what makes the migration exception below
+checkable from this list rather than taken on trust: Neon's restriction names _session_-level
+advisory locks specifically, and `migrate.ts` takes a _transaction_-scoped one. Neon's own guidance is to
 "use a direct connection for schema migrations, pg_dump, logical replication, and queries that
 depend on `SET`, `LISTEN`/`NOTIFY`, or session-level state."
 
@@ -120,6 +123,8 @@ CONCURRENTLY` is the likely first offender, since it also cannot run inside the 
 Migrations first, once — every persona shares one database, so this is not per-App:
 
 ```bash
+# Pooled or direct both work here — see "Which endpoint for which job" above for why moe's
+# migrations are safe on the pooled endpoint when Neon's general advice says direct.
 DATABASE_URL="<production-connection-string>" pnpm --filter @moe/core migrate
 ```
 
