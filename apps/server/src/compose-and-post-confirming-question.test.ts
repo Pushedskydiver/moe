@@ -140,6 +140,7 @@ function makeConfirmingQuestionStore(
         personaId: 'sarah',
         channelId: 'C123',
         messageTs: '1700000099.000100',
+        sourceSurface: 'channel' as const,
         sourceMessageTs: '1700000000.000050',
         sourceMessageText:
           'hey, there might be an issue with the CLI on large repos',
@@ -220,6 +221,7 @@ describe('composeAndPostConfirmingQuestion', () => {
         message: CHANNEL_MESSAGE,
         now: new Date(),
         classified: CLASSIFIED,
+        surface: 'channel',
       });
 
       expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
@@ -233,6 +235,9 @@ describe('composeAndPostConfirmingQuestion', () => {
         personaId: 'sarah',
         channelId: 'C123',
         messageTs: '1700000099.000100',
+        // Persisted so the 👍 outcome can post its draft the same way this question was posted
+        // (BUILD_PLAN 3.7) — threaded here, top-level on a DM.
+        sourceSurface: 'channel',
         sourceMessageTs: '1700000000.000050',
         sourceMessageText: CHANNEL_MESSAGE.text,
         confidence: 55,
@@ -281,6 +286,7 @@ describe('composeAndPostConfirmingQuestion', () => {
       message: CHANNEL_MESSAGE,
       now: new Date(),
       classified: CLASSIFIED,
+      surface: 'channel',
     });
 
     expect(deps.logger.info).toHaveBeenCalledWith(
@@ -303,6 +309,7 @@ describe('composeAndPostConfirmingQuestion', () => {
         message: CHANNEL_MESSAGE,
         now: new Date(),
         classified: CLASSIFIED,
+        surface: 'channel',
       });
 
       expect(deps.logger.info).toHaveBeenCalledWith(
@@ -329,6 +336,7 @@ describe('composeAndPostConfirmingQuestion', () => {
         message: CHANNEL_MESSAGE,
         now: new Date(),
         classified: CLASSIFIED,
+        surface: 'channel',
       });
 
       expect(deps.logger.error).toHaveBeenCalledWith(
@@ -356,6 +364,7 @@ describe('composeAndPostConfirmingQuestion', () => {
         message: CHANNEL_MESSAGE,
         now: new Date(),
         classified: CLASSIFIED,
+        surface: 'channel',
       });
 
       expect(deps.logger.info).toHaveBeenCalledWith(
@@ -385,6 +394,7 @@ describe('composeAndPostConfirmingQuestion', () => {
           message: CHANNEL_MESSAGE,
           now: new Date(),
           classified: CLASSIFIED,
+          surface: 'channel',
         }),
       ).resolves.toBeUndefined();
 
@@ -416,6 +426,7 @@ describe('composeAndPostConfirmingQuestion', () => {
           message: CHANNEL_MESSAGE,
           now: new Date(),
           classified: CLASSIFIED,
+          surface: 'channel',
         }),
       ).resolves.toBeUndefined();
 
@@ -443,6 +454,7 @@ describe('composeAndPostConfirmingQuestion', () => {
         message: CHANNEL_MESSAGE,
         now: new Date(),
         classified: CLASSIFIED,
+        surface: 'channel',
       });
 
       expect(deps.logger.error).toHaveBeenCalledWith(

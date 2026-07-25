@@ -95,12 +95,14 @@ export type PersonaCostAlertsTable = {
  * shape), same reasoning `ticketSchema`'s own TSDoc gives for omitting `version`/`claimedBy`: a
  * tracking/derivation field, not part of the domain shape a caller round-trips through the app —
  * only `./intake/draft-outcome-counts.ts`'s own aggregate queries read it directly off this table.
- * `origin` (BUILD_PLAN 3.6, migration `0013_add_pending_ticket_drafts_origin.sql`) is `TEXT` with
+ * `origin` (BUILD_PLAN 3.6, migration `0013_add_pending_ticket_drafts_origin.sql`, widened to a
+ * third value by `0017_widen_pending_ticket_drafts_origin.sql` at BUILD_PLAN 3.7) is `TEXT` with
  * a `CHECK` constraint, not `Generated` — every insert supplies it explicitly (DA review, chunk
  * 3.6: `getDraftOutcomeCounts` was originally counting both High-band and Mid-band-confirmed
- * drafts together despite every doc claiming "High-band," skewing the reported acceptance rate).
- * Unlike `redoCount`, `origin` IS part of `pendingTicketDraftSchema` — it's domain-meaningful
- * (which Stage 2 band produced this draft), not a derived tracking artifact.
+ * drafts together despite every doc claiming "High-band," skewing the reported acceptance rate;
+ * 3.7's DM drafts are kept out of that same population for the parallel reason). Unlike
+ * `redoCount`, `origin` IS part of `pendingTicketDraftSchema` — it's domain-meaningful (which
+ * Stage 2 band, on which surface, produced this draft), not a derived tracking artifact.
  */
 type PendingTicketDraftsTable = {
   readonly id: string;
@@ -155,8 +157,9 @@ type ReviewQueueTable = {
  * semantics, unlike `ReviewQueueTable`'s deliberately different plain-log shape). `messageTs` keys
  * the confirming question's own posted message (for a later reaction lookup, mirroring
  * `PendingTicketDraftsTable`'s own `messageTs` exactly); `sourceMessageTs`/`sourceMessageText` are
- * this table's own addition — needed so a "yes" answer (3.4b-ii) can thread the real ticket draft
- * as a reply on the *original* ambient message, not the confirming question itself, and so a "no"
+ * this table's own addition — needed so a "yes" answer (3.4b-ii) can post the real ticket draft
+ * against the *original* source message rather than the confirming question itself (threaded on it
+ * for an ambient question, top-level for a DM — see `sourceSurface` below), and so a "no"
  * answer can carry the classifier's own `confidence`/`reasoning` through to `review_queue` the same
  * way the Low-band path already does.
  */
@@ -165,6 +168,10 @@ type PendingConfirmingQuestionsTable = {
   readonly personaId: string;
   readonly channelId: string;
   readonly messageTs: string;
+  // BUILD_PLAN 3.7 — `'channel'` or `'dm'`, with a `CHECK` constraint
+  // (`0018_add_pending_confirming_questions_source_surface.sql`). Decides whether the 👍 outcome's
+  // draft is posted threaded or top-level; see `pending-confirming-question.ts`'s own TSDoc.
+  readonly sourceSurface: string;
   readonly sourceMessageTs: string;
   readonly sourceMessageText: string;
   readonly confidence: number;

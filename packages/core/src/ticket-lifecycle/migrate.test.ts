@@ -48,6 +48,8 @@ describe('runMigrations', () => {
         '0014_create_github_issue_triage.sql',
         '0015_create_ticket_github_issue_links.sql',
         '0016_add_ticket_class_of_service.sql',
+        '0017_widen_pending_ticket_drafts_origin.sql',
+        '0018_add_pending_confirming_questions_source_surface.sql',
       ],
     });
 
@@ -71,6 +73,8 @@ describe('runMigrations', () => {
       { id: '0014_create_github_issue_triage.sql' },
       { id: '0015_create_ticket_github_issue_links.sql' },
       { id: '0016_add_ticket_class_of_service.sql' },
+      { id: '0017_widen_pending_ticket_drafts_origin.sql' },
+      { id: '0018_add_pending_confirming_questions_source_surface.sql' },
     ]);
   });
 

@@ -101,6 +101,7 @@ function makeQuestion(
     personaId: 'sarah',
     channelId: 'C123',
     messageTs: '1700000099.000100',
+    sourceSurface: 'channel',
     sourceMessageTs: '1700000000.000050',
     sourceMessageText:
       'hey, there might be an issue with the CLI on large repos',
@@ -483,6 +484,30 @@ describe('draftFromConfirmingQuestion (👍)', () => {
         origin: 'mid-band-confirmed',
       }),
     );
+  });
+
+  it('posts top-level, not threaded, when the question came from a DM — the \u{1F44D} draft matches how the question itself was posted (BUILD_PLAN 3.7)', async () => {
+    // The case `sourceSurface` exists for. This call site runs long after the original
+    // `InboundMessage` is gone, so without the persisted surface a DM-originated draft would
+    // thread onto an older message while the question it answers sat top-level.
+    const question = makeQuestion({ channelId: 'D123', sourceSurface: 'dm' });
+    // The code reads `claimed.question` — the row returned by the atomic claim — not the argument,
+    // so the claim mock is what actually drives placement here.
+    const deps = makeDeps({
+      confirmingQuestionStore: makeConfirmingQuestionStore({
+        resolve: vi.fn<ConfirmingQuestionStore['resolve']>().mockResolvedValue({
+          ok: true,
+          question: { ...question, resolvedAt: new Date() },
+        }),
+      }),
+    });
+
+    await draftFromConfirmingQuestion(deps, question);
+
+    const postArg = deps.slackClient.chat.postMessage.mock
+      .calls[0]?.[0] as Record<string, unknown>;
+    expect(postArg.channel).toBe('D123');
+    expect(postArg).not.toHaveProperty('thread_ts');
   });
 
   it('skips drafting, without claiming the confirming question, when the monthly cost cap is reached', async () => {

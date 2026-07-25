@@ -54,7 +54,7 @@ describe('getDraftOutcomeCounts', () => {
     readonly resolvedAt: Date | null;
     readonly redoCount: number;
     readonly createdAt: Date;
-    readonly origin?: 'high-band' | 'mid-band-confirmed';
+    readonly origin?: 'high-band' | 'mid-band-confirmed' | 'high-band-dm';
   }) {
     const base = baseColumns();
     await pool.query(
@@ -220,6 +220,41 @@ describe('getDraftOutcomeCounts', () => {
     await insertDraft({
       id: 'afa85f64-5717-4562-b3fc-2c963f66afaa',
       messageTs: '1700000000.001000',
+      resolvedAt: new Date('2026-07-19T10:00:00.000Z'),
+      redoCount: 0,
+      createdAt: new Date('2026-07-18T09:00:00.000Z'),
+      origin: 'high-band',
+    });
+
+    const result = await getDraftOutcomeCounts(db, {
+      personaId: 'sarah',
+      ignoredOlderThan: IGNORED_OLDER_THAN,
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      counts: { committed: 1, redone: 0, ignored: 0 },
+    });
+  });
+
+  it('excludes a high-band-dm draft from every bucket (BUILD_PLAN 3.7)', async () => {
+    // Same regression shape as the Mid-band pin above, for the other non-ambient origin: a DM
+    // that classified High-band produces a real draft, but from a surface VISION §5.4's own
+    // ignored/rejected-draft rate isn't measuring — §5.2's Stage 0 framing is about ambient
+    // work-relevant channels, and §5.3 settles a DM as *already* unambiguous, so a DM draft is a
+    // systematically different (higher-propensity) population. Counting it here would skew the
+    // ambient classifier's own calibration signal exactly as the Mid-band mixing did at 3.6.
+    await insertDraft({
+      id: 'bfa85f64-5717-4562-b3fc-2c963f66afab',
+      messageTs: '1700000000.001100',
+      resolvedAt: new Date('2026-07-19T10:00:00.000Z'),
+      redoCount: 0,
+      createdAt: new Date('2026-07-18T09:00:00.000Z'),
+      origin: 'high-band-dm',
+    });
+    await insertDraft({
+      id: 'cfa85f64-5717-4562-b3fc-2c963f66afac',
+      messageTs: '1700000000.001200',
       resolvedAt: new Date('2026-07-19T10:00:00.000Z'),
       redoCount: 0,
       createdAt: new Date('2026-07-18T09:00:00.000Z'),

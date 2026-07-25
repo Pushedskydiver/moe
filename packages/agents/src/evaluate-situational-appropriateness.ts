@@ -116,12 +116,15 @@ function toEvaluateSituationalAppropriatenessError(
 }
 
 /**
- * BUILD_PLAN 3.4a-iii's situational-appropriateness gate (VISION §9) — consulted before
- * `composeAndPostDraft`'s real Slack post (specifically its `isSituationallyAppropriate` step), not
- * before the Stage 1 classifier or the reaction-outcome dispatch (Alex confirmed via
- * `AskUserQuestion`: only the unprompted, standing-proactive draft-post needs this check —
- * responding to a human's own ✅/🔁/📦 reaction is reactive, not the bot acting unprompted, same
- * "reactive vs proactive" distinction 2.7a's core-hours guard already draws for DM replies).
+ * BUILD_PLAN 3.4a-iii's situational-appropriateness gate (VISION §9) — consulted before the
+ * **ambient** path's real Slack posts (`composeAndPostDraft`/`composeAndPostConfirmingQuestion`,
+ * via their shared `isSituationallyAppropriate` step). Three call sites deliberately do **not**
+ * consult it, all for the same reason — each responds to a human action rather than posting
+ * unprompted, the "reactive vs proactive" distinction 2.7a's core-hours guard already draws for DM
+ * replies: the Stage 1 classifier (which posts nothing at all), the reaction-outcome dispatch
+ * (responding to a human's own ✅/🔁/📦 or 👍/👎 reaction — Alex confirmed via `AskUserQuestion` at
+ * 3.4a-iii), and, since BUILD_PLAN 3.7, the DM intake cascade's own draft and confirming-question
+ * posts, which exist only because someone sent a DM.
  *
  * **Fails CLOSED, not open** — the opposite of `checkCostCapAndAlert`'s own fail-open design. A
  * cost-cap DB blip is unrelated to real spend risk, so failing open there just means "keep

@@ -1,4 +1,5 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
+import type { QuestionSourceSurface } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
 import { addReaction, postMessage } from '@moe/slack';
@@ -81,34 +82,58 @@ export type ComposeAndPostConfirmingQuestionInput = {
     readonly confidence: number;
     readonly reasoning: string;
   };
+  // Same surface-decides-placement rule as `postAndPersistDraft`'s own `surface` option — see its
+  // TSDoc for why a DM post is top-level rather than threaded. Also persisted on the
+  // `pending_confirming_questions` row, because the 👍 outcome posts its draft long after this
+  // `InboundMessage` is gone and would otherwise have no way to match the question's own placement.
+  readonly surface: QuestionSourceSurface;
 };
 
-// Extracted from `composeAndPostConfirmingQuestion` purely to stay under eslint's
-// `max-lines-per-function` (`docs/CONVENTIONS.md` §Code Style) — posts the fixed-template
-// question, persists the `pending_confirming_questions` row keyed on the real posted message, and
-// seeds the 👍/👎 legend, same shape as `handle-ambient-channel-message.ts`'s own
-// `postAndPersistDraft`.
-async function postAndPersistConfirmingQuestion(
+// Mirrors `handle-ambient-channel-message.ts`'s own `PostAndPersistDraftResult` exactly, and for
+// the same BUILD_PLAN 3.7 reason — see that type's TSDoc. `postedText` is what the DM cascade
+// persists as the assistant's `conversation_turns` row when a Mid-band DM is answered with a
+// confirming question instead of a chat reply.
+export type PostAndPersistConfirmingQuestionResult =
+  { readonly ok: true; readonly postedText: string } | { readonly ok: false };
+
+/**
+ * Posts the fixed-template question, persists the `pending_confirming_questions` row keyed on the
+ * real posted message, and seeds the 👍/👎 legend — same shape as
+ * `handle-ambient-channel-message.ts`'s own `postAndPersistDraft`, including that it runs **no
+ * guard checks of its own**: gating is the caller's job. `composeAndPostConfirmingQuestion` below
+ * (the ambient caller) only reaches it after both `isCostAndRhythmGuardSatisfied` and
+ * `isSituationallyAppropriate` pass. BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`)
+ * calls it directly instead, deliberately running neither of those two guards — a DM-triggered
+ * post is reactive rather than unprompted, the same distinction 2.7a already settled for DM replies
+ * — while still running the cost cap upstream, since the classify call that routed here is billed.
+ * Exported for that caller, mirroring `postAndPersistDraft`'s own precedent of being reused
+ * directly by a non-ambient caller rather than reimplemented.
+ */
+export async function postAndPersistConfirmingQuestion(
   deps: HandlerDeps,
   input: ComposeAndPostConfirmingQuestionInput,
-): Promise<void> {
+): Promise<PostAndPersistConfirmingQuestionResult> {
   const { message, classified } = input;
+  // Composed once and reused for both the Slack post and the `postedText` returned below, so the
+  // persisted conversation turn can never drift from what the user actually saw.
+  const questionText = formatConfirmingQuestionText();
   const posted = await postMessage(deps.slackClient, {
     channelId: message.channelId,
-    text: formatConfirmingQuestionText(),
-    threadTs: message.ts,
+    text: questionText,
+    ...(input.surface === 'dm' ? {} : { threadTs: message.ts }),
   });
   if (!posted.ok) {
     deps.logger.error('failed to post confirming question', {
       errorMessage: posted.error.message,
     });
-    return;
+    return { ok: false };
   }
 
   const created = await deps.confirmingQuestionStore.create({
     personaId: deps.personaId,
     channelId: message.channelId,
     messageTs: posted.ts,
+    sourceSurface: input.surface,
     sourceMessageTs: message.ts,
     sourceMessageText: message.text,
     confidence: classified.confidence,
@@ -118,7 +143,7 @@ async function postAndPersistConfirmingQuestion(
     deps.logger.error('failed to persist pending confirming question', {
       errorMessage: repositoryErrorMessage(created.error),
     });
-    return;
+    return { ok: false };
   }
 
   await seedAnswerLegend(deps, {
@@ -132,13 +157,14 @@ async function postAndPersistConfirmingQuestion(
     channelId: message.channelId,
     questionId: created.question.id,
   });
+  return { ok: true, postedText: questionText };
 }
 
 /**
  * BUILD_PLAN 3.4b-i's Mid-band action: gated by the same cost-cap+operating-rhythm guard and
  * situational-appropriateness gate the High-band draft path uses
- * (`standing-proactive-guards.ts`), then posts a fixed-template confirming question in-thread on
- * the source message, persists a `pending_confirming_questions` row keyed on the posted message,
+ * (`standing-proactive-guards.ts`), then posts a fixed-template confirming question against the
+ * source message — in-thread for an ambient one, top-level for a DM (`surface`) — persists a `pending_confirming_questions` row keyed on the posted message,
  * and seeds the 👍/👎 legend (`postAndPersistConfirmingQuestion`).
  */
 export async function composeAndPostConfirmingQuestion(

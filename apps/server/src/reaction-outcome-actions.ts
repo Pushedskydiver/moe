@@ -249,7 +249,7 @@ async function logFailedDraftAttempt(
 /**
  * BUILD_PLAN 3.4b-ii's 👍 outcome: composes and posts a real ticket draft via the exact same
  * posting flow the High-band path uses (`postAndPersistDraft`, `handle-ambient-channel-message.ts`
- * — reused directly, not reimplemented), threaded on the confirming question's *original* source
+ * — reused directly, not reimplemented), posted against the confirming question's *original* source
  * message (`question.sourceMessageTs`/`sourceMessageText`), not the confirming question's own
  * posted message. Cost-cap checked before the atomic claim, not after — a halted persona leaves
  * the confirming question unresolved, so a later retry (once the cap resets) still has a real
@@ -289,7 +289,15 @@ export async function draftFromConfirmingQuestion(
       ts: claimed.question.sourceMessageTs,
       text: claimed.question.sourceMessageText,
     },
-    { now, origin: 'mid-band-confirmed' },
+    // Placement matches how the question itself was posted (BUILD_PLAN 3.7) — a DM-originated
+    // question sat top-level, so its 👍 draft does too, rather than threading onto an older
+    // message. `sourceSurface` exists precisely because this call site runs long after the
+    // original `InboundMessage` is gone.
+    {
+      now,
+      origin: 'mid-band-confirmed',
+      surface: claimed.question.sourceSurface,
+    },
   );
   if (!posted.ok) {
     await logFailedDraftAttempt(deps, claimed.question);

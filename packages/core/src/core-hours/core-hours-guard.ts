@@ -16,11 +16,24 @@ export type OperatingRhythmDecision = {
 };
 
 /**
- * The full VISION §6.4/§14 operating-rhythm decision for proactive persona behavior (sends,
- * intake drafts) — BUILD_PLAN 2.7a. **Not** consulted by direct-DM replies, which always proceed
- * regardless of core hours (Alex confirmed via `AskUserQuestion`: a DM is reactive engagement,
- * not Moe acting unprompted, so §14's rest rule doesn't reach it) — callers on that path should
- * not call this function at all, rather than call it and ignore the result.
+ * The full VISION §6.4/§14 operating-rhythm decision for **unprompted** persona behavior (proactive
+ * sends, ambient intake drafts) — BUILD_PLAN 2.7a.
+ *
+ * **Not** consulted by anything a human message directly triggered. That started as "direct-DM
+ * replies" (Alex confirmed via `AskUserQuestion`: a DM is reactive engagement, not Moe acting
+ * unprompted, so §14's rest rule doesn't reach it) and BUILD_PLAN 3.7 extended it to the whole
+ * DM-triggered intake cascade, on the same reasoning: a ticket draft composed *because* Alex sent
+ * a DM is as reactive as the reply it replaces. Reaction-outcome dispatch (3.4a-iii, 3.4b-ii) is
+ * exempt for the same reason. Callers on those paths should not call this function at all, rather
+ * than call it and ignore the result.
+ *
+ * **That exemption is about rest, not about spend — do not read it as "skip the guards".** The
+ * per-persona cost cap (`checkCostCapAndAlert`, BUILD_PLAN 2.6b) still applies to every billed
+ * call on those paths, and chunk 3.3's own DA review caught a real, uncapped Anthropic call that
+ * shipped precisely because a new path was treated as guard-exempt wholesale. `apps/server`'s
+ * `isCostAndRhythmGuardSatisfied` bundles the cap check together with this one for the ambient
+ * path, so a reactive caller wanting "cap but not rhythm" must reach for the cap check directly
+ * rather than skipping the pair.
  *
  * Short-circuits on the pure weekday/clock-time check (`./core-hours.js`) before ever touching
  * the network — a weekend or an off-hours weekday instant never needs a holiday lookup. Only when

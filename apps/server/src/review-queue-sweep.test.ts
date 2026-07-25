@@ -34,6 +34,7 @@ function makeQuestion(
     id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
     personaId: 'sarah',
     channelId: 'C123',
+    sourceSurface: 'channel' as const,
     messageTs: '1700000099.000100',
     sourceMessageTs: '1700000000.000050',
     sourceMessageText:

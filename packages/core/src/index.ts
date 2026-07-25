@@ -172,6 +172,7 @@ export type {
 } from './intake/review-queue-repository.js';
 
 export { pendingConfirmingQuestionSchema } from './intake/pending-confirming-question.js';
+export type { QuestionSourceSurface } from './intake/pending-confirming-question.js';
 export type { PendingConfirmingQuestion } from './intake/pending-confirming-question.js';
 export {
   createPendingConfirmingQuestion,

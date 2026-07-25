@@ -48,13 +48,30 @@ A sibling case: validating a Slack/GitHub/status-claim payload at one call site 
 
 ### Business-hours guard misses
 
-The shared core-hours/weekend/UK-bank-holiday module exists as of `BUILD_PLAN.md` chunk 2.7a (`packages/core`'s `evaluateOperatingRhythm`) — every persona-initiated proactive behavior is supposed to consult it before firing, per `docs/VISION.md` §14's hard weekend/bank-holiday rest rule and §6.4's delegation of the concrete parameters to that chunk. The failure mode: a new proactive call site added later (an intake draft, a ceremony trigger, a stall ping, anything added well after 2.7a ships) is easy to write as a plain "send this now" without threading the guard check through, especially if the new code is added by someone who never read 2.7a's own chunk text. Direct DM replies are a deliberate exception, not a miss — Alex confirmed they always proceed regardless of core hours, since a DM is reactive engagement, not Moe acting unprompted.
+The shared core-hours/weekend/UK-bank-holiday module exists as of `BUILD_PLAN.md` chunk 2.7a (`packages/core`'s `evaluateOperatingRhythm`) — every persona-initiated proactive behavior is supposed to consult it before firing, per `docs/VISION.md` §14's hard weekend/bank-holiday rest rule and §6.4's delegation of the concrete parameters to that chunk. The failure mode: a new proactive call site added later (an intake draft, a ceremony trigger, a stall ping, anything added well after 2.7a ships) is easy to write as a plain "send this now" without threading the guard check through, especially if the new code is added by someone who never read 2.7a's own chunk text.
 
-Watch for: any new function that posts to Slack, opens a GitHub comment, or otherwise initiates contact on a persona's own timing (not in direct response to a human message) without a visible call into the core-hours guard.
+**Reactive paths are a deliberate exception, not a miss** — a DM reply (2.7a), a reaction-outcome dispatch (3.4a-iii/3.4b-ii), and a DM-triggered intake draft or confirming question (3.7) all proceed regardless of core hours, since each is a direct response to a human action rather than Moe acting unprompted.
+
+**But do not let that exception do your reviewing for you — that is this pattern's own second, subtler failure mode.** The sentence above is exactly the kind of wording a reviewer can reach for to close a question they never actually asked. Two specific ways it misleads:
+
+- **"Reactive" is a claim about the code path, not a property you can assume from the file it lives in.** Check that the path really is triggered by a human message. A ceremony or sweep that happens to be _implemented_ near reactive code is still proactive.
+- **The exemption covers rest, never spend.** Skipping `evaluateOperatingRhythm` is not licence to skip `checkCostCapAndAlert`. `apps/server`'s `isCostAndRhythmGuardSatisfied` deliberately bundles the two, so "this path is reactive, so it doesn't call that function" can silently mean the cost cap went with it. Chunk 3.3's own DA review caught a real, billed, completely uncapped Anthropic call that shipped for structurally this reason.
+
+Watch for: any new function that posts to Slack, opens a GitHub comment, or otherwise initiates contact on a persona's own timing (not in direct response to a human message) without a visible call into the core-hours guard — **and**, on any path claiming the reactive exemption, any billed LLM call without its own visible cost-cap check.
 
 **Status: Caught — `BUILD_PLAN.md` chunk 3.4a-i**, the first real consumer wired against 2.7a's guard (`composeAndLogDraft`'s ticket-draft composition, `apps/server/src/handle-ambient-channel-message.ts`). The predicted failure happened exactly as described: the chunk's own first implementation pass wired the High-band auto-draft action without threading `evaluateOperatingRhythm` through it at all — caught by the author during pre-PR docs sync (re-reading `BUILD_PLAN.md`'s own chunk text against the code), not by a reviewer, and fixed before the diff was ever reviewed. The pull loop (6.1a-i) and the ceremony scheduler (7.2a) are still open future call sites this pattern should keep watching.
 
 ---
+
+## Test placement
+
+### Extracted function ships without a co-located test file
+
+`docs/CONVENTIONS.md` requires a unit test for every exported function, no exceptions. The failure mode is specific and does **not** look like missing coverage: a function extracted out of a larger file (to stay under `max-lines`, or because a second consumer appeared) arrives already exercised through its original caller's test file, so the suite stays green, the diff adds no untested behaviour, and nothing flags it. The gap is structural rather than behavioural — the new module has no test file of its own, so the next change to it is reviewed against assertions living somewhere else, written for a different caller's concerns.
+
+Watch for: any new `src/*.ts` in a diff whose sibling `src/*.test.ts` is absent — particularly when the commit message or TSDoc describes the change as an "extraction", a "pure move", or "purely to stay under `max-lines`", since all three phrasings signal exactly this situation and simultaneously argue the change is too mechanical to need tests.
+
+**Status: Caught — three times, in the same class.** (1) `BUILD_PLAN.md` chunk 3.4a-i: `handle-ambient-channel-message.ts` was extracted from `handle-inbound-message.ts` and tested only through the latter; DA flagged it, and it was deferred as "a file-organization gap, not a coverage gap" — the reasoning that lets this recur. Its test file exists now. (2) and (3) chunk 3.7: `classify-message-for-intake.ts` and `generate-and-post-reply.ts`, both extractions, both shipped covered only indirectly, both caught by DA on the same PR and fixed there. The third occurrence is what moved this from a one-off judgement call to a pattern: "it's only a move" is true and still leaves the gap.
 
 ## How this file is used
 
