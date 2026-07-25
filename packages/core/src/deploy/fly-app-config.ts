@@ -27,8 +27,9 @@ export type FlyAppConfig = {
  * **Why one Fly App per persona, rather than one App with eight process groups.** Fly secrets are
  * scoped to an App — "an app's secrets are available as environment variables at runtime on every
  * Machine belonging to that Fly App" (fly.io/docs/apps/secrets/) — and `fly secrets set` has no
- * process-group flag; Fly's multi-process guide names the limitation directly, "secrets are shared
- * across all process groups in a single app"
+ * process-group flag. Fly's multi-process guide states it plainly, though as a convenience of the
+ * single-app shape rather than as a limitation: "secrets are shared across all process groups in a
+ * single app"
  * (fly.io/docs/app-guides/multiple-processes/ — note that fly.io/docs/launch/processes/ is a
  * *different* page and does not carry this sentence; a review pass read that one and reported the
  * quote as fabricated, so the exact URL is spelled out here). Both verified verbatim against the

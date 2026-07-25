@@ -81,7 +81,9 @@ fly secrets set -a moe-sarah --stage \
   the image. It still costs a Machine restart, like any `fly secrets set` without `--stage`.
 - `MOE_SLACK_APP_CONFIG_TOKEN` is **not** part of a deploy — it's the short-lived provisioning
   credential for `pnpm --filter @moe/server provision:slack-apps` only, and expires in 12 hours.
-- **`DATABASE_URL` must be Neon's _pooled_ (`-pooler`) hostname.** There are two separate budgets
+- **`DATABASE_URL` must be Neon's _pooled_ (`-pooler`) hostname — for the persona processes.** This
+  rule is about the always-on runtime pools only; it is _not_ repo-wide, and the exceptions are
+  below under "Which endpoint for which job". There are two separate budgets
   here. Against the **direct** endpoint, a 0.25 CU compute allows 104 connections with 7 reserved
   for the Neon superuser, so 97 are usable — and the fleet's eight pools at `max: 5` each
   (`packages/core/src/ticket-lifecycle/db.ts`) come to 40 of those, leaving headroom for a rolling
@@ -89,6 +91,29 @@ fly secrets set -a moe-sarah --stage \
   the ceiling is 10,000 client connections, so the fleet is nowhere near it. The direct hostname
   therefore works today and is still a trap: it leaves far less margin, and it degrades under
   exactly the conditions you least want it to.
+
+### Which endpoint for which job
+
+Neon's pooled endpoint runs PgBouncer in transaction mode, which does not support `SET`/`RESET`,
+`LISTEN`/`NOTIFY`, session-level prepared statements, or temporary tables. Neon's own guidance is to
+"use a direct connection for schema migrations, pg_dump, logical replication, and queries that
+depend on `SET`, `LISTEN`/`NOTIFY`, or session-level state."
+
+| Job                                          | Endpoint                | Why                                                                              |
+| -------------------------------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| Persona processes (`fly secrets set`)        | **pooled**              | Eight always-on pools against one compute; see the connection budget above       |
+| `pnpm --filter @moe/core migrate`            | **pooled** is safe here | See the caveat below — this is a moe-specific exception to Neon's general advice |
+| `pnpm --filter @moe/core backup` / `restore` | **direct**              | `pg_dump`/`pg_restore` emit `SET` statements, which transaction pooling rejects  |
+
+**The migration exception, and when it stops holding.** Neon lists schema migrations as "direct"
+because "tools may not support transaction pooling" — a statement about tools in general. moe's own
+`migrate.ts` was built for the pooled endpoint deliberately: it takes `pg_advisory_xact_lock`, a
+_transaction_-scoped lock rather than a session-scoped one, which is exactly the unit transaction
+pooling preserves. Verified for this repo: none of the 16 migration files uses `SET`, `RESET`,
+`CREATE INDEX CONCURRENTLY`, `LISTEN`, SQL-level `PREPARE`, or a temporary table. **The first
+migration that needs any of those must run against the direct endpoint instead** — `CREATE INDEX
+CONCURRENTLY` is the likely first offender, since it also cannot run inside the transaction
+`migrate.ts` wraps each batch in.
 
 ### Deploying
 
@@ -214,7 +239,7 @@ rather than trusting a single mechanism.
 
 A traditional logical backup/restore, independent of Neon's own control plane. Neon's own docs
 recommend `pg_dump`/`pg_restore` workflows generally "for business continuity, disaster recovery,
-or compliance" — they don't name "a Neon-side outage or account issue" specifically, but that's the
+or compliance" (neon.com/docs/manage/backups) — they don't name "a Neon-side outage or account issue" specifically, but that's the
 concrete instance of that guidance relevant here: Path 1 lives entirely inside Neon's own control
 plane, so it wouldn't help at all if Neon itself, or this account's access to it, were the problem.
 
@@ -238,8 +263,8 @@ itself). Instead the connection string is split into discrete `PGHOST`/`PGPORT`/
 `PGPASSWORD`/`PGDATABASE`/`PGSSLMODE` values (`parsePgEnvFromConnectionString`) and written to a
 `--env-file` (a path, not a value, so nothing appears in `docker`'s own argv either) — libpq's own
 documented env-var mechanism, so no process ever receives the secret via a command-line argument.
-`pg_restore` still needs an explicit `--dbname="$PGDATABASE"` (unlike `pg_dump`, it refuses to run
-without one), but that's only the database _name_, never the credential. The temp env file is
+`pg_restore` still needs an explicit `--dbname="$PGDATABASE"` (it refuses to run without one of
+`-d`/`--dbname` or `-f`/`--file`, and this path wants a real restore rather than a generated script), but that's only the database _name_, never the credential. The temp env file is
 deleted immediately after the container exits, on every path (success, failure, or an operator
 Ctrl-C/kill mid-run — `SIGINT`/`SIGTERM` handlers plus a `try/finally` both call the same cleanup).
 
@@ -256,7 +281,8 @@ last check, since it's the function actually writing credentials to disk.
 **Running a backup:**
 
 ```bash
-DATABASE_URL="<source-connection-string>" pnpm --filter @moe/core run backup
+# Use the DIRECT (non -pooler) hostname here — pg_dump emits SET statements.
+DATABASE_URL="<source-direct-connection-string>" pnpm --filter @moe/core run backup
 # writes packages/core/.backups/moe-backup-<timestamp>.dump (gitignored)
 ```
 
@@ -274,7 +300,8 @@ before recreating them from the dump.** Two safeguards gate it:
    confirmation copy-pasted for a _different_ database won't match this one:
 
 ```bash
-DATABASE_URL="<TARGET-connection-string>" \
+# Use the DIRECT (non -pooler) hostname here too — pg_restore emits SET statements.
+DATABASE_URL="<TARGET-direct-connection-string>" \
 BACKUP_FILE_PATH="<path-to-.dump-file>" \
 pnpm --filter @moe/core run restore
 # refuses, printing: CONFIRM_RESTORE_TARGET=postgres://<user>@<host>:<port>/<database>
