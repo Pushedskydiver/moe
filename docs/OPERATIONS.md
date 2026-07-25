@@ -39,6 +39,14 @@ eight Apps on a manual copy-paste path.
 
 ### First-time setup, once per persona
 
+**Prerequisite for every persona except Sarah: the Slack app has to exist first.** Only Sarah has
+a real Slack app today. The other seven need `pnpm --filter @moe/server provision:slack-apps` to
+actually run against Slack — BUILD_PLAN 5.1 built and tested that script but never executed it
+live — which itself needs a fresh 12-hour `MOE_SLACK_APP_CONFIG_TOKEN` from api.slack.com/apps,
+plus the `apps.manifest.export` cross-check against Sarah's real app that
+`packages/slack/src/build-persona-slack-manifest.ts`'s own TSDoc sets as a hard gate. Without that,
+there are no `MOE_SLACK_*` credentials to set below and the Machine will crash-loop on boot.
+
 ```bash
 fly auth login                                    # once per machine
 fly apps create moe-sarah                         # `fly deploy` will not create a missing App
@@ -62,12 +70,15 @@ fly secrets set -a moe-sarah --stage \
   below picks them all up in one go instead of rolling the Machine once per invocation.
 - `MOE_PERSONA_ID` is deliberately **not** a secret: it isn't sensitive, and it's the one value
   that must differ per config file, so it lives in the generated `[env]` block instead.
-- Every variable above is **required** — `parseBootConfig` validates all six config groups and
-  exits on the first invalid one, so a missing `MOE_COST_CAP_MONTHLY` or
+- Every variable in the block above is **required** — `parseBootConfig` validates all six config
+  groups and exits on the first invalid one, so a missing `MOE_COST_CAP_MONTHLY` or
   `MOE_WORK_RELEVANT_CHANNEL_IDS` stops the process booting rather than falling back to a default.
-  `PORT` is the one exception (`resolvePort` defaults it to 8080), and the generated `[env]` block
-  sets it anyway. `MOE_COST_CAP_MONTHLY` is not sensitive, but it lives here rather than in the
-  generated config so a cap can be re-tuned per persona without regenerating and redeploying.
+  The two variables _not_ in that block both come from the generated `[env]`: `MOE_PERSONA_ID`
+  (required, and the whole point of the per-persona config) and `PORT` (the only variable anywhere
+  with a real default — `resolvePort` falls back to 8080 — though the config sets it explicitly).
+- `MOE_COST_CAP_MONTHLY` is not sensitive, but it lives with the secrets rather than in the
+  generated config so a cap can be re-tuned per persona without regenerating configs or rebuilding
+  the image. It still costs a Machine restart, like any `fly secrets set` without `--stage`.
 - `MOE_SLACK_APP_CONFIG_TOKEN` is **not** part of a deploy — it's the short-lived provisioning
   credential for `pnpm --filter @moe/server provision:slack-apps` only, and expires in 12 hours.
 - **`DATABASE_URL` must be Neon's _pooled_ (`-pooler`) hostname.** There are two separate budgets
