@@ -9,6 +9,7 @@ export type NewPendingConfirmingQuestion = Pick<
   | 'personaId'
   | 'channelId'
   | 'messageTs'
+  | 'sourceSurface'
   | 'sourceMessageTs'
   | 'sourceMessageText'
   | 'confidence'

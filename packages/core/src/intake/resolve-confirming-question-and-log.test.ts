@@ -25,6 +25,7 @@ function newQuestionInput() {
     personaId: 'sarah',
     channelId: 'C123',
     messageTs: '1700000099.000100',
+    sourceSurface: 'channel' as const,
     sourceMessageTs: '1700000000.000050',
     sourceMessageText:
       'hey, there might be an issue with the CLI on large repos',

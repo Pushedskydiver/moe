@@ -48,3 +48,13 @@ Real Claude API calls (not simulated), one classification call per message, usin
 - `docs/VISION.md` §5.2 (Stage 1 — cheap classification gate) — the open question this ADR resolves.
 - `BUILD_PLAN.md` chunk 3.1 — this chunk. Blocks 3.2 (channel scoping), 3.3 (classifier gate implementation), and everything downstream in the intake cascade.
 - Claude API structured outputs (`output_config.format`), verified via a live fetch of the current Anthropic migration guide (not just the bundled `claude-api` skill reference, which turned out to lag it on one point below) — no log-probs anywhere in the Messages API, on any model; assistant-turn prefill returns 400 on Opus 4.6/4.7/4.8, Sonnet 4.6/5, and Fable 5/Mythos 5; Haiku 4.5 (the model this ADR adopts) isn't mentioned in relation to prefill anywhere, live or bundled — inferred, not confirmed, to be unrestricted there, and moot either way given log-probs' absence.
+
+## Addendum (2026-07-25, BUILD_PLAN 3.7): the prompt now sees DMs, and is knowingly left as-is
+
+Chunk 3.7 routed DMs through this classifier. Its system prompt still opens "You are a fast triage classifier for a shared team Slack channel", which is now inaccurate for half of what it scores.
+
+**Decision (Alex, before the chunk merged): leave the prompt unchanged and observe first.** The thresholds recorded above — High ≥ 70, Mid 35–69, Low < 35 — were calibrated against a live 24-message eval run on this exact prompt text. Editing the prompt invalidates that calibration, and there is currently no evidence that the channel framing actually distorts DM scores; changing a calibrated prompt on a hunch trades a known-good configuration for an unmeasured one.
+
+**What would change the decision, and how it would show up.** VISION §5.3 settles that a DM to a named persona is _already unambiguous_, which argues a DM should score at least as high as the equivalent channel message, not lower. So the failure mode to watch for is specific: work-shaped DMs landing in Mid (a confirming question for something plainly actionable) or Low (a chat reply where a draft was wanted). Chunk 3.5's review-queue sweep already surfaces Low-band ambient entries and draft outcomes, and 3.7's own `'high-band-dm'` origin keeps DM drafts separable — between them there is enough instrumentation to notice this from real traffic rather than from theory.
+
+If it does show up, the options in rough order of cost are: neutral wording that names neither surface (cheapest, still needs a re-run of the eval); or passing the surface as context so the classifier can score a DM as the more-directed surface §5.3 describes (most principled, largest change — new parameter, new prompt branch, full recalibration).

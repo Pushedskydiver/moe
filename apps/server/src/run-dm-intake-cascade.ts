@@ -111,6 +111,7 @@ export async function runDmIntakeCascade(
     const posted = await postAndPersistDraft(deps, message, {
       now,
       origin: 'high-band-dm',
+      surface: 'dm',
     });
     return posted.ok
       ? { handled: true, postedText: posted.postedText }
@@ -125,6 +126,7 @@ export async function runDmIntakeCascade(
     message,
     now,
     classified,
+    surface: 'dm',
   });
   return posted.ok
     ? { handled: true, postedText: posted.postedText }

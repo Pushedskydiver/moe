@@ -168,6 +168,10 @@ type PendingConfirmingQuestionsTable = {
   readonly personaId: string;
   readonly channelId: string;
   readonly messageTs: string;
+  // BUILD_PLAN 3.7 — `'channel'` or `'dm'`, with a `CHECK` constraint
+  // (`0018_add_pending_confirming_questions_source_surface.sql`). Decides whether the 👍 outcome's
+  // draft is posted threaded or top-level; see `pending-confirming-question.ts`'s own TSDoc.
+  readonly sourceSurface: string;
   readonly sourceMessageTs: string;
   readonly sourceMessageText: string;
   readonly confidence: number;

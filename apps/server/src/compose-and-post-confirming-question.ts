@@ -1,4 +1,5 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
+import type { QuestionSourceSurface } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
 import { addReaction, postMessage } from '@moe/slack';
@@ -81,6 +82,11 @@ export type ComposeAndPostConfirmingQuestionInput = {
     readonly confidence: number;
     readonly reasoning: string;
   };
+  // Same surface-decides-placement rule as `postAndPersistDraft`'s own `surface` option — see its
+  // TSDoc for why a DM post is top-level rather than threaded. Also persisted on the
+  // `pending_confirming_questions` row, because the 👍 outcome posts its draft long after this
+  // `InboundMessage` is gone and would otherwise have no way to match the question's own placement.
+  readonly surface: QuestionSourceSurface;
 };
 
 // Mirrors `handle-ambient-channel-message.ts`'s own `PostAndPersistDraftResult` exactly, and for
@@ -114,7 +120,7 @@ export async function postAndPersistConfirmingQuestion(
   const posted = await postMessage(deps.slackClient, {
     channelId: message.channelId,
     text: questionText,
-    threadTs: message.ts,
+    ...(input.surface === 'dm' ? {} : { threadTs: message.ts }),
   });
   if (!posted.ok) {
     deps.logger.error('failed to post confirming question', {
@@ -127,6 +133,7 @@ export async function postAndPersistConfirmingQuestion(
     personaId: deps.personaId,
     channelId: message.channelId,
     messageTs: posted.ts,
+    sourceSurface: input.surface,
     sourceMessageTs: message.ts,
     sourceMessageText: message.text,
     confidence: classified.confidence,

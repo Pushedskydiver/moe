@@ -26,11 +26,24 @@ const nonBlankStringSchema = z
  * age threshold is BUILD_PLAN 3.5's own "silence" case to detect and log, not something this table
  * or 3.4b-i/3.4b-ii themselves actively watch for.
  */
+/**
+ * Which VISION §5.2 surface the question was asked on (BUILD_PLAN 3.7). Load-bearing rather than
+ * descriptive: Alex settled at 3.7 that a DM-triggered post lands **top-level** in the DM while an
+ * ambient one stays threaded on its source message, and the 👍 outcome
+ * (`draftFromConfirmingQuestion`) posts its draft long after the original `InboundMessage` is gone,
+ * so this column is the only thing that can tell it which to do. Deliberately mirrors
+ * `MessageSurface`'s own `kind` vocabulary rather than inventing a second one.
+ */
+const questionSourceSurfaceSchema = z.enum(['channel', 'dm']);
+
+export type QuestionSourceSurface = z.infer<typeof questionSourceSurfaceSchema>;
+
 export const pendingConfirmingQuestionSchema = z.object({
   id: z.uuid(),
   personaId: nonBlankStringSchema,
   channelId: nonBlankStringSchema,
   messageTs: nonBlankStringSchema,
+  sourceSurface: questionSourceSurfaceSchema,
   sourceMessageTs: nonBlankStringSchema,
   sourceMessageText: nonBlankStringSchema,
   confidence: z.number().int().min(0).max(100),

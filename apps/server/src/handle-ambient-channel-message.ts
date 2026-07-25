@@ -1,5 +1,5 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
-import type { DraftOrigin } from '@moe/core';
+import type { DraftOrigin, QuestionSourceSurface } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
 import { composeTicketDraft, sonnetCostUsdMicros } from '@moe/agents';
@@ -172,6 +172,15 @@ type PostAndPersistDraftResult =
 type PostAndPersistDraftOptions = {
   readonly now: Date;
   readonly origin: DraftOrigin;
+  // Which VISION §5.2 surface triggered this draft, and therefore where it is posted (BUILD_PLAN
+  // 3.7, Alex's own decision). An ambient draft is threaded on its source message, so it stays
+  // attached to the conversation it came from in a busy channel. A DM draft is posted **top-level**
+  // instead: threading it would leave the DM showing only the user's own message plus a "1 reply"
+  // affordance, hiding both the draft and the 📦/🔁/✅ legend behind a click — on the one surface
+  // whose defining property is that it is never silent, and where the reaction gate only works if
+  // it is actually seen. Required rather than optional so no call site can silently inherit the
+  // wrong placement by forgetting it.
+  readonly surface: QuestionSourceSurface;
 };
 
 // Posts the composed draft in-thread on the source message, persists the "parent-message state"
@@ -204,7 +213,7 @@ export async function postAndPersistDraft(
   const posted = await postMessage(deps.slackClient, {
     channelId: message.channelId,
     text: draftMessageText,
-    threadTs: message.ts,
+    ...(options.surface === 'dm' ? {} : { threadTs: message.ts }),
   });
   if (!posted.ok) {
     deps.logger.error('failed to post ticket draft', {
@@ -269,7 +278,11 @@ async function composeAndPostDraft(
   const gatePassed = await isSituationallyAppropriate(deps, guardInput);
   if (!gatePassed) return;
 
-  await postAndPersistDraft(deps, message, { now, origin: 'high-band' });
+  await postAndPersistDraft(deps, message, {
+    now,
+    origin: 'high-band',
+    surface: 'channel',
+  });
 }
 
 // VISION §5.2's "nothing is silently eaten" backstop (BUILD_PLAN 3.4c) — persists a Low-band
@@ -363,7 +376,12 @@ export async function handleAmbientChannelMessage(
   if (band === 'high') {
     await composeAndPostDraft(deps, message, now);
   } else if (band === 'mid') {
-    await composeAndPostConfirmingQuestion(deps, { message, now, classified });
+    await composeAndPostConfirmingQuestion(deps, {
+      message,
+      now,
+      classified,
+      surface: 'channel',
+    });
   } else {
     await logToReviewQueue(deps, message, classified);
   }

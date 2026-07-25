@@ -200,6 +200,7 @@ function makeConfirmingQuestionStore(
         personaId: 'sarah',
         channelId: 'D123',
         messageTs: '1700000000.000100',
+        sourceSurface: 'dm' as const,
         sourceMessageTs: '1700000000.000050',
         sourceMessageText: 'there might be an issue with the CLI',
         confidence: 55,
@@ -331,13 +332,16 @@ describe('runDmIntakeCascade', () => {
         ) as string,
       });
 
-      // Posted as a threaded reply on the source DM, not a new top-level message.
-      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
-        expect.objectContaining({
-          channel: 'D123',
-          thread_ts: '1700000000.000050',
-        }),
-      );
+      // Posted **top-level** in the DM, not threaded on the source message (Alex's own decision at
+      // BUILD_PLAN 3.7). Threading would leave the DM showing only the user's own message plus a
+      // "1 reply" affordance, hiding the draft and its 📦/🔁/✅ legend behind a click — on the one
+      // surface that is never allowed to be silent, and where the reaction gate only works if it
+      // is seen. `not.objectContaining` would pass against a *renamed* key, so assert the absence
+      // of the property directly.
+      const postArg = deps.slackClient.chat.postMessage.mock
+        .calls[0]?.[0] as Record<string, unknown>;
+      expect(postArg.channel).toBe('D123');
+      expect(postArg).not.toHaveProperty('thread_ts');
 
       // `high-band-dm`, not `high-band` — keeps DM drafts out of `getDraftOutcomeCounts`'s
       // ambient-classifier acceptance-rate population (VISION §5.4).
@@ -581,9 +585,18 @@ describe('runDmIntakeCascade', () => {
         handled: true,
         postedText: expect.stringContaining('draft a ticket') as string,
       });
+      // Posted top-level in the DM, same reasoning as the High-band draft above.
+      const questionArg = deps.slackClient.chat.postMessage.mock
+        .calls[0]?.[0] as Record<string, unknown>;
+      expect(questionArg.channel).toBe('D123');
+      expect(questionArg).not.toHaveProperty('thread_ts');
+
+      // `sourceSurface: 'dm'` is persisted, not just used for this post — the 👍 outcome composes
+      // its draft long after this message is gone, and needs it to match the placement.
       expect(deps.confirmingQuestionStore.create).toHaveBeenCalledWith(
         expect.objectContaining({
           channelId: 'D123',
+          sourceSurface: 'dm',
           sourceMessageTs: '1700000000.000050',
           confidence: 55,
         }),
