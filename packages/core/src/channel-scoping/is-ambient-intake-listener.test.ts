@@ -18,9 +18,11 @@ describe('isAmbientIntakeListener', () => {
       (id) => id !== AMBIENT_INTAKE_PERSONA_ID,
     );
 
-    // Asserted over the real roster rather than a hand-written list, so activating a ninth
-    // persona cannot quietly leave a second ambient classifier running in a shared channel —
-    // exactly the failure BUILD_PLAN 5.2a exists to close, which only appeared once N went 1 → 8.
+    // Two distinct guards, stated precisely rather than as one vague claim (DA review). The
+    // `not.toContain(true)` pins that the predicate stays an equality check — broadening it is how
+    // a second ambient classifier would appear in a shared channel, the failure 5.2a exists to
+    // close. The `toHaveLength(7)` pins the roster size, so activating a ninth persona forces
+    // someone to re-read this file rather than silently changing what "every other persona" means.
     expect(others).toHaveLength(7);
     expect(others.map((id) => isAmbientIntakeListener(id))).not.toContain(true);
   });
