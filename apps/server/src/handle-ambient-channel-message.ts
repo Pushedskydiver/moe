@@ -3,7 +3,11 @@ import type { DraftOrigin, QuestionSourceSurface } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
 import { composeTicketDraft, sonnetCostUsdMicros } from '@moe/agents';
-import { classifyConfidenceBand, isSurfaceInScope } from '@moe/core';
+import {
+  classifyConfidenceBand,
+  isAmbientIntakeListener,
+  isSurfaceInScope,
+} from '@moe/core';
 import { addReaction, postMessage } from '@moe/slack';
 
 import { classifyMessageForIntake } from './classify-message-for-intake.js';
@@ -364,6 +368,13 @@ export async function handleAmbientChannelMessage(
   deps: HandlerDeps,
   message: InboundMessage,
 ): Promise<void> {
+  // BUILD_PLAN 5.2a — beside Stage 0, and before it, because this is the cheaper check and the
+  // one that is true for seven of the eight processes receiving this same message. Deliberately a
+  // sibling of `isSurfaceInScope` rather than a new arm inside it: that function's `dm` arm
+  // returns `true` unconditionally, and BUILD_PLAN 3.7's DM cascade depends on that, so folding a
+  // persona check in there would silently kill DM intake for every non-Sarah persona.
+  if (!isAmbientIntakeListener(deps.personaId)) return;
+
   const inScope = isSurfaceInScope(
     { kind: 'channel', channelId: message.channelId },
     deps.channelScopeConfig,

@@ -329,6 +329,10 @@ function makeDeps(
     readonly draftStore: HandlerDeps['draftStore'];
     readonly reviewQueueStore: HandlerDeps['reviewQueueStore'];
     readonly confirmingQuestionStore: HandlerDeps['confirmingQuestionStore'];
+    // BUILD_PLAN 5.2a — the fixture defaults to Sarah, the designated ambient intake listener, so
+    // every pre-5.2a test keeps exercising the path it was written for. Overridable so the gate
+    // itself can be tested from the other side.
+    readonly personaId: HandlerDeps['personaId'];
   }> = {},
 ) {
   return {
@@ -399,6 +403,57 @@ describe('handleAmbientChannelMessage', () => {
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
     expect(deps.historyStore.getRecentTurns).not.toHaveBeenCalled();
     expect(deps.historyStore.appendTurn).not.toHaveBeenCalled();
+  });
+
+  describe('ambient intake scoping (BUILD_PLAN 5.2a)', () => {
+    // Every persona is its own process with its own Slack app, so all eight receive the same
+    // channel message. Before this gate, all eight classified it: K billed Haiku calls per
+    // message, and for a High-band message K billed Sonnet drafts and K separately-committable
+    // ticket drafts — `pending_ticket_drafts`' UNIQUE (channel_id, message_ts) keys on the
+    // *posted* draft's ts, which differs per persona, so it never collides and never arbitrated
+    // anything.
+    it('drops an ambient message entirely for a non-intake persona, before any billed call', async () => {
+      const deps = makeDeps({ personaId: 'marcus' });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+      // The cost cap is checked inside `classifyMessageForIntake`, so asserting the cap store is
+      // untouched proves the drop happened before even the free pre-flight work, not just before
+      // the Anthropic call.
+      expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+      expect(deps.capStore.getMonthlyCost).not.toHaveBeenCalled();
+      expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+      expect(deps.draftStore.create).not.toHaveBeenCalled();
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+    });
+
+    it('drops it for a non-intake persona even on a High-band-scoring message in an in-scope channel', async () => {
+      // The gate must beat Stage 0 and the classifier both — a non-intake persona should never
+      // reach the point where the band could matter.
+      const deps = makeDeps({
+        personaId: 'nia',
+        anthropicClient: makeAnthropicClient({
+          parseResponse: { confidence: 95, reasoning: 'a clear bug report' },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+      expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    });
+
+    it('still runs the full cascade for the designated intake persona', async () => {
+      // The other side of the gate: Sarah is unaffected, which is what keeps every pre-5.2a test
+      // in this file meaningful rather than vacuously passing.
+      const deps = makeDeps({ personaId: 'sarah' });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalled();
+    });
   });
 
   it('does nothing at all for an out-of-scope ambient channel message — the classifier is never called (Stage 0, BUILD_PLAN 3.2)', async () => {

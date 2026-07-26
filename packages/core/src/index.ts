@@ -125,6 +125,10 @@ export type {
   ChannelScopeConfig,
   MessageSurface,
 } from './channel-scoping/channel-scope-config.js';
+export {
+  AMBIENT_INTAKE_PERSONA_ID,
+  isAmbientIntakeListener,
+} from './channel-scoping/is-ambient-intake-listener.js';
 export { isSurfaceInScope } from './channel-scoping/is-surface-in-scope.js';
 
 export type { ConfidenceBand } from './confidence-band.js';
