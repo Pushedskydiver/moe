@@ -399,7 +399,11 @@ describe('handleReactionAdded — confirming-question dispatch (BUILD_PLAN 3.4b-
 
     await handleReactionAdded(deps, makeReaction({ reactionName: 'thumbsup' }));
 
+    // `personaId` is part of the lookup as of BUILD_PLAN 5.2a (DA review): a persona must only
+    // resolve reactions on messages it posted itself, or every persona in a shared channel
+    // dispatches every other persona's reactions — including each draft's own seeded legend.
     expect(deps.confirmingQuestionStore.getByMessage).toHaveBeenCalledWith({
+      personaId: 'sarah',
       channelId: 'C123',
       messageTs: '1700000000.000100',
     });

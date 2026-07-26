@@ -95,6 +95,7 @@ describe('pending confirming questions repository', () => {
     if (!created.ok) throw new Error('setup failed');
 
     const result = await getPendingConfirmingQuestionByMessage(db, {
+      personaId: newQuestionInput().personaId,
       channelId: newQuestionInput().channelId,
       messageTs: newQuestionInput().messageTs,
     });
@@ -104,8 +105,29 @@ describe('pending confirming questions repository', () => {
 
   it('returns a null question for a (channelId, messageTs) pair that does not exist', async () => {
     const result = await getPendingConfirmingQuestionByMessage(db, {
+      personaId: 'sarah',
       channelId: 'C_UNKNOWN',
       messageTs: '0000000000.000000',
+    });
+
+    expect(result).toEqual({ ok: true, question: null });
+  });
+
+  it("does not return another persona's question — the \u{1F44D} path is the costlier half of the same defect (DA review, BUILD_PLAN 5.2a)", async () => {
+    // Worse than the draft case: `seedAnswerLegend` seeds \u{1F44D} FIRST, so a sibling process reads the
+    // posting persona's own legend reaction as a human "yes" and runs `draftFromConfirmingQuestion`
+    // — a real billed Sonnet compose and a real draft posted into the channel. Every confirming
+    // question would auto-answer itself within seconds of being asked.
+    const created = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    if (!created.ok) throw new Error('setup failed');
+
+    const result = await getPendingConfirmingQuestionByMessage(db, {
+      personaId: 'marcus',
+      channelId: newQuestionInput().channelId,
+      messageTs: newQuestionInput().messageTs,
     });
 
     expect(result).toEqual({ ok: true, question: null });

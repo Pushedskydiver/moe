@@ -1,3 +1,5 @@
+import type { PersonaId } from '../persona-roster.js';
+
 import { describe, expect, it } from 'vitest';
 
 import { PERSONA_ROSTER } from '../persona-roster.js';
@@ -12,7 +14,7 @@ describe('isAmbientIntakeListener', () => {
   });
 
   it('rejects every other persona in the roster', () => {
-    const others = Object.keys(PERSONA_ROSTER).filter(
+    const others = (Object.keys(PERSONA_ROSTER) as PersonaId[]).filter(
       (id) => id !== AMBIENT_INTAKE_PERSONA_ID,
     );
 
@@ -20,9 +22,7 @@ describe('isAmbientIntakeListener', () => {
     // persona cannot quietly leave a second ambient classifier running in a shared channel —
     // exactly the failure BUILD_PLAN 5.2a exists to close, which only appeared once N went 1 → 8.
     expect(others).toHaveLength(7);
-    for (const id of others) {
-      expect(isAmbientIntakeListener(id as never)).toBe(false);
-    }
+    expect(others.map((id) => isAmbientIntakeListener(id))).not.toContain(true);
   });
 
   it('names Sarah as the designated listener, per VISION §5.3', () => {
@@ -32,9 +32,12 @@ describe('isAmbientIntakeListener', () => {
   });
 
   it('designates a persona that actually exists in the roster', () => {
-    // Guards the one way this constant could silently disable ambient intake fleet-wide: a typo,
-    // or a rename during a future roster change, would make the predicate false for all eight
-    // processes and no message would ever be classified again.
+    // Cheap belt-and-braces, and deliberately not claimed as more than that (DA review): the
+    // `PersonaId` annotation on the constant plus `Record<PersonaId, …>` on the roster already
+    // make a typo or a rename a *compile* error, so this assertion is close to a type-level
+    // tautology. The genuinely silent failure it does NOT catch is naming a *valid* persona whose
+    // process is undeployed or absent from the work channels — ambient intake then stops
+    // fleet-wide with nothing anywhere to notice. See the constant's own TSDoc.
     expect(AMBIENT_INTAKE_PERSONA_ID in PERSONA_ROSTER).toBe(true);
   });
 });

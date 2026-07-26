@@ -12,6 +12,17 @@ import type { PersonaId } from '../persona-roster.js';
  * own copy of an `MOE_INTAKE_PERSONA_ID` is eight chances for the value to drift, and the failure
  * mode of drift is silent — either two personas classify (the duplicate-post bug this chunk fixes)
  * or none do (ambient intake stops entirely, with nothing to notice it).
+ *
+ * **The one genuinely silent failure mode, since the type system covers the others.** A typo or a
+ * roster rename is a compile error (`PersonaId` here, `Record<PersonaId, …>` on `PERSONA_ROSTER`).
+ * What is *not* caught anywhere is naming a **valid** persona whose process is undeployed, or which
+ * is not a member of the work channels: ambient intake then stops fleet-wide and nothing reports
+ * it, because "no persona classified this" looks identical to "no message arrived". If this value
+ * ever changes, verify the named persona is both deployed and in `MOE_WORK_RELEVANT_CHANNEL_IDS`.
+ *
+ * Exported alongside the predicate deliberately, despite having no consumer outside this module
+ * today: it is the value a future @-mention branch (BUILD_PLAN 5.6) needs in order to say "this
+ * channel message is not mine to classify, but it *is* addressed to me."
  */
 export const AMBIENT_INTAKE_PERSONA_ID: PersonaId = 'sarah';
 
