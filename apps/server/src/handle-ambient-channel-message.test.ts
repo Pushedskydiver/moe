@@ -408,7 +408,8 @@ describe('handleAmbientChannelMessage', () => {
   describe('ambient intake scoping (BUILD_PLAN 5.2a)', () => {
     // Every persona is its own process with its own Slack app, so all eight receive the same
     // channel message. Before this gate, all eight classified it: K billed Haiku calls per
-    // message, and for a High-band message K billed Sonnet drafts and K separately-committable
+    // message — 2K on a High-band message, since the situational-appropriateness gate is a second
+    // Haiku call — plus K billed Sonnet drafts and K separately-committable
     // ticket drafts — `pending_ticket_drafts`' UNIQUE (channel_id, message_ts) keys on the
     // *posted* draft's ts, which differs per persona, so it never collides and never arbitrated
     // anything.

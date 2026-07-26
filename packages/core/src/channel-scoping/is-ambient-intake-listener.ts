@@ -2,8 +2,9 @@ import type { PersonaId } from '../persona-roster.js';
 
 /**
  * The single persona that runs VISION §5.2's intake cascade over **ambient** channel/group
- * messages. Settled by VISION §5.3, quoted in full because this constant is the only place that
- * decision is encoded in code: "**Sarah is the canonical intake listener for shared/ambient
+ * messages. Settled by VISION §5.3, whose operative sentence is quoted in full below because
+ * this constant is the only place that decision is encoded in code (§5.3 also settles the handoff
+ * mechanism and the DM carve-out — read the section, not just this quote): "**Sarah is the canonical intake listener for shared/ambient
  * channels**, consistent with her PM/front-door role; she triages, then hands off internally to the
  * right persona."
  *
@@ -32,7 +33,8 @@ export const AMBIENT_INTAKE_PERSONA_ID: PersonaId = 'sarah';
  * **Why this exists.** Every persona is an independent process with its own Slack app (VISION
  * §4.5/§6.6), so each one receives the same channel message and, before this chunk, each one
  * independently classified it. With K personas in a work channel that meant K billed
- * classifications per message, and for a High-band message K billed draft compositions and **K
+ * classifications per message — plus, for a High-band message, a *second* K billed Haiku calls for
+ * the situational-appropriateness gate, K billed Sonnet draft compositions, and **K
  * separately-committable ticket drafts** — each with its own working ✅/🔁/📦 legend, since
  * `pending_ticket_drafts`' `UNIQUE (channel_id, message_ts)` keys on the *posted* draft's own ts,
  * which differs per persona and therefore never collides. The duplicate is a real duplicate
@@ -40,8 +42,8 @@ export const AMBIENT_INTAKE_PERSONA_ID: PersonaId = 'sarah';
  *
  * **What this deliberately does NOT gate.** Only the ambient intake cascade. Not channel
  * membership, not the Socket Mode listener, and not any other reason a persona might post into a
- * work channel — VISION §6.5 has Nia posting EOD digests to `#moe-team` and §6.1 gives
- * `#moe-research` to Theo, and both require a non-intake persona to be present and posting there.
+ * work channel — VISION §6.5 has Nia posting EOD digests daily and §6.1's channel table
+ * puts those in `#moe-team` and gives `#moe-research` to Theo, and both require a non-intake persona to be present and posting there.
  * Gating membership or the listener instead would foreclose those. It also leaves room beside it
  * for a future @-mention branch (BUILD_PLAN 5.6's "addressed-only?" question), which must be able
  * to reach a named persona in a channel it is not the intake listener for.
