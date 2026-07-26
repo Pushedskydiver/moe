@@ -92,11 +92,22 @@ export async function createPendingTicketDraft(
  */
 export async function getPendingTicketDraftByMessage(
   db: Kysely<Database>,
-  scope: { readonly channelId: string; readonly messageTs: string },
+  scope: {
+    readonly personaId: string;
+    readonly channelId: string;
+    readonly messageTs: string;
+  },
 ): Promise<PendingTicketDraftOrNullResult> {
   try {
     const row = await db
       .selectFrom('pendingTicketDrafts')
+      // `personaId` first, and load-bearing (DA review, BUILD_PLAN 5.2a): a persona must only ever
+      // resolve reactions on drafts **it** posted. `(channelId, messageTs)` alone identifies one
+      // Slack message globally, so without this every persona in a shared channel dispatches every
+      // other persona's reactions — including the 📦/🔁/✅ legend each draft seeds onto itself,
+      // which a sibling process reads as a human action because its self-filter only knows its own
+      // bot id. A draft would park itself to Backlog before anyone saw it.
+      .where('personaId', '=', scope.personaId)
       .selectAll()
       .where('channelId', '=', scope.channelId)
       .where('messageTs', '=', scope.messageTs)

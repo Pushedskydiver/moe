@@ -111,6 +111,7 @@ type DraftStore = {
     input: NewPendingTicketDraft,
   ) => Promise<PendingTicketDraftResult>;
   readonly getByMessage: (scope: {
+    readonly personaId: string;
     readonly channelId: string;
     readonly messageTs: string;
   }) => Promise<PendingTicketDraftOrNullResult>;
@@ -144,6 +145,7 @@ type ConfirmingQuestionStore = {
     input: NewPendingConfirmingQuestion,
   ) => Promise<PendingConfirmingQuestionResult>;
   readonly getByMessage: (scope: {
+    readonly personaId: string;
     readonly channelId: string;
     readonly messageTs: string;
   }) => Promise<PendingConfirmingQuestionOrNullResult>;

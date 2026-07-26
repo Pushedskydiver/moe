@@ -34,6 +34,7 @@ async function dispatchDraftOutcome(
   outcome: ReactionOutcome,
 ): Promise<void> {
   const found = await deps.draftStore.getByMessage({
+    personaId: deps.personaId,
     channelId: reaction.channelId,
     messageTs: reaction.messageTs,
   });
@@ -84,6 +85,7 @@ async function dispatchConfirmingQuestionOutcome(
   outcome: ConfirmingQuestionOutcome,
 ): Promise<void> {
   const found = await deps.confirmingQuestionStore.getByMessage({
+    personaId: deps.personaId,
     channelId: reaction.channelId,
     messageTs: reaction.messageTs,
   });

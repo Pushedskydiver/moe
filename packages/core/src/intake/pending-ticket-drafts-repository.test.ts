@@ -87,6 +87,7 @@ describe('pending ticket drafts repository', () => {
     if (!created.ok) throw new Error('setup failed');
 
     const result = await getPendingTicketDraftByMessage(db, {
+      personaId: newDraftInput().personaId,
       channelId: newDraftInput().channelId,
       messageTs: newDraftInput().messageTs,
     });
@@ -96,8 +97,28 @@ describe('pending ticket drafts repository', () => {
 
   it('returns a null draft for a (channelId, messageTs) pair that does not exist', async () => {
     const result = await getPendingTicketDraftByMessage(db, {
+      personaId: 'sarah',
       channelId: 'C_UNKNOWN',
       messageTs: '0000000000.000000',
+    });
+
+    expect(result).toEqual({ ok: true, draft: null });
+  });
+
+  it("does not return another persona's draft — reaction dispatch must not cross personas (DA review, BUILD_PLAN 5.2a)", async () => {
+    // Without this scoping, every persona in a shared channel resolves every other persona's
+    // drafts. The self-inflicted case is the sharp one: `seedReactionLegend` adds 📦/🔁/✅ to the
+    // draft it just posted, and those are real `reaction_added` events carrying the *posting*
+    // persona's bot id. A sibling process's self-filter compares against its OWN bot id, does not
+    // match, and dispatches 📦 as though a human had parked it — so a draft parks itself to
+    // Backlog before any human sees it, defeating VISION §5.2's "visible, reversible draft".
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+
+    const result = await getPendingTicketDraftByMessage(db, {
+      personaId: 'marcus',
+      channelId: newDraftInput().channelId,
+      messageTs: newDraftInput().messageTs,
     });
 
     expect(result).toEqual({ ok: true, draft: null });

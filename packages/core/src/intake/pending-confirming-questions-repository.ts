@@ -119,11 +119,19 @@ export async function createPendingConfirmingQuestion(
  */
 export async function getPendingConfirmingQuestionByMessage(
   db: Kysely<Database>,
-  scope: { readonly channelId: string; readonly messageTs: string },
+  scope: {
+    readonly personaId: string;
+    readonly channelId: string;
+    readonly messageTs: string;
+  },
 ): Promise<PendingConfirmingQuestionOrNullResult> {
   try {
     const row = await db
       .selectFrom('pendingConfirmingQuestions')
+      // Persona-scoped for the same reason as `getPendingTicketDraftByMessage` — see its own
+      // comment. The 👍/👎 case is the costlier half: 👍 is seeded first, so a sibling process
+      // reading it as a human answer fires a real billed draft composition.
+      .where('personaId', '=', scope.personaId)
       .selectAll()
       .where('channelId', '=', scope.channelId)
       .where('messageTs', '=', scope.messageTs)

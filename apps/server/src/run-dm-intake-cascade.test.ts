@@ -296,6 +296,34 @@ describe('runDmIntakeCascade', () => {
       expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
     });
 
+    it('runs the cascade for a NON-intake persona too — DM intake is per-persona and must not be gated (BUILD_PLAN 5.2a)', async () => {
+      // The one regression 5.2a could plausibly cause. Its ambient gate designates Sarah as the
+      // sole ambient intake listener, because all eight processes receive the same *channel*
+      // message. A DM is different in kind: Slack delivers it only to the addressed persona's own
+      // app, so there is no duplication to prevent — and gating it would silently kill DM intake
+      // for all seven non-Sarah personas, on the surface that is the product's front door.
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: HIGH_BAND,
+          draftResponse: DRAFT,
+        }),
+      });
+
+      const result = await runDmIntakeCascade(
+        { ...deps, personaId: 'marcus' as const },
+        DM_MESSAGE,
+        WITHIN_CORE_HOURS,
+      );
+
+      expect(result.handled).toBe(true);
+      expect(deps.draftStore.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          personaId: 'marcus',
+          origin: 'high-band-dm',
+        }),
+      );
+    });
+
     it('classifies a DM even when no work-relevant channels are configured at all', async () => {
       // The strongest form of the same check: with an empty allow-list, a `{kind: 'channel'}`
       // Stage 0 call cannot possibly pass, so reaching the classifier proves the `dm` arm ran.
