@@ -73,6 +73,27 @@ Watch for: any new `src/*.ts` in a diff whose sibling `src/*.test.ts` is absent 
 
 **Status: Caught — three times, in the same class.** (1) `BUILD_PLAN.md` chunk 3.4a-i: `handle-ambient-channel-message.ts` was extracted from `handle-inbound-message.ts` and tested only through the latter; DA flagged it, and it was deferred as "a file-organization gap, not a coverage gap" — the reasoning that lets this recur. Its test file exists now. (2) and (3) chunk 3.7: `classify-message-for-intake.ts` and `generate-and-post-reply.ts`, both extractions, both shipped covered only indirectly, both caught by DA on the same PR and fixed there. The third occurrence is what moved this from a one-off judgement call to a pattern: "it's only a move" is true and still leaves the gap.
 
+---
+
+## Review & fold discipline
+
+### Over-correction: a fix for a false claim can be false in a new way
+
+A reviewer (DA, `copilot-surrogate`, or R2) flags a factual claim as false. The fix lands, and a later independent pass finds the fix is _also_ false — not the same error restored, but a different one, often the mirror image of the first. The failure is specific to _prose fixes_, not code: a code fix that breaks something usually fails a test; a doc/comment fix that overstates or overcorrects has no equivalent backstop, so it ships clean until the next fresh-context read.
+
+**Why it recurs, structurally:** fixing a reported claim carries an attention asymmetry — the author is now anchored on _the specific error just named_, which is exactly the frame most likely to produce an equal-and-opposite overstatement rather than the accurate middle. This is the same mechanism `docs/DEVELOPMENT.md`'s Round-2 rule exists for on the code side ("the last discovery round has a self-terminating bias built in"); this pattern is that same bias, observed specifically in prose corrections.
+
+**A related, second failure mode worth watching for together:** the same debunked claim surviving as an untouched sibling — a fix corrects one location and a comment or doc elsewhere keeps asserting the original, now-contradicted claim, because the fix's own scope never swept for it. `docs/DA-REVIEW.md` §Claim-extraction's quoted/attributed-claim bucket already names this for quotes; it applies identically to any corrected factual claim, code comments included.
+
+Watch for: a fix commit whose message describes correcting a reviewer finding, especially one using an absolute word ("never", "always", "only", "invisible", "nothing") in the _replacement_ text — that word is the shape of the next overstatement. And after any such fix, grep the whole repo for the debunked claim's own distinctive wording, not just re-read the file that was corrected.
+
+**Status: Caught — at least four times across two PRs**, three within one PR (`BUILD_PLAN.md` chunk 3.9, [PR #77](https://github.com/Pushedskydiver/moe/pull/77)) in immediate succession, which is what moved this from an isolated incident to a pattern:
+
+1. **PR #72** (chunk 5.2a docs): a `copilot-surrogate` finding ("channels are held by 5.2a" — false) was corrected into its exact mirror image, caught by a second surrogate pass on the same PR.
+2. **PR #77, `review-queue-sweep.ts`'s section-ordering comment**, corrected three times in sequence before converging: an original false universal ("every other value records a message already judged not to warrant one" — false for `'mid-silence'`/`'mid-yes-failed'`) was replaced with a _different_ false universal ("every other value records an exchange that did happen" — false for `'low-confidence'`, which has no exchange at all), caught by a fresh R2 pass; the two-conjunct replacement fixed the substance but miscounted the Mid-band total ("the three Mid-band values" when there are four), caught by a scoped `copilot-surrogate` re-dispatch.
+3. **PR #77, `docs/OPERATIONS.md`'s rollback-consequence note**, corrected three times: v1 claimed a `fly deploy` rollback "breaks the sweep" (false — the deployed process never reads `review_queue`) and that a partial failure "writes nothing" (false — it does, via a different write path); the v2 fix for the first half then claimed the rolled-back behavior produces "no error, no log... it is invisible" (false — it logs, misleadingly), caught by R2; the v3 fix for _that_ then claimed "nothing is persisted... silent in the database" (false — a cost-usage row is still written, unconditionally, before the guard runs), caught by a narrowly-scoped terminal check.
+4. **PR #77, a sibling instance of the debunked "hid this bug in production for two days" claim** (itself removed from `docs/OPERATIONS.md` as part of fixing instance 3): survived untouched in a `standing-proactive-guards.test.ts` code comment, introduced by the PR's own first commit, missed by three consecutive correction rounds because none of them grepped the repo for the claim's own wording — found only when the terminal R2 pass swept for siblings on its own initiative, per this pattern's second failure mode above.
+
 ## How this file is used
 
 - When dispatched, `.claude/agents/da-review.md` reads `docs/DA-REVIEW.md`'s targeted sections, the `docs/CONVENTIONS.md` sections the diff touches, and this file as part of the standard brief; `docs/RATIONALIZATIONS.md` is consulted only when about to dismiss a finding.
