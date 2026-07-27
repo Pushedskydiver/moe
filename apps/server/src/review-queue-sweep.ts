@@ -120,11 +120,23 @@ async function logStaleQuestionsAsSilent(
 // Alex confirmed via `AskUserQuestion` (BUILD_PLAN 3.5): surface the per-cause `outcomeReason`
 // origin to the human reader, not one flat list — grouped so Alex can tell "nobody answered" from
 // "the classifier itself wasn't confident" at a glance, not just a bare score. Three-way at ship
-// time; the claim-then-act fallback fix later added a 4th value, `'mid-yes-failed'`.
+// time; the claim-then-act fallback fix later added a 4th value, `'mid-yes-failed'`, and BUILD_PLAN
+// 3.9 added the two off-hours values.
+//
+// The 3.9 labels say "not drafted"/"not asked" rather than anything like "deferred": no timer picks
+// these up (that is 3.9's own step (2), gated on 7.2a or 6.1a-i), so a label promising a later
+// pickup would restate in the digest exactly the false promise that chunk was filed to remove.
+// They are listed **first deliberately**, not alphabetically or by age: `formatSweepMessage` derives
+// its section order from this object's own key order (`Object.keys`), and these two are the only
+// rows that mean "this probably *should* have become a ticket and did not" — every other value
+// records a message already judged not to warrant one, or a question a human already answered. They
+// are the only rows in the digest that carry an unactioned intake, so they go at the top.
 const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   ReviewQueueEntry['outcomeReason'],
   string
 > = {
+  'high-band-off-hours': 'Off-hours — not drafted',
+  'mid-band-off-hours': 'Off-hours — not asked',
   'low-confidence': 'Low confidence',
   'mid-no': 'Answered no',
   'mid-silence': 'No response',

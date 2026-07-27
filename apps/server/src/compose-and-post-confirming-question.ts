@@ -4,9 +4,10 @@ import type { InboundMessage } from '@moe/slack';
 
 import { addReaction, postMessage } from '@moe/slack';
 
+import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-queue.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import {
-  isCostAndRhythmGuardSatisfied,
+  evaluateCostAndRhythmGuard,
   isSituationallyAppropriate,
 } from './standing-proactive-guards.js';
 
@@ -101,7 +102,7 @@ export type PostAndPersistConfirmingQuestionResult =
  * real posted message, and seeds the 👍/👎 legend — same shape as
  * `handle-ambient-channel-message.ts`'s own `postAndPersistDraft`, including that it runs **no
  * guard checks of its own**: gating is the caller's job. `composeAndPostConfirmingQuestion` below
- * (the ambient caller) only reaches it after both `isCostAndRhythmGuardSatisfied` and
+ * (the ambient caller) only reaches it after both `evaluateCostAndRhythmGuard` and
  * `isSituationallyAppropriate` pass. BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`)
  * calls it directly instead, deliberately running neither of those two guards — a DM-triggered
  * post is reactive rather than unprompted, the same distinction 2.7a already settled for DM replies
@@ -166,15 +167,36 @@ export async function postAndPersistConfirmingQuestion(
  * (`standing-proactive-guards.ts`), then posts a fixed-template confirming question against the
  * source message — in-thread for an ambient one, top-level for a DM (`surface`) — persists a `pending_confirming_questions` row keyed on the posted message,
  * and seeds the 👍/👎 legend (`postAndPersistConfirmingQuestion`).
+ *
+ * **BUILD_PLAN 3.9 — the off-hours branch no longer drops the message.** This path had the
+ * byte-identical silent loss the High-band path did, and 3.9's own spec never mentioned it (found
+ * during that chunk's recon; Alex settled covering both bands on 2026-07-27). An ambient Mid-band
+ * message outside core hours now writes a `'mid-band-off-hours'` `review_queue` row rather than
+ * vanishing. A *distinct* value from the High band's, not a shared one, because the digest groups
+ * by reason so a human can tell causes apart: "a draft was never composed" and "a question was
+ * never asked" call for different responses from Alex.
+ *
+ * Only the ambient caller runs this function at all — BUILD_PLAN 3.7's DM cascade calls
+ * `postAndPersistConfirmingQuestion` directly and never consults the rhythm guard, so no DM can
+ * produce either off-hours row. See `logAmbientIntakeToReviewQueue` for the full reasoning.
  */
 export async function composeAndPostConfirmingQuestion(
   deps: HandlerDeps,
   input: ComposeAndPostConfirmingQuestionInput,
 ): Promise<void> {
-  const { message, now } = input;
+  const { message, now, classified } = input;
   const guardInput = { message, now, actionDescription: ACTION_DESCRIPTION };
-  const guardsPassed = await isCostAndRhythmGuardSatisfied(deps, guardInput);
-  if (!guardsPassed) return;
+  const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
+  if (!guard.satisfied) {
+    if (guard.reason === 'outside-core-hours') {
+      await logAmbientIntakeToReviewQueue(deps, {
+        message,
+        classified,
+        outcomeReason: 'mid-band-off-hours',
+      });
+    }
+    return;
+  }
 
   const gatePassed = await isSituationallyAppropriate(deps, guardInput);
   if (!gatePassed) return;

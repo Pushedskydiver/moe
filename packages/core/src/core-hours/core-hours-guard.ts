@@ -31,7 +31,7 @@ export type OperatingRhythmDecision = {
  * per-persona cost cap (`checkCostCapAndAlert`, BUILD_PLAN 2.6b) still applies to every billed
  * call on those paths, and chunk 3.3's own DA review caught a real, uncapped Anthropic call that
  * shipped precisely because a new path was treated as guard-exempt wholesale. `apps/server`'s
- * `isCostAndRhythmGuardSatisfied` bundles the cap check together with this one for the ambient
+ * `evaluateCostAndRhythmGuard` bundles the cap check together with this one for the ambient
  * path, so a reactive caller wanting "cap but not rhythm" must reach for the cap check directly
  * rather than skipping the pair.
  *

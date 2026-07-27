@@ -60,6 +60,27 @@ describe('review queue repository', () => {
     });
   });
 
+  // BUILD_PLAN 3.9 — the two off-hours values, exercised against the real CHECK constraint rather
+  // than only the Zod enum. The Kysely column type is a bare `string` (`../schema.ts`), so a value
+  // the migration forgot would pass typecheck and fail only at INSERT time; asserting through
+  // `createReviewQueueEntry` is what proves the constraint and the enum actually agree.
+  it.each(['high-band-off-hours', 'mid-band-off-hours'] as const)(
+    'creates a review queue entry with outcomeReason %s',
+    async (outcomeReason) => {
+      const result = await createReviewQueueEntry(db, {
+        ...newEntryInput(),
+        confidence: 85,
+        reasoning: 'a concrete bug report naming a reproducible failure',
+        outcomeReason,
+      });
+
+      expect(result.ok).toBe(true);
+      const all = await db.selectFrom('reviewQueue').selectAll().execute();
+      expect(all).toHaveLength(1);
+      expect(all[0]?.outcomeReason).toBe(outcomeReason);
+    },
+  );
+
   it('rejects a blank source message text without writing a row to the database', async () => {
     const result = await createReviewQueueEntry(db, {
       ...newEntryInput(),

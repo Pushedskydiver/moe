@@ -190,7 +190,26 @@ function makeDeps(
       updateContent: vi.fn<HandlerDeps['draftStore']['updateContent']>(),
     },
     reviewQueueStore: {
-      create: vi.fn<HandlerDeps['reviewQueueStore']['create']>(),
+      // Resolves rather than being a bare stub — BUILD_PLAN 3.9 gave this path a real
+      // review-queue write (the off-hours row), so an unresolved mock now throws inside the
+      // function under test instead of harmlessly recording a call that never happens.
+      create: vi
+        .fn<HandlerDeps['reviewQueueStore']['create']>()
+        .mockResolvedValue({
+          ok: true,
+          entry: {
+            id: '7fa85f64-5717-4562-b3fc-2c963f66afa9',
+            personaId: 'sarah',
+            channelId: 'C123',
+            messageTs: '1700000000.000050',
+            sourceMessageText:
+              'hey, there might be an issue with the CLI on large repos',
+            confidence: 55,
+            reasoning: 'plausibly describes a bug, but not clearly actionable',
+            outcomeReason: 'mid-band-off-hours',
+            createdAt: new Date('2026-07-16T21:00:00.000Z'),
+          },
+        }),
     },
     confirmingQuestionStore: makeConfirmingQuestionStore(),
     ...overrides,
@@ -266,7 +285,7 @@ describe('composeAndPostConfirmingQuestion', () => {
     }
   });
 
-  it('defers, without posting, when the cost cap is reached', async () => {
+  it('skips posting, and writes no review-queue row, when the cost cap is reached', async () => {
     const deps = makeDeps({
       capStore: makeCapStore({
         getMonthlyCost: vi.fn<CapStore['getMonthlyCost']>().mockResolvedValue({
@@ -297,9 +316,18 @@ describe('composeAndPostConfirmingQuestion', () => {
     // alert ladder's own real DM to Alex (chunk 2.6b), a legitimate, unrelated `postMessage` call.
     // The confirming question itself never gets persisted is the precise thing to verify here.
     expect(deps.confirmingQuestionStore.create).not.toHaveBeenCalled();
+    // BUILD_PLAN 3.9's scope boundary, pinned: **only** the operating-rhythm block writes a
+    // review-queue row, not a cost-cap halt (Alex scoped 3.9 to the rhythm guard; the cap case is
+    // BUILD_PLAN 3.10). Without this assertion the two guard reasons are indistinguishable in the
+    // suite, and a later change collapsing them back into one bare boolean would stay green.
+    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
   });
 
-  it('defers, without posting, outside core hours', async () => {
+  // BUILD_PLAN 3.9 — this path had the byte-identical silent loss the High-band path did, and
+  // 3.9's own spec never mentioned it (found during that chunk's recon; Alex settled covering both
+  // bands). The old test asserted only "did not post", which is exactly the assertion shape that
+  // let the loss go unnoticed: it was satisfied by the bug.
+  it('writes a mid-band-off-hours review-queue row, instead of losing the message, outside core hours (BUILD_PLAN 3.9)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T21:00:00.000Z'));
     try {
@@ -313,10 +341,22 @@ describe('composeAndPostConfirmingQuestion', () => {
       });
 
       expect(deps.logger.info).toHaveBeenCalledWith(
-        'deferring confirming-question posting — outside core hours',
+        'skipping confirming-question posting — outside core hours',
         { personaId: 'sarah', channelId: 'C123', reason: 'outside-window' },
       );
+      expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: CHANNEL_MESSAGE.ts,
+        sourceMessageText: CHANNEL_MESSAGE.text,
+        confidence: CLASSIFIED.confidence,
+        reasoning: CLASSIFIED.reasoning,
+        // A distinct value from the High band's, not a shared one — the digest groups by reason so
+        // "a question was never asked" and "a draft was never composed" stay tellable apart.
+        outcomeReason: 'mid-band-off-hours',
+      });
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+      expect(deps.confirmingQuestionStore.create).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -340,7 +380,7 @@ describe('composeAndPostConfirmingQuestion', () => {
       });
 
       expect(deps.logger.error).toHaveBeenCalledWith(
-        'failed to evaluate situational appropriateness — deferring confirming-question posting (fail-closed)',
+        'failed to evaluate situational appropriateness — skipping confirming-question posting (fail-closed)',
         expect.objectContaining({ errorMessage: 'rate limited' }),
       );
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();

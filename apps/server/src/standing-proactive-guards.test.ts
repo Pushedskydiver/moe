@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBankHolidaysCache } from '@moe/core';
 
 import {
-  isCostAndRhythmGuardSatisfied,
+  evaluateCostAndRhythmGuard,
   isSituationallyAppropriate,
 } from './standing-proactive-guards.js';
 
@@ -103,26 +103,26 @@ const MESSAGE = {
   ts: '1700000000.000100',
 };
 
-describe('isCostAndRhythmGuardSatisfied', () => {
-  it('returns true when within core hours and under the cost cap', async () => {
+describe('evaluateCostAndRhythmGuard', () => {
+  it('is satisfied when within core hours and under the cost cap', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
       const deps = makeDeps();
 
-      const result = await isCostAndRhythmGuardSatisfied(deps as never, {
+      const result = await evaluateCostAndRhythmGuard(deps as never, {
         message: MESSAGE,
         now: new Date(),
         actionDescription: 'confirming-question posting',
       });
 
-      expect(result).toBe(true);
+      expect(result).toEqual({ satisfied: true, reason: 'satisfied' });
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('returns false and logs with the given action description when the cost cap is reached', async () => {
+  it('reports cost-cap-reached, distinguishably from an off-hours block, when the cap is reached', async () => {
     const deps = makeDeps({
       getMonthlyCost: vi.fn().mockResolvedValue({
         ok: true,
@@ -136,34 +136,45 @@ describe('isCostAndRhythmGuardSatisfied', () => {
       }),
     });
 
-    const result = await isCostAndRhythmGuardSatisfied(deps as never, {
+    const result = await evaluateCostAndRhythmGuard(deps as never, {
       message: MESSAGE,
       now: new Date(),
       actionDescription: 'confirming-question posting',
     });
 
-    expect(result).toBe(false);
+    expect(result).toEqual({
+      satisfied: false,
+      reason: 'cost-cap-reached',
+    });
     expect(deps.logger.info).toHaveBeenCalledWith(
       'skipping confirming-question posting — monthly cost cap reached',
       { personaId: 'sarah', channelId: 'C123' },
     );
   });
 
-  it('returns false and logs with the given action description outside core hours', async () => {
+  // BUILD_PLAN 3.9 — the reason, not just the boolean, is what makes the review-queue write
+  // possible: only the off-hours block writes a row, and before this the caller saw a bare `false`
+  // for both causes. The log line also no longer says "deferring": nothing defers until 3.9's own
+  // step (2) builds a timer, and the word describing a drop as a deferral is what hid this bug in
+  // production for two days.
+  it('reports outside-core-hours, distinguishably from a cost-cap block, outside core hours', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T21:00:00.000Z'));
     try {
       const deps = makeDeps();
 
-      const result = await isCostAndRhythmGuardSatisfied(deps as never, {
+      const result = await evaluateCostAndRhythmGuard(deps as never, {
         message: MESSAGE,
         now: new Date(),
         actionDescription: 'confirming-question posting',
       });
 
-      expect(result).toBe(false);
+      expect(result).toEqual({
+        satisfied: false,
+        reason: 'outside-core-hours',
+      });
       expect(deps.logger.info).toHaveBeenCalledWith(
-        'deferring confirming-question posting — outside core hours',
+        'skipping confirming-question posting — outside core hours',
         { personaId: 'sarah', channelId: 'C123', reason: 'outside-window' },
       );
     } finally {
@@ -229,7 +240,7 @@ describe('isSituationallyAppropriate', () => {
 
     expect(result).toBe(false);
     expect(deps.logger.error).toHaveBeenCalledWith(
-      'failed to evaluate situational appropriateness — deferring confirming-question posting (fail-closed)',
+      'failed to evaluate situational appropriateness — skipping confirming-question posting (fail-closed)',
       { personaId: 'sarah', channelId: 'C123', errorMessage: 'rate limited' },
     );
     expect(deps.costStore.recordUsage).not.toHaveBeenCalled();

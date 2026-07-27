@@ -135,7 +135,17 @@ type PendingTicketDraftsTable = {
  * placeholder value, `'mid-no-response'`, with `'mid-no'`/`'mid-silence'` — "no" and
  * "silence"/timeout stay separately identifiable for 3.5's own human-eyeballing sweep, per that
  * chunk's own DA-review-flagged question. `0011_widen_review_queue_outcome_reason_again.sql`
- * added `'mid-yes-failed'` additively on top.
+ * added `'mid-yes-failed'` additively on top, and
+ * `0019_widen_review_queue_outcome_reason_off_hours.sql` (BUILD_PLAN 3.9) added
+ * `'high-band-off-hours'`/`'mid-band-off-hours'` the same way — an **ambient** High- or Mid-band
+ * message the 2.7a operating-rhythm guard blocked, which until then was dropped with nothing
+ * persisted at all (`logAmbientIntakeToReviewQueue`).
+ *
+ * Note `outcomeReason` is typed `string` here, not the union: Kysely's shape is the raw column, so
+ * nothing in this file constrains the value. The enum lives in `./intake/review-queue-entry.ts` and
+ * is enforced by `createReviewQueueEntry`'s pre-insert parse plus the SQL `CHECK` — which is why a
+ * new value must land in the migration and the Zod enum together, and why adding one here alone
+ * would compile and then fail at runtime.
  */
 type ReviewQueueTable = {
   readonly id: string;

@@ -26,6 +26,18 @@ const nonBlankStringSchema = z
  * change). Unlike `pending-ticket-draft.ts`'s sibling table,
  * this one has no resolved/claimed state — a review-queue row is a plain log entry, not a
  * workflow object a reaction can act on.
+ *
+ * `'high-band-off-hours'` and `'mid-band-off-hours'` are BUILD_PLAN 3.9's own writes
+ * (`apps/server`'s `logAmbientIntakeToReviewQueue`, reached from `composeAndPostDraft` and
+ * `composeAndPostConfirmingQuestion`), added by migration
+ * `0019_widen_review_queue_outcome_reason_off_hours.sql`: an **ambient** message classified High or
+ * Mid outside the 2.7a operating-rhythm window, which until 3.9 was dropped with nothing persisted
+ * and no scheduler to pick it up. Named for the cause rather than `'…-deferred'` deliberately —
+ * nothing is deferred until BUILD_PLAN 3.9's own step (2) builds a timer, and "deferring" is the
+ * exact word that chunk exists to stop the codebase using for a drop. **Ambient only:** the DM path
+ * never consults the rhythm guard (2.7a settled DM replies as reactive; 3.7 extended that to
+ * DM-triggered drafts), so a DM produces its draft or question at any hour and never writes either
+ * value.
  */
 export const reviewQueueEntrySchema = z.object({
   id: z.uuid(),
@@ -40,6 +52,8 @@ export const reviewQueueEntrySchema = z.object({
     'mid-no',
     'mid-silence',
     'mid-yes-failed',
+    'high-band-off-hours',
+    'mid-band-off-hours',
   ]),
   createdAt: z.date(),
 });

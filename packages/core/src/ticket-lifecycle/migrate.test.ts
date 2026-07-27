@@ -50,6 +50,7 @@ describe('runMigrations', () => {
         '0016_add_ticket_class_of_service.sql',
         '0017_widen_pending_ticket_drafts_origin.sql',
         '0018_add_pending_confirming_questions_source_surface.sql',
+        '0019_widen_review_queue_outcome_reason_off_hours.sql',
       ],
     });
 
@@ -75,6 +76,7 @@ describe('runMigrations', () => {
       { id: '0016_add_ticket_class_of_service.sql' },
       { id: '0017_widen_pending_ticket_drafts_origin.sql' },
       { id: '0018_add_pending_confirming_questions_source_surface.sql' },
+      { id: '0019_widen_review_queue_outcome_reason_off_hours.sql' },
     ]);
   });
 
