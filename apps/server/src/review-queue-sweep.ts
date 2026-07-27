@@ -127,13 +127,18 @@ async function logStaleQuestionsAsSilent(
 // these up (that is 3.9's own step (2), gated on 7.2a or 6.1a-i), so a label promising a later
 // pickup would restate in the digest exactly the false promise that chunk was filed to remove.
 // They are listed **first deliberately**, not alphabetically or by age: `formatSweepMessage` derives
-// its section order from this object's own key order (`Object.keys`), and these two are the only
-// rows where the persona never got as far as *asking* — the message was classified as worth acting
-// on and then nothing at all reached the channel. Every other value records an exchange that did
-// happen: a score below the Low threshold, a human answering 👎, a question posted and left
-// unanswered, or a 👍 whose draft then failed. (`'mid-yes-failed'` and `'mid-silence'` are also
-// unresolved in their own way — the distinction drawn here is whether anything was ever put in
-// front of a human, not whether the outcome was satisfactory.)
+// its section order from this object's own key order (`Object.keys`). The ordering test is a
+// conjunction, and both halves are load-bearing: the message was **classified as worth acting on**
+// (High or Mid band) **and then** nothing at all reached the channel. Only these two values satisfy
+// both. `'low-confidence'` fails the first half — it is silent too, deliberately so, but the
+// classifier judged it not worth acting on, which is the whole point of the Low band. The three
+// Mid-band values fail the second half: a question really was posted, and a human answered 👎,
+// answered 👍 onto a draft that then failed, or left it unanswered.
+//
+// Applying only "was anything put in front of a human" would misfile `'low-confidence'` up here,
+// since nothing ever is. That is not hypothetical — this comment's previous wording did exactly
+// that, in the course of fixing a *different* wrong universal about the same set, and R2 caught it.
+// Use both conjuncts when placing a seventh value.
 const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   ReviewQueueEntry['outcomeReason'],
   string

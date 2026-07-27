@@ -124,12 +124,15 @@ CONCURRENTLY` is the likely first offender, since it also cannot run inside the 
 **Rolling `apps/server` back past a migration that widened a `CHECK` is not safe once a row uses the
 new value.** `listReviewQueueEntriesSince` returns the first row that fails Zod parsing as the result
 for the _whole_ list, so a build whose enum predates the value cannot read the table at all — the
-review-queue sweep goes dark entirely rather than skipping one row. It fails loudly and writes
-nothing (`sweep_state` is not advanced, so no window is lost), but the digest is unavailable until
-the code is rolled forward again. This bites in two ways worth naming: a genuine `fly deploy`
+review-queue sweep goes dark entirely rather than skipping one row. It fails loudly, and `sweep_state` is not advanced, so no window is lost and the rows resurface in a
+later digest. It is not a no-op, though: `resolveStaleQuestionsAndSweepWindow` runs _before_ the
+list read and does write — it CAS-claims stale confirming questions and writes their `'mid-silence'`
+rows, so those claims are burned by a run whose digest never posts. This bites in two ways worth naming: a genuine `fly deploy`
 rollback, and — more likely — running `pnpm --filter @moe/server sweep:review-queue` from a local
 checkout older than the migration, since that CLI runs against production from whatever is on disk.
-BUILD_PLAN 3.9's `0019` is the first migration for which this is live.
+`0009` and `0011` widened the same `CHECK` on the same table and carry the structurally identical
+hazard — do not read this as "rolling back past `0011` is safe". `0019` is simply the first for
+which it is expected to bite in practice, since off-hours rows will be routine rather than rare.
 
 Migrations first, once — every persona shares one database, so this is not per-App:
 

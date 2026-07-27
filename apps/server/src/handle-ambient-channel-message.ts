@@ -298,12 +298,15 @@ type ComposeAndPostDraftInput = {
  * **The condition is written as `!== 'cost-cap-reached'`, not `=== 'outside-core-hours'`, and that
  * asymmetry is deliberate** (DA review, this chunk). Both spellings behave identically today, since
  * those are the only two blocking reasons — but they fail in opposite directions when a *third* one
- * is added (BUILD_PLAN 7.2b's away-detection is the named candidate). An equality test would send
+ * is added (BUILD_PLAN 2.7b's away-detection, built but unconsumed, is the nearest candidate — though
+ * 7.2b, its named first consumer, is scoped to ceremony policy rather than this guard, so even that
+ * is speculative). An equality test would send
  * the new reason down the bare `return`, silently reintroducing this chunk's own bug in two places,
  * and it would compile clean. The inequality test preserves the message by default and forces a
  * deliberate opt-out. Cheap insurance for the exact defect this chunk exists to fix.
  *
- * **`'outside-core-hours'` covers all three `evaluateOperatingRhythm` reasons**, including
+ * **`'outside-core-hours'` covers all three of `evaluateOperatingRhythm`'s *blocking* reasons** (its
+ * enum has a fourth, `'within-core-hours'`, which does not reach here) — including
  * `'bank-holiday'` and `'holiday-status-unknown'`, both of which are only reached *inside* the
  * clock window — so a row can be written at 10:00 on a Tuesday when the GOV.UK bank-holidays API
  * was unreachable at boot. That is correct rather than a mislabel: the guard fails **closed**,
