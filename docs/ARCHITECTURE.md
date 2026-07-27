@@ -69,7 +69,7 @@ docs/              # this doc set
 
 ## Build system
 
-pnpm workspaces (`pnpm-workspace.yaml`: `packages/*`, `apps/*`), Node 24 pinned by `mise.toml` at the repo root, and by `engines` plus (still, during the transition off Volta) `volta` in `package.json` — Volta resolves from the nearest `package.json` and does not walk up a workspace, which made every `pnpm --filter` script silently run Node 22; see `docs/DEVELOPMENT.md` §Local dev environment, TypeScript (`tsc --noEmit` for typecheck, no separate build step beyond each package's own `build` script), Vitest per package. `pnpm knip` is a hard CI gate, not advisory, per `BUILD_PLAN.md`'s Stage-0 exit criterion.
+pnpm workspaces (`pnpm-workspace.yaml`: `packages/*`, `apps/*`), Node 24 pinned by `mise.toml` at the repo root, by `engines` and (still, during the transition off Volta) `volta` in `package.json`, and separately by CI's own `node-version: 24` (`.github/actions/setup/action.yml` — the four don't all express the same thing; see `docs/DEVELOPMENT.md` §Local dev environment), TypeScript (`tsc --noEmit` for typecheck, no separate build step beyond each package's own `build` script), Vitest per package. `pnpm knip` is a hard CI gate, not advisory, per `BUILD_PLAN.md`'s Stage-0 exit criterion.
 
 No path aliases, no esbuild CLI bundling, no CommonJS interop — moe is a long-running ESM service, not a distributed CLI (`CLAUDE.md` §Non-obvious constraints). Full Zod v4 for runtime validation, a deliberate reversal of chief-clancy's `zod/mini` choice (`docs/CONVENTIONS.md`).
 
