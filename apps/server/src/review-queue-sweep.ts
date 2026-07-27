@@ -131,9 +131,10 @@ async function logStaleQuestionsAsSilent(
 // conjunction, and both halves are load-bearing: the message was **classified as worth acting on**
 // (High or Mid band) **and then** nothing at all reached the channel. Only these two values satisfy
 // both. `'low-confidence'` fails the first half — it is silent too, deliberately so, but the
-// classifier judged it not worth acting on, which is the whole point of the Low band. The three
-// Mid-band values fail the second half: a question really was posted, and a human answered 👎,
-// answered 👍 onto a draft that then failed, or left it unanswered.
+// classifier judged it not worth acting on, which is the whole point of the Low band. The other three
+// Mid-band values — there are four in total, `'mid-band-off-hours'` being the fourth — fail the
+// second half: a question really was posted, and a human answered 👎, answered 👍 onto a draft that
+// then failed, or left it unanswered.
 //
 // Applying only "was anything put in front of a human" would misfile `'low-confidence'` up here,
 // since nothing ever is. That is not hypothetical — this comment's previous wording did exactly

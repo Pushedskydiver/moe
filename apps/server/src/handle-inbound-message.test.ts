@@ -270,8 +270,9 @@ function makeDraftStore(
 }
 
 // BUILD_PLAN 3.4c's own real consumer, now `logAmbientIntakeToReviewQueue` (extracted at 3.9) —
-// this file's DM-path tests never exercise it directly (that coverage lives in
-// `handle-ambient-channel-message.test.ts`), so a sensible default resolved value is enough.
+// this file's DM-path tests never exercise it directly — it has its own co-located
+// `log-ambient-intake-to-review-queue.test.ts` since 3.9, with the Low-band integration coverage in
+// `handle-ambient-channel-message.test.ts` — so a sensible default resolved value is enough.
 function makeReviewQueueStore(
   overrides: Partial<HandlerDeps['reviewQueueStore']> = {},
 ): HandlerDeps['reviewQueueStore'] {

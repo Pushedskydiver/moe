@@ -122,9 +122,11 @@ type DraftStore = {
 };
 
 // Same thin DI seam, over `@moe/core`'s review-queue repository (BUILD_PLAN 3.4c) — VISION §5.2's
-// "nothing is silently eaten" backstop. `create` is this chunk's own real consumer
-// (`handle-ambient-channel-message.ts`'s Low-band branch); no `getByMessage`/`resolve`/
-// `updateContent` counterparts exist here, unlike `DraftStore` above — a review-queue row is a
+// "nothing is silently eaten" backstop. `create` is the only method any consumer
+// needs — its writers are `logAmbientIntakeToReviewQueue`
+// (`log-ambient-intake-to-review-queue.ts`, reached from the Low band and, since 3.9, both
+// off-hours branches) and `logFailedDraftAttempt` (`reaction-outcome-actions.ts`, since 3.4b-ii).
+// No `getByMessage`/`resolve`/`updateContent` counterparts exist here, unlike `DraftStore` above — a review-queue row is a
 // plain log entry, never looked up or claimed by a later reaction.
 type ReviewQueueStore = {
   readonly create: (

@@ -121,18 +121,30 @@ CONCURRENTLY` is the likely first offender, since it also cannot run inside the 
 
 ### Deploying
 
-**Rolling `apps/server` back past a migration that widened a `CHECK` is not safe once a row uses the
-new value.** `listReviewQueueEntriesSince` returns the first row that fails Zod parsing as the result
-for the _whole_ list, so a build whose enum predates the value cannot read the table at all — the
-review-queue sweep goes dark entirely rather than skipping one row. It fails loudly, and `sweep_state` is not advanced, so no window is lost and the rows resurface in a
-later digest. It is not a no-op, though: `resolveStaleQuestionsAndSweepWindow` runs _before_ the
-list read and does write — it CAS-claims stale confirming questions and writes their `'mid-silence'`
-rows, so those claims are burned by a run whose digest never posts. This bites in two ways worth naming: a genuine `fly deploy`
-rollback, and — more likely — running `pnpm --filter @moe/server sweep:review-queue` from a local
-checkout older than the migration, since that CLI runs against production from whatever is on disk.
-`0009` and `0011` widened the same `CHECK` on the same table and carry the structurally identical
-hazard — do not read this as "rolling back past `0011` is safe". `0019` is simply the first for
-which it is expected to bite in practice, since off-hours rows will be routine rather than rare.
+**Rolling back past a migration that changed the `review_queue` `CHECK` has two distinct
+consequences. Neither is what a first reading suggests, so both are spelled out.**
+
+**1. A `fly deploy` rollback does _not_ break the sweep — it silently stops writing.** The deployed
+Machine runs `node dist/index.js`, the persona process, and that process never reads `review_queue`;
+its only touch is `createReviewQueueEntry`. So an older image keeps running happily and simply
+resumes dropping the off-hours messages BUILD_PLAN 3.9 exists to preserve — no error, no log, the
+original silent-loss bug back in production. That is the real risk of a rollback here, and it is
+invisible.
+
+**2. The read hazard is local-only, because the sweep is.** `pnpm --filter @moe/server
+sweep:review-queue` is a manual CLI run from whatever is on the operator's disk, and it is the only
+caller of `listReviewQueueEntriesSince`. That function returns the first row failing Zod validation
+as the result for the _whole_ list (the enum lives in `packages/core`, not `apps/server`), so
+running the sweep from a checkout older than the migration takes the entire digest dark rather than
+skipping one row. It fails loudly and does not advance `sweep_state`, so no window is lost and the
+rows resurface once the checkout is updated. It is not a no-op, though:
+`resolveStaleQuestionsAndSweepWindow` runs _before_ the list read and does write — it CAS-claims
+stale confirming questions and writes their `'mid-silence'` rows, so those claims are burned by a
+run whose digest never posts.
+
+`0011` widened this same `CHECK` and `0009` replaced its values outright; both carry the identical
+structural hazard, so do not read this as "rolling back past `0011` is safe". `0019` is simply the
+first for which it is expected to bite in practice, since off-hours rows will be routine.
 
 Migrations first, once — every persona shares one database, so this is not per-App:
 
