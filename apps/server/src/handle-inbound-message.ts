@@ -122,12 +122,14 @@ type DraftStore = {
 };
 
 // Same thin DI seam, over `@moe/core`'s review-queue repository (BUILD_PLAN 3.4c) — VISION §5.2's
-// "nothing is silently eaten" backstop. `create` is the only method any consumer
-// needs — its writers are `logAmbientIntakeToReviewQueue`
-// (`log-ambient-intake-to-review-queue.ts`, reached from the Low band and, since 3.9, both
-// off-hours branches) and `logFailedDraftAttempt` (`reaction-outcome-actions.ts`, since 3.4b-ii).
-// No `getByMessage`/`resolve`/`updateContent` counterparts exist here, unlike `DraftStore` above — a review-queue row is a
-// plain log entry, never looked up or claimed by a later reaction.
+// "nothing is silently eaten" backstop. `create` is the only method any consumer needs — its
+// writers are `logAmbientIntakeToReviewQueue` (`log-ambient-intake-to-review-queue.ts`, reached
+// from the Low band and, since 3.9, both off-hours branches) and `logFailedDraftAttempt`
+// (`reaction-outcome-actions.ts`, added by the claim-then-act fallback fix, which is also where
+// `'mid-yes-failed'` and migration `0011` came from — not by 3.4b-ii, which is two PRs earlier).
+// No `getByMessage`/`updateContent` counterparts exist here, unlike `DraftStore` above — a
+// review-queue row is a plain log entry, never looked up or claimed by a later reaction. Neither
+// seam has a `resolve`; that one belongs to the confirming-question store below.
 type ReviewQueueStore = {
   readonly create: (
     input: NewReviewQueueEntry,

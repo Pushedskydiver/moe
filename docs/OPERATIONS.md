@@ -124,12 +124,17 @@ CONCURRENTLY` is the likely first offender, since it also cannot run inside the 
 **Rolling back past a migration that changed the `review_queue` `CHECK` has two distinct
 consequences. Neither is what a first reading suggests, so both are spelled out.**
 
-**1. A `fly deploy` rollback does _not_ break the sweep — it silently stops writing.** The deployed
+**1. A `fly deploy` rollback does _not_ break the sweep — it stops writing the rows.** The deployed
 Machine runs `node dist/index.js`, the persona process, and that process never reads `review_queue`;
 its only touch is `createReviewQueueEntry`. So an older image keeps running happily and simply
-resumes dropping the off-hours messages BUILD_PLAN 3.9 exists to preserve — no error, no log, the
-original silent-loss bug back in production. That is the real risk of a rollback here, and it is
-invisible.
+resumes dropping the off-hours messages BUILD_PLAN 3.9 exists to preserve — the original bug back in
+production. **What to look for, precisely, because it is not silent in the logs:** a pre-3.9 image
+still logs `classified inbound message` (with the full text, confidence and reasoning) and then
+`deferring <action> — outside core hours`. Nothing is persisted and nothing is posted, so it is
+silent in the database and on every human-facing surface — but the log line is worse than absent, it
+is _misleading_: "deferring" asserts a pickup that no code has ever performed, which is the exact
+wording 3.9 deleted and the reason this bug survived two days in production unnoticed. Seeing that
+string in a persona's logs means the rollback has reintroduced the loss.
 
 **2. The read hazard is local-only, because the sweep is.** `pnpm --filter @moe/server
 sweep:review-queue` is a manual CLI run from whatever is on the operator's disk, and it is the only
