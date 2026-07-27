@@ -257,7 +257,7 @@ async function persistTurns(
 // future call site added inside it cannot quietly reintroduce that silence. It does not mask bugs:
 // an `error`-level log carrying the real message is strictly more visible than a rejected promise
 // swallowed two frames up, and this is the same "log, don't throw" convention
-// `recordUsageLogged`/`logToReviewQueue` already follow.
+// `recordUsageLogged`/`logAmbientIntakeToReviewQueue` already follow.
 async function runDmIntakeCascadeSafely(
   deps: HandlerDeps,
   message: InboundMessage,

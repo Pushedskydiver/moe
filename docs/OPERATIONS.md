@@ -112,14 +112,24 @@ depend on `SET`, `LISTEN`/`NOTIFY`, or session-level state."
 because "tools may not support transaction pooling" — a statement about tools in general. moe's own
 `migrate.ts` was built for the pooled endpoint deliberately: it takes `pg_advisory_xact_lock`, a
 _transaction_-scoped lock rather than a session-scoped one, which is exactly the unit transaction
-pooling preserves. Verified for this repo (re-run at BUILD_PLAN 3.7, which added `0017` and `0018` — both plain
-transactional `ALTER TABLE`s): none of the 18 migration files uses `SET`, `RESET`,
+pooling preserves. Verified for this repo (re-run at BUILD_PLAN 3.9, which added `0019` — a plain transactional
+`ALTER TABLE`, like `0017`/`0018` before it): none of the 19 migration files uses `SET`, `RESET`,
 `CREATE INDEX CONCURRENTLY`, `LISTEN`, SQL-level `PREPARE`, or a temporary table. **The first
 migration that needs any of those must run against the direct endpoint instead** — `CREATE INDEX
 CONCURRENTLY` is the likely first offender, since it also cannot run inside the transaction
 `migrate.ts` wraps each batch in.
 
 ### Deploying
+
+**Rolling `apps/server` back past a migration that widened a `CHECK` is not safe once a row uses the
+new value.** `listReviewQueueEntriesSince` returns the first row that fails Zod parsing as the result
+for the _whole_ list, so a build whose enum predates the value cannot read the table at all — the
+review-queue sweep goes dark entirely rather than skipping one row. It fails loudly and writes
+nothing (`sweep_state` is not advanced, so no window is lost), but the digest is unavailable until
+the code is rolled forward again. This bites in two ways worth naming: a genuine `fly deploy`
+rollback, and — more likely — running `pnpm --filter @moe/server sweep:review-queue` from a local
+checkout older than the migration, since that CLI runs against production from whatever is on disk.
+BUILD_PLAN 3.9's `0019` is the first migration for which this is live.
 
 Migrations first, once — every persona shares one database, so this is not per-App:
 

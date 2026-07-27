@@ -188,7 +188,9 @@ export async function composeAndPostConfirmingQuestion(
   const guardInput = { message, now, actionDescription: ACTION_DESCRIPTION };
   const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
   if (!guard.satisfied) {
-    if (guard.reason === 'outside-core-hours') {
+    // Fail safe, not fail equal — mirrors `composeAndPostDraft`, whose TSDoc carries the reasoning.
+    // A future third blocking reason preserves the message rather than silently dropping it.
+    if (guard.reason !== 'cost-cap-reached') {
       await logAmbientIntakeToReviewQueue(deps, {
         message,
         classified,

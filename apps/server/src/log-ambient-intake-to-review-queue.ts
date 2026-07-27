@@ -46,7 +46,10 @@ export type LogAmbientIntakeInput = {
  *   blocked a High-band draft or a Mid-band confirming question. Until 3.9 these two returned
  *   without persisting anything, so an ambient message that scored *above* the Low threshold was
  *   eaten more completely than one that scored below it: the Low band has written a row since
- *   3.4c. A bug report posted at 18:00 on a Friday left nothing behind at all.
+ *   3.4c. A bug report posted at 18:00 on a Friday left nothing in the database and reached no
+ *   human-facing surface — `classifyMessageForIntake` had already logged its text, confidence and
+ *   reasoning to the structured log stream, so "no trace at all" would overstate it, but a log line
+ *   nobody greps is not a backstop.
  *
  * **Ambient only.** A DM never reaches here: the DM cascade (BUILD_PLAN 3.7) never consults the
  * rhythm guard, and deliberately writes no row on the Low band either, because a DM always gets a

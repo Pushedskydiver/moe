@@ -40,9 +40,14 @@ type CostAndRhythmGuardReason =
   'satisfied' | 'cost-cap-reached' | 'outside-core-hours';
 
 /**
- * Mirrors `@moe/core`'s own `OperatingRhythmDecision`/`WipLimitDecision` shape — a flat
- * boolean-plus-reason object, not a discriminated union — per `docs/CONVENTIONS.md`'s `evaluate*`
- * convention, so the three guards in this codebase read the same way at their call sites.
+ * A flat boolean-plus-reason object, mirroring `@moe/core`'s own
+ * `OperatingRhythmDecision`/`WipLimitDecision` — the two existing `*Decision` types, which is where
+ * this shape comes from. **`docs/CONVENTIONS.md` prescribes the `evaluate*` verb, not the return
+ * shape**, and its `Result`-shaped-discriminated-union rule is explicitly scoped to "expected
+ * domain failures" (a Slack/GitHub call failing, a validation failing) — a guard reporting a
+ * decision is not one, which is why the flat shape is the right precedent to follow here rather
+ * than `evaluateSituationalAppropriateness`'s `Result`. Both readings were checked against
+ * `docs/CONVENTIONS.md` directly after two review passes disagreed about it.
  */
 export type CostAndRhythmGuardDecision = {
   readonly satisfied: boolean;

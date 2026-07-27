@@ -384,6 +384,10 @@ describe('composeAndPostConfirmingQuestion', () => {
         expect.objectContaining({ errorMessage: 'rate limited' }),
       );
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+      // BUILD_PLAN 3.10's boundary, pinned negatively — DA's mutation testing on 3.9 showed that
+      // writing a row here left the whole suite green. This branch is deliberately still a silent
+      // loss; 3.10 is where that changes, and it must update this assertion rather than only add.
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

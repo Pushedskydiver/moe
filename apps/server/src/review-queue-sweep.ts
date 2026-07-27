@@ -128,9 +128,12 @@ async function logStaleQuestionsAsSilent(
 // pickup would restate in the digest exactly the false promise that chunk was filed to remove.
 // They are listed **first deliberately**, not alphabetically or by age: `formatSweepMessage` derives
 // its section order from this object's own key order (`Object.keys`), and these two are the only
-// rows that mean "this probably *should* have become a ticket and did not" — every other value
-// records a message already judged not to warrant one, or a question a human already answered. They
-// are the only rows in the digest that carry an unactioned intake, so they go at the top.
+// rows where the persona never got as far as *asking* — the message was classified as worth acting
+// on and then nothing at all reached the channel. Every other value records an exchange that did
+// happen: a score below the Low threshold, a human answering 👎, a question posted and left
+// unanswered, or a 👍 whose draft then failed. (`'mid-yes-failed'` and `'mid-silence'` are also
+// unresolved in their own way — the distinction drawn here is whether anything was ever put in
+// front of a human, not whether the outcome was satisfactory.)
 const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   ReviewQueueEntry['outcomeReason'],
   string

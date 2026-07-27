@@ -260,7 +260,7 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   };
 }
 
-// `create` is the real consumer of a Low-band message (`logToReviewQueue`, BUILD_PLAN 3.4c).
+// `create` is the real consumer of a Low-band message (`logAmbientIntakeToReviewQueue`, 3.4c/3.9).
 function makeReviewQueueStore(
   overrides: Partial<ReviewQueueStore> = {},
 ): ReviewQueueStore {
@@ -922,15 +922,33 @@ describe('handleAmbientChannelMessage', () => {
   });
 
   // BUILD_PLAN 3.9's scope boundary: a cost-cap halt writes NO review-queue row (Alex scoped 3.9
-  // to the rhythm guard; the cap case is BUILD_PLAN 3.10). Note where the halt actually lands —
-  // an already-over-cap persona short-circuits inside `classifyMessageForIntake`, *before* the
-  // draft guard is reached at all, so the log line names classification rather than ticket-draft
-  // composition. The guard-level cap branch (spend crossing mid-turn) is pinned separately, in
-  // `compose-and-post-confirming-question.test.ts`, which calls that guarded function directly.
-  it('does NOT write a review-queue row when the cost cap, rather than the rhythm guard, stops an ambient High-band message (BUILD_PLAN 3.9 scope boundary)', async () => {
+  // to the rhythm guard; the cap case is BUILD_PLAN 3.10).
+  //
+  // An already-over-cap persona halts inside `classifyMessageForIntake`, *before* the draft guard
+  // is reached — so that scenario says nothing about the guard's own cap branch. DA review proved
+  // it: written that way, deleting `composeAndPostDraft`'s reason check entirely left the whole
+  // suite green, because the assertion was vacuously true on a function that never ran. This test
+  // therefore crosses the cap **mid-turn** — under at classify, over at the guard — which
+  // `run-dm-intake-cascade.ts` documents as a real occurrence, not a contrived one, since the
+  // classify call is itself billed and recorded before the guard re-checks.
+  it('does NOT write a review-queue row when the cost cap is crossed mid-turn, between the classify and the draft guard (BUILD_PLAN 3.9 scope boundary)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
+      const underCap = {
+        ok: true as const,
+        total: {
+          personaId: 'sarah',
+          month: '2026-07',
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsdMicros: 0,
+        },
+      };
+      const overCap = {
+        ok: true as const,
+        total: { ...underCap.total, costUsdMicros: 100_000_000 },
+      };
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient({
           parseResponse: {
@@ -941,26 +959,53 @@ describe('handleAmbientChannelMessage', () => {
         capStore: makeCapStore({
           getMonthlyCost: vi
             .fn<CapStore['getMonthlyCost']>()
-            .mockResolvedValue({
-              ok: true,
-              total: {
-                personaId: 'sarah',
-                month: '2026-07',
-                inputTokens: 0,
-                outputTokens: 0,
-                costUsdMicros: 100_000_000,
-              },
-            }),
+            .mockResolvedValueOnce(underCap)
+            .mockResolvedValue(overCap),
         }),
       });
 
       await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
-      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+      // Proof the guard was actually reached this time — the classify happened, and the halt is
+      // reported against ticket-draft composition, not classification.
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
       expect(deps.logger.info).toHaveBeenCalledWith(
-        'skipping classification — monthly cost cap reached',
+        'skipping ticket-draft composition — monthly cost cap reached',
         { personaId: 'sarah', channelId: 'C123' },
       );
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The OTHER unpinned branch DA's mutation testing found: writing a row on the fail-closed
+  // appropriateness gate also left the suite green. That branch is deliberately still a silent
+  // loss (BUILD_PLAN 3.10 owns it), so pin it negatively — otherwise 3.10's own instruction to
+  // "update these assertions rather than only add new ones" rests on assertions that don't exist.
+  it('does NOT write a review-queue row when the situational-appropriateness gate fails closed on a High-band ambient message (BUILD_PLAN 3.10 boundary)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: () => {
+            throw new Error('rate limited');
+          },
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to evaluate situational appropriateness — skipping ticket-draft composition (fail-closed)',
+        expect.objectContaining({ errorMessage: 'rate limited' }),
+      );
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

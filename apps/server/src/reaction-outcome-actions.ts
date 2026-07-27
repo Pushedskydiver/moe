@@ -308,7 +308,7 @@ export async function draftFromConfirmingQuestion(
  * BUILD_PLAN 3.4b-ii's 👎 outcome: logs a real `review_queue` row (`outcomeReason: 'mid-no'`,
  * `0009_widen_review_queue_outcome_reason.sql`'s own new value) carrying the Stage 1 classifier's
  * own `confidence`/`reasoning` through — the same context the Low-band path already provides
- * (`handle-ambient-channel-message.ts`'s `logToReviewQueue`). No billed call here, so no cost-cap
+ * (`log-ambient-intake-to-review-queue.ts`'s `logAmbientIntakeToReviewQueue`). No billed call here, so no cost-cap
  * check, unlike the 👍 outcome above. `deps.resolveConfirmingQuestionAndLog` (`@moe/core`'s
  * `resolveConfirmingQuestionAndLog`) atomically claims the question and writes the row in one
  * transaction — the claim-then-act failure-recovery fix, shared with chunk 3.5's

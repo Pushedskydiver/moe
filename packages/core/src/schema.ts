@@ -144,8 +144,9 @@ type PendingTicketDraftsTable = {
  * Note `outcomeReason` is typed `string` here, not the union: Kysely's shape is the raw column, so
  * nothing in this file constrains the value. The enum lives in `./intake/review-queue-entry.ts` and
  * is enforced by `createReviewQueueEntry`'s pre-insert parse plus the SQL `CHECK` — which is why a
- * new value must land in the migration and the Zod enum together, and why adding one here alone
- * would compile and then fail at runtime.
+ * new value must land in the migration and the Zod enum together: adding one to the Zod enum
+ * without the migration compiles cleanly and then fails at INSERT on the `CHECK`, and adding it to
+ * the migration alone leaves nothing able to write it.
  */
 type ReviewQueueTable = {
   readonly id: string;

@@ -1,7 +1,7 @@
 -- BUILD_PLAN 3.9 — an ambient channel message classified High or Mid outside the 2.7a
 -- operating-rhythm window was silently and permanently lost: `composeAndPostDraft` and
--- `composeAndPostConfirmingQuestion` both bare-`return` when the rhythm guard blocks them,
--- nothing is persisted, and `apps/server` has no scheduler to pick anything up. These two values
+-- `composeAndPostConfirmingQuestion` both bare-`return`ed when the rhythm guard blocked them,
+-- nothing was persisted, and `apps/server` has no scheduler to pick anything up. These two values
 -- give that message the same durable review-queue row the Low band has always had, so VISION
 -- §5.2's "nothing is silently eaten" holds at every band rather than only the lowest one.
 --
@@ -19,8 +19,10 @@
 --
 -- Constraint name verified against the real database before writing this DROP, not guessed:
 -- `SELECT conname FROM pg_constraint WHERE conrelid='review_queue'::regclass AND contype='c'`
--- returned `review_queue_outcome_reason_check` — 0007 declared the CHECK inline on the column, so
--- Postgres auto-named it. Same DROP-then-ADD shape as 0009/0011/0017. Purely additive: no existing
+-- returned `review_queue_outcome_reason_check`. 0007 declared the CHECK inline on the column, so
+-- Postgres auto-named it originally; 0009 and 0011 have each since re-added it under that same name
+-- explicitly, so the live name comes from 0011, not from auto-naming. Same DROP-then-ADD shape as
+-- 0009/0011/0017. Purely additive: no existing
 -- row can carry either value, since nothing has ever written one.
 --
 -- Ships together with the Zod enum in `src/intake/review-queue-entry.ts`, and the two are not

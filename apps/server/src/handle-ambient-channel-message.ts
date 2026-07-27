@@ -265,7 +265,9 @@ export async function postAndPersistDraft(
 // `message`/`now`/`classified` bundled into one input object rather than three bare params —
 // `composeAndPostDraft` was at eslint's `max-params: 3` with `deps`/`message`/`now`, and BUILD_PLAN
 // 3.9 needs `classified` at the write site. Mirrors `composeAndPostConfirmingQuestion`'s own
-// `ComposeAndPostConfirmingQuestionInput` shape, so the two band handlers now read identically.
+// `ComposeAndPostConfirmingQuestionInput` shape, so the two band handlers read alike at their call
+// sites — not identically: that one also carries a `surface` field this one has no use for, since
+// an ambient draft is always posted in-thread.
 type ComposeAndPostDraftInput = {
   readonly message: InboundMessage;
   readonly now: Date;
@@ -285,20 +287,38 @@ type ComposeAndPostDraftInput = {
  * `standing-proactive-guards.ts`), then composes, posts, persists, and seeds the reaction-gate
  * legend (`postAndPersistDraft`).
  *
- * **BUILD_PLAN 3.9 — the off-hours branch no longer drops the message.** When the rhythm guard
- * specifically is what blocked (`reason === 'outside-core-hours'`), a `review_queue` row is written
- * so the 3.5 sweep digest surfaces it. That is a durable record, **not** a deferral: nothing picks
- * it up later, and calling it one would repeat the exact false promise this chunk was filed to
- * remove. The other two exits still return silently and are still real losses — a cost-cap halt
- * here, and a fail-closed appropriateness gate below — deliberately left to BUILD_PLAN 3.10 so this
- * chunk stays on the guard it was scoped to (Alex settled 2026-07-27).
+ * **BUILD_PLAN 3.9 — the operating-rhythm branch no longer drops the message.** When the rhythm
+ * guard is what blocked, a `review_queue` row is written so the 3.5 sweep digest surfaces it. That
+ * is a durable record, **not** a deferral: nothing picks it up later, and calling it one would
+ * repeat the exact false promise this chunk was filed to remove. A cost-cap halt still returns
+ * silently, and so does the fail-closed appropriateness gate below; both are still real losses,
+ * deliberately left to BUILD_PLAN 3.10 so this chunk stays on the guard it was scoped to (Alex
+ * settled 2026-07-27).
+ *
+ * **The condition is written as `!== 'cost-cap-reached'`, not `=== 'outside-core-hours'`, and that
+ * asymmetry is deliberate** (DA review, this chunk). Both spellings behave identically today, since
+ * those are the only two blocking reasons — but they fail in opposite directions when a *third* one
+ * is added (BUILD_PLAN 7.2b's away-detection is the named candidate). An equality test would send
+ * the new reason down the bare `return`, silently reintroducing this chunk's own bug in two places,
+ * and it would compile clean. The inequality test preserves the message by default and forces a
+ * deliberate opt-out. Cheap insurance for the exact defect this chunk exists to fix.
+ *
+ * **`'outside-core-hours'` covers all three `evaluateOperatingRhythm` reasons**, including
+ * `'bank-holiday'` and `'holiday-status-unknown'`, both of which are only reached *inside* the
+ * clock window — so a row can be written at 10:00 on a Tuesday when the GOV.UK bank-holidays API
+ * was unreachable at boot. That is correct rather than a mislabel: the guard fails **closed**,
+ * meaning it treats an unknown holiday status as a rest day, and this row records the guard's
+ * decision, not the calendar. The reason itself is logged but not persisted on the row, so the
+ * digest cannot yet tell an infrastructure blip from a real 01:13 message — noted on 3.10.
  *
  * **Why the row is written before the appropriateness gate has run**, making the off-hours path
  * marginally more permissive than the in-hours one: the gate is a billed Haiku call whose purpose
- * is deciding whether it is *appropriate to post into a shared channel*. Nothing is posted here, so
- * the risk it guards against does not exist, and paying for it out of hours to decide whether to
- * write a private row Alex alone reads would be spend for no protection. VISION §14's rest rule is
- * likewise untouched: a database row is not a persona acting in the workspace.
+ * is deciding whether it is *appropriate to post into a shared channel* (VISION §9, whose own
+ * illustration is a public-channel misstep). Nothing is posted here, so the risk it guards against
+ * does not exist, and paying for it out of hours to decide whether to write a private row Alex
+ * alone reads would be spend for no protection. The §6.4/§14 operating-rhythm rules are likewise
+ * untouched — this function writes through `reviewQueueStore` and `logger` only, never a Slack
+ * client, so nothing reaches the workspace.
  */
 async function composeAndPostDraft(
   deps: HandlerDeps,
@@ -312,7 +332,9 @@ async function composeAndPostDraft(
   };
   const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
   if (!guard.satisfied) {
-    if (guard.reason === 'outside-core-hours') {
+    // Fail safe, not fail equal — see this function's own TSDoc. A future third blocking reason
+    // preserves the message rather than silently dropping it.
+    if (guard.reason !== 'cost-cap-reached') {
       await logAmbientIntakeToReviewQueue(deps, {
         message,
         classified,
@@ -344,7 +366,7 @@ async function composeAndPostDraft(
  * §5.2's Stage 2 routing, `docs/decisions/STAGE-1-CLASSIFIER.md`'s thresholds) additionally
  * composes and posts a real ticket draft (`composeAndPostDraft`, BUILD_PLAN 3.4a-i/3.4a-iii); a
  * Mid-band score posts a real confirming question (`composeAndPostConfirmingQuestion`, BUILD_PLAN
- * 3.4b-i); a Low-band score logs a real review-queue row (`logToReviewQueue`, BUILD_PLAN 3.4c).
+ * 3.4b-i); a Low-band score logs a real review-queue row (`logAmbientIntakeToReviewQueue`, BUILD_PLAN 3.4c).
  * This replaced the old "chat back to every message" behavior for ambient surfaces (BUILD_PLAN
  * 3.3's own DMs-only *chat* decision) — a DM never reaches this function.
  *
@@ -372,7 +394,8 @@ export async function handleAmbientChannelMessage(
   message: InboundMessage,
 ): Promise<void> {
   // BUILD_PLAN 5.2a — beside Stage 0, and before it, because this is the cheaper check and the
-  // one that is true for seven of the eight processes receiving this same message. Deliberately a
+  // one that short-circuits seven of the eight processes receiving this same message (the predicate
+  // itself is true for exactly one — the designated listener). Deliberately a
   // sibling of `isSurfaceInScope` rather than a new arm inside it: that function's `dm` arm
   // returns `true` unconditionally, and BUILD_PLAN 3.7's DM cascade depends on that, so folding a
   // persona check in there would silently kill DM intake for every non-Sarah persona.

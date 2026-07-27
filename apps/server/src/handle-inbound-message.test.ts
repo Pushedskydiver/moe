@@ -269,7 +269,7 @@ function makeDraftStore(
   };
 }
 
-// BUILD_PLAN 3.4c's own real consumer, `handle-ambient-channel-message.ts`'s `logToReviewQueue` —
+// BUILD_PLAN 3.4c's own real consumer, now `logAmbientIntakeToReviewQueue` (extracted at 3.9) —
 // this file's DM-path tests never exercise it directly (that coverage lives in
 // `handle-ambient-channel-message.test.ts`), so a sensible default resolved value is enough.
 function makeReviewQueueStore(
