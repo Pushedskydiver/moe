@@ -9,8 +9,9 @@
 # repo root covers every package — verified from `packages/core`, `apps/server` and a `pnpm --filter`
 # script, all resolving 24.16.0.
 #
-# Volta is also unmaintained: its own README says so and recommends mise. There is explicitly no
-# urgency ("everything that works today should continue to do so"), so the root package.json keeps
+# Volta is also unmaintained: its own README says so and recommends mise, while noting "no
+# particular urgency to migrate" and that things should keep working "for the foreseeable
+# future" — hedged and time-bounded, not open-ended. So the root package.json keeps
 # its `volta` field for now — a machine still running Volta gets the same versions either way, and
 # removing it would break that before the migration is finished.
 [tools]
