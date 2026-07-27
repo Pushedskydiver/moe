@@ -1,0 +1,18 @@
+# Tool versions for this repo, resolved by mise (https://mise.jdx.dev).
+#
+# Why mise and not Volta: Volta resolves its pin from the **nearest** package.json and does not walk
+# up a workspace. The six workspace packages carry no `volta` field, so any command whose cwd was
+# inside one — which is every `pnpm --filter <pkg> <script>` — silently fell back to Volta's global
+# default (Node 22.17.1) against a repo declaring `engines: >=24`. pnpm warned; nothing failed. That
+# cost a whole session of prefixing PATH by hand, and produced `ERR_UNKNOWN_FILE_EXTENSION` on
+# Node-native TS execution (`packages/core/scripts/migrate.ts`). mise walks up, so one file at the
+# repo root covers every package — verified from `packages/core`, `apps/server` and a `pnpm --filter`
+# script, all resolving 24.16.0.
+#
+# Volta is also unmaintained: its own README says so and recommends mise. There is explicitly no
+# urgency ("everything that works today should continue to do so"), so the root package.json keeps
+# its `volta` field for now — a machine still running Volta gets the same versions either way, and
+# removing it would break that before the migration is finished.
+[tools]
+node = "24.16.0"
+pnpm = "10.32.1"
