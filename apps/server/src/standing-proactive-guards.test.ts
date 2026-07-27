@@ -155,8 +155,9 @@ describe('evaluateCostAndRhythmGuard', () => {
   // BUILD_PLAN 3.9 — the reason, not just the boolean, is what makes the review-queue write
   // possible: only the off-hours block writes a row, and before this the caller saw a bare `false`
   // for both causes. The log line also no longer says "deferring": nothing defers until 3.9's own
-  // step (2) builds a timer, and the word describing a drop as a deferral is what hid this bug in
-  // production for two days.
+  // step (2) builds a timer, and the word describing a drop as a deferral is why the one real drop
+  // this bug produced initially read as working-as-intended, not as a bug — it was caught the same
+  // night, via a single canary message, not after any extended unnoticed period.
   it('reports outside-core-hours, distinguishably from a cost-cap block, outside core hours', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T21:00:00.000Z'));
