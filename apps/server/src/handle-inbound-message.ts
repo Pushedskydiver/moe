@@ -330,9 +330,10 @@ async function handleThreadedMessage(
 }
 
 /**
- * Handles every inbound DM, thread-scoped (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the
- * keying rule) and serialized per thread key via `threadQueue` so two overlapping messages for the
- * same conversation can't race on history.
+ * Handles every inbound DM **except Slack's own `USLACK` notification bot** (BUILD_PLAN 3.8, guarded
+ * before thread-key resolution ever runs — see that guard's own comment below), thread-scoped
+ * (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the keying rule) and serialized per thread key
+ * via `threadQueue` so two overlapping messages for the same conversation can't race on history.
  *
  * As of BUILD_PLAN 3.7 a DM first runs VISION §5.2's intake cascade (`run-dm-intake-cascade.ts`):
  * a High-band DM gets a ticket draft and a Mid-band DM a confirming question, each *in place of*
@@ -373,6 +374,14 @@ export function createInboundMessageHandler(
     // an exact match, before any billed call, closes both costs at once — the same shape as 5.2a's
     // `isAmbientIntakeListener` guard: a cheap identity check placed as the very first thing this
     // path does, ahead of the classify/reply work it exists to skip.
+    //
+    // No `review_queue` row, deliberately — this is not VISION §5.2's "nothing is silently eaten"
+    // backstop (BUILD_PLAN 3.4c/3.9), which exists for genuine human-authored ambiguity a Stage 1
+    // classification judged Low/Mid-band. `USLACK` is a deterministic, identity-based exclusion:
+    // Slack's own system user can only ever emit fixed administrative text, never a real work
+    // request, so there is nothing for that queue's whole purpose — a human deciding what nobody
+    // else did — to adjudicate. The log line above is the visibility this needs, not a backstop
+    // 3.9's own "a log nobody greps is not a backstop" argument would apply to.
     if (message.userId === SLACKBOT_USER_ID) {
       deps.logger.info("skipping Slackbot's own notification DM", {
         personaId: deps.personaId,

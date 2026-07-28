@@ -1127,6 +1127,23 @@ describe('createInboundMessageHandler', () => {
       expect(deps.anthropicClient.messages.create).toHaveBeenCalled();
       expect(deps.slackClient.chat.postMessage).toHaveBeenCalled();
     });
+
+    // DA review (BUILD_PLAN 3.8): the guard's own comment claims it runs "before any billed call"
+    // as "the very first thing" the DM branch does — a claim the other three tests in this block
+    // don't actually pin, since none of them observe `threadQueue`. A guard relocated to run
+    // *after* `threadQueue.run` (e.g. during a future refactor consolidating guard clauses) would
+    // still pass every assertion above unchanged. This test makes that specific ordering claim
+    // provably true rather than merely asserted in a comment.
+    it('never enters the per-thread queue for a message from Slackbot', async () => {
+      const threadQueue = makeThreadQueue();
+      const runSpy = vi.spyOn(threadQueue, 'run');
+      const deps = makeDeps({ threadQueue });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(SLACKBOT_MESSAGE);
+
+      expect(runSpy).not.toHaveBeenCalled();
+    });
   });
 
   it('persists the user turn but not an assistant turn when the LLM call fails', async () => {
