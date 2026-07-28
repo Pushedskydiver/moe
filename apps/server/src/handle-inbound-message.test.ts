@@ -1072,6 +1072,63 @@ describe('createInboundMessageHandler', () => {
     });
   });
 
+  describe("Slackbot's own notification DMs (BUILD_PLAN 3.8)", () => {
+    const SLACKBOT_MESSAGE = {
+      ...DM_MESSAGE,
+      userId: 'USLACK',
+      text: '<@U04UQ6CLZ1U> archived the channel <#C0B5NRDF55Y>',
+    };
+
+    // Before 3.7: one billed Sonnet reply that failed to post (`restricted_action_read_only_channel`
+    // — the Slackbot DM is read-only). After 3.7: additionally a billed Haiku classify, since the
+    // cascade classifies every DM. Neither call, and no failed post, should happen at all.
+    it('makes no billed call and posts nothing for a message from Slackbot', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(SLACKBOT_MESSAGE);
+
+      expect(deps.anthropicClient.messages.create).not.toHaveBeenCalled();
+      expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    });
+
+    it('persists no conversation turn for a message from Slackbot', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(SLACKBOT_MESSAGE);
+
+      expect(deps.historyStore.appendTurn).not.toHaveBeenCalled();
+    });
+
+    // The gap 3.8 closes: `restricted_action_read_only_channel` had sat unexplained in the logs.
+    // Replacing a mysterious failure with an explained skip is the point, not an incidental detail.
+    it('logs the skip, naming the channel, so the gap this chunk closes stays visible', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(SLACKBOT_MESSAGE);
+
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        "skipping Slackbot's own notification DM",
+        { personaId: 'sarah', channelId: 'D123' },
+      );
+    });
+
+    // A real human DM is never authored by a reserved Slack system id — pins the discriminator
+    // itself, so a typo'd literal ('Uslack', 'USLACKBOT', etc.) can't silently stop matching.
+    it('still answers a real human DM normally — the check is exact-match on the userId, not a broader pattern', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      expect(deps.anthropicClient.messages.create).toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalled();
+    });
+  });
+
   it('persists the user turn but not an assistant turn when the LLM call fails', async () => {
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient(() => {
