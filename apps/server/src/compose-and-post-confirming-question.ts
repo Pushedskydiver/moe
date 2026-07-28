@@ -8,7 +8,7 @@ import type { InboundMessage } from '@moe/slack';
 import { addReaction, postMessage } from '@moe/slack';
 
 import {
-  midBandCostAndRhythmOutcomeReason,
+  evaluateMidBandCostAndRhythmOutcomeReason,
   shouldLogAppropriatenessFailure,
 } from './ambient-guard-outcome-reason.js';
 import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-queue.js';
@@ -248,7 +248,7 @@ export async function composeAndPostConfirmingQuestion(
     await logAmbientIntakeToReviewQueue(deps, {
       message,
       classified,
-      outcomeReason: midBandCostAndRhythmOutcomeReason(guard.reason),
+      outcomeReason: evaluateMidBandCostAndRhythmOutcomeReason(guard.reason),
     });
     return;
   }

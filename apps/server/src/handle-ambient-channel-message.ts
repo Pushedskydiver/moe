@@ -15,7 +15,7 @@ import {
 import { addReaction, postMessage } from '@moe/slack';
 
 import {
-  highBandCostAndRhythmOutcomeReason,
+  evaluateHighBandCostAndRhythmOutcomeReason,
   shouldLogAppropriatenessFailure,
 } from './ambient-guard-outcome-reason.js';
 import { classifyMessageForIntake } from './classify-message-for-intake.js';
@@ -394,7 +394,7 @@ type ComposeAndPostDraftInput = {
  * *label* it gets, not whether it's kept — a strictly smaller failure mode than data loss, so an
  * unconditional write with a two-way label choice is the safer shape, not a regression of 3.9's own
  * insurance. The label choice itself is an exhaustive `switch`
- * (`highBandCostAndRhythmOutcomeReason`, `ambient-guard-outcome-reason.ts`), not a ternary —
+ * (`evaluateHighBandCostAndRhythmOutcomeReason`, `ambient-guard-outcome-reason.ts`), not a ternary —
  * `CostAndRhythmGuardDecision`'s own TSDoc explains why this needs to be a
  * discriminated union for that exhaustiveness to actually bite at compile time (DA review, 3.10).
  *
@@ -434,7 +434,7 @@ async function composeAndPostDraft(
     await logAmbientIntakeToReviewQueue(deps, {
       message,
       classified,
-      outcomeReason: highBandCostAndRhythmOutcomeReason(guard.reason),
+      outcomeReason: evaluateHighBandCostAndRhythmOutcomeReason(guard.reason),
     });
     return;
   }

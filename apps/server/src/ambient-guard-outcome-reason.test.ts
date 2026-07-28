@@ -1,36 +1,36 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  highBandCostAndRhythmOutcomeReason,
-  midBandCostAndRhythmOutcomeReason,
+  evaluateHighBandCostAndRhythmOutcomeReason,
+  evaluateMidBandCostAndRhythmOutcomeReason,
   shouldLogAppropriatenessFailure,
 } from './ambient-guard-outcome-reason.js';
 
-describe('highBandCostAndRhythmOutcomeReason', () => {
+describe('evaluateHighBandCostAndRhythmOutcomeReason', () => {
   it('maps a cost-cap halt to high-band-cost-cap', () => {
-    expect(highBandCostAndRhythmOutcomeReason('cost-cap-reached')).toBe(
+    expect(evaluateHighBandCostAndRhythmOutcomeReason('cost-cap-reached')).toBe(
       'high-band-cost-cap',
     );
   });
 
   it('maps an off-hours block to high-band-off-hours', () => {
-    expect(highBandCostAndRhythmOutcomeReason('outside-core-hours')).toBe(
-      'high-band-off-hours',
-    );
+    expect(
+      evaluateHighBandCostAndRhythmOutcomeReason('outside-core-hours'),
+    ).toBe('high-band-off-hours');
   });
 });
 
-describe('midBandCostAndRhythmOutcomeReason', () => {
+describe('evaluateMidBandCostAndRhythmOutcomeReason', () => {
   it('maps a cost-cap halt to mid-band-cost-cap', () => {
-    expect(midBandCostAndRhythmOutcomeReason('cost-cap-reached')).toBe(
+    expect(evaluateMidBandCostAndRhythmOutcomeReason('cost-cap-reached')).toBe(
       'mid-band-cost-cap',
     );
   });
 
   it('maps an off-hours block to mid-band-off-hours', () => {
-    expect(midBandCostAndRhythmOutcomeReason('outside-core-hours')).toBe(
-      'mid-band-off-hours',
-    );
+    expect(
+      evaluateMidBandCostAndRhythmOutcomeReason('outside-core-hours'),
+    ).toBe('mid-band-off-hours');
   });
 });
 

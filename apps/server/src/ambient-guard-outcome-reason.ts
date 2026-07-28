@@ -7,15 +7,17 @@ import type {
 // (BUILD_PLAN 3.10, DA review) once both High- and Mid-band callers needed the identical mapping
 // logic — a genuine 2+-consumer case, not premature abstraction, the same bar every other shared
 // extraction in this directory (`standing-proactive-guards.ts`, `log-ambient-intake-to-review-queue.ts`)
-// already met. Also what keeps `handle-ambient-channel-message.ts` under eslint's `max-lines`.
+// already met.
 
 // Exhaustive `switch`, not a ternary — `CostAndRhythmGuardDecision`'s own `reason` union is the
 // single source of truth for which blocking reasons exist, so a hypothetical third one fails this
 // function to *compile* (a missing `case` with no `default` leaves a code path with no `return`)
 // rather than silently mislabeling itself under whatever a ternary's `: else` branch happened to
 // spell. Mirrors `review-queue-sweep.ts`'s own exhaustive `SECTION_LABEL_BY_OUTCOME_REASON` Record
-// for the identical enum-completeness goal.
-export function highBandCostAndRhythmOutcomeReason(
+// for the identical enum-completeness goal. `evaluate*` per `docs/CONVENTIONS.md`'s verb
+// vocabulary, not `resolve*`: this has no fallback/lookup chain (every input reaches a real `case`,
+// nothing falls back to a default), which is exactly the line that doc draws between the two verbs.
+export function evaluateHighBandCostAndRhythmOutcomeReason(
   reason: Exclude<CostAndRhythmGuardDecision['reason'], 'satisfied'>,
 ): 'high-band-cost-cap' | 'high-band-off-hours' {
   switch (reason) {
@@ -28,7 +30,7 @@ export function highBandCostAndRhythmOutcomeReason(
 
 // Mid-band sibling of the above — same reasoning, different labels (`'mid-band-off-hours'` etc.,
 // see `logAmbientIntakeToReviewQueue`'s own TSDoc for why each band gets a distinct value).
-export function midBandCostAndRhythmOutcomeReason(
+export function evaluateMidBandCostAndRhythmOutcomeReason(
   reason: Exclude<CostAndRhythmGuardDecision['reason'], 'satisfied'>,
 ): 'mid-band-cost-cap' | 'mid-band-off-hours' {
   switch (reason) {

@@ -22,7 +22,7 @@ export type ReviewQueueLoggingDeps = Pick<
 // closing the ambient guard chain's other two silent-loss exits the same way 3.9 closed the
 // rhythm-guard one. No value for a genuine `appropriate: false` verdict — Alex settled
 // (`AskUserQuestion`, 2026-07-28) that one stays silent; see `standing-proactive-guards.ts`'s own
-// `SituationalAppropriatenessGuardReason` TSDoc for the full reasoning.
+// `SituationalAppropriatenessGuardDecision` TSDoc for the full reasoning.
 type AmbientIntakeOutcomeReason = Extract<
   ReviewQueueEntry['outcomeReason'],
   | 'low-confidence'
