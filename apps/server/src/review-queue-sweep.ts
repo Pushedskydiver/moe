@@ -155,6 +155,7 @@ const SECTION_LABEL_BY_OUTCOME_REASON: Record<
     'Appropriateness check failed — not drafted',
   'mid-band-appropriateness-check-failed':
     'Appropriateness check failed — not asked',
+
   'low-confidence': 'Low confidence',
   'mid-no': 'Answered no',
   'mid-silence': 'No response',

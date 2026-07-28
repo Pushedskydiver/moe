@@ -29,18 +29,18 @@ export type IntakeClassification = {
  * that the cascade may only ever *add* to the DM response, never remove it, so a `undefined` here
  * must never become silence on a DM.
  *
- * **Known open gap on the ambient path (found during BUILD_PLAN 3.10's DA review, not yet filed as
- * its own chunk at time of writing — check `BUILD_PLAN.md` for whether a follow-up has since
- * landed): the classification-failure branch is a genuine silent loss, structurally identical to
- * the one 3.10 closed one guard downstream.** BUILD_PLAN 3.10 made the situational-appropriateness
- * gate's own infra-blip failure durable (a `review_queue` row), but this function's `!classified.ok`
- * branch — the Stage 1 classifier call itself erroring, timing out, or returning an unparseable
- * response — has no classifier output to write into that same row shape (`confidence`/`reasoning`
- * are both required, non-nullable fields), so fixing it needs its own design decision (a sentinel
- * value? a schema change making those fields nullable, mirroring `sourceMessageTs`'s own precedent
- * from BUILD_PLAN 5.2b?) rather than reusing the existing write path unmodified. Deliberately not
- * fixed here — 3.10 was itself filed narrowly from 3.9's own recon for exactly this reason, and this
- * gap deserves the same treatment rather than scope-creeping into either chunk.
+ * **Known open gap on the ambient path, filed as `BUILD_PLAN.md`'s own 3.11 (found during BUILD_PLAN
+ * 3.10's DA review): the classification-failure branch is a genuine silent loss, structurally
+ * identical to the one 3.10 closed one guard downstream.** BUILD_PLAN 3.10 made the
+ * situational-appropriateness gate's own infra-blip failure durable (a `review_queue` row), but this
+ * function's `!classified.ok` branch — the Stage 1 classifier call itself erroring, timing out, or
+ * returning an unparseable response — has no classifier output to write into that same row shape
+ * (`confidence`/`reasoning` are both required, non-nullable fields), so fixing it needs its own
+ * design decision (a sentinel value? a schema change making those fields nullable, mirroring
+ * `sourceMessageTs`'s own precedent from BUILD_PLAN 5.2b?) rather than reusing the existing write
+ * path unmodified. Deliberately not fixed here — 3.10 was itself filed narrowly from 3.9's own recon
+ * for exactly this reason, and this gap deserves the same treatment rather than scope-creeping into
+ * either chunk. See `BUILD_PLAN.md`'s own 3.11 entry for the full writeup.
  */
 export async function classifyMessageForIntake(
   deps: HandlerDeps,
