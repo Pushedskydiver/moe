@@ -1,5 +1,9 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
-import type { DraftOrigin, QuestionSourceSurface } from '@moe/core';
+import type {
+  DraftOrigin,
+  PendingTicketDraft,
+  QuestionSourceSurface,
+} from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
 import { composeTicketDraft, sonnetCostUsdMicros } from '@moe/agents';
@@ -188,13 +192,21 @@ type PostAndPersistDraftOptions = {
   readonly surface: QuestionSourceSurface;
 };
 
-// Posts the composed draft against the source message — in-thread for an ambient draft, top-level
-// for a DM one (see `surface` above) — persists the "parent-message state"
-// (`pending_ticket_drafts`) keyed on the real posted message, and seeds the 📦/🔁/✅ reaction-gate
-// legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii. This function itself runs no
-// guard checks of its own — it's the caller's job to gate it first. `composeAndPostDraft` below
-// (the ambient High-band caller) only reaches it after both `evaluateCostAndRhythmGuard` and
-// `isSituationallyAppropriate` pass.
+// Claims the draft's "parent-message state" (`pending_ticket_drafts`) *before* posting to Slack,
+// keyed on the source message's own ts, then posts against the source message — in-thread for an
+// ambient draft, top-level for a DM one (see `surface` above) — fills in the real posted message's
+// ts on the claimed row, and seeds the 📦/🔁/✅ reaction-gate legend onto it. BUILD_PLAN 5.2b's
+// claim-first ordering (defence-in-depth for 5.2a's single-listener fix): the old order posted
+// first and persisted second, so `UNIQUE (channel_id, message_ts)` — keyed on a value that doesn't
+// exist until *after* the post — could never actually arbitrate a race between two processes
+// racing the same source message. Claiming on `UNIQUE (channel_id, source_message_ts)` first makes
+// a duplicate post structurally impossible rather than resting entirely on 5.2a's single-listener
+// designation being correct. A claim that then fails to post, or posts but fails the follow-up
+// mark-posted update, is left orphaned (`messageTs` stays `null` forever) rather than retried —
+// same accepted trade-off as `createGithubIssue`'s own claim-first idempotency guard (BUILD_PLAN
+// 4.4b). This function itself runs no guard checks of its own — it's the caller's job to gate it
+// first. `composeAndPostDraft` below (the ambient High-band caller) only reaches it after both
+// `evaluateCostAndRhythmGuard` and `isSituationallyAppropriate` pass.
 //
 // Two other callers reuse this function directly rather than reimplementing it, and both
 // deliberately run **neither** guard first, because both are reactive rather than unprompted — the
@@ -205,6 +217,36 @@ type PostAndPersistDraftOptions = {
 // `runDmIntakeCascade` (BUILD_PLAN 3.7, `run-dm-intake-cascade.ts`), posting a draft for a
 // High-band DM. Both still check the cost cap, since `composeTicketDraft` below is a real, billed
 // call regardless of which caller reached it.
+// Extracted purely to keep `postAndPersistDraft` under eslint's `max-lines-per-function` —
+// composition code extracts aggressively (`docs/CONVENTIONS.md` §Code Style). Returns `undefined`
+// on failure, already logged, matching `composeDraftContent`'s own precedent one call up.
+async function claimDraft(
+  deps: DraftPostingDeps,
+  input: {
+    readonly message: DraftSourceMessage;
+    readonly drafted: DraftContent;
+    readonly origin: DraftOrigin;
+  },
+): Promise<PendingTicketDraft | undefined> {
+  const { message, drafted, origin } = input;
+  const claimed = await deps.draftStore.create({
+    personaId: deps.personaId,
+    channelId: message.channelId,
+    sourceMessageTs: message.ts,
+    sourceMessageText: message.text,
+    draftTitle: drafted.title,
+    draftBody: drafted.body,
+    origin,
+  });
+  if (!claimed.ok) {
+    deps.logger.error('failed to claim pending ticket draft', {
+      errorMessage: repositoryErrorMessage(claimed.error),
+    });
+    return undefined;
+  }
+  return claimed.draft;
+}
+
 export async function postAndPersistDraft(
   deps: DraftPostingDeps,
   message: DraftSourceMessage,
@@ -212,6 +254,13 @@ export async function postAndPersistDraft(
 ): Promise<PostAndPersistDraftResult> {
   const drafted = await composeDraftContent(deps, message, options.now);
   if (drafted === undefined) return { ok: false };
+
+  const claimed = await claimDraft(deps, {
+    message,
+    drafted,
+    origin: options.origin,
+  });
+  if (claimed === undefined) return { ok: false };
 
   // Composed once and reused for both the Slack post and the `postedText` returned below, so the
   // persisted conversation turn can never drift from what the user actually saw — the same
@@ -229,18 +278,13 @@ export async function postAndPersistDraft(
     return { ok: false };
   }
 
-  const created = await deps.draftStore.create({
-    personaId: deps.personaId,
-    channelId: message.channelId,
-    messageTs: posted.ts,
-    sourceMessageText: message.text,
-    draftTitle: drafted.title,
-    draftBody: drafted.body,
-    origin: options.origin,
-  });
-  if (!created.ok) {
-    deps.logger.error('failed to persist pending ticket draft', {
-      errorMessage: repositoryErrorMessage(created.error),
+  const marked = await deps.draftStore.markPosted(claimed.id, posted.ts);
+  if (!marked.ok) {
+    deps.logger.error('failed to mark pending ticket draft posted', {
+      errorMessage:
+        marked.error.kind === 'unavailable'
+          ? 'draft was already marked posted, or no longer exists'
+          : repositoryErrorMessage(marked.error),
     });
     return { ok: false };
   }
@@ -254,7 +298,7 @@ export async function postAndPersistDraft(
   deps.logger.info('posted ticket draft', {
     personaId: deps.personaId,
     channelId: message.channelId,
-    draftId: created.draft.id,
+    draftId: claimed.id,
     draftTitle: drafted.title,
     draftBody: drafted.body,
     origin: options.origin,

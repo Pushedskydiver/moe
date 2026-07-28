@@ -13,6 +13,7 @@ import { getTestPool, resetDatabase } from '../ticket-lifecycle/test-db.js';
 import {
   createPendingTicketDraft,
   getPendingTicketDraftByMessage,
+  markPendingTicketDraftPosted,
   resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
 } from './pending-ticket-drafts-repository.js';
@@ -24,11 +25,13 @@ const migrationsDir = join(
   'migrations',
 );
 
+const POSTED_MESSAGE_TS = '1700000099.000100';
+
 function newDraftInput() {
   return {
     personaId: 'sarah',
     channelId: 'C123',
-    messageTs: '1700000000.000100',
+    sourceMessageTs: '1700000000.000100',
     sourceMessageText: 'the CLI hangs on large repos, can someone take a look',
     draftTitle: 'CLI hangs on large repos',
     draftBody: 'The CLI hangs when run against large repos.',
@@ -53,13 +56,14 @@ describe('pending ticket drafts repository', () => {
     await cleanupPool.end();
   });
 
-  it('creates a pending draft, unresolved by default', async () => {
+  it('creates a pending draft, unresolved and with no messageTs yet — the claim precedes the Slack post (BUILD_PLAN 5.2b)', async () => {
     const result = await createPendingTicketDraft(db, newDraftInput());
 
     expect(result).toEqual({
       ok: true,
       draft: expect.objectContaining({
         ...newDraftInput(),
+        messageTs: null,
         resolvedAt: null,
       }) as unknown,
     });
@@ -82,17 +86,23 @@ describe('pending ticket drafts repository', () => {
     expect(all).toHaveLength(0);
   });
 
-  it('reads back a created draft by (channelId, messageTs)', async () => {
+  it('reads back a created draft by (channelId, messageTs) once the post-succeeded mark has filled messageTs in', async () => {
     const created = await createPendingTicketDraft(db, newDraftInput());
     if (!created.ok) throw new Error('setup failed');
+    const posted = await markPendingTicketDraftPosted(
+      db,
+      created.draft.id,
+      POSTED_MESSAGE_TS,
+    );
+    if (!posted.ok) throw new Error('setup failed');
 
     const result = await getPendingTicketDraftByMessage(db, {
       personaId: newDraftInput().personaId,
       channelId: newDraftInput().channelId,
-      messageTs: newDraftInput().messageTs,
+      messageTs: POSTED_MESSAGE_TS,
     });
 
-    expect(result).toEqual({ ok: true, draft: created.draft });
+    expect(result).toEqual({ ok: true, draft: posted.draft });
   });
 
   it('returns a null draft for a (channelId, messageTs) pair that does not exist', async () => {
@@ -114,11 +124,12 @@ describe('pending ticket drafts repository', () => {
     // Backlog before any human sees it, defeating VISION §5.2's "visible, reversible draft".
     const created = await createPendingTicketDraft(db, newDraftInput());
     if (!created.ok) throw new Error('setup failed');
+    await markPendingTicketDraftPosted(db, created.draft.id, POSTED_MESSAGE_TS);
 
     const result = await getPendingTicketDraftByMessage(db, {
       personaId: 'marcus',
       channelId: newDraftInput().channelId,
-      messageTs: newDraftInput().messageTs,
+      messageTs: POSTED_MESSAGE_TS,
     });
 
     expect(result).toEqual({ ok: true, draft: null });
@@ -213,5 +224,60 @@ describe('pending ticket drafts repository', () => {
       [created.draft.id],
     );
     expect(afterSecond[0]?.redo_count).toBe(2);
+  });
+
+  it('rejects a second claim for the same (channelId, sourceMessageTs) pair via the UNIQUE constraint (BUILD_PLAN 5.2b)', async () => {
+    const first = await createPendingTicketDraft(db, newDraftInput());
+    expect(first.ok).toBe(true);
+
+    const second = await createPendingTicketDraft(db, newDraftInput());
+
+    expect(second).toEqual({
+      ok: false,
+      error: { kind: 'unknown', cause: expect.anything() as unknown },
+    });
+  });
+
+  it('fills in messageTs on a claimed draft once the Slack post succeeds (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+
+    const result = await markPendingTicketDraftPosted(
+      db,
+      created.draft.id,
+      POSTED_MESSAGE_TS,
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      draft: expect.objectContaining({
+        id: created.draft.id,
+        messageTs: POSTED_MESSAGE_TS,
+      }) as unknown,
+    });
+  });
+
+  it('fails to mark a draft posted a second time (double-fire/retry guard, BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+    await markPendingTicketDraftPosted(db, created.draft.id, POSTED_MESSAGE_TS);
+
+    const result = await markPendingTicketDraftPosted(
+      db,
+      created.draft.id,
+      '1700000199.000200',
+    );
+
+    expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
+  });
+
+  it('fails to mark posted a draft that does not exist (BUILD_PLAN 5.2b)', async () => {
+    const result = await markPendingTicketDraftPosted(
+      db,
+      '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      POSTED_MESSAGE_TS,
+    );
+
+    expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
   });
 });

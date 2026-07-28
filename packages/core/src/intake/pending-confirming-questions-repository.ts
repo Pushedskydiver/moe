@@ -4,11 +4,13 @@ import type { Kysely } from 'kysely';
 
 import { pendingConfirmingQuestionSchema } from './pending-confirming-question.js';
 
+// BUILD_PLAN 5.2b — no `messageTs` here: genuinely unknown until `markPendingConfirmingQuestionPosted`
+// fills it in once the Slack post succeeds. `sourceMessageTs` was already required on
+// `PendingConfirmingQuestion` itself, so no override is needed here the way the drafts side needs one.
 export type NewPendingConfirmingQuestion = Pick<
   PendingConfirmingQuestion,
   | 'personaId'
   | 'channelId'
-  | 'messageTs'
   | 'sourceSurface'
   | 'sourceMessageTs'
   | 'sourceMessageText'
@@ -82,9 +84,13 @@ function isOkQuestionResult(
 }
 
 /**
- * Persists a Mid-band confirming question (BUILD_PLAN 3.4b-i) as the "parent-message state" a
- * later 👍/👎 reaction traces back to — mirrors `createPendingTicketDraft`'s own shape exactly,
- * validating the full candidate row through `pendingConfirmingQuestionSchema` before writing.
+ * Claims a Mid-band confirming question (BUILD_PLAN 3.4b-i) as the "parent-message state" a later
+ * 👍/👎 reaction traces back to — *before* the Slack post that will produce it, mirroring
+ * `createPendingTicketDraft`'s own claim-first shape exactly (BUILD_PLAN 5.2b). Keyed on
+ * `input.sourceMessageTs` — already this table's own required column since migration `0008`, now
+ * also its claim key (`UNIQUE (channel_id, source_message_ts)`, migration `0021`). `messageTs`
+ * starts `null` and is filled in by `markPendingConfirmingQuestionPosted` once the post succeeds.
+ * Validates the full candidate row through `pendingConfirmingQuestionSchema` before writing.
  */
 export async function createPendingConfirmingQuestion(
   db: Kysely<Database>,
@@ -93,6 +99,7 @@ export async function createPendingConfirmingQuestion(
   const candidate = {
     id: crypto.randomUUID(),
     ...input,
+    messageTs: null,
     resolvedAt: null,
     createdAt: new Date(),
   };
@@ -105,6 +112,33 @@ export async function createPendingConfirmingQuestion(
       .insertInto('pendingConfirmingQuestions')
       .values(candidate);
     const row = await insert.returningAll().executeTakeFirstOrThrow();
+    return parseQuestionRow(row);
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
+ * Fills in `messageTs` on an already-claimed confirming question once its Slack post actually
+ * succeeds (BUILD_PLAN 5.2b) — mirrors `markPendingTicketDraftPosted` exactly, including the same
+ * `WHERE messageTs IS NULL` CAS guard and the same reuse of an existing claim-result type
+ * (`PendingConfirmingQuestionClaimResult`/`Error`) rather than a new one for an identical shape.
+ */
+export async function markPendingConfirmingQuestionPosted(
+  db: Kysely<Database>,
+  id: string,
+  messageTs: string,
+): Promise<PendingConfirmingQuestionClaimResult> {
+  try {
+    const row = await db
+      .updateTable('pendingConfirmingQuestions')
+      .set({ messageTs })
+      .where('id', '=', id)
+      .where('messageTs', 'is', null)
+      .returningAll()
+      .executeTakeFirst();
+
+    if (!row) return { ok: false, error: { kind: 'unavailable' } };
     return parseQuestionRow(row);
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };

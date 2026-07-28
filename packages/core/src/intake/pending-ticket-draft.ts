@@ -49,19 +49,32 @@ export type DraftOrigin = z.infer<typeof draftOriginSchema>;
  * 3.4a-i's `composeTicketDraft`) persisted so a later Slack reaction on the message it was posted
  * as can be traced back to the draft it belongs to. Written by the ambient High-band auto-draft
  * path, the Mid-band 👍-confirmed path, and the DM High-band path (`origin` distinguishes which,
- * above). `(channelId,
- * messageTs)` uniquely identifies one Slack message; `resolvedAt` is null until the ✅/📦 outcome
- * path claims it (`resolvePendingTicketDraft`) — 🔁's regenerate path updates
- * `draftTitle`/`draftBody` in place instead, leaving the row open for a further reaction.
- * `redoCount` (BUILD_PLAN 3.6) is `Generated<number>` at the Kysely level (`../schema.ts`) but
- * deliberately excluded here — a tracking/derivation field, not part of the domain shape a caller
- * round-trips through the app, same reasoning `ticketSchema` excludes `version`/`claimedBy`.
+ * above). `resolvedAt` is null until the ✅/📦 outcome path claims it (`resolvePendingTicketDraft`)
+ * — 🔁's regenerate path updates `draftTitle`/`draftBody` in place instead, leaving the row open for
+ * a further reaction. `redoCount` (BUILD_PLAN 3.6) is `Generated<number>` at the Kysely level
+ * (`../schema.ts`) but deliberately excluded here — a tracking/derivation field, not part of the
+ * domain shape a caller round-trips through the app, same reasoning `ticketSchema` excludes
+ * `version`/`claimedBy`.
+ *
+ * `messageTs`/`sourceMessageTs` (BUILD_PLAN 5.2b) are both nullable here even though neither is
+ * ever null in ordinary use — `messageTs` is genuinely unknown between the claim-time insert and
+ * the post-succeeded update that fills it in (`markPendingTicketDraftPosted`,
+ * `./pending-ticket-drafts-repository.ts`); `sourceMessageTs` is nullable only because one row from
+ * before this column existed has no way to be backfilled with it (checked directly against
+ * production, not assumed — see migration `0020`'s own comment). The **claim key** is
+ * `(channelId, sourceMessageTs)`, not `(channelId, messageTs)` — the old constraint never actually
+ * arbitrated anything, since `messageTs` is the *posted* message's own ts, which doesn't exist
+ * until after the Slack call this table exists to dedupe against. `createPendingTicketDraft`'s own
+ * input type requires a real `sourceMessageTs` string despite this schema's nullability, mirroring
+ * how `resolvedAt`/`createdAt` are schema-nullable-or-optional here but always supplied by the
+ * repository layer, not the caller.
  */
 export const pendingTicketDraftSchema = z.object({
   id: z.uuid(),
   personaId: nonBlankStringSchema,
   channelId: nonBlankStringSchema,
-  messageTs: nonBlankStringSchema,
+  messageTs: nonBlankStringSchema.nullable(),
+  sourceMessageTs: nonBlankStringSchema.nullable(),
   sourceMessageText: nonBlankStringSchema,
   draftTitle: nonBlankStringSchema,
   draftBody: nonBlankStringSchema,

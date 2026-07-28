@@ -132,26 +132,32 @@ function makeBankHolidaysCache(dates: readonly string[] = []) {
 function makeConfirmingQuestionStore(
   overrides: Partial<ConfirmingQuestionStore> = {},
 ): ConfirmingQuestionStore {
+  const BASE_QUESTION = {
+    id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
+    personaId: 'sarah',
+    channelId: 'C123',
+    sourceSurface: 'channel' as const,
+    sourceMessageTs: '1700000000.000050',
+    sourceMessageText:
+      'hey, there might be an issue with the CLI on large repos',
+    confidence: 55,
+    reasoning: 'plausibly describes a bug, but not clearly actionable',
+    resolvedAt: null,
+    createdAt: new Date('2026-07-16T09:00:00.000Z'),
+  };
   return {
     create: vi.fn<ConfirmingQuestionStore['create']>().mockResolvedValue({
       ok: true,
-      question: {
-        id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
-        personaId: 'sarah',
-        channelId: 'C123',
-        messageTs: '1700000099.000100',
-        sourceSurface: 'channel' as const,
-        sourceMessageTs: '1700000000.000050',
-        sourceMessageText:
-          'hey, there might be an issue with the CLI on large repos',
-        confidence: 55,
-        reasoning: 'plausibly describes a bug, but not clearly actionable',
-        resolvedAt: null,
-        createdAt: new Date('2026-07-16T09:00:00.000Z'),
-      },
+      question: { ...BASE_QUESTION, messageTs: null },
     }),
     getByMessage: vi.fn<ConfirmingQuestionStore['getByMessage']>(),
     resolve: vi.fn<ConfirmingQuestionStore['resolve']>(),
+    markPosted: vi
+      .fn<ConfirmingQuestionStore['markPosted']>()
+      .mockResolvedValue({
+        ok: true,
+        question: { ...BASE_QUESTION, messageTs: '1700000099.000100' },
+      }),
     ...overrides,
   };
 }
@@ -188,6 +194,7 @@ function makeDeps(
       create: vi.fn<HandlerDeps['draftStore']['create']>(),
       getByMessage: vi.fn<HandlerDeps['draftStore']['getByMessage']>(),
       updateContent: vi.fn<HandlerDeps['draftStore']['updateContent']>(),
+      markPosted: vi.fn<HandlerDeps['draftStore']['markPosted']>(),
     },
     reviewQueueStore: {
       // Resolves rather than being a bare stub — BUILD_PLAN 3.9 gave this path a real
@@ -250,10 +257,11 @@ describe('composeAndPostConfirmingQuestion', () => {
           text: expect.stringContaining('👍') as string,
         }),
       );
+      // Claimed keyed on the *source* message's own ts, before the Slack post ever happens
+      // (BUILD_PLAN 5.2b) — no messageTs here at all, since it doesn't exist yet at claim time.
       expect(deps.confirmingQuestionStore.create).toHaveBeenCalledWith({
         personaId: 'sarah',
         channelId: 'C123',
-        messageTs: '1700000099.000100',
         // Persisted so the 👍 outcome can post its draft the same way this question was posted
         // (BUILD_PLAN 3.7) — threaded here, top-level on a DM.
         sourceSurface: 'channel',
@@ -262,6 +270,11 @@ describe('composeAndPostConfirmingQuestion', () => {
         confidence: 55,
         reasoning: 'plausibly describes a bug, but not clearly actionable',
       });
+      // messageTs filled in on the claimed row only once the real post succeeds.
+      expect(deps.confirmingQuestionStore.markPosted).toHaveBeenCalledWith(
+        '8fa85f64-5717-4562-b3fc-2c963f66afab',
+        '1700000099.000100',
+      );
       expect(deps.slackClient.reactions.add).toHaveBeenNthCalledWith(1, {
         channel: 'C123',
         timestamp: '1700000099.000100',
@@ -425,7 +438,7 @@ describe('composeAndPostConfirmingQuestion', () => {
     }
   });
 
-  it('logs an error, without throwing, when posting the confirming question to Slack fails', async () => {
+  it('logs an error, without throwing, when posting the confirming question to Slack fails — the claim already made stays orphaned, not retried (BUILD_PLAN 5.2b)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -446,13 +459,14 @@ describe('composeAndPostConfirmingQuestion', () => {
         'failed to post confirming question',
         { errorMessage: 'channel_not_found' },
       );
-      expect(deps.confirmingQuestionStore.create).not.toHaveBeenCalled();
+      expect(deps.confirmingQuestionStore.create).toHaveBeenCalled();
+      expect(deps.confirmingQuestionStore.markPosted).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
   });
 
-  it('logs an error, without throwing, when persisting the pending confirming question fails after a successful post', async () => {
+  it('logs an error, without throwing, when claiming the pending confirming question fails — before ever posting to Slack (BUILD_PLAN 5.2b)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -475,8 +489,43 @@ describe('composeAndPostConfirmingQuestion', () => {
       ).resolves.toBeUndefined();
 
       expect(deps.logger.error).toHaveBeenCalledWith(
-        'failed to persist pending confirming question',
+        'failed to claim pending confirming question',
         { errorMessage: 'Error: connection reset' },
+      );
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+      expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logs an error, without throwing, when marking the claimed question posted fails after a successful Slack post (BUILD_PLAN 5.2b)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        confirmingQuestionStore: makeConfirmingQuestionStore({
+          markPosted: vi
+            .fn<ConfirmingQuestionStore['markPosted']>()
+            .mockResolvedValue({ ok: false, error: { kind: 'unavailable' } }),
+        }),
+      });
+
+      await expect(
+        composeAndPostConfirmingQuestion(deps as never, {
+          message: CHANNEL_MESSAGE,
+          now: new Date(),
+          classified: CLASSIFIED,
+          surface: 'channel',
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to mark pending confirming question posted',
+        {
+          errorMessage:
+            'question was already marked posted, or no longer exists',
+        },
       );
       expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
     } finally {

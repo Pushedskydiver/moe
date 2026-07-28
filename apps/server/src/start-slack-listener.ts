@@ -18,6 +18,8 @@ import {
   getPendingTicketDraftByMessage,
   getPersonaCostForMonth,
   getRecentTurns,
+  markPendingConfirmingQuestionPosted,
+  markPendingTicketDraftPosted,
   recordUsage,
   resolveConfirmingQuestionAndLog,
   resolvePendingConfirmingQuestion,
@@ -71,6 +73,10 @@ function createDraftStore(db: Kysely<Database>) {
       id: Parameters<typeof updatePendingTicketDraftContent>[1],
       content: Parameters<typeof updatePendingTicketDraftContent>[2],
     ) => updatePendingTicketDraftContent(db, id, content),
+    markPosted: (
+      id: Parameters<typeof markPendingTicketDraftPosted>[1],
+      messageTs: Parameters<typeof markPendingTicketDraftPosted>[2],
+    ) => markPendingTicketDraftPosted(db, id, messageTs),
   };
 }
 
@@ -83,6 +89,10 @@ function createConfirmingQuestionStore(db: Kysely<Database>) {
     ) => getPendingConfirmingQuestionByMessage(db, scope),
     resolve: (id: Parameters<typeof resolvePendingConfirmingQuestion>[1]) =>
       resolvePendingConfirmingQuestion(db, id),
+    markPosted: (
+      id: Parameters<typeof markPendingConfirmingQuestionPosted>[1],
+      messageTs: Parameters<typeof markPendingConfirmingQuestionPosted>[2],
+    ) => markPendingConfirmingQuestionPosted(db, id, messageTs),
   };
 }
 

@@ -108,7 +108,13 @@ type PendingTicketDraftsTable = {
   readonly id: string;
   readonly personaId: string;
   readonly channelId: string;
-  readonly messageTs: string;
+  // BUILD_PLAN 5.2b — nullable: unknown until `markPendingTicketDraftPosted` fills it in once the
+  // Slack post succeeds. See `pending-ticket-draft.ts`'s own TSDoc for the full reasoning.
+  readonly messageTs: string | null;
+  // BUILD_PLAN 5.2b — the real claim key (`UNIQUE (channel_id, source_message_ts)`, migration
+  // `0020`), not `messageTs`. Nullable only for one pre-5.2b legacy row this column can't be
+  // backfilled for; every row this table writes going forward always has it.
+  readonly sourceMessageTs: string | null;
   readonly sourceMessageText: string;
   readonly draftTitle: string;
   readonly draftBody: string;
@@ -166,9 +172,10 @@ type ReviewQueueTable = {
  * Mid-band "parent-message state" `resolvePendingConfirmingQuestion` claims against, same CAS
  * shape as `PendingTicketDraftsTable.resolvedAt` above (a workflow object with resolve-once
  * semantics, unlike `ReviewQueueTable`'s deliberately different plain-log shape). `messageTs` keys
- * the confirming question's own posted message (for a later reaction lookup, mirroring
- * `PendingTicketDraftsTable`'s own `messageTs` exactly); `sourceMessageTs`/`sourceMessageText` are
- * this table's own addition — needed so a "yes" answer (3.4b-ii) can post the real ticket draft
+ * the confirming question's own posted message for a later reaction lookup (no longer the claim
+ * key as of BUILD_PLAN 5.2b — see its own comment below, and `PendingTicketDraftsTable`'s identical
+ * correction); `sourceMessageTs`/`sourceMessageText` are this table's own addition — needed so a
+ * "yes" answer (3.4b-ii) can post the real ticket draft
  * against the *original* source message rather than the confirming question itself (threaded on it
  * for an ambient question, top-level for a DM — see `sourceSurface` below), and so a "no"
  * answer can carry the classifier's own `confidence`/`reasoning` through to `review_queue` the same
@@ -178,7 +185,11 @@ type PendingConfirmingQuestionsTable = {
   readonly id: string;
   readonly personaId: string;
   readonly channelId: string;
-  readonly messageTs: string;
+  // BUILD_PLAN 5.2b — nullable for the same reason as `PendingTicketDraftsTable.messageTs`:
+  // unknown until `markPendingConfirmingQuestionPosted` fills it in once the Slack post succeeds.
+  // The claim key moved to `sourceMessageTs` below (`UNIQUE (channel_id, source_message_ts)`,
+  // migration `0021`), which — unlike the drafts table — this table has always required non-null.
+  readonly messageTs: string | null;
   // BUILD_PLAN 3.7 — `'channel'` or `'dm'`, with a `CHECK` constraint
   // (`0018_add_pending_confirming_questions_source_surface.sql`). Decides whether the 👍 outcome's
   // draft is posted threaded or top-level; see `pending-confirming-question.ts`'s own TSDoc.

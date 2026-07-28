@@ -6,16 +6,21 @@ import { sql } from 'kysely';
 
 import { pendingTicketDraftSchema } from './pending-ticket-draft.js';
 
+// BUILD_PLAN 5.2b — `sourceMessageTs` is nullable on `PendingTicketDraft` itself (one pre-5.2b
+// legacy row can't be backfilled with it), but every *new* claim always has a real one: it's the
+// natural key the claim-first insert is keyed on, known before the Slack post ever happens. No
+// `messageTs` here at all — genuinely unknown until `markPendingTicketDraftPosted` fills it in.
 export type NewPendingTicketDraft = Pick<
   PendingTicketDraft,
   | 'personaId'
   | 'channelId'
-  | 'messageTs'
   | 'sourceMessageText'
   | 'draftTitle'
   | 'draftBody'
   | 'origin'
->;
+> & {
+  readonly sourceMessageTs: string;
+};
 
 export type PendingTicketDraftRepositoryError =
   | { readonly kind: 'validation-failed'; readonly issues: string }
@@ -52,15 +57,23 @@ function parseDraftRow(row: unknown): PendingTicketDraftResult {
 }
 
 /**
- * Persists a ticket draft's "parent-message state" (BUILD_PLAN 3.4a-ii's own text names it) so a
- * later Slack reaction on the posted message can be traced back to it — a real consumer as of
- * BUILD_PLAN 3.4a-iii (`apps/server`'s `postAndPersistDraft`, called once the real post to Slack
- * succeeds, keyed on the posted message's own `ts`). Shared by all three writers —
- * `composeAndPostDraft`'s ambient High-band auto-draft path, `draftFromConfirmingQuestion`'s
- * Mid-band 👍-confirmed path, and `runDmIntakeCascade`'s DM High-band path (BUILD_PLAN 3.7), each
- * going through `postAndPersistDraft` — with `input.origin` (BUILD_PLAN 3.6/3.7) recording which
- * one produced this particular row. Validates the full candidate row through
- * `pendingTicketDraftSchema` before writing, so an invalid input never reaches the database.
+ * Claims a ticket draft's "parent-message state" (BUILD_PLAN 3.4a-ii's own text names it) *before*
+ * the Slack post that will produce it — BUILD_PLAN 5.2b's defence-in-depth for 5.2a's
+ * single-listener fix, making a duplicate draft post structurally impossible rather than
+ * configuration-dependent. Keyed on `input.sourceMessageTs`, the one natural key every process
+ * computes identically ahead of any Slack call — `UNIQUE (channel_id, source_message_ts)`
+ * (migration `0020`) is what actually arbitrates a race, unlike the old `(channel_id, messageTs)`
+ * constraint, which never could (`messageTs` didn't exist until after the post). `messageTs` starts
+ * `null` and is filled in by `markPendingTicketDraftPosted` once the post succeeds; a post that
+ * fails leaves the claim row orphaned (`messageTs` stays `null` forever) rather than retried — the
+ * same accepted trade-off `createGithubIssue`'s own claim-first idempotency guard already makes
+ * (BUILD_PLAN 4.4b: "a still-`pending` row from a prior crashed run is surfaced for manual
+ * reconciliation, never auto-retried"). Shared by all three writers — `composeAndPostDraft`'s
+ * ambient High-band auto-draft path, `draftFromConfirmingQuestion`'s Mid-band 👍-confirmed path,
+ * and `runDmIntakeCascade`'s DM High-band path (BUILD_PLAN 3.7), each going through
+ * `postAndPersistDraft` — with `input.origin` (BUILD_PLAN 3.6/3.7) recording which one produced
+ * this particular row. Validates the full candidate row through `pendingTicketDraftSchema` before
+ * writing, so an invalid input never reaches the database.
  */
 export async function createPendingTicketDraft(
   db: Kysely<Database>,
@@ -69,6 +82,7 @@ export async function createPendingTicketDraft(
   const candidate = {
     id: crypto.randomUUID(),
     ...input,
+    messageTs: null,
     resolvedAt: null,
     createdAt: new Date(),
   };
@@ -79,6 +93,37 @@ export async function createPendingTicketDraft(
   try {
     const insert = db.insertInto('pendingTicketDrafts').values(candidate);
     const row = await insert.returningAll().executeTakeFirstOrThrow();
+    return parseDraftRow(row);
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
+ * Fills in `messageTs` on an already-claimed draft once its Slack post actually succeeds
+ * (BUILD_PLAN 5.2b) — the second half of the claim-first insert `createPendingTicketDraft` starts.
+ * `WHERE messageTs IS NULL` is a CAS guard, same shape as `resolvePendingTicketDraft`'s own
+ * `WHERE resolvedAt IS NULL`: this should only ever run once per row, and a retry that lands after
+ * an earlier call already succeeded (a timed-out response whose write actually landed, say) must
+ * not silently overwrite a real `messageTs` with another one. Reuses
+ * `PendingTicketDraftClaimResult`/`Error` — the "row must exist and be in a specific pre-condition
+ * state" shape is identical to `resolvePendingTicketDraft`'s, just gated on a different column.
+ */
+export async function markPendingTicketDraftPosted(
+  db: Kysely<Database>,
+  id: string,
+  messageTs: string,
+): Promise<PendingTicketDraftClaimResult> {
+  try {
+    const row = await db
+      .updateTable('pendingTicketDrafts')
+      .set({ messageTs })
+      .where('id', '=', id)
+      .where('messageTs', 'is', null)
+      .returningAll()
+      .executeTakeFirst();
+
+    if (!row) return { ok: false, error: { kind: 'unavailable' } };
     return parseDraftRow(row);
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };

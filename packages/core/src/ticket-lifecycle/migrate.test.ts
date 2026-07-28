@@ -51,6 +51,8 @@ describe('runMigrations', () => {
         '0017_widen_pending_ticket_drafts_origin.sql',
         '0018_add_pending_confirming_questions_source_surface.sql',
         '0019_widen_review_queue_outcome_reason_off_hours.sql',
+        '0020_claim_first_pending_ticket_drafts.sql',
+        '0021_claim_first_pending_confirming_questions.sql',
       ],
     });
 
@@ -77,6 +79,8 @@ describe('runMigrations', () => {
       { id: '0017_widen_pending_ticket_drafts_origin.sql' },
       { id: '0018_add_pending_confirming_questions_source_surface.sql' },
       { id: '0019_widen_review_queue_outcome_reason_off_hours.sql' },
+      { id: '0020_claim_first_pending_ticket_drafts.sql' },
+      { id: '0021_claim_first_pending_confirming_questions.sql' },
     ]);
   });
 
@@ -186,18 +190,44 @@ describe('runMigrations', () => {
     expect(rows).toHaveLength(1);
   });
 
-  it('rejects a second pending_ticket_drafts row for the same (channel_id, message_ts) pair via the UNIQUE constraint', async () => {
+  it('accepts a second pending_ticket_drafts row for the same (channel_id, message_ts) pair — message_ts is no longer the claim key (BUILD_PLAN 5.2b)', async () => {
     await runMigrations(pool, migrationsDir);
-    const insert = (id: string) =>
+    const insert = (id: string, sourceMessageTs: string) =>
       pool.query(
         `INSERT INTO pending_ticket_drafts
-           (id, persona_id, channel_id, message_ts, source_message_text, draft_title, draft_body, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+           (id, persona_id, channel_id, message_ts, source_message_ts, source_message_text, draft_title, draft_body, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           id,
           'sarah',
           'C123',
           '1700000000.000100',
+          sourceMessageTs,
+          'the CLI hangs on large repos',
+          'CLI hangs on large repos',
+          'The CLI hangs when run against large repos.',
+          new Date(),
+        ],
+      );
+    await insert('3fa85f64-5717-4562-b3fc-2c963f66afa6', '1699999000.000010');
+    await insert('4fa85f64-5717-4562-b3fc-2c963f66afa7', '1699999000.000020');
+
+    const { rows } = await pool.query('SELECT * FROM pending_ticket_drafts');
+    expect(rows).toHaveLength(2);
+  });
+
+  it('rejects a second pending_ticket_drafts row for the same (channel_id, source_message_ts) pair via the new UNIQUE constraint (BUILD_PLAN 5.2b)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const insert = (id: string) =>
+      pool.query(
+        `INSERT INTO pending_ticket_drafts
+           (id, persona_id, channel_id, source_message_ts, source_message_text, draft_title, draft_body, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          id,
+          'sarah',
+          'C123',
+          '1699999000.000010',
           'the CLI hangs on large repos',
           'CLI hangs on large repos',
           'The CLI hangs when run against large repos.',
@@ -208,6 +238,30 @@ describe('runMigrations', () => {
     await expect(
       insert('4fa85f64-5717-4562-b3fc-2c963f66afa7'),
     ).rejects.toThrow();
+  });
+
+  it('accepts a pending_ticket_drafts row with a NULL message_ts — the claim-first insert shape before the Slack post succeeds (BUILD_PLAN 5.2b)', async () => {
+    await runMigrations(pool, migrationsDir);
+    await pool.query(
+      `INSERT INTO pending_ticket_drafts
+         (id, persona_id, channel_id, source_message_ts, source_message_text, draft_title, draft_body, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'sarah',
+        'C123',
+        '1699999000.000010',
+        'the CLI hangs on large repos',
+        'CLI hangs on large repos',
+        'The CLI hangs when run against large repos.',
+        new Date(),
+      ],
+    );
+    const { rows } = await pool.query<{ message_ts: string | null }>(
+      'SELECT message_ts FROM pending_ticket_drafts WHERE id = $1',
+      ['3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+    );
+    expect(rows[0]?.message_ts).toBeNull();
   });
 
   it('creates a review_queue table that accepts a valid low-confidence row', async () => {
@@ -458,9 +512,9 @@ describe('runMigrations', () => {
     expect(rows).toHaveLength(1);
   });
 
-  it('rejects a second pending_confirming_questions row for the same (channel_id, message_ts) pair via the UNIQUE constraint', async () => {
+  it('accepts a second pending_confirming_questions row for the same (channel_id, message_ts) pair — message_ts is no longer the claim key (BUILD_PLAN 5.2b)', async () => {
     await runMigrations(pool, migrationsDir);
-    const insert = (id: string) =>
+    const insert = (id: string, sourceMessageTs: string) =>
       pool.query(
         `INSERT INTO pending_confirming_questions
            (id, persona_id, channel_id, message_ts, source_message_ts, source_message_text, confidence, reasoning, created_at)
@@ -470,6 +524,33 @@ describe('runMigrations', () => {
           'sarah',
           'C123',
           '1700000099.000100',
+          sourceMessageTs,
+          'hey, there might be an issue with the CLI on large repos',
+          55,
+          'plausibly describes a bug, but not clearly actionable',
+          new Date(),
+        ],
+      );
+    await insert('3fa85f64-5717-4562-b3fc-2c963f66afa6', '1700000000.000050');
+    await insert('4fa85f64-5717-4562-b3fc-2c963f66afa7', '1700000000.000060');
+
+    const { rows } = await pool.query(
+      'SELECT * FROM pending_confirming_questions',
+    );
+    expect(rows).toHaveLength(2);
+  });
+
+  it('rejects a second pending_confirming_questions row for the same (channel_id, source_message_ts) pair via the new UNIQUE constraint (BUILD_PLAN 5.2b)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const insert = (id: string) =>
+      pool.query(
+        `INSERT INTO pending_confirming_questions
+           (id, persona_id, channel_id, source_message_ts, source_message_text, confidence, reasoning, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+        [
+          id,
+          'sarah',
+          'C123',
           '1700000000.000050',
           'hey, there might be an issue with the CLI on large repos',
           55,
@@ -481,6 +562,30 @@ describe('runMigrations', () => {
     await expect(
       insert('4fa85f64-5717-4562-b3fc-2c963f66afa7'),
     ).rejects.toThrow();
+  });
+
+  it('accepts a pending_confirming_questions row with a NULL message_ts — the claim-first insert shape before the Slack post succeeds (BUILD_PLAN 5.2b)', async () => {
+    await runMigrations(pool, migrationsDir);
+    await pool.query(
+      `INSERT INTO pending_confirming_questions
+         (id, persona_id, channel_id, source_message_ts, source_message_text, confidence, reasoning, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'sarah',
+        'C123',
+        '1700000000.000050',
+        'hey, there might be an issue with the CLI on large repos',
+        55,
+        'plausibly describes a bug, but not clearly actionable',
+        new Date(),
+      ],
+    );
+    const { rows } = await pool.query<{ message_ts: string | null }>(
+      'SELECT message_ts FROM pending_confirming_questions WHERE id = $1',
+      ['3fa85f64-5717-4562-b3fc-2c963f66afa6'],
+    );
+    expect(rows[0]?.message_ts).toBeNull();
   });
 
   it('rejects a row with an invalid status via the CHECK constraint', async () => {

@@ -140,6 +140,7 @@ export type { DraftOrigin } from './intake/pending-ticket-draft.js';
 export {
   createPendingTicketDraft,
   getPendingTicketDraftByMessage,
+  markPendingTicketDraftPosted,
   resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
 } from './intake/pending-ticket-drafts-repository.js';
@@ -182,6 +183,7 @@ export {
   createPendingConfirmingQuestion,
   findStaleUnresolvedConfirmingQuestions,
   getPendingConfirmingQuestionByMessage,
+  markPendingConfirmingQuestionPosted,
   resolvePendingConfirmingQuestion,
 } from './intake/pending-confirming-questions-repository.js';
 export type {

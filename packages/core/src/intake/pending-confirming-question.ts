@@ -23,27 +23,33 @@ export type QuestionSourceSurface = z.infer<typeof questionSourceSurfaceSchema>;
  * The Mid-band "parent-message state" (BUILD_PLAN 3.4b-i, VISION §5.2's "short, low-friction
  * confirming question") — a posted confirming question, persisted so a later 👍/👎 reaction on the
  * message it was posted as can be traced back to the question it belongs to and, through it, the
- * original source message. `(channelId, messageTs)` uniquely identifies the confirming question's
- * own posted Slack message, mirroring `pending-ticket-draft.ts`'s own `messageTs` semantics exactly
- * — a workflow object with resolve-once CAS semantics, unlike `review-queue-entry.ts`'s
- * deliberately different plain-log shape. `sourceMessageTs`/`sourceMessageText` reference the
- * *original* source message — an ambient channel/group message, or, since BUILD_PLAN 3.7, a DM —
- * not the confirming question itself — needed so a 👍 answer
- * (BUILD_PLAN 3.4b-ii) can post the real ticket draft against the message that actually prompted
- * it — threaded on it for an ambient question, top-level for a DM (`sourceSurface`) —
- * the same way 🔁 redo already recomposes from the *original* source message rather than the
- * previous draft's own text. `confidence`/`reasoning` carry the Stage 1 classifier's own output
- * through, so a 👎 answer can log it to `review_queue` with the same context the Low-band path
- * already provides. `resolvedAt` is null until a 👍/👎 reaction claims it
- * (`resolvePendingConfirmingQuestion`, BUILD_PLAN 3.4b-ii) — an unresolved row past some future
- * age threshold is BUILD_PLAN 3.5's own "silence" case to detect and log, not something this table
- * or 3.4b-i/3.4b-ii themselves actively watch for.
+ * original source message. `sourceMessageTs`/`sourceMessageText` reference the *original* source
+ * message — an ambient channel/group message, or, since BUILD_PLAN 3.7, a DM — not the confirming
+ * question itself — needed so a 👍 answer (BUILD_PLAN 3.4b-ii) can post the real ticket draft
+ * against the message that actually prompted it — threaded on it for an ambient question,
+ * top-level for a DM (`sourceSurface`) — the same way 🔁 redo already recomposes from the
+ * *original* source message rather than the previous draft's own text. `confidence`/`reasoning`
+ * carry the Stage 1 classifier's own output through, so a 👎 answer can log it to `review_queue`
+ * with the same context the Low-band path already provides. `resolvedAt` is null until a 👍/👎
+ * reaction claims it (`resolvePendingConfirmingQuestion`, BUILD_PLAN 3.4b-ii) — an unresolved row
+ * past some future age threshold is BUILD_PLAN 3.5's own "silence" case to detect and log, not
+ * something this table or 3.4b-i/3.4b-ii themselves actively watch for.
+ *
+ * `(channelId, sourceMessageTs)` is the claim key (BUILD_PLAN 5.2b), not `(channelId, messageTs)`
+ * — mirrors `pending-ticket-draft.ts`'s own identical correction exactly, same reasoning: the old
+ * constraint keyed on the *posted* message's own ts, which doesn't exist until after the Slack call
+ * this table exists to dedupe against. `messageTs` is nullable for that reason — genuinely unknown
+ * between the claim-time insert and the post-succeeded update that fills it in
+ * (`markPendingConfirmingQuestionPosted`, `./pending-confirming-questions-repository.ts`).
+ * `sourceMessageTs` itself stays required, unlike the drafts table's own newly-added column — this
+ * table has carried it since creation (migration `0008`), so there is no pre-5.2b legacy row with
+ * it missing to tolerate.
  */
 export const pendingConfirmingQuestionSchema = z.object({
   id: z.uuid(),
   personaId: nonBlankStringSchema,
   channelId: nonBlankStringSchema,
-  messageTs: nonBlankStringSchema,
+  messageTs: nonBlankStringSchema.nullable(),
   sourceSurface: questionSourceSurfaceSchema,
   sourceMessageTs: nonBlankStringSchema,
   sourceMessageText: nonBlankStringSchema,

@@ -97,12 +97,14 @@ function makeDeps(
       create: vi.fn(),
       getByMessage: vi.fn(),
       updateContent: vi.fn(),
+      markPosted: vi.fn(),
     },
     reviewQueueStore: { create: vi.fn() },
     confirmingQuestionStore: {
       create: vi.fn(),
       getByMessage: vi.fn(),
       resolve: vi.fn(),
+      markPosted: vi.fn(),
     },
   };
 }
