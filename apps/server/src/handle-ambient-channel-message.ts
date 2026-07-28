@@ -14,6 +14,10 @@ import {
 } from '@moe/core';
 import { addReaction, postMessage } from '@moe/slack';
 
+import {
+  highBandCostAndRhythmOutcomeReason,
+  shouldLogAppropriatenessFailure,
+} from './ambient-guard-outcome-reason.js';
 import { classifyMessageForIntake } from './classify-message-for-intake.js';
 import { composeAndPostConfirmingQuestion } from './compose-and-post-confirming-question.js';
 import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-queue.js';
@@ -389,7 +393,10 @@ type ComposeAndPostDraftInput = {
  * known reasons write a row, the only remaining question for a hypothetical third one is which
  * *label* it gets, not whether it's kept — a strictly smaller failure mode than data loss, so an
  * unconditional write with a two-way label choice is the safer shape, not a regression of 3.9's own
- * insurance.
+ * insurance. The label choice itself is an exhaustive `switch`
+ * (`highBandCostAndRhythmOutcomeReason`, `ambient-guard-outcome-reason.ts`), not a ternary —
+ * `CostAndRhythmGuardDecision`'s own TSDoc explains why this needs to be a
+ * discriminated union for that exhaustiveness to actually bite at compile time (DA review, 3.10).
  *
  * **`'outside-core-hours'` still covers all three of `evaluateOperatingRhythm`'s *blocking*
  * reasons** (its enum has a fourth, `'within-core-hours'`, which does not reach here) — including
@@ -397,7 +404,11 @@ type ComposeAndPostDraftInput = {
  * clock window — so a `'high-band-off-hours'` row can be written at 10:00 on a Tuesday when the
  * GOV.UK bank-holidays API was unreachable at boot. That is correct rather than a mislabel: the
  * guard fails **closed**, meaning it treats an unknown holiday status as a rest day, and this row
- * records the guard's decision, not the calendar.
+ * records the guard's decision, not the calendar. **Still not resolved by 3.10** (DA review, that
+ * chunk): `evaluateOperatingRhythm`'s own `rhythm.reason` is logged (`standing-proactive-guards.ts`)
+ * but never threaded into this row, so the digest still cannot distinguish "genuinely out of hours"
+ * from "the bank-holidays cache was unreachable at boot" without grepping the structured logs
+ * alongside it — a real, still-open imprecision, not one this chunk claims to close.
  *
  * **Why the row is written before the appropriateness gate has run**, making both guard-level
  * blocks marginally more permissive than the in-hours, under-cap case: the gate is a billed Haiku
@@ -423,10 +434,7 @@ async function composeAndPostDraft(
     await logAmbientIntakeToReviewQueue(deps, {
       message,
       classified,
-      outcomeReason:
-        guard.reason === 'cost-cap-reached'
-          ? 'high-band-cost-cap'
-          : 'high-band-off-hours',
+      outcomeReason: highBandCostAndRhythmOutcomeReason(guard.reason),
     });
     return;
   }
@@ -436,10 +444,7 @@ async function composeAndPostDraft(
     guardInput,
   );
   if (!appropriateness.satisfied) {
-    // Unlike the cost-and-rhythm guard above, this one genuinely has two different right answers
-    // depending on why it failed — see this function's own TSDoc. Only the infra-blip case writes
-    // a row; a genuine inappropriate verdict stays silent.
-    if (appropriateness.reason === 'evaluation-failed') {
+    if (shouldLogAppropriatenessFailure(appropriateness.reason)) {
       await logAmbientIntakeToReviewQueue(deps, {
         message,
         classified,

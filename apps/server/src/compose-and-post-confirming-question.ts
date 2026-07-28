@@ -7,6 +7,10 @@ import type { InboundMessage } from '@moe/slack';
 
 import { addReaction, postMessage } from '@moe/slack';
 
+import {
+  midBandCostAndRhythmOutcomeReason,
+  shouldLogAppropriatenessFailure,
+} from './ambient-guard-outcome-reason.js';
 import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-queue.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import {
@@ -228,7 +232,10 @@ export async function postAndPersistConfirmingQuestion(
  *
  * Only the ambient caller runs this function at all — BUILD_PLAN 3.7's DM cascade calls
  * `postAndPersistConfirmingQuestion` directly and never consults either guard, so no DM can
- * produce any of these rows. See `logAmbientIntakeToReviewQueue` for the full reasoning.
+ * produce any of these rows. See `logAmbientIntakeToReviewQueue` for the full reasoning. The
+ * cost-and-rhythm label choice and the appropriateness-failure log decision are both shared,
+ * exhaustive-`switch` helpers (`ambient-guard-outcome-reason.ts`) — see that file's own TSDoc for
+ * why each needs to be exhaustive rather than a ternary/equality check.
  */
 export async function composeAndPostConfirmingQuestion(
   deps: HandlerDeps,
@@ -241,10 +248,7 @@ export async function composeAndPostConfirmingQuestion(
     await logAmbientIntakeToReviewQueue(deps, {
       message,
       classified,
-      outcomeReason:
-        guard.reason === 'cost-cap-reached'
-          ? 'mid-band-cost-cap'
-          : 'mid-band-off-hours',
+      outcomeReason: midBandCostAndRhythmOutcomeReason(guard.reason),
     });
     return;
   }
@@ -254,10 +258,7 @@ export async function composeAndPostConfirmingQuestion(
     guardInput,
   );
   if (!appropriateness.satisfied) {
-    // Unlike the cost-and-rhythm guard above, this one genuinely has two different right answers
-    // depending on why it failed — see `composeAndPostDraft`'s own TSDoc. Only the infra-blip case
-    // writes a row; a genuine inappropriate verdict stays silent.
-    if (appropriateness.reason === 'evaluation-failed') {
+    if (shouldLogAppropriatenessFailure(appropriateness.reason)) {
       await logAmbientIntakeToReviewQueue(deps, {
         message,
         classified,

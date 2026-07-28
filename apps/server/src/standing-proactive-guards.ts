@@ -30,29 +30,34 @@ type StandingProactiveGuardInput = {
 };
 
 /**
- * Why the guard blocked, or `'satisfied'` if it didn't. The two blocking reasons are deliberately
- * distinguishable (BUILD_PLAN 3.9): they mean different things and now have different consequences
- * — an off-hours block writes a `review_queue` row so the message survives, a cost-cap halt does
- * not. Before 3.9 both collapsed into a bare `false` and no caller could tell them apart, which is
- * precisely why the off-hours case could not be handled separately.
- */
-type CostAndRhythmGuardReason =
-  'satisfied' | 'cost-cap-reached' | 'outside-core-hours';
-
-/**
- * A flat boolean-plus-reason object, mirroring `@moe/core`'s own
+ * A boolean-discriminated union, mirroring `@moe/core`'s own
  * `OperatingRhythmDecision`/`WipLimitDecision` — the two existing `*Decision` types, which is where
  * this shape comes from. **`docs/CONVENTIONS.md` prescribes the `evaluate*` verb, not the return
  * shape**, and its `Result`-shaped-discriminated-union rule is explicitly scoped to "expected
  * domain failures" (a Slack/GitHub call failing, a validation failing) — a guard reporting a
- * decision is not one, which is why the flat shape is the right precedent to follow here rather
- * than `evaluateSituationalAppropriateness`'s `Result`. Both readings were checked against
+ * decision is not one, which is why this shape is the right precedent to follow here rather than
+ * `evaluateSituationalAppropriateness`'s `Result`. Both readings were checked against
  * `docs/CONVENTIONS.md` directly after two review passes disagreed about it.
+ *
+ * The two blocking reasons are deliberately distinguishable (BUILD_PLAN 3.9): they mean different
+ * things and now have different consequences — an off-hours block writes a `review_queue` row so
+ * the message survives, a cost-cap halt does too as of BUILD_PLAN 3.10 (with its own distinct
+ * label). Before 3.9 both collapsed into a bare `false` and no caller could tell them apart, which
+ * is precisely why they couldn't be handled separately.
+ *
+ * **A discriminated union on `satisfied`, not a flat `{satisfied: boolean, reason: ...}` object**
+ * (BUILD_PLAN 3.10) — the flat shape shipped at 3.9 didn't actually narrow `reason` inside an
+ * `if (!guard.satisfied)` block, so a caller mapping each blocking reason to its own outcome label
+ * had no compile-time help catching a missed case if a third reason were ever added. This shape
+ * costs nothing at the two call sites (both already destructure/branch on `satisfied` first) and
+ * buys real exhaustiveness checking where it matters.
  */
-export type CostAndRhythmGuardDecision = {
-  readonly satisfied: boolean;
-  readonly reason: CostAndRhythmGuardReason;
-};
+export type CostAndRhythmGuardDecision =
+  | { readonly satisfied: true; readonly reason: 'satisfied' }
+  | {
+      readonly satisfied: false;
+      readonly reason: 'cost-cap-reached' | 'outside-core-hours';
+    };
 
 /**
  * Cost-cap-then-operating-rhythm guard shared by every standing-proactive Slack post. Cost-cap
@@ -109,9 +114,12 @@ export async function evaluateCostAndRhythmGuard(
 }
 
 /**
- * Why the situational-appropriateness gate blocked, or `'satisfied'` if it didn't. The two
- * blocking reasons are deliberately distinguishable (BUILD_PLAN 3.10), mirroring
- * `CostAndRhythmGuardReason`'s own split at 3.9: `'evaluation-failed'` is an infrastructure blip
+ * A boolean-discriminated union, mirroring `CostAndRhythmGuardDecision`'s own shape (including its
+ * TSDoc's reasoning for why this is a union rather than a flat object) and the same
+ * `docs/CONVENTIONS.md` reasoning for why it's a decision, not an expected domain failure.
+ *
+ * The two blocking reasons are deliberately distinguishable (BUILD_PLAN 3.10), mirroring
+ * `CostAndRhythmGuardDecision`'s own split at 3.9: `'evaluation-failed'` is an infrastructure blip
  * (an Anthropic error, timeout, or unparseable response) — a genuine remaining silent loss that
  * permanently drops a message that may well have been a real bug report, so the **ambient**
  * callers write a `review_queue` row for it. `'inappropriate'` is a real, considered
@@ -120,19 +128,19 @@ export async function evaluateCostAndRhythmGuard(
  * loss the queue exists to catch. Before 3.10 both collapsed into a bare `false` and no caller
  * could tell them apart, which is precisely why the infra-blip case could not be handled
  * separately from the genuine-verdict one.
+ *
+ * **Unlike `CostAndRhythmGuardDecision`, there is no safe universal default for a hypothetical
+ * third reason here** — an infra blip should log, a considered verdict should not, and neither is
+ * "more correct" to default to. The exhaustiveness this union buys is exactly what forces a real
+ * decision on any future third reason instead of it silently falling through to whichever behavior
+ * an equality/inequality check happened to spell.
  */
-type SituationalAppropriatenessGuardReason =
-  'satisfied' | 'inappropriate' | 'evaluation-failed';
-
-/**
- * A flat boolean-plus-reason object, mirroring `CostAndRhythmGuardDecision`'s own shape and the
- * same `docs/CONVENTIONS.md` reasoning that shape's TSDoc already documents — a guard reporting a
- * decision, not an expected domain failure.
- */
-export type SituationalAppropriatenessGuardDecision = {
-  readonly satisfied: boolean;
-  readonly reason: SituationalAppropriatenessGuardReason;
-};
+export type SituationalAppropriatenessGuardDecision =
+  | { readonly satisfied: true; readonly reason: 'satisfied' }
+  | {
+      readonly satisfied: false;
+      readonly reason: 'inappropriate' | 'evaluation-failed';
+    };
 
 /**
  * BUILD_PLAN 3.4a-iii's own situational-appropriateness gate (VISION §9), run before any
