@@ -1072,6 +1072,80 @@ describe('createInboundMessageHandler', () => {
     });
   });
 
+  describe("Slackbot's own notification DMs (BUILD_PLAN 3.8)", () => {
+    const SLACKBOT_MESSAGE = {
+      ...DM_MESSAGE,
+      userId: 'USLACK',
+      text: '<@U04UQ6CLZ1U> archived the channel <#C0B5NRDF55Y>',
+    };
+
+    // Before 3.7: one billed Sonnet reply that failed to post (`restricted_action_read_only_channel`
+    // — the Slackbot DM is read-only). After 3.7: additionally a billed Haiku classify, since the
+    // cascade classifies every DM. Neither call, and no failed post, should happen at all.
+    it('makes no billed call and posts nothing for a message from Slackbot', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(SLACKBOT_MESSAGE);
+
+      expect(deps.anthropicClient.messages.create).not.toHaveBeenCalled();
+      expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    });
+
+    it('persists no conversation turn for a message from Slackbot', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(SLACKBOT_MESSAGE);
+
+      expect(deps.historyStore.appendTurn).not.toHaveBeenCalled();
+    });
+
+    // The gap 3.8 closes: `restricted_action_read_only_channel` had sat unexplained in the logs.
+    // Replacing a mysterious failure with an explained skip is the point, not an incidental detail.
+    it('logs the skip, naming the channel, so the gap this chunk closes stays visible', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(SLACKBOT_MESSAGE);
+
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        "skipping Slackbot's own notification DM",
+        { personaId: 'sarah', channelId: 'D123' },
+      );
+    });
+
+    // Confirms the guard is scoped to Slackbot's own DM, not DMs in general — a real human DM
+    // still gets a normal reply.
+    it('still answers a real human DM normally — the check is exact-match on the userId, not a broader pattern', async () => {
+      const deps = makeDeps();
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(DM_MESSAGE);
+
+      expect(deps.anthropicClient.messages.create).toHaveBeenCalled();
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalled();
+    });
+
+    // DA review (BUILD_PLAN 3.8): the guard's own comment claims it runs "before any billed call"
+    // as "the very first thing" the DM branch does — a claim the other three tests in this block
+    // don't actually pin, since none of them observe `threadQueue`. A guard relocated to run
+    // *after* `threadQueue.run` (e.g. during a future refactor consolidating guard clauses) would
+    // still pass every assertion above unchanged. This test makes that specific ordering claim
+    // provably true rather than merely asserted in a comment.
+    it('never enters the per-thread queue for a message from Slackbot', async () => {
+      const threadQueue = makeThreadQueue();
+      const runSpy = vi.spyOn(threadQueue, 'run');
+      const deps = makeDeps({ threadQueue });
+      const handler = createInboundMessageHandler(deps);
+
+      await handler(SLACKBOT_MESSAGE);
+
+      expect(runSpy).not.toHaveBeenCalled();
+    });
+  });
+
   it('persists the user turn but not an assistant turn when the LLM call fails', async () => {
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient(() => {

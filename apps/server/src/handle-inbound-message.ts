@@ -40,6 +40,13 @@ import { runDmIntakeCascade } from './run-dm-intake-cascade.js';
 
 const MAX_HISTORY_TURNS = 20;
 
+// BUILD_PLAN 3.8 — Slack's own reserved user id for its workspace-notification bot, confirmed
+// against Sarah's real DM channel with it via `conversations.info` (`D0BLKFEU9UY`). A permanently
+// reserved system id, never assignable to a human — checking every relevant `conversation_turns`
+// row found exactly one Slackbot-shaped message and no second Slack-internal sender, so this stays
+// scoped to the one confirmed case rather than guessing at others.
+const SLACKBOT_USER_ID = 'USLACK';
+
 type GenerateReplyClient = Parameters<typeof generateReply>[0];
 type ClassifierClient = Parameters<typeof classifyMessageConfidence>[0];
 type ComposeDraftClient = Parameters<typeof composeTicketDraft>[0];
@@ -323,9 +330,10 @@ async function handleThreadedMessage(
 }
 
 /**
- * Handles every inbound DM, thread-scoped (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the
- * keying rule) and serialized per thread key via `threadQueue` so two overlapping messages for the
- * same conversation can't race on history.
+ * Handles every inbound DM **except Slack's own `USLACK` notification bot** (BUILD_PLAN 3.8, guarded
+ * before thread-key resolution ever runs — see that guard's own comment below), thread-scoped
+ * (BUILD_PLAN 2.4b — see `resolve-thread-key.ts` for the keying rule) and serialized per thread key
+ * via `threadQueue` so two overlapping messages for the same conversation can't race on history.
  *
  * As of BUILD_PLAN 3.7 a DM first runs VISION §5.2's intake cascade (`run-dm-intake-cascade.ts`):
  * a High-band DM gets a ticket draft and a Mid-band DM a confirming question, each *in place of*
@@ -350,6 +358,43 @@ export function createInboundMessageHandler(
   return async (message) => {
     if (message.channelType !== 'im') {
       await handleAmbientChannelMessage(deps, message);
+      return;
+    }
+
+    // BUILD_PLAN 3.8 — Slack's own `USLACK` delivers workspace notifications ("X archived channel
+    // Y") as plain DMs carrying neither `bot_id` nor `subtype`, so they arrive indistinguishable
+    // from a human DM at every filter upstream of here (`isProcessableMessageEvent`,
+    // `packages/slack`). Before this guard, each one produced a billed Sonnet reply that then
+    // failed to post — `restricted_action_read_only_channel`, since Slackbot's own DM channel is
+    // read-only — and, once 3.7 shipped, an additional billed Haiku classify on top, since the
+    // intake cascade classifies every DM by design. The failure mode was never silent — a failed
+    // post always falls through to the reply path exactly as intended — but the whole exchange was
+    // spend on a channel that can never receive it, and the resulting error had sat unexplained in
+    // production logs since 2026-07-25. A real human DM can never carry this reserved system id, so
+    // an exact match, before any billed call, closes both costs at once — the same shape as 5.2a's
+    // `isAmbientIntakeListener` guard: a cheap identity check placed as the very first thing this
+    // path does, ahead of the classify/reply work it exists to skip.
+    //
+    // No `review_queue` row, deliberately — this is not VISION §5.2's "nothing is silently eaten"
+    // backstop (BUILD_PLAN 3.4c/3.9), which exists for genuine human-authored ambiguity a Stage 1
+    // classification judged Low/Mid-band. `USLACK` is a deterministic, identity-based exclusion —
+    // verified against Slack's own developer changelog
+    // (docs.slack.dev/changelog/2026/06/17/system-notifications), not assumed: "Slack system
+    // notifications (such as channel membership changes, User Group updates, Slack Connect alerts,
+    // and retention policy notices) are now delivered from the 'Slack' system user (USLACK) instead
+    // of Slackbot" — the page's own "such as" leaves this list open-ended, but every category it
+    // names or implies is administrative, none a real work request. The same page also states
+    // "User-authored messages sent directly to Slackbot... are not affected by this change": that
+    // covers any conversational content a human might send through Slackbot's own separate, older id
+    // (`USLACKBOT`, distinct from `USLACK`), which this guard's exact match never touches. So there
+    // is nothing for the review-queue's whole purpose — a human deciding what nobody else did — to
+    // adjudicate on this path. The log line above is the visibility this needs, not a backstop 3.9's
+    // own "a log line nobody greps is not a backstop" argument would apply to.
+    if (message.userId === SLACKBOT_USER_ID) {
+      deps.logger.info("skipping Slackbot's own notification DM", {
+        personaId: deps.personaId,
+        channelId: message.channelId,
+      });
       return;
     }
 
