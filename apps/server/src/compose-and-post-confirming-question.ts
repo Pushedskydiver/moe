@@ -100,23 +100,11 @@ export type ComposeAndPostConfirmingQuestionInput = {
 export type PostAndPersistConfirmingQuestionResult =
   { readonly ok: true; readonly postedText: string } | { readonly ok: false };
 
-/**
- * Claims the `pending_confirming_questions` row *before* posting to Slack, keyed on the source
- * message's own ts, then posts the fixed-template question, fills in the real posted message's ts
- * on the claimed row, and seeds the 👍/👎 legend — same claim-first shape as
- * `handle-ambient-channel-message.ts`'s own `postAndPersistDraft` (BUILD_PLAN 5.2b), including that
- * it runs **no guard checks of its own**: gating is the caller's job. `composeAndPostConfirmingQuestion`
- * below (the ambient caller) only reaches it after both `evaluateCostAndRhythmGuard` and
- * `isSituationallyAppropriate` pass. BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`)
- * calls it directly instead, deliberately running neither of those two guards — a DM-triggered
- * post is reactive rather than unprompted, the same distinction 2.7a already settled for DM replies
- * — while still running the cost cap upstream, since the classify call that routed here is billed.
- * Exported for that caller, mirroring `postAndPersistDraft`'s own precedent of being reused
- * directly by a non-ambient caller rather than reimplemented.
- */
 // Extracted purely to keep `postAndPersistConfirmingQuestion` under eslint's
 // `max-lines-per-function` — composition code extracts aggressively (`docs/CONVENTIONS.md` §Code
-// Style). Returns `undefined` on failure, already logged.
+// Style). Returns `undefined` on failure, already logged. Claims the `pending_confirming_questions`
+// row *before* posting to Slack, keyed on the source message's own ts (BUILD_PLAN 5.2b) — see
+// `postAndPersistConfirmingQuestion`'s own TSDoc below for the full claim-first reasoning.
 async function claimQuestion(
   deps: HandlerDeps,
   input: ComposeAndPostConfirmingQuestionInput,
@@ -155,6 +143,20 @@ async function releaseQuestionClaimAfterPostFailure(
   }
 }
 
+/**
+ * Claims the `pending_confirming_questions` row *before* posting to Slack, keyed on the source
+ * message's own ts, then posts the fixed-template question, fills in the real posted message's ts
+ * on the claimed row, and seeds the 👍/👎 legend — same claim-first shape as
+ * `handle-ambient-channel-message.ts`'s own `postAndPersistDraft` (BUILD_PLAN 5.2b), including that
+ * it runs **no guard checks of its own**: gating is the caller's job. `composeAndPostConfirmingQuestion`
+ * below (the ambient caller) only reaches it after both `evaluateCostAndRhythmGuard` and
+ * `isSituationallyAppropriate` pass. BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`)
+ * calls it directly instead, deliberately running neither of those two guards — a DM-triggered
+ * post is reactive rather than unprompted, the same distinction 2.7a already settled for DM replies
+ * — while still running the cost cap upstream, since the classify call that routed here is billed.
+ * Exported for that caller, mirroring `postAndPersistDraft`'s own precedent of being reused
+ * directly by a non-ambient caller rather than reimplemented.
+ */
 export async function postAndPersistConfirmingQuestion(
   deps: HandlerDeps,
   input: ComposeAndPostConfirmingQuestionInput,

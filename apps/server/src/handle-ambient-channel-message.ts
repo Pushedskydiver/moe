@@ -192,38 +192,12 @@ type PostAndPersistDraftOptions = {
   readonly surface: QuestionSourceSurface;
 };
 
-// Claims the draft's "parent-message state" (`pending_ticket_drafts`) *before* posting to Slack,
-// keyed on the source message's own ts, then posts against the source message — in-thread for an
-// ambient draft, top-level for a DM one (see `surface` above) — fills in the real posted message's
-// ts on the claimed row, and seeds the 📦/🔁/✅ reaction-gate legend onto it. BUILD_PLAN 5.2b's
-// claim-first ordering (defence-in-depth for 5.2a's single-listener fix): the old order posted
-// first and persisted second, so `UNIQUE (channel_id, message_ts)` — keyed on a value that doesn't
-// exist until *after* the post — could never actually arbitrate a race between two processes
-// racing the same source message. Claiming on `UNIQUE (channel_id, source_message_ts)` first makes
-// a duplicate post structurally impossible rather than resting entirely on 5.2a's single-listener
-// designation being correct. A claim whose Slack post then fails with a definitive error is
-// released (`releaseDraftClaimAfterPostFailure` below), not left orphaned — an orphan there would
-// silently pollute `getDraftOutcomeCounts`'s `'ignored'` bucket with a draft that was never posted
-// (DA review, BUILD_PLAN 5.2b). Only a failure of the later mark-posted step still orphans
-// (`messageTs` stays `null` forever, unretried) — the same accepted trade-off as
-// `createGithubIssue`'s own claim-first idempotency guard for its own ambiguous-failure case
-// (BUILD_PLAN 4.4b): a real Slack message exists by then, so deleting the tracking row would make
-// it strictly worse, not better. This function itself runs no guard checks of its own — it's the
-// caller's job to gate it first. `composeAndPostDraft` below (the ambient High-band caller) only
-// reaches it after both `evaluateCostAndRhythmGuard` and `isSituationallyAppropriate` pass.
-//
-// Two other callers reuse this function directly rather than reimplementing it, and both
-// deliberately run **neither** guard first, because both are reactive rather than unprompted — the
-// same reactive/proactive distinction `standing-proactive-guards.ts`'s own TSDoc documents:
-// `draftFromConfirmingQuestion` (BUILD_PLAN 3.4b-ii, `reaction-outcome-actions.ts`), posting a
-// draft against a Mid-band confirming question's *original* source message, placed to match how
-// that question itself was posted, and
-// `runDmIntakeCascade` (BUILD_PLAN 3.7, `run-dm-intake-cascade.ts`), posting a draft for a
-// High-band DM. Both still check the cost cap, since `composeTicketDraft` below is a real, billed
-// call regardless of which caller reached it.
 // Extracted purely to keep `postAndPersistDraft` under eslint's `max-lines-per-function` —
 // composition code extracts aggressively (`docs/CONVENTIONS.md` §Code Style). Returns `undefined`
-// on failure, already logged, matching `composeDraftContent`'s own precedent one call up.
+// on failure, already logged, matching `composeDraftContent`'s own precedent one call up. Claims
+// the draft's "parent-message state" (`pending_ticket_drafts`) *before* posting to Slack, keyed on
+// the source message's own ts (BUILD_PLAN 5.2b) — see `postAndPersistDraft`'s own comment below for
+// the full claim-first reasoning.
 async function claimDraft(
   deps: DraftPostingDeps,
   input: {
@@ -285,6 +259,35 @@ async function markDraftPosted(
   return false;
 }
 
+// Claims the draft's "parent-message state" (`pending_ticket_drafts`) *before* posting to Slack,
+// keyed on the source message's own ts, then posts against the source message — in-thread for an
+// ambient draft, top-level for a DM one (see `surface` above) — fills in the real posted message's
+// ts on the claimed row, and seeds the 📦/🔁/✅ reaction-gate legend onto it. BUILD_PLAN 5.2b's
+// claim-first ordering (defence-in-depth for 5.2a's single-listener fix): the old order posted
+// first and persisted second, so `UNIQUE (channel_id, message_ts)` — keyed on a value that doesn't
+// exist until *after* the post — could never actually arbitrate a race between two processes
+// racing the same source message. Claiming on `UNIQUE (channel_id, source_message_ts)` first makes
+// a duplicate post structurally impossible rather than resting entirely on 5.2a's single-listener
+// designation being correct. A claim whose Slack post then fails with a definitive error is
+// released (`releaseDraftClaimAfterPostFailure` above), not left orphaned — an orphan there would
+// silently pollute `getDraftOutcomeCounts`'s `'ignored'` bucket with a draft that was never posted
+// (DA review, BUILD_PLAN 5.2b). Only a failure of the later mark-posted step still orphans
+// (`messageTs` stays `null` forever, unretried) — the same accepted trade-off as
+// `createGithubIssue`'s own claim-first idempotency guard for its own ambiguous-failure case
+// (BUILD_PLAN 4.4b): a real Slack message exists by then, so deleting the tracking row would make
+// it strictly worse, not better. This function itself runs no guard checks of its own — it's the
+// caller's job to gate it first. `composeAndPostDraft` below (the ambient High-band caller) only
+// reaches it after both `evaluateCostAndRhythmGuard` and `isSituationallyAppropriate` pass.
+//
+// Two other callers reuse this function directly rather than reimplementing it, and both
+// deliberately run **neither** guard first, because both are reactive rather than unprompted — the
+// same reactive/proactive distinction `standing-proactive-guards.ts`'s own TSDoc documents:
+// `draftFromConfirmingQuestion` (BUILD_PLAN 3.4b-ii, `reaction-outcome-actions.ts`), posting a
+// draft against a Mid-band confirming question's *original* source message, placed to match how
+// that question itself was posted, and
+// `runDmIntakeCascade` (BUILD_PLAN 3.7, `run-dm-intake-cascade.ts`), posting a draft for a
+// High-band DM. Both still check the cost cap, since `composeTicketDraft` below is a real, billed
+// call regardless of which caller reached it.
 export async function postAndPersistDraft(
   deps: DraftPostingDeps,
   message: DraftSourceMessage,

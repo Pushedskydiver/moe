@@ -617,6 +617,7 @@ describe('runDmIntakeCascade', () => {
       );
 
       expect(result).toEqual({ handled: false });
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -685,9 +686,12 @@ describe('runDmIntakeCascade', () => {
       expect(result.handled).toBe(true);
     });
 
-    it('falls through when persisting the pending confirming question fails after a successful post', async () => {
-      // The High band pins compose/post/persist failures separately; this is the Mid band's own
-      // persist pin, so both bands have symmetric failure-path coverage.
+    it('falls through when claiming the pending confirming question fails, before ever posting to Slack (surrogate review, BUILD_PLAN 5.2b)', async () => {
+      // The High band pins compose/claim/post failures separately; this is the Mid band's own
+      // claim pin, so both bands have symmetric failure-path coverage. Was mislabeled
+      // "persisting... fails after a successful post" pre-5.2b, when `create` really was the
+      // post-persist step — the reorder moved `create` to the pre-post claim step, so a `create`
+      // failure now means the claim never happened and `postMessage` is never reached at all.
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient({ parseResponse: MID_BAND }),
         confirmingQuestionStore: makeConfirmingQuestionStore({
@@ -705,6 +709,7 @@ describe('runDmIntakeCascade', () => {
       );
 
       expect(result).toEqual({ handled: false });
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
     });
 
     it('falls through when posting the confirming question fails', async () => {
