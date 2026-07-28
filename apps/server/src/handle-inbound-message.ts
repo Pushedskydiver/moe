@@ -377,12 +377,13 @@ export function createInboundMessageHandler(
     //
     // No `review_queue` row, deliberately — this is not VISION §5.2's "nothing is silently eaten"
     // backstop (BUILD_PLAN 3.4c/3.9), which exists for genuine human-authored ambiguity a Stage 1
-    // classification judged Low/Mid-band. `USLACK` is a deterministic, identity-based exclusion,
-    // scoped to a specific closed list — verified against Slack's own developer changelog
+    // classification judged Low/Mid-band. `USLACK` is a deterministic, identity-based exclusion —
+    // verified against Slack's own developer changelog
     // (docs.slack.dev/changelog/2026/06/17/system-notifications), not assumed: "Slack system
     // notifications (such as channel membership changes, User Group updates, Slack Connect alerts,
     // and retention policy notices) are now delivered from the 'Slack' system user (USLACK) instead
-    // of Slackbot" — all administrative, none a real work request. The same page also states
+    // of Slackbot" — the page's own "such as" leaves this list open-ended, but every category it
+    // names or implies is administrative, none a real work request. The same page also states
     // "User-authored messages sent directly to Slackbot... are not affected by this change": that
     // covers any conversational content a human might send through Slackbot's own separate, older id
     // (`USLACKBOT`, distinct from `USLACK`), which this guard's exact match never touches. So there
