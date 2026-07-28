@@ -211,6 +211,7 @@ function makePendingTicketDraft(
     personaId: 'sarah',
     channelId: 'C123',
     messageTs: '1700000000.000100',
+    sourceMessageTs: '1700000000.000050',
     sourceMessageText: 'the CLI hangs on large repos',
     draftTitle: 'CLI hangs on large repos',
     draftBody: 'The CLI hangs when run against large repos.',
@@ -252,10 +253,17 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   return {
     create: vi.fn<DraftStore['create']>().mockResolvedValue({
       ok: true,
-      draft: makePendingTicketDraft(),
+      draft: makePendingTicketDraft({ messageTs: null }),
     }),
     getByMessage: vi.fn<DraftStore['getByMessage']>(),
     updateContent: vi.fn<DraftStore['updateContent']>(),
+    markPosted: vi.fn<DraftStore['markPosted']>().mockResolvedValue({
+      ok: true,
+      draft: makePendingTicketDraft(),
+    }),
+    releaseClaim: vi
+      .fn<DraftStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -293,26 +301,35 @@ function makeReviewQueueStore(
 function makeConfirmingQuestionStore(
   overrides: Partial<ConfirmingQuestionStore> = {},
 ): ConfirmingQuestionStore {
+  const BASE_QUESTION = {
+    id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
+    personaId: 'sarah',
+    channelId: 'C123',
+    sourceSurface: 'channel' as const,
+    sourceMessageTs: '1700000000.000050',
+    sourceMessageText:
+      'hey, there might be an issue with the CLI on large repos',
+    confidence: 55,
+    reasoning: 'plausibly describes a bug, but not clearly actionable',
+    resolvedAt: null,
+    createdAt: new Date('2026-07-16T09:00:00.000Z'),
+  };
   return {
     create: vi.fn<ConfirmingQuestionStore['create']>().mockResolvedValue({
       ok: true,
-      question: {
-        id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
-        personaId: 'sarah',
-        channelId: 'C123',
-        messageTs: '1700000000.000100',
-        sourceSurface: 'channel' as const,
-        sourceMessageTs: '1700000000.000050',
-        sourceMessageText:
-          'hey, there might be an issue with the CLI on large repos',
-        confidence: 55,
-        reasoning: 'plausibly describes a bug, but not clearly actionable',
-        resolvedAt: null,
-        createdAt: new Date('2026-07-16T09:00:00.000Z'),
-      },
+      question: { ...BASE_QUESTION, messageTs: null },
     }),
     getByMessage: vi.fn<ConfirmingQuestionStore['getByMessage']>(),
     resolve: vi.fn<ConfirmingQuestionStore['resolve']>(),
+    markPosted: vi
+      .fn<ConfirmingQuestionStore['markPosted']>()
+      .mockResolvedValue({
+        ok: true,
+        question: { ...BASE_QUESTION, messageTs: '1700000000.000100' },
+      }),
+    releaseClaim: vi
+      .fn<ConfirmingQuestionStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -409,10 +426,15 @@ describe('handleAmbientChannelMessage', () => {
     // Every persona is its own process with its own Slack app, so all eight receive the same
     // channel message. Before this gate, all eight classified it: K billed Haiku calls per
     // message — 2K on a High-band message, since the situational-appropriateness gate is a second
-    // Haiku call — plus K billed Sonnet drafts and K separately-committable
-    // ticket drafts — `pending_ticket_drafts`' UNIQUE (channel_id, message_ts) keys on the
-    // *posted* draft's ts, which differs per persona, so it never collides and never arbitrated
-    // anything.
+    // Haiku call — plus K billed Sonnet drafts and K separately-committable ticket drafts. At the
+    // time this gate was written, `pending_ticket_drafts`' `UNIQUE (channel_id, message_ts)` keyed
+    // on the *posted* draft's own ts, which differs per persona, so it never collided and never
+    // arbitrated anything — this gate was the *only* thing preventing K duplicate drafts. BUILD_PLAN
+    // 5.2b later moved the claim key to `(channel_id, source_message_ts)` — identical across
+    // personas for the same channel message — specifically so a second layer would also catch it if
+    // this gate's own designation were ever wrong; that defence-in-depth doesn't change what this
+    // test itself needs to prove, since only one designated persona should ever reach the claim at
+    // all.
     it('drops an ambient message entirely for a non-intake persona, before any billed call', async () => {
       const deps = makeDeps({ personaId: 'marcus' });
 
@@ -604,16 +626,23 @@ describe('handleAmbientChannelMessage', () => {
         }),
       );
 
-      // Persisted keyed on the real posted message's own ts, not the source message's ts.
+      // Claimed keyed on the *source* message's own ts, before the Slack post ever happens
+      // (BUILD_PLAN 5.2b) — not the posted message's ts, which doesn't exist yet at claim time.
       expect(deps.draftStore.create).toHaveBeenCalledWith({
         personaId: 'sarah',
         channelId: 'C123',
-        messageTs: '1700000099.000100',
+        sourceMessageTs: '1700000000.000050',
         sourceMessageText: channelMessage.text,
         draftTitle: 'CLI hangs on large repos',
         draftBody: 'The CLI hangs when run against large repos.',
         origin: 'high-band',
       });
+
+      // messageTs filled in on the claimed row only once the real post succeeds (BUILD_PLAN 5.2b).
+      expect(deps.draftStore.markPosted).toHaveBeenCalledWith(
+        '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+        '1700000099.000100',
+      );
 
       // The 📦/🔁/✅ legend, seeded in order onto the real posted message.
       expect(deps.slackClient.reactions.add).toHaveBeenNthCalledWith(1, {
@@ -730,7 +759,7 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
-  it('logs an error, without throwing, when persisting the pending ticket draft fails after a successful post', async () => {
+  it('logs an error, without throwing, when claiming the pending ticket draft fails — before ever posting to Slack (BUILD_PLAN 5.2b)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -756,9 +785,10 @@ describe('handleAmbientChannelMessage', () => {
       ).resolves.toBeUndefined();
 
       expect(deps.logger.error).toHaveBeenCalledWith(
-        'failed to persist pending ticket draft',
+        'failed to claim pending ticket draft',
         { errorMessage: 'Error: connection reset' },
       );
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
       expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
       expect(deps.logger.info).not.toHaveBeenCalledWith(
         'posted ticket draft',
@@ -769,7 +799,7 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
-  it('logs an error, without throwing, when posting the ticket draft to Slack fails', async () => {
+  it('logs an error, without throwing, when posting the ticket draft to Slack fails — the claim already made is released, not left orphaned (DA review, BUILD_PLAN 5.2b)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -793,7 +823,87 @@ describe('handleAmbientChannelMessage', () => {
         'failed to post ticket draft',
         { errorMessage: 'channel_not_found' },
       );
-      expect(deps.draftStore.create).not.toHaveBeenCalled();
+      expect(deps.draftStore.create).toHaveBeenCalled();
+      expect(deps.draftStore.markPosted).not.toHaveBeenCalled();
+      expect(deps.draftStore.releaseClaim).toHaveBeenCalledWith(
+        '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logs an error, without throwing, when releasing the claim itself fails after a Slack-post failure (BUILD_PLAN 5.2b)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: { appropriate: true, reasoning: 'fine' },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+        slackClient: makeSlackClient({ ok: false, error: 'channel_not_found' }),
+        draftStore: makeDraftStore({
+          releaseClaim: vi.fn<DraftStore['releaseClaim']>().mockResolvedValue({
+            ok: false,
+            error: { cause: new Error('connection reset') },
+          }),
+        }),
+      });
+
+      await expect(
+        handleAmbientChannelMessage(deps, CHANNEL_MESSAGE),
+      ).resolves.toBeUndefined();
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to release pending ticket draft claim',
+        { errorMessage: 'Error: connection reset' },
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logs an error, without throwing, when marking the claimed draft posted fails after a successful Slack post (BUILD_PLAN 5.2b)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: { appropriate: true, reasoning: 'fine' },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+        draftStore: makeDraftStore({
+          markPosted: vi.fn<DraftStore['markPosted']>().mockResolvedValue({
+            ok: false,
+            error: { kind: 'unavailable' },
+          }),
+        }),
+      });
+
+      await expect(
+        handleAmbientChannelMessage(deps, CHANNEL_MESSAGE),
+      ).resolves.toBeUndefined();
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to mark pending ticket draft posted',
+        {
+          errorMessage: 'draft was already marked posted, or no longer exists',
+        },
+      );
+      expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
+      expect(deps.logger.info).not.toHaveBeenCalledWith(
+        'posted ticket draft',
+        expect.anything(),
+      );
     } finally {
       vi.useRealTimers();
     }

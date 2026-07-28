@@ -1,4 +1,5 @@
 import type { Database } from '../schema.js';
+import type { NewPendingTicketDraft } from './pending-ticket-drafts-repository.js';
 import type { Kysely } from 'kysely';
 import type { Pool } from 'pg';
 
@@ -13,6 +14,8 @@ import { getTestPool, resetDatabase } from '../ticket-lifecycle/test-db.js';
 import {
   createPendingTicketDraft,
   getPendingTicketDraftByMessage,
+  markPendingTicketDraftPosted,
+  releasePendingTicketDraftClaim,
   resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
 } from './pending-ticket-drafts-repository.js';
@@ -24,11 +27,13 @@ const migrationsDir = join(
   'migrations',
 );
 
+const POSTED_MESSAGE_TS = '1700000099.000100';
+
 function newDraftInput() {
   return {
     personaId: 'sarah',
     channelId: 'C123',
-    messageTs: '1700000000.000100',
+    sourceMessageTs: '1700000000.000100',
     sourceMessageText: 'the CLI hangs on large repos, can someone take a look',
     draftTitle: 'CLI hangs on large repos',
     draftBody: 'The CLI hangs when run against large repos.',
@@ -53,13 +58,14 @@ describe('pending ticket drafts repository', () => {
     await cleanupPool.end();
   });
 
-  it('creates a pending draft, unresolved by default', async () => {
+  it('creates a pending draft, unresolved and with no messageTs yet — the claim precedes the Slack post (BUILD_PLAN 5.2b)', async () => {
     const result = await createPendingTicketDraft(db, newDraftInput());
 
     expect(result).toEqual({
       ok: true,
       draft: expect.objectContaining({
         ...newDraftInput(),
+        messageTs: null,
         resolvedAt: null,
       }) as unknown,
     });
@@ -82,17 +88,23 @@ describe('pending ticket drafts repository', () => {
     expect(all).toHaveLength(0);
   });
 
-  it('reads back a created draft by (channelId, messageTs)', async () => {
+  it('reads back a created draft by (channelId, messageTs) once the post-succeeded mark has filled messageTs in', async () => {
     const created = await createPendingTicketDraft(db, newDraftInput());
     if (!created.ok) throw new Error('setup failed');
+    const posted = await markPendingTicketDraftPosted(
+      db,
+      created.draft.id,
+      POSTED_MESSAGE_TS,
+    );
+    if (!posted.ok) throw new Error('setup failed');
 
     const result = await getPendingTicketDraftByMessage(db, {
       personaId: newDraftInput().personaId,
       channelId: newDraftInput().channelId,
-      messageTs: newDraftInput().messageTs,
+      messageTs: POSTED_MESSAGE_TS,
     });
 
-    expect(result).toEqual({ ok: true, draft: created.draft });
+    expect(result).toEqual({ ok: true, draft: posted.draft });
   });
 
   it('returns a null draft for a (channelId, messageTs) pair that does not exist', async () => {
@@ -114,11 +126,12 @@ describe('pending ticket drafts repository', () => {
     // Backlog before any human sees it, defeating VISION §5.2's "visible, reversible draft".
     const created = await createPendingTicketDraft(db, newDraftInput());
     if (!created.ok) throw new Error('setup failed');
+    await markPendingTicketDraftPosted(db, created.draft.id, POSTED_MESSAGE_TS);
 
     const result = await getPendingTicketDraftByMessage(db, {
       personaId: 'marcus',
       channelId: newDraftInput().channelId,
-      messageTs: newDraftInput().messageTs,
+      messageTs: POSTED_MESSAGE_TS,
     });
 
     expect(result).toEqual({ ok: true, draft: null });
@@ -213,5 +226,152 @@ describe('pending ticket drafts repository', () => {
       [created.draft.id],
     );
     expect(afterSecond[0]?.redo_count).toBe(2);
+  });
+
+  it('rejects a second claim for the same (channelId, sourceMessageTs) pair via the UNIQUE constraint (BUILD_PLAN 5.2b)', async () => {
+    const first = await createPendingTicketDraft(db, newDraftInput());
+    expect(first.ok).toBe(true);
+
+    const second = await createPendingTicketDraft(db, newDraftInput());
+
+    expect(second).toEqual({
+      ok: false,
+      error: { kind: 'unknown', cause: expect.anything() as unknown },
+    });
+  });
+
+  it('fills in messageTs on a claimed draft once the Slack post succeeds (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+
+    const result = await markPendingTicketDraftPosted(
+      db,
+      created.draft.id,
+      POSTED_MESSAGE_TS,
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      draft: expect.objectContaining({
+        id: created.draft.id,
+        messageTs: POSTED_MESSAGE_TS,
+      }) as unknown,
+    });
+  });
+
+  it('fails to mark a draft posted a second time (double-fire/retry guard, BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+    await markPendingTicketDraftPosted(db, created.draft.id, POSTED_MESSAGE_TS);
+
+    const result = await markPendingTicketDraftPosted(
+      db,
+      created.draft.id,
+      '1700000199.000200',
+    );
+
+    expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
+  });
+
+  it('fails to mark posted a draft that does not exist (BUILD_PLAN 5.2b)', async () => {
+    const result = await markPendingTicketDraftPosted(
+      db,
+      '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      POSTED_MESSAGE_TS,
+    );
+
+    expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
+  });
+
+  it('rejects a claim with a blank sourceMessageTs, before it ever reaches the database (DA review, BUILD_PLAN 5.2b)', async () => {
+    const result = await createPendingTicketDraft(db, {
+      ...newDraftInput(),
+      sourceMessageTs: '   ',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        kind: 'validation-failed',
+        issues: expect.any(String) as string,
+      },
+    });
+    const all = await db
+      .selectFrom('pendingTicketDrafts')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(0);
+  });
+
+  it('rejects a claim with a null sourceMessageTs, before it ever reaches the database (R2 review, BUILD_PLAN 5.2b)', async () => {
+    // Distinct from the blank-string test above on purpose: `pendingTicketDraftSchema`'s own
+    // `sourceMessageTs` is `.nullable()` (tolerating one legacy row that predates the column), so
+    // the actual bug this guards against is `null` specifically, not blankness — a blank string was
+    // already rejected before `newPendingTicketDraftSchema` existed (`.nullable()` still runs the
+    // inner non-blank check on any non-null value). Only a `null` input exercises the real gap:
+    // without `newPendingTicketDraftSchema`'s own non-nullable `sourceMessageTs`,
+    // `createPendingTicketDraft` would validate against the nullable round-trip schema instead and
+    // silently accept it. `as unknown as NewPendingTicketDraft` simulates a caller bypassing
+    // TypeScript's own compile-time-only guarantee (an untyped JS caller, or a stale `as` cast
+    // elsewhere) — exactly the gap DA review found: the TS type alone was never a runtime guarantee.
+    const result = await createPendingTicketDraft(db, {
+      ...newDraftInput(),
+      sourceMessageTs: null,
+    } as unknown as NewPendingTicketDraft);
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        kind: 'validation-failed',
+        issues: expect.any(String) as string,
+      },
+    });
+    const all = await db
+      .selectFrom('pendingTicketDrafts')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(0);
+  });
+
+  it('deletes a still-claimed (never-posted) draft, freeing its sourceMessageTs for a fresh claim (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+
+    const released = await releasePendingTicketDraftClaim(db, created.draft.id);
+    expect(released).toEqual({ ok: true });
+
+    const all = await db
+      .selectFrom('pendingTicketDrafts')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(0);
+
+    // The whole point: releasing frees the claim key for the same source message to try again.
+    const retried = await createPendingTicketDraft(db, newDraftInput());
+    expect(retried.ok).toBe(true);
+  });
+
+  it('does not delete an already-posted draft, even when called with its id (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+    await markPendingTicketDraftPosted(db, created.draft.id, POSTED_MESSAGE_TS);
+
+    const released = await releasePendingTicketDraftClaim(db, created.draft.id);
+    expect(released).toEqual({ ok: true });
+
+    const all = await db
+      .selectFrom('pendingTicketDrafts')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(1);
+  });
+
+  it('is a no-op for a draft that does not exist (BUILD_PLAN 5.2b)', async () => {
+    const released = await releasePendingTicketDraftClaim(
+      db,
+      '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    );
+
+    expect(released).toEqual({ ok: true });
   });
 });

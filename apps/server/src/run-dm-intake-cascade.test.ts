@@ -158,6 +158,7 @@ function makePendingTicketDraft(
     personaId: 'sarah',
     channelId: 'D123',
     messageTs: '1700000000.000100',
+    sourceMessageTs: '1700000000.000050',
     sourceMessageText: 'the CLI hangs on large repos',
     draftTitle: 'CLI hangs on large repos',
     draftBody: 'The CLI hangs when run against large repos.',
@@ -172,10 +173,17 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   return {
     create: vi.fn<DraftStore['create']>().mockResolvedValue({
       ok: true,
-      draft: makePendingTicketDraft(),
+      draft: makePendingTicketDraft({ messageTs: null }),
     }),
     getByMessage: vi.fn<DraftStore['getByMessage']>(),
     updateContent: vi.fn<DraftStore['updateContent']>(),
+    markPosted: vi.fn<DraftStore['markPosted']>().mockResolvedValue({
+      ok: true,
+      draft: makePendingTicketDraft(),
+    }),
+    releaseClaim: vi
+      .fn<DraftStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -192,25 +200,34 @@ function makeReviewQueueStore(
 function makeConfirmingQuestionStore(
   overrides: Partial<ConfirmingQuestionStore> = {},
 ): ConfirmingQuestionStore {
+  const BASE_QUESTION = {
+    id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
+    personaId: 'sarah',
+    channelId: 'D123',
+    sourceSurface: 'dm' as const,
+    sourceMessageTs: '1700000000.000050',
+    sourceMessageText: 'there might be an issue with the CLI',
+    confidence: 55,
+    reasoning: 'plausibly a bug, but not clearly actionable',
+    resolvedAt: null,
+    createdAt: new Date('2026-07-16T09:00:00.000Z'),
+  };
   return {
     create: vi.fn<ConfirmingQuestionStore['create']>().mockResolvedValue({
       ok: true,
-      question: {
-        id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
-        personaId: 'sarah',
-        channelId: 'D123',
-        messageTs: '1700000000.000100',
-        sourceSurface: 'dm' as const,
-        sourceMessageTs: '1700000000.000050',
-        sourceMessageText: 'there might be an issue with the CLI',
-        confidence: 55,
-        reasoning: 'plausibly a bug, but not clearly actionable',
-        resolvedAt: null,
-        createdAt: new Date('2026-07-16T09:00:00.000Z'),
-      },
+      question: { ...BASE_QUESTION, messageTs: null },
     }),
     getByMessage: vi.fn<ConfirmingQuestionStore['getByMessage']>(),
     resolve: vi.fn<ConfirmingQuestionStore['resolve']>(),
+    markPosted: vi
+      .fn<ConfirmingQuestionStore['markPosted']>()
+      .mockResolvedValue({
+        ok: true,
+        question: { ...BASE_QUESTION, messageTs: '1700000000.000100' },
+      }),
+    releaseClaim: vi
+      .fn<ConfirmingQuestionStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -373,12 +390,19 @@ describe('runDmIntakeCascade', () => {
 
       // `high-band-dm`, not `high-band` — keeps DM drafts out of `getDraftOutcomeCounts`'s
       // ambient-classifier acceptance-rate population (VISION §5.4).
+      // Claimed keyed on the *source* message's own ts, before the Slack post ever happens
+      // (BUILD_PLAN 5.2b).
       expect(deps.draftStore.create).toHaveBeenCalledWith(
         expect.objectContaining({
           channelId: 'D123',
-          messageTs: '1700000099.000100',
+          sourceMessageTs: DM_MESSAGE.ts,
           origin: 'high-band-dm',
         }),
+      );
+      // messageTs filled in on the claimed row only once the real post succeeds.
+      expect(deps.draftStore.markPosted).toHaveBeenCalledWith(
+        '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+        '1700000099.000100',
       );
 
       expect(deps.slackClient.reactions.add).toHaveBeenNthCalledWith(1, {
@@ -572,7 +596,7 @@ describe('runDmIntakeCascade', () => {
       expect(result).toEqual({ handled: false });
     });
 
-    it('falls through when persisting the pending draft fails after a successful post', async () => {
+    it('falls through when claiming the pending draft fails, before ever posting to Slack (BUILD_PLAN 5.2b)', async () => {
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient({
           parseResponse: HIGH_BAND,
@@ -593,6 +617,7 @@ describe('runDmIntakeCascade', () => {
       );
 
       expect(result).toEqual({ handled: false });
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
     });
   });
 
@@ -661,9 +686,12 @@ describe('runDmIntakeCascade', () => {
       expect(result.handled).toBe(true);
     });
 
-    it('falls through when persisting the pending confirming question fails after a successful post', async () => {
-      // The High band pins compose/post/persist failures separately; this is the Mid band's own
-      // persist pin, so both bands have symmetric failure-path coverage.
+    it('falls through when claiming the pending confirming question fails, before ever posting to Slack (surrogate review, BUILD_PLAN 5.2b)', async () => {
+      // The High band pins compose/claim/post failures separately; this is the Mid band's own
+      // claim pin, so both bands have symmetric failure-path coverage. Was mislabeled
+      // "persisting... fails after a successful post" pre-5.2b, when `create` really was the
+      // post-persist step — the reorder moved `create` to the pre-post claim step, so a `create`
+      // failure now means the claim never happened and `postMessage` is never reached at all.
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient({ parseResponse: MID_BAND }),
         confirmingQuestionStore: makeConfirmingQuestionStore({
@@ -681,6 +709,7 @@ describe('runDmIntakeCascade', () => {
       );
 
       expect(result).toEqual({ handled: false });
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
     });
 
     it('falls through when posting the confirming question fails', async () => {

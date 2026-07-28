@@ -1,5 +1,8 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
-import type { QuestionSourceSurface } from '@moe/core';
+import type {
+  PendingConfirmingQuestion,
+  QuestionSourceSurface,
+} from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
 import { addReaction, postMessage } from '@moe/slack';
@@ -97,12 +100,56 @@ export type ComposeAndPostConfirmingQuestionInput = {
 export type PostAndPersistConfirmingQuestionResult =
   { readonly ok: true; readonly postedText: string } | { readonly ok: false };
 
+// Extracted purely to keep `postAndPersistConfirmingQuestion` under eslint's
+// `max-lines-per-function` — composition code extracts aggressively (`docs/CONVENTIONS.md` §Code
+// Style). Returns `undefined` on failure, already logged. Claims the `pending_confirming_questions`
+// row *before* posting to Slack, keyed on the source message's own ts (BUILD_PLAN 5.2b) — see
+// `postAndPersistConfirmingQuestion`'s own TSDoc below for the full claim-first reasoning.
+async function claimQuestion(
+  deps: HandlerDeps,
+  input: ComposeAndPostConfirmingQuestionInput,
+): Promise<PendingConfirmingQuestion | undefined> {
+  const { message, classified } = input;
+  const claimed = await deps.confirmingQuestionStore.create({
+    personaId: deps.personaId,
+    channelId: message.channelId,
+    sourceSurface: input.surface,
+    sourceMessageTs: message.ts,
+    sourceMessageText: message.text,
+    confidence: classified.confidence,
+    reasoning: classified.reasoning,
+  });
+  if (!claimed.ok) {
+    deps.logger.error('failed to claim pending confirming question', {
+      errorMessage: repositoryErrorMessage(claimed.error),
+    });
+    return undefined;
+  }
+  return claimed.question;
+}
+
+// Extracted for the same `max-lines-per-function` reason as `claimQuestion` above — mirrors
+// `handle-ambient-channel-message.ts`'s own `releaseDraftClaimAfterPostFailure` exactly (DA
+// review, BUILD_PLAN 5.2b).
+async function releaseQuestionClaimAfterPostFailure(
+  deps: HandlerDeps,
+  claimedId: string,
+): Promise<void> {
+  const released = await deps.confirmingQuestionStore.releaseClaim(claimedId);
+  if (!released.ok) {
+    deps.logger.error('failed to release pending confirming question claim', {
+      errorMessage: String(released.error.cause),
+    });
+  }
+}
+
 /**
- * Posts the fixed-template question, persists the `pending_confirming_questions` row keyed on the
- * real posted message, and seeds the 👍/👎 legend — same shape as
- * `handle-ambient-channel-message.ts`'s own `postAndPersistDraft`, including that it runs **no
- * guard checks of its own**: gating is the caller's job. `composeAndPostConfirmingQuestion` below
- * (the ambient caller) only reaches it after both `evaluateCostAndRhythmGuard` and
+ * Claims the `pending_confirming_questions` row *before* posting to Slack, keyed on the source
+ * message's own ts, then posts the fixed-template question, fills in the real posted message's ts
+ * on the claimed row, and seeds the 👍/👎 legend — same claim-first shape as
+ * `handle-ambient-channel-message.ts`'s own `postAndPersistDraft` (BUILD_PLAN 5.2b), including that
+ * it runs **no guard checks of its own**: gating is the caller's job. `composeAndPostConfirmingQuestion`
+ * below (the ambient caller) only reaches it after both `evaluateCostAndRhythmGuard` and
  * `isSituationallyAppropriate` pass. BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`)
  * calls it directly instead, deliberately running neither of those two guards — a DM-triggered
  * post is reactive rather than unprompted, the same distinction 2.7a already settled for DM replies
@@ -114,7 +161,11 @@ export async function postAndPersistConfirmingQuestion(
   deps: HandlerDeps,
   input: ComposeAndPostConfirmingQuestionInput,
 ): Promise<PostAndPersistConfirmingQuestionResult> {
-  const { message, classified } = input;
+  const { message } = input;
+
+  const claimed = await claimQuestion(deps, input);
+  if (claimed === undefined) return { ok: false };
+
   // Composed once and reused for both the Slack post and the `postedText` returned below, so the
   // persisted conversation turn can never drift from what the user actually saw.
   const questionText = formatConfirmingQuestionText();
@@ -127,22 +178,20 @@ export async function postAndPersistConfirmingQuestion(
     deps.logger.error('failed to post confirming question', {
       errorMessage: posted.error.message,
     });
+    await releaseQuestionClaimAfterPostFailure(deps, claimed.id);
     return { ok: false };
   }
 
-  const created = await deps.confirmingQuestionStore.create({
-    personaId: deps.personaId,
-    channelId: message.channelId,
-    messageTs: posted.ts,
-    sourceSurface: input.surface,
-    sourceMessageTs: message.ts,
-    sourceMessageText: message.text,
-    confidence: classified.confidence,
-    reasoning: classified.reasoning,
-  });
-  if (!created.ok) {
-    deps.logger.error('failed to persist pending confirming question', {
-      errorMessage: repositoryErrorMessage(created.error),
+  const marked = await deps.confirmingQuestionStore.markPosted(
+    claimed.id,
+    posted.ts,
+  );
+  if (!marked.ok) {
+    deps.logger.error('failed to mark pending confirming question posted', {
+      errorMessage:
+        marked.error.kind === 'unavailable'
+          ? 'question was already marked posted, or no longer exists'
+          : repositoryErrorMessage(marked.error),
     });
     return { ok: false };
   }
@@ -156,7 +205,7 @@ export async function postAndPersistConfirmingQuestion(
   deps.logger.info('posted mid-band confirming question', {
     personaId: deps.personaId,
     channelId: message.channelId,
-    questionId: created.question.id,
+    questionId: claimed.id,
   });
   return { ok: true, postedText: questionText };
 }

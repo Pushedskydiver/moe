@@ -217,6 +217,7 @@ function makePendingTicketDraft(
     personaId: 'sarah',
     channelId: 'C123',
     messageTs: '1700000000.000100',
+    sourceMessageTs: '1700000000.000050',
     sourceMessageText: 'the CLI hangs on large repos',
     draftTitle: 'CLI hangs on large repos',
     draftBody: 'The CLI hangs when run against large repos.',
@@ -261,10 +262,19 @@ function makeDraftStore(
   return {
     create: vi.fn<HandlerDeps['draftStore']['create']>().mockResolvedValue({
       ok: true,
-      draft: makePendingTicketDraft(),
+      draft: makePendingTicketDraft({ messageTs: null }),
     }),
     getByMessage: vi.fn<HandlerDeps['draftStore']['getByMessage']>(),
     updateContent: vi.fn<HandlerDeps['draftStore']['updateContent']>(),
+    markPosted: vi
+      .fn<HandlerDeps['draftStore']['markPosted']>()
+      .mockResolvedValue({
+        ok: true,
+        draft: makePendingTicketDraft(),
+      }),
+    releaseClaim: vi
+      .fn<HandlerDeps['draftStore']['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -304,29 +314,38 @@ function makeReviewQueueStore(
 function makeConfirmingQuestionStore(
   overrides: Partial<HandlerDeps['confirmingQuestionStore']> = {},
 ): HandlerDeps['confirmingQuestionStore'] {
+  const BASE_QUESTION = {
+    id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
+    personaId: 'sarah',
+    channelId: 'C123',
+    sourceSurface: 'channel' as const,
+    sourceMessageTs: '1700000000.000050',
+    sourceMessageText:
+      'hey, there might be an issue with the CLI on large repos',
+    confidence: 55,
+    reasoning: 'plausibly describes a bug, but not clearly actionable',
+    resolvedAt: null,
+    createdAt: new Date('2026-07-16T09:00:00.000Z'),
+  };
   return {
     create: vi
       .fn<HandlerDeps['confirmingQuestionStore']['create']>()
       .mockResolvedValue({
         ok: true,
-        question: {
-          id: '8fa85f64-5717-4562-b3fc-2c963f66afab',
-          personaId: 'sarah',
-          channelId: 'C123',
-          messageTs: '1700000000.000100',
-          sourceSurface: 'channel' as const,
-          sourceMessageTs: '1700000000.000050',
-          sourceMessageText:
-            'hey, there might be an issue with the CLI on large repos',
-          confidence: 55,
-          reasoning: 'plausibly describes a bug, but not clearly actionable',
-          resolvedAt: null,
-          createdAt: new Date('2026-07-16T09:00:00.000Z'),
-        },
+        question: { ...BASE_QUESTION, messageTs: null },
       }),
     getByMessage:
       vi.fn<HandlerDeps['confirmingQuestionStore']['getByMessage']>(),
     resolve: vi.fn<HandlerDeps['confirmingQuestionStore']['resolve']>(),
+    markPosted: vi
+      .fn<HandlerDeps['confirmingQuestionStore']['markPosted']>()
+      .mockResolvedValue({
+        ok: true,
+        question: { ...BASE_QUESTION, messageTs: '1700000000.000100' },
+      }),
+    releaseClaim: vi
+      .fn<HandlerDeps['confirmingQuestionStore']['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }

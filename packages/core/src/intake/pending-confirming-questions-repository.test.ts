@@ -14,6 +14,8 @@ import {
   createPendingConfirmingQuestion,
   findStaleUnresolvedConfirmingQuestions,
   getPendingConfirmingQuestionByMessage,
+  markPendingConfirmingQuestionPosted,
+  releasePendingConfirmingQuestionClaim,
   resolvePendingConfirmingQuestion,
 } from './pending-confirming-questions-repository.js';
 
@@ -24,11 +26,12 @@ const migrationsDir = join(
   'migrations',
 );
 
+const POSTED_MESSAGE_TS = '1700000099.000100';
+
 function newQuestionInput() {
   return {
     personaId: 'sarah',
     channelId: 'C123',
-    messageTs: '1700000099.000100',
     sourceSurface: 'channel' as const,
     sourceMessageTs: '1700000000.000050',
     sourceMessageText:
@@ -55,7 +58,7 @@ describe('pending confirming questions repository', () => {
     await cleanupPool.end();
   });
 
-  it('creates a pending confirming question, unresolved by default', async () => {
+  it('creates a pending confirming question, unresolved and with no messageTs yet — the claim precedes the Slack post (BUILD_PLAN 5.2b)', async () => {
     const result = await createPendingConfirmingQuestion(
       db,
       newQuestionInput(),
@@ -65,6 +68,7 @@ describe('pending confirming questions repository', () => {
       ok: true,
       question: expect.objectContaining({
         ...newQuestionInput(),
+        messageTs: null,
         resolvedAt: null,
       }) as unknown,
     });
@@ -87,20 +91,26 @@ describe('pending confirming questions repository', () => {
     expect(all).toHaveLength(0);
   });
 
-  it('reads back a created question by (channelId, messageTs)', async () => {
+  it('reads back a created question by (channelId, messageTs) once the post-succeeded mark has filled messageTs in', async () => {
     const created = await createPendingConfirmingQuestion(
       db,
       newQuestionInput(),
     );
     if (!created.ok) throw new Error('setup failed');
+    const posted = await markPendingConfirmingQuestionPosted(
+      db,
+      created.question.id,
+      POSTED_MESSAGE_TS,
+    );
+    if (!posted.ok) throw new Error('setup failed');
 
     const result = await getPendingConfirmingQuestionByMessage(db, {
       personaId: newQuestionInput().personaId,
       channelId: newQuestionInput().channelId,
-      messageTs: newQuestionInput().messageTs,
+      messageTs: POSTED_MESSAGE_TS,
     });
 
-    expect(result).toEqual({ ok: true, question: created.question });
+    expect(result).toEqual({ ok: true, question: posted.question });
   });
 
   it('returns a null question for a (channelId, messageTs) pair that does not exist', async () => {
@@ -123,11 +133,16 @@ describe('pending confirming questions repository', () => {
       newQuestionInput(),
     );
     if (!created.ok) throw new Error('setup failed');
+    await markPendingConfirmingQuestionPosted(
+      db,
+      created.question.id,
+      POSTED_MESSAGE_TS,
+    );
 
     const result = await getPendingConfirmingQuestionByMessage(db, {
       personaId: 'marcus',
       channelId: newQuestionInput().channelId,
-      messageTs: newQuestionInput().messageTs,
+      messageTs: POSTED_MESSAGE_TS,
     });
 
     expect(result).toEqual({ ok: true, question: null });
@@ -176,7 +191,7 @@ describe('pending confirming questions repository', () => {
     expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
   });
 
-  it('rejects a second confirming question for the same (channelId, messageTs) pair via the UNIQUE constraint', async () => {
+  it('rejects a second confirming question for the same (channelId, sourceMessageTs) pair via the UNIQUE constraint (BUILD_PLAN 5.2b)', async () => {
     const first = await createPendingConfirmingQuestion(db, newQuestionInput());
     expect(first.ok).toBe(true);
 
@@ -191,6 +206,119 @@ describe('pending confirming questions repository', () => {
     });
   });
 
+  it('fills in messageTs on a claimed question once the Slack post succeeds (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    if (!created.ok) throw new Error('setup failed');
+
+    const result = await markPendingConfirmingQuestionPosted(
+      db,
+      created.question.id,
+      POSTED_MESSAGE_TS,
+    );
+
+    expect(result).toEqual({
+      ok: true,
+      question: expect.objectContaining({
+        id: created.question.id,
+        messageTs: POSTED_MESSAGE_TS,
+      }) as unknown,
+    });
+  });
+
+  it('fails to mark a question posted a second time (double-fire/retry guard, BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    if (!created.ok) throw new Error('setup failed');
+    await markPendingConfirmingQuestionPosted(
+      db,
+      created.question.id,
+      POSTED_MESSAGE_TS,
+    );
+
+    const result = await markPendingConfirmingQuestionPosted(
+      db,
+      created.question.id,
+      '1700000199.000200',
+    );
+
+    expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
+  });
+
+  it('fails to mark posted a question that does not exist (BUILD_PLAN 5.2b)', async () => {
+    const result = await markPendingConfirmingQuestionPosted(
+      db,
+      '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+      POSTED_MESSAGE_TS,
+    );
+
+    expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
+  });
+
+  it('deletes a still-claimed (never-posted) question, freeing its sourceMessageTs for a fresh claim (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    if (!created.ok) throw new Error('setup failed');
+
+    const released = await releasePendingConfirmingQuestionClaim(
+      db,
+      created.question.id,
+    );
+    expect(released).toEqual({ ok: true });
+
+    const all = await db
+      .selectFrom('pendingConfirmingQuestions')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(0);
+
+    const retried = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    expect(retried.ok).toBe(true);
+  });
+
+  it('does not delete an already-posted question, even when called with its id (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    if (!created.ok) throw new Error('setup failed');
+    await markPendingConfirmingQuestionPosted(
+      db,
+      created.question.id,
+      POSTED_MESSAGE_TS,
+    );
+
+    const released = await releasePendingConfirmingQuestionClaim(
+      db,
+      created.question.id,
+    );
+    expect(released).toEqual({ ok: true });
+
+    const all = await db
+      .selectFrom('pendingConfirmingQuestions')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(1);
+  });
+
+  it('is a no-op for a question that does not exist (BUILD_PLAN 5.2b)', async () => {
+    const released = await releasePendingConfirmingQuestionClaim(
+      db,
+      '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    );
+
+    expect(released).toEqual({ ok: true });
+  });
+
   describe('findStaleUnresolvedConfirmingQuestions (BUILD_PLAN 3.5)', () => {
     it('returns only unresolved questions created before the given cutoff', async () => {
       vi.useFakeTimers();
@@ -198,14 +326,14 @@ describe('pending confirming questions repository', () => {
         vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
         const stale = await createPendingConfirmingQuestion(db, {
           ...newQuestionInput(),
-          messageTs: '1700000099.000101',
+          sourceMessageTs: '1700000000.000051',
         });
         if (!stale.ok) throw new Error('setup failed');
 
         vi.setSystemTime(new Date('2026-07-19T12:00:00.000Z'));
         await createPendingConfirmingQuestion(db, {
           ...newQuestionInput(),
-          messageTs: '1700000099.000102',
+          sourceMessageTs: '1700000000.000052',
         });
 
         const cutoff = new Date('2026-07-19T10:00:00.000Z');
@@ -226,10 +354,10 @@ describe('pending confirming questions repository', () => {
       vi.useFakeTimers();
       try {
         vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
-        const created = await createPendingConfirmingQuestion(db, {
-          ...newQuestionInput(),
-          messageTs: '1700000099.000103',
-        });
+        const created = await createPendingConfirmingQuestion(
+          db,
+          newQuestionInput(),
+        );
         if (!created.ok) throw new Error('setup failed');
         await resolvePendingConfirmingQuestion(db, created.question.id);
 
@@ -250,7 +378,6 @@ describe('pending confirming questions repository', () => {
         vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
         await createPendingConfirmingQuestion(db, {
           ...newQuestionInput(),
-          messageTs: '1700000099.000104',
           personaId: 'marcus',
         });
 

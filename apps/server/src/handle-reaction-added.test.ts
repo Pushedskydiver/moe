@@ -29,6 +29,7 @@ function makeDraft(
     personaId: 'sarah',
     channelId: 'C123',
     messageTs: '1700000000.000100',
+    sourceMessageTs: '1700000000.000050',
     sourceMessageText: 'the CLI hangs on large repos, can someone take a look',
     draftTitle: 'CLI hangs on large repos',
     draftBody: 'The CLI hangs when run against large repos.',
@@ -102,6 +103,13 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
       ok: true,
       draft: makeDraft(),
     }),
+    markPosted: vi.fn<DraftStore['markPosted']>().mockResolvedValue({
+      ok: true,
+      draft: makeDraft(),
+    }),
+    releaseClaim: vi
+      .fn<DraftStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -157,6 +165,12 @@ function makeConfirmingQuestionStore(
       ok: true,
       question: { ...makeQuestion(), resolvedAt: new Date() },
     }),
+    markPosted: vi
+      .fn<ConfirmingQuestionStore['markPosted']>()
+      .mockResolvedValue({ ok: true, question: makeQuestion() }),
+    releaseClaim: vi
+      .fn<ConfirmingQuestionStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }

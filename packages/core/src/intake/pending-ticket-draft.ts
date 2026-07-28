@@ -49,19 +49,36 @@ export type DraftOrigin = z.infer<typeof draftOriginSchema>;
  * 3.4a-i's `composeTicketDraft`) persisted so a later Slack reaction on the message it was posted
  * as can be traced back to the draft it belongs to. Written by the ambient High-band auto-draft
  * path, the Mid-band 👍-confirmed path, and the DM High-band path (`origin` distinguishes which,
- * above). `(channelId,
- * messageTs)` uniquely identifies one Slack message; `resolvedAt` is null until the ✅/📦 outcome
- * path claims it (`resolvePendingTicketDraft`) — 🔁's regenerate path updates
- * `draftTitle`/`draftBody` in place instead, leaving the row open for a further reaction.
- * `redoCount` (BUILD_PLAN 3.6) is `Generated<number>` at the Kysely level (`../schema.ts`) but
- * deliberately excluded here — a tracking/derivation field, not part of the domain shape a caller
- * round-trips through the app, same reasoning `ticketSchema` excludes `version`/`claimedBy`.
+ * above). `resolvedAt` is null until the ✅/📦 outcome path claims it (`resolvePendingTicketDraft`)
+ * — 🔁's regenerate path updates `draftTitle`/`draftBody` in place instead, leaving the row open for
+ * a further reaction. `redoCount` (BUILD_PLAN 3.6) is `Generated<number>` at the Kysely level
+ * (`../schema.ts`) but deliberately excluded here — a tracking/derivation field, not part of the
+ * domain shape a caller round-trips through the app, same reasoning `ticketSchema` excludes
+ * `version`/`claimedBy`.
+ *
+ * `messageTs`/`sourceMessageTs` (BUILD_PLAN 5.2b) are both nullable here even though neither is
+ * ever null in ordinary use — `messageTs` is genuinely unknown between the claim-time insert and
+ * the post-succeeded update that fills it in (`markPendingTicketDraftPosted`,
+ * `./pending-ticket-drafts-repository.ts`); `sourceMessageTs` is nullable only because one row from
+ * before this column existed has no way to be backfilled with it (checked directly against
+ * production, not assumed — see migration `0020`'s own comment). The **claim key** is
+ * `(channelId, sourceMessageTs)`, not `(channelId, messageTs)` — the old constraint never actually
+ * arbitrated anything, since `messageTs` is the *posted* message's own ts, which doesn't exist
+ * until after the Slack call this table exists to dedupe against. This round-trip schema's own
+ * `.nullable()` on `sourceMessageTs` is deliberately **not** what enforces "every new claim has a
+ * real one" — that's `newPendingTicketDraftSchema` below, a separate, stricter schema
+ * `createPendingTicketDraft` actually validates its input through. Reusing this schema for that
+ * purpose would let `sourceMessageTs: null` silently pass Zod validation on insert (DA review,
+ * BUILD_PLAN 5.2b) — a real gap, since a null claim key would never dedupe against anything
+ * (Postgres treats NULLs as distinct in a unique index by default), defeating the whole point of
+ * `UNIQUE (channel_id, source_message_ts)`.
  */
 export const pendingTicketDraftSchema = z.object({
   id: z.uuid(),
   personaId: nonBlankStringSchema,
   channelId: nonBlankStringSchema,
-  messageTs: nonBlankStringSchema,
+  messageTs: nonBlankStringSchema.nullable(),
+  sourceMessageTs: nonBlankStringSchema.nullable(),
   sourceMessageText: nonBlankStringSchema,
   draftTitle: nonBlankStringSchema,
   draftBody: nonBlankStringSchema,
@@ -71,3 +88,24 @@ export const pendingTicketDraftSchema = z.object({
 });
 
 export type PendingTicketDraft = z.infer<typeof pendingTicketDraftSchema>;
+
+/**
+ * The claim-time insert shape (BUILD_PLAN 5.2b) — `createPendingTicketDraft`
+ * (`./pending-ticket-drafts-repository.ts`) validates its input against this, not
+ * `pendingTicketDraftSchema` above, specifically so `sourceMessageTs` is really,
+ * Zod-enforced-at-the-boundary non-blank, not just non-null-at-the-TypeScript-level (erased at
+ * runtime, and bypassable). No `messageTs` field at all — genuinely unknown until
+ * `markPendingTicketDraftPosted` fills it in — and no `id`/`resolvedAt`/`createdAt`, which the
+ * repository layer supplies itself.
+ */
+export const newPendingTicketDraftSchema = z.object({
+  personaId: nonBlankStringSchema,
+  channelId: nonBlankStringSchema,
+  sourceMessageTs: nonBlankStringSchema,
+  sourceMessageText: nonBlankStringSchema,
+  draftTitle: nonBlankStringSchema,
+  draftBody: nonBlankStringSchema,
+  origin: draftOriginSchema,
+});
+
+export type NewPendingTicketDraft = z.infer<typeof newPendingTicketDraftSchema>;

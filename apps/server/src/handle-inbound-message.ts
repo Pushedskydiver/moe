@@ -23,8 +23,11 @@ import type {
   NewTicket,
   PendingConfirmingQuestionClaimResult,
   PendingConfirmingQuestionOrNullResult,
+  PendingConfirmingQuestionReleaseResult,
   PendingConfirmingQuestionResult,
+  PendingTicketDraftClaimResult,
   PendingTicketDraftOrNullResult,
+  PendingTicketDraftReleaseResult,
   PendingTicketDraftResult,
   PersonaCostUsageResult,
   ReviewQueueEntryResult,
@@ -107,9 +110,11 @@ type TicketStore = {
 };
 
 // Same thin DI seam, over `@moe/core`'s pending-ticket-drafts repository (BUILD_PLAN 3.4a-ii's
-// "parent-message state"). `create` is BUILD_PLAN 3.4a-iii's own addition — persists a real
-// posted draft's `(channelId, messageTs)` so a later real reaction can be looked up against it. No
-// `resolve` member — the claim-then-act fallback fix moved the ✅/📦 outcomes' only caller of it
+// "parent-message state"). `create` claims the row *before* the Slack post now (BUILD_PLAN 5.2b's
+// claim-first defence-in-depth), keyed on the source message's own ts rather than the posted
+// message's — see `postAndPersistDraft` (`handle-ambient-channel-message.ts`) for the full
+// claim-then-post-then-mark-posted sequence `markPosted` (below) completes. No `resolve` member —
+// the claim-then-act fallback fix moved the ✅/📦 outcomes' only caller of it
 // (`reaction-outcome-actions.ts`'s `commitAsTicket`) onto `@moe/core`'s `createTicketFromDraft`
 // instead, which claims via `resolvePendingTicketDraft` inside its own transaction, not through
 // this DI seam; `resolve` had no other caller once that landed.
@@ -126,6 +131,19 @@ type DraftStore = {
     id: string,
     content: { readonly draftTitle: string; readonly draftBody: string },
   ) => Promise<PendingTicketDraftResult>;
+  // BUILD_PLAN 5.2b — fills in `messageTs` on an already-claimed draft once its Slack post
+  // actually succeeds. `postAndPersistDraft`'s own real consumer.
+  readonly markPosted: (
+    id: string,
+    messageTs: string,
+  ) => Promise<PendingTicketDraftClaimResult>;
+  // BUILD_PLAN 5.2b (DA review fold) — deletes a still-claimed (never-posted) draft when the Slack
+  // post itself fails with a definitive error, so the same source message can be claimed again
+  // rather than leaving a permanent orphan that pollutes `getDraftOutcomeCounts`'s `'ignored'`
+  // bucket. `postAndPersistDraft`'s own real consumer.
+  readonly releaseClaim: (
+    id: string,
+  ) => Promise<PendingTicketDraftReleaseResult>;
 };
 
 // Same thin DI seam, over `@moe/core`'s review-queue repository (BUILD_PLAN 3.4c) — VISION §5.2's
@@ -144,13 +162,14 @@ type ReviewQueueStore = {
 };
 
 // Same thin DI seam, over `@moe/core`'s pending-confirming-questions repository (BUILD_PLAN
-// 3.4b-i's own "parent-message state"). `create` is 3.4b-i's own real consumer
-// (`compose-and-post-confirming-question.ts`); `getByMessage`/`resolve` are BUILD_PLAN 3.4b-ii's
-// own real consumers — the 👍/👎 reaction-dispatch lookup (`handle-reaction-added.ts`'s
-// `dispatchConfirmingQuestionOutcome`) and its atomic claim (`reaction-outcome-actions.ts`'s
-// `draftFromConfirmingQuestion`/`logConfirmingQuestionAsNo`) — matching `DraftStore`'s own
-// precedent at BUILD_PLAN 3.4a-ii/3.4a-iii (built whole, wired to a live reaction listener a
-// later chunk).
+// 3.4b-i's own "parent-message state"). `create` claims the row *before* the Slack post now
+// (BUILD_PLAN 5.2b, mirroring `DraftStore` exactly), with `markPosted` completing the sequence
+// once the post succeeds — `compose-and-post-confirming-question.ts`'s own real consumer for both.
+// `getByMessage`/`resolve` are BUILD_PLAN 3.4b-ii's own real consumers — the 👍/👎 reaction-dispatch
+// lookup (`handle-reaction-added.ts`'s `dispatchConfirmingQuestionOutcome`) and its atomic claim
+// (`reaction-outcome-actions.ts`'s `draftFromConfirmingQuestion`/`logConfirmingQuestionAsNo`) —
+// matching `DraftStore`'s own precedent at BUILD_PLAN 3.4a-ii/3.4a-iii (built whole, wired to a
+// live reaction listener a later chunk).
 type ConfirmingQuestionStore = {
   readonly create: (
     input: NewPendingConfirmingQuestion,
@@ -163,6 +182,15 @@ type ConfirmingQuestionStore = {
   readonly resolve: (
     id: string,
   ) => Promise<PendingConfirmingQuestionClaimResult>;
+  readonly markPosted: (
+    id: string,
+    messageTs: string,
+  ) => Promise<PendingConfirmingQuestionClaimResult>;
+  // BUILD_PLAN 5.2b (DA review fold) — mirrors `DraftStore.releaseClaim` exactly.
+  // `postAndPersistConfirmingQuestion`'s own real consumer.
+  readonly releaseClaim: (
+    id: string,
+  ) => Promise<PendingConfirmingQuestionReleaseResult>;
 };
 
 // `historyStore`/`costStore`/`capStore`/`costCapConfig`/`personaId`/`threadQueue`/

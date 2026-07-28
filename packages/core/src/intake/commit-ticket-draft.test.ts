@@ -24,7 +24,7 @@ function newDraftInput() {
   return {
     personaId: 'sarah',
     channelId: 'C123',
-    messageTs: '1700000000.000100',
+    sourceMessageTs: '1700000000.000100',
     sourceMessageText: 'the export CLI drops rows over 10k',
     draftTitle: 'Export CLI drops rows over 10k',
     draftBody: 'Users report the CSV export truncates past 10,000 rows.',
