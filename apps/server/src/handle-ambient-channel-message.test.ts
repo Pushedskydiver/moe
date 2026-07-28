@@ -260,7 +260,7 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
   };
 }
 
-// `create` is the real consumer of a Low-band message (`logToReviewQueue`, BUILD_PLAN 3.4c).
+// `create` is the real consumer of a Low-band message (`logAmbientIntakeToReviewQueue`, 3.4c/3.9).
 function makeReviewQueueStore(
   overrides: Partial<ReviewQueueStore> = {},
 ): ReviewQueueStore {
@@ -682,7 +682,7 @@ describe('handleAmbientChannelMessage', () => {
       await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
       expect(deps.logger.error).toHaveBeenCalledWith(
-        'failed to evaluate situational appropriateness — deferring ticket-draft composition (fail-closed)',
+        'failed to evaluate situational appropriateness — skipping ticket-draft composition (fail-closed)',
         expect.objectContaining({ errorMessage: 'rate limited' }),
       );
       expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
@@ -833,7 +833,10 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
-  it('defers ticket-draft composition outside core hours, without calling the draft composer (BUILD_PLAN 3.4a-i, 2.7a operating-rhythm guard)', async () => {
+  // BUILD_PLAN 3.9 — this test previously asserted only that nothing was posted, which is exactly
+  // how the bug survived: "did not post" was treated as the whole requirement, and "did not
+  // persist anything either" went unexamined. It now pins the message SURVIVING.
+  it('writes a high-band-off-hours review-queue row, instead of losing the message, when the rhythm guard blocks a High-band draft outside core hours (BUILD_PLAN 3.9)', async () => {
     // Thursday 22:00 Europe/London — well past the 17:00 core-hours cutoff.
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T21:00:00.000Z'));
@@ -849,15 +852,28 @@ describe('handleAmbientChannelMessage', () => {
 
       await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
+      // Still only the Stage 1 classify — the billed situational-appropriateness call is
+      // deliberately NOT paid to decide whether to write a private row nothing posts from.
       expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: CHANNEL_MESSAGE.ts,
+        sourceMessageText: CHANNEL_MESSAGE.text,
+        confidence: 88,
+        reasoning: 'describes a concrete bug',
+        outcomeReason: 'high-band-off-hours',
+      });
       expect(deps.logger.info).toHaveBeenCalledWith(
-        'deferring ticket-draft composition — outside core hours',
+        'skipping ticket-draft composition — outside core hours',
         {
           personaId: 'sarah',
           channelId: 'C123',
           reason: 'outside-window',
         },
       );
+      // §14's rest rule is still intact: a durable row, but nothing posted into the workspace.
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
       expect(deps.logger.info).not.toHaveBeenCalledWith(
         'posted ticket draft',
         expect.anything(),
@@ -867,9 +883,12 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
-  it('defers ticket-draft composition on a bank holiday, even within the core-hours window (BUILD_PLAN 3.4a-i, 2.7a operating-rhythm guard)', async () => {
+  it('writes the same high-band-off-hours row on a bank holiday, even within the core-hours window (BUILD_PLAN 3.9, 2.7a operating-rhythm guard)', async () => {
     // Same in-window instant as the successful High-band test above, but this persona's
-    // bank-holidays cache reports that exact London-local date as a bank holiday.
+    // bank-holidays cache reports that exact London-local date as a bank holiday. Both
+    // `evaluateOperatingRhythm` reasons must reach the same review-queue write — a bank holiday is
+    // the case VISION §14 names explicitly, so losing the message there would be the worse of the
+    // two, not a lesser variant.
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -886,14 +905,107 @@ describe('handleAmbientChannelMessage', () => {
       await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
       expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      expect(deps.reviewQueueStore.create).toHaveBeenCalledWith(
+        expect.objectContaining({ outcomeReason: 'high-band-off-hours' }),
+      );
       expect(deps.logger.info).toHaveBeenCalledWith(
-        'deferring ticket-draft composition — outside core hours',
+        'skipping ticket-draft composition — outside core hours',
         {
           personaId: 'sarah',
           channelId: 'C123',
           reason: 'bank-holiday',
         },
       );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // BUILD_PLAN 3.9's scope boundary: a cost-cap halt writes NO review-queue row (Alex scoped 3.9
+  // to the rhythm guard; the cap case is BUILD_PLAN 3.10).
+  //
+  // An already-over-cap persona halts inside `classifyMessageForIntake`, *before* the draft guard
+  // is reached — so that scenario says nothing about the guard's own cap branch. DA review proved
+  // it: written that way, deleting `composeAndPostDraft`'s reason check entirely left the whole
+  // suite green, because the assertion was vacuously true on a function that never ran. This test
+  // therefore crosses the cap **mid-turn** — under at classify, over at the guard — which
+  // `run-dm-intake-cascade.ts` documents as a real occurrence, not a contrived one, since the
+  // classify call is itself billed and recorded before the guard re-checks.
+  it('does NOT write a review-queue row when the cost cap is crossed mid-turn, between the classify and the draft guard (BUILD_PLAN 3.9 scope boundary)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const underCap = {
+        ok: true as const,
+        total: {
+          personaId: 'sarah',
+          month: '2026-07',
+          inputTokens: 0,
+          outputTokens: 0,
+          costUsdMicros: 0,
+        },
+      };
+      const overCap = {
+        ok: true as const,
+        total: { ...underCap.total, costUsdMicros: 100_000_000 },
+      };
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+        }),
+        capStore: makeCapStore({
+          getMonthlyCost: vi
+            .fn<CapStore['getMonthlyCost']>()
+            .mockResolvedValueOnce(underCap)
+            .mockResolvedValue(overCap),
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+      // Proof the guard was actually reached this time — the classify happened, and the halt is
+      // reported against ticket-draft composition, not classification.
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'skipping ticket-draft composition — monthly cost cap reached',
+        { personaId: 'sarah', channelId: 'C123' },
+      );
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // The OTHER unpinned branch DA's mutation testing found: writing a row on the fail-closed
+  // appropriateness gate also left the suite green. That branch is deliberately still a silent
+  // loss (BUILD_PLAN 3.10 owns it), so pin it negatively — otherwise 3.10's own instruction to
+  // "update these assertions rather than only add new ones" rests on assertions that don't exist.
+  it('does NOT write a review-queue row when the situational-appropriateness gate fails closed on a High-band ambient message (BUILD_PLAN 3.10 boundary)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: () => {
+            throw new Error('rate limited');
+          },
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to evaluate situational appropriateness — skipping ticket-draft composition (fail-closed)',
+        expect.objectContaining({ errorMessage: 'rate limited' }),
+      );
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -992,10 +1104,14 @@ describe('handleAmbientChannelMessage', () => {
     ).resolves.toBeUndefined();
 
     expect(deps.logger.error).toHaveBeenCalledWith(
-      'failed to log low-confidence message to review queue',
+      'failed to log ambient message to review queue',
       {
         personaId: 'sarah',
         channelId: 'C123',
+        // BUILD_PLAN 3.9 — now that three outcome reasons share one writer, the failure log has to
+        // say which write failed, or an operator seeing this line cannot tell a lost Low-band note
+        // from a lost High-band bug report.
+        outcomeReason: 'low-confidence',
         errorMessage: 'Error: connection reset',
       },
     );

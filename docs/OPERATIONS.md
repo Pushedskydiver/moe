@@ -112,14 +112,47 @@ depend on `SET`, `LISTEN`/`NOTIFY`, or session-level state."
 because "tools may not support transaction pooling" — a statement about tools in general. moe's own
 `migrate.ts` was built for the pooled endpoint deliberately: it takes `pg_advisory_xact_lock`, a
 _transaction_-scoped lock rather than a session-scoped one, which is exactly the unit transaction
-pooling preserves. Verified for this repo (re-run at BUILD_PLAN 3.7, which added `0017` and `0018` — both plain
-transactional `ALTER TABLE`s): none of the 18 migration files uses `SET`, `RESET`,
+pooling preserves. Verified for this repo (re-run at BUILD_PLAN 3.9, which added `0019` — a plain transactional
+`ALTER TABLE`, like `0017`/`0018` before it): none of the 19 migration files uses `SET`, `RESET`,
 `CREATE INDEX CONCURRENTLY`, `LISTEN`, SQL-level `PREPARE`, or a temporary table. **The first
 migration that needs any of those must run against the direct endpoint instead** — `CREATE INDEX
 CONCURRENTLY` is the likely first offender, since it also cannot run inside the transaction
 `migrate.ts` wraps each batch in.
 
 ### Deploying
+
+**Rolling back past a migration that changed the `review_queue` `CHECK` has two distinct
+consequences. Neither is what a first reading suggests, so both are spelled out.**
+
+**1. A `fly deploy` rollback does _not_ break the sweep — it stops writing the rows.** The deployed
+Machine runs `node dist/index.js`, the persona process, and that process never reads `review_queue`;
+its only touch is `createReviewQueueEntry`. So an older image keeps running happily and simply
+resumes dropping the off-hours messages BUILD_PLAN 3.9 exists to preserve — the original bug back in
+production. **What to look for, precisely, because it is not silent in the logs:** a pre-3.9 image
+still logs `classified inbound message` (with the full text, confidence and reasoning) and then
+`deferring <action> — outside core hours`. Nothing about the **message** is persisted — no
+`review_queue` row, no draft, no confirming question — and nothing is posted to the channel. **The
+classify is still billed**, though: `recordUsageLogged` writes its `persona_cost_daily` row before
+the guard runs, so a rolled-back image keeps spending on classifications whose results it then
+throws away. And the log line is worse than absent, it is _misleading_: "deferring" asserts a pickup
+that no code has ever performed, which is the exact wording 3.9 deleted and why the one real drop
+this bug produced initially read as working-as-intended. Seeing that string in a persona's logs
+means the rollback has reintroduced the loss.
+
+**2. The read hazard is local-only, because the sweep is.** `pnpm --filter @moe/server
+sweep:review-queue` is a manual CLI run from whatever is on the operator's disk, and it is the only
+caller of `listReviewQueueEntriesSince`. That function returns the first row failing Zod validation
+as the result for the _whole_ list (the enum lives in `packages/core`, not `apps/server`), so
+running the sweep from a checkout older than the migration takes the entire digest dark rather than
+skipping one row. It fails loudly and does not advance `sweep_state`, so no window is lost and the
+rows resurface once the checkout is updated. It is not a no-op, though:
+`resolveStaleQuestionsAndSweepWindow` runs _before_ the list read and does write — it CAS-claims
+stale confirming questions and writes their `'mid-silence'` rows, so those claims are burned by a
+run whose digest never posts.
+
+`0011` widened this same `CHECK` and `0009` replaced its values outright; both carry the identical
+structural hazard, so do not read this as "rolling back past `0011` is safe". `0019` is simply the
+first for which it is expected to bite in practice, since off-hours rows will be routine.
 
 Migrations first, once — every persona shares one database, so this is not per-App:
 

@@ -89,7 +89,7 @@ export async function runDmIntakeCascade(
     // A **second** cap check, between the classify above and the Sonnet `composeTicketDraft`
     // below. Not redundant: the classify call that got us here was itself billed and has already
     // been recorded, so spend can cross the cap inside this very turn — the ambient path checks
-    // again here for exactly that reason (`isCostAndRhythmGuardSatisfied`, pinned by its own
+    // again here for exactly that reason (`evaluateCostAndRhythmGuard`, pinned by its own
     // "cost cap is reached between the classify and compose calls" test), and
     // `draftFromConfirmingQuestion` runs the same check before reusing `postAndPersistDraft`.
     // Skipping the guarded `composeAndPostDraft` wrapper is deliberate for the *rhythm* and

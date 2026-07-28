@@ -12,10 +12,11 @@ import { addReaction, postMessage } from '@moe/slack';
 
 import { classifyMessageForIntake } from './classify-message-for-intake.js';
 import { composeAndPostConfirmingQuestion } from './compose-and-post-confirming-question.js';
+import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-queue.js';
 import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import {
-  isCostAndRhythmGuardSatisfied,
+  evaluateCostAndRhythmGuard,
   isSituationallyAppropriate,
 } from './standing-proactive-guards.js';
 
@@ -192,7 +193,7 @@ type PostAndPersistDraftOptions = {
 // (`pending_ticket_drafts`) keyed on the real posted message, and seeds the 📦/🔁/✅ reaction-gate
 // legend onto it — the real-posting half of BUILD_PLAN 3.4a-iii. This function itself runs no
 // guard checks of its own — it's the caller's job to gate it first. `composeAndPostDraft` below
-// (the ambient High-band caller) only reaches it after both `isCostAndRhythmGuardSatisfied` and
+// (the ambient High-band caller) only reaches it after both `evaluateCostAndRhythmGuard` and
 // `isSituationallyAppropriate` pass.
 //
 // Two other callers reuse this function directly rather than reimplementing it, and both
@@ -261,25 +262,90 @@ export async function postAndPersistDraft(
   return { ok: true, postedText: draftMessageText };
 }
 
+// `message`/`now`/`classified` bundled into one input object rather than three bare params —
+// `composeAndPostDraft` was at eslint's `max-params: 3` with `deps`/`message`/`now`, and BUILD_PLAN
+// 3.9 needs `classified` at the write site. Mirrors `composeAndPostConfirmingQuestion`'s own
+// `ComposeAndPostConfirmingQuestionInput` shape, so the two band handlers read alike at their call
+// sites — not identically: that one also carries a `surface` field this one has no use for, since
+// an ambient draft is always posted in-thread.
+type ComposeAndPostDraftInput = {
+  readonly message: InboundMessage;
+  readonly now: Date;
+  // Carried purely for the BUILD_PLAN 3.9 off-hours `review_queue` row — the draft itself is
+  // composed from the message text, not the classifier's output. Same reason
+  // `ComposeAndPostConfirmingQuestionInput` already carries it.
+  readonly classified: {
+    readonly confidence: number;
+    readonly reasoning: string;
+  };
+};
+
 /**
  * BUILD_PLAN 3.4a-i's High-band action, real end-to-end as of BUILD_PLAN 3.4a-iii: gated by a
  * fresh cost-cap check, the 2.7a operating-rhythm guard, and BUILD_PLAN 3.4a-iii's own
- * situational-appropriateness gate (`isCostAndRhythmGuardSatisfied`/`isSituationallyAppropriate`,
+ * situational-appropriateness gate (`evaluateCostAndRhythmGuard`/`isSituationallyAppropriate`,
  * `standing-proactive-guards.ts`), then composes, posts, persists, and seeds the reaction-gate
  * legend (`postAndPersistDraft`).
+ *
+ * **BUILD_PLAN 3.9 — the operating-rhythm branch no longer drops the message.** When the rhythm
+ * guard is what blocked, a `review_queue` row is written so the 3.5 sweep digest surfaces it. That
+ * is a durable record, **not** a deferral: nothing picks it up later, and calling it one would
+ * repeat the exact false promise this chunk was filed to remove. A cost-cap halt still returns
+ * silently, and so does the fail-closed appropriateness gate below; both are still real losses,
+ * deliberately left to BUILD_PLAN 3.10 so this chunk stays on the guard it was scoped to (Alex
+ * settled 2026-07-27).
+ *
+ * **The condition is written as `!== 'cost-cap-reached'`, not `=== 'outside-core-hours'`, and that
+ * asymmetry is deliberate** (DA review, this chunk). Both spellings behave identically today, since
+ * those are the only two blocking reasons — but they fail in opposite directions when a *third* one
+ * is added (BUILD_PLAN 2.7b's away-detection, built but unconsumed, is the nearest candidate — though
+ * 7.2b, its named first consumer, is scoped to ceremony policy rather than this guard, so even that
+ * is speculative). An equality test would send
+ * the new reason down the bare `return`, silently reintroducing this chunk's own bug in two places,
+ * and it would compile clean. The inequality test preserves the message by default and forces a
+ * deliberate opt-out. Cheap insurance for the exact defect this chunk exists to fix.
+ *
+ * **`'outside-core-hours'` covers all three of `evaluateOperatingRhythm`'s *blocking* reasons** (its
+ * enum has a fourth, `'within-core-hours'`, which does not reach here) — including
+ * `'bank-holiday'` and `'holiday-status-unknown'`, both of which are only reached *inside* the
+ * clock window — so a row can be written at 10:00 on a Tuesday when the GOV.UK bank-holidays API
+ * was unreachable at boot. That is correct rather than a mislabel: the guard fails **closed**,
+ * meaning it treats an unknown holiday status as a rest day, and this row records the guard's
+ * decision, not the calendar. The reason itself is logged but not persisted on the row, so the
+ * digest cannot yet tell an infrastructure blip from a real 01:13 message — noted on 3.10.
+ *
+ * **Why the row is written before the appropriateness gate has run**, making the off-hours path
+ * marginally more permissive than the in-hours one: the gate is a billed Haiku call whose purpose
+ * is deciding whether it is *appropriate to post into a shared channel* (VISION §9, whose own
+ * illustration is a public-channel misstep). Nothing is posted here, so the risk it guards against
+ * does not exist, and paying for it out of hours to decide whether to write a private row Alex
+ * alone reads would be spend for no protection. The §6.4/§14 operating-rhythm rules are likewise
+ * untouched — this function writes through `reviewQueueStore` and `logger` only, never a Slack
+ * client, so nothing reaches the workspace.
  */
 async function composeAndPostDraft(
   deps: HandlerDeps,
-  message: InboundMessage,
-  now: Date,
+  input: ComposeAndPostDraftInput,
 ): Promise<void> {
+  const { message, now, classified } = input;
   const guardInput = {
     message,
     now,
     actionDescription: 'ticket-draft composition',
   };
-  const guardsPassed = await isCostAndRhythmGuardSatisfied(deps, guardInput);
-  if (!guardsPassed) return;
+  const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
+  if (!guard.satisfied) {
+    // Fail safe, not fail equal — see this function's own TSDoc. A future third blocking reason
+    // preserves the message rather than silently dropping it.
+    if (guard.reason !== 'cost-cap-reached') {
+      await logAmbientIntakeToReviewQueue(deps, {
+        message,
+        classified,
+        outcomeReason: 'high-band-off-hours',
+      });
+    }
+    return;
+  }
 
   const gatePassed = await isSituationallyAppropriate(deps, guardInput);
   if (!gatePassed) return;
@@ -289,44 +355,6 @@ async function composeAndPostDraft(
     origin: 'high-band',
     surface: 'channel',
   });
-}
-
-// VISION §5.2's "nothing is silently eaten" backstop (BUILD_PLAN 3.4c) — persists a Low-band
-// message as a plain review-queue log row (`docs/VISION.md` §5.2, `@moe/core`'s
-// `createReviewQueueEntry`) rather than dropping it, for BUILD_PLAN 3.5's own `review-queue-sweep`
-// script to list. `outcomeReason: 'low-confidence'` — the only value this call site ever writes;
-// BUILD_PLAN 3.4b-ii's own `logConfirmingQuestionAsNo` (`reaction-outcome-actions.ts`) writes
-// `'mid-no'` through the same repository, 3.5's own `logStaleQuestionsAsSilent`
-// (`review-queue-sweep.ts`) writes `'mid-silence'`, and the claim-then-act fallback fix's own
-// `draftFromConfirmingQuestion` writes `'mid-yes-failed'` when a 👍 answer's own downstream draft
-// composition/posting/persistence fails. `0009_widen_review_queue_outcome_reason.sql` (3.4b-ii)
-// added `'mid-no'`/`'mid-silence'` in place of chunk 3.4c's original single placeholder,
-// `'mid-no-response'`; `0011_widen_review_queue_outcome_reason_again.sql` added `'mid-yes-failed'`
-// additively on top. "Log, don't throw" on
-// failure, same as `recordUsageLogged`'s
-// own precedent — a review-queue write failing should never surface as a visible error, since
-// there's no reply path here to carry one.
-async function logToReviewQueue(
-  deps: HandlerDeps,
-  message: InboundMessage,
-  classified: { readonly confidence: number; readonly reasoning: string },
-): Promise<void> {
-  const created = await deps.reviewQueueStore.create({
-    personaId: deps.personaId,
-    channelId: message.channelId,
-    messageTs: message.ts,
-    sourceMessageText: message.text,
-    confidence: classified.confidence,
-    reasoning: classified.reasoning,
-    outcomeReason: 'low-confidence',
-  });
-  if (!created.ok) {
-    deps.logger.error('failed to log low-confidence message to review queue', {
-      personaId: deps.personaId,
-      channelId: message.channelId,
-      errorMessage: repositoryErrorMessage(created.error),
-    });
-  }
 }
 
 /**
@@ -341,7 +369,7 @@ async function logToReviewQueue(
  * §5.2's Stage 2 routing, `docs/decisions/STAGE-1-CLASSIFIER.md`'s thresholds) additionally
  * composes and posts a real ticket draft (`composeAndPostDraft`, BUILD_PLAN 3.4a-i/3.4a-iii); a
  * Mid-band score posts a real confirming question (`composeAndPostConfirmingQuestion`, BUILD_PLAN
- * 3.4b-i); a Low-band score logs a real review-queue row (`logToReviewQueue`, BUILD_PLAN 3.4c).
+ * 3.4b-i); a Low-band score logs a real review-queue row (`logAmbientIntakeToReviewQueue`, BUILD_PLAN 3.4c).
  * This replaced the old "chat back to every message" behavior for ambient surfaces (BUILD_PLAN
  * 3.3's own DMs-only *chat* decision) — a DM never reaches this function.
  *
@@ -369,7 +397,8 @@ export async function handleAmbientChannelMessage(
   message: InboundMessage,
 ): Promise<void> {
   // BUILD_PLAN 5.2a — beside Stage 0, and before it, because this is the cheaper check and the
-  // one that is true for seven of the eight processes receiving this same message. Deliberately a
+  // one that short-circuits seven of the eight processes receiving this same message (the predicate
+  // itself is true for exactly one — the designated listener). Deliberately a
   // sibling of `isSurfaceInScope` rather than a new arm inside it: that function's `dm` arm
   // returns `true` unconditionally, and BUILD_PLAN 3.7's DM cascade depends on that, so folding a
   // persona check in there would silently kill DM intake for every non-Sarah persona.
@@ -387,7 +416,7 @@ export async function handleAmbientChannelMessage(
 
   const band = classifyConfidenceBand(classified.confidence);
   if (band === 'high') {
-    await composeAndPostDraft(deps, message, now);
+    await composeAndPostDraft(deps, { message, now, classified });
   } else if (band === 'mid') {
     await composeAndPostConfirmingQuestion(deps, {
       message,
@@ -396,6 +425,10 @@ export async function handleAmbientChannelMessage(
       surface: 'channel',
     });
   } else {
-    await logToReviewQueue(deps, message, classified);
+    await logAmbientIntakeToReviewQueue(deps, {
+      message,
+      classified,
+      outcomeReason: 'low-confidence',
+    });
   }
 }

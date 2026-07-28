@@ -30,17 +30,52 @@ type StandingProactiveGuardInput = {
 };
 
 /**
+ * Why the guard blocked, or `'satisfied'` if it didn't. The two blocking reasons are deliberately
+ * distinguishable (BUILD_PLAN 3.9): they mean different things and now have different consequences
+ * — an off-hours block writes a `review_queue` row so the message survives, a cost-cap halt does
+ * not. Before 3.9 both collapsed into a bare `false` and no caller could tell them apart, which is
+ * precisely why the off-hours case could not be handled separately.
+ */
+type CostAndRhythmGuardReason =
+  'satisfied' | 'cost-cap-reached' | 'outside-core-hours';
+
+/**
+ * A flat boolean-plus-reason object, mirroring `@moe/core`'s own
+ * `OperatingRhythmDecision`/`WipLimitDecision` — the two existing `*Decision` types, which is where
+ * this shape comes from. **`docs/CONVENTIONS.md` prescribes the `evaluate*` verb, not the return
+ * shape**, and its `Result`-shaped-discriminated-union rule is explicitly scoped to "expected
+ * domain failures" (a Slack/GitHub call failing, a validation failing) — a guard reporting a
+ * decision is not one, which is why the flat shape is the right precedent to follow here rather
+ * than `evaluateSituationalAppropriateness`'s `Result`. Both readings were checked against
+ * `docs/CONVENTIONS.md` directly after two review passes disagreed about it.
+ */
+export type CostAndRhythmGuardDecision = {
+  readonly satisfied: boolean;
+  readonly reason: CostAndRhythmGuardReason;
+};
+
+/**
  * Cost-cap-then-operating-rhythm guard shared by every standing-proactive Slack post. Cost-cap
  * checked before the operating-rhythm guard, not after — DA review (chunk 3.4a-iii) noted the
  * reverse order would save a DB round-trip during the (majority of) off-hours wall-clock time, but
  * this order lets cost-cap-only tests pin the cap without also needing to pin `now` into the
  * core-hours window, since `checkCostCapAndAlert`'s halt short-circuits before
  * `evaluateOperatingRhythm` ever runs.
+ *
+ * **Renamed from `isCostAndRhythmGuardSatisfied` at BUILD_PLAN 3.9**, when the return widened from
+ * a bare `boolean` to the decision above: `docs/CONVENTIONS.md` reserves the `is*` prefix for
+ * boolean predicates and names `evaluate*` for "a decision derived from given inputs", which is
+ * what this now returns.
+ *
+ * **Neither branch persists anything, and this function deliberately does not write the
+ * `review_queue` row itself** — the classifier's `confidence`/`reasoning` is not in scope here, and
+ * only the *ambient* callers should write one (a DM never reaches this function at all). The
+ * callers own that decision; see `logAmbientIntakeToReviewQueue`.
  */
-export async function isCostAndRhythmGuardSatisfied(
+export async function evaluateCostAndRhythmGuard(
   deps: HandlerDeps,
   input: StandingProactiveGuardInput,
-): Promise<boolean> {
+): Promise<CostAndRhythmGuardDecision> {
   const { message, now, actionDescription } = input;
   const capCheck = await checkCostCapAndAlert(deps, now);
   if (capCheck.halt) {
@@ -51,20 +86,26 @@ export async function isCostAndRhythmGuardSatisfied(
         channelId: message.channelId,
       },
     );
-    return false;
+    return { satisfied: false, reason: 'cost-cap-reached' };
   }
 
   const rhythm = await evaluateOperatingRhythm(now, deps.bankHolidaysCache);
   if (!rhythm.withinCoreHours) {
-    deps.logger.info(`deferring ${actionDescription} — outside core hours`, {
+    // "skipping", not "deferring" — BUILD_PLAN 3.9. This function defers nothing: it returns, and
+    // the caller stops. The ambient callers now write a `review_queue` row off the back of this
+    // reason, but that is a durable record for the 3.5 sweep digest, not a scheduled retry —
+    // genuine deferral is 3.9's own step (2), gated on chunk 7.2a or 6.1a-i building a timer.
+    // The old wording claimed a pickup that no code performs, and it is why a real production
+    // drop read as working-as-intended in the logs.
+    deps.logger.info(`skipping ${actionDescription} — outside core hours`, {
       personaId: deps.personaId,
       channelId: message.channelId,
       reason: rhythm.reason,
     });
-    return false;
+    return { satisfied: false, reason: 'outside-core-hours' };
   }
 
-  return true;
+  return { satisfied: true, reason: 'satisfied' };
 }
 
 /**
@@ -90,8 +131,15 @@ export async function isSituationallyAppropriate(
     { text: message.text },
   );
   if (!appropriateness.ok) {
+    // "skipping", not "deferring", for the same BUILD_PLAN 3.9 reason as the rhythm branch above:
+    // the caller returns and the message is dropped, with nothing scheduled to retry it. This
+    // branch is a genuine remaining silent loss — an Anthropic error or timeout drops an ambient
+    // message permanently — and is deliberately out of 3.9's scope (Alex settled 2026-07-27, to
+    // keep this chunk on the rhythm guard); BUILD_PLAN 3.10 carries it. Correcting the word is in
+    // scope regardless, because leaving one "deferring" beside a corrected one is worse than
+    // leaving both: it reads as a considered distinction rather than an oversight.
     deps.logger.error(
-      `failed to evaluate situational appropriateness — deferring ${actionDescription} (fail-closed)`,
+      `failed to evaluate situational appropriateness — skipping ${actionDescription} (fail-closed)`,
       {
         personaId: deps.personaId,
         channelId: message.channelId,

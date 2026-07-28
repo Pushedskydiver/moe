@@ -120,11 +120,32 @@ async function logStaleQuestionsAsSilent(
 // Alex confirmed via `AskUserQuestion` (BUILD_PLAN 3.5): surface the per-cause `outcomeReason`
 // origin to the human reader, not one flat list — grouped so Alex can tell "nobody answered" from
 // "the classifier itself wasn't confident" at a glance, not just a bare score. Three-way at ship
-// time; the claim-then-act fallback fix later added a 4th value, `'mid-yes-failed'`.
+// time; the claim-then-act fallback fix later added a 4th value, `'mid-yes-failed'`, and BUILD_PLAN
+// 3.9 added the two off-hours values.
+//
+// The 3.9 labels say "not drafted"/"not asked" rather than anything like "deferred": no timer picks
+// these up (that is 3.9's own step (2), gated on 7.2a or 6.1a-i), so a label promising a later
+// pickup would restate in the digest exactly the false promise that chunk was filed to remove.
+// They are listed **first deliberately**, not alphabetically or by age: `formatSweepMessage` derives
+// its section order from this object's own key order (`Object.keys`). The ordering test is a
+// conjunction, and both halves are load-bearing: the message was **classified as worth acting on**
+// (High or Mid band) **and then** nothing at all reached the channel. Only these two values satisfy
+// both. `'low-confidence'` fails the first half — it is silent too, deliberately so, but the
+// classifier judged it not worth acting on, which is the whole point of the Low band. The other three
+// Mid-band values — there are four in total, `'mid-band-off-hours'` being the fourth — fail the
+// second half: a question really was posted, and a human answered 👎, answered 👍 onto a draft that
+// then failed, or left it unanswered.
+//
+// Applying only "was anything put in front of a human" would misfile `'low-confidence'` up here,
+// since nothing ever is. That is not hypothetical — this comment's previous wording did exactly
+// that, in the course of fixing a *different* wrong universal about the same set, and R2 caught it.
+// Use both conjuncts when placing a seventh value.
 const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   ReviewQueueEntry['outcomeReason'],
   string
 > = {
+  'high-band-off-hours': 'Off-hours — not drafted',
+  'mid-band-off-hours': 'Off-hours — not asked',
   'low-confidence': 'Low confidence',
   'mid-no': 'Answered no',
   'mid-silence': 'No response',
