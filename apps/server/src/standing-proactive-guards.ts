@@ -109,6 +109,32 @@ export async function evaluateCostAndRhythmGuard(
 }
 
 /**
+ * Why the situational-appropriateness gate blocked, or `'satisfied'` if it didn't. The two
+ * blocking reasons are deliberately distinguishable (BUILD_PLAN 3.10), mirroring
+ * `CostAndRhythmGuardReason`'s own split at 3.9: `'evaluation-failed'` is an infrastructure blip
+ * (an Anthropic error, timeout, or unparseable response) — a genuine remaining silent loss that
+ * permanently drops a message that may well have been a real bug report, so the **ambient**
+ * callers write a `review_queue` row for it. `'inappropriate'` is a real, considered
+ * `appropriate: false` verdict — Alex settled (`AskUserQuestion`, 2026-07-28) that this one stays
+ * silent, since it is a genuine judgement that the message should not be acted on, not silent data
+ * loss the queue exists to catch. Before 3.10 both collapsed into a bare `false` and no caller
+ * could tell them apart, which is precisely why the infra-blip case could not be handled
+ * separately from the genuine-verdict one.
+ */
+type SituationalAppropriatenessGuardReason =
+  'satisfied' | 'inappropriate' | 'evaluation-failed';
+
+/**
+ * A flat boolean-plus-reason object, mirroring `CostAndRhythmGuardDecision`'s own shape and the
+ * same `docs/CONVENTIONS.md` reasoning that shape's TSDoc already documents — a guard reporting a
+ * decision, not an expected domain failure.
+ */
+export type SituationalAppropriatenessGuardDecision = {
+  readonly satisfied: boolean;
+  readonly reason: SituationalAppropriatenessGuardReason;
+};
+
+/**
  * BUILD_PLAN 3.4a-iii's own situational-appropriateness gate (VISION §9), run before any
  * standing-proactive Slack post — Alex confirmed via `AskUserQuestion` at 3.4a-iii that only
  * unprompted posting needs the check, not reaction-outcome dispatch (a human's own reaction is a
@@ -120,11 +146,15 @@ export async function evaluateCostAndRhythmGuard(
  * checking only the cost cap. **Fails CLOSED** on any gate failure (an API error,
  * not just `appropriate: false`) — see `evaluateSituationalAppropriateness`'s own TSDoc for why
  * this is the opposite of `checkCostCapAndAlert`'s fail-open design.
+ *
+ * **Renamed from `isSituationallyAppropriate` at BUILD_PLAN 3.10**, when the return widened from a
+ * bare `boolean` to the decision above, for the identical `docs/CONVENTIONS.md` reason
+ * `evaluateCostAndRhythmGuard`'s own TSDoc documents for its 3.9 rename.
  */
-export async function isSituationallyAppropriate(
+export async function evaluateSituationalAppropriatenessGuard(
   deps: HandlerDeps,
   input: StandingProactiveGuardInput,
-): Promise<boolean> {
+): Promise<SituationalAppropriatenessGuardDecision> {
   const { message, now, actionDescription } = input;
   const appropriateness = await evaluateSituationalAppropriateness(
     deps.anthropicClient,
@@ -132,12 +162,9 @@ export async function isSituationallyAppropriate(
   );
   if (!appropriateness.ok) {
     // "skipping", not "deferring", for the same BUILD_PLAN 3.9 reason as the rhythm branch above:
-    // the caller returns and the message is dropped, with nothing scheduled to retry it. This
-    // branch is a genuine remaining silent loss — an Anthropic error or timeout drops an ambient
-    // message permanently — and is deliberately out of 3.9's scope (Alex settled 2026-07-27, to
-    // keep this chunk on the rhythm guard); BUILD_PLAN 3.10 carries it. Correcting the word is in
-    // scope regardless, because leaving one "deferring" beside a corrected one is worse than
-    // leaving both: it reads as a considered distinction rather than an oversight.
+    // the caller returns and the message is dropped unless the caller writes a review-queue row
+    // off this reason. BUILD_PLAN 3.10 makes the ambient callers do exactly that — this branch was
+    // a genuine remaining silent loss until now.
     deps.logger.error(
       `failed to evaluate situational appropriateness — skipping ${actionDescription} (fail-closed)`,
       {
@@ -146,7 +173,7 @@ export async function isSituationallyAppropriate(
         errorMessage: appropriateness.error.message,
       },
     );
-    return false;
+    return { satisfied: false, reason: 'evaluation-failed' };
   }
 
   await recordUsageLogged(
@@ -167,8 +194,8 @@ export async function isSituationallyAppropriate(
         reasoning: appropriateness.reasoning,
       },
     );
-    return false;
+    return { satisfied: false, reason: 'inappropriate' };
   }
 
-  return true;
+  return { satisfied: true, reason: 'satisfied' };
 }

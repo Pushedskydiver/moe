@@ -21,7 +21,7 @@ import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import {
   evaluateCostAndRhythmGuard,
-  isSituationallyAppropriate,
+  evaluateSituationalAppropriatenessGuard,
 } from './standing-proactive-guards.js';
 
 // VISION §5.2's High-band reaction-gate legend (✅ commit the draft as a ticket; 🔁 redo —
@@ -277,7 +277,8 @@ async function markDraftPosted(
 // (BUILD_PLAN 4.4b): a real Slack message exists by then, so deleting the tracking row would make
 // it strictly worse, not better. This function itself runs no guard checks of its own — it's the
 // caller's job to gate it first. `composeAndPostDraft` below (the ambient High-band caller) only
-// reaches it after both `evaluateCostAndRhythmGuard` and `isSituationallyAppropriate` pass.
+// reaches it after both `evaluateCostAndRhythmGuard` and `evaluateSituationalAppropriatenessGuard`
+// pass.
 //
 // Two other callers reuse this function directly rather than reimplementing it, and both
 // deliberately run **neither** guard first, because both are reactive rather than unprompted — the
@@ -361,42 +362,48 @@ type ComposeAndPostDraftInput = {
 /**
  * BUILD_PLAN 3.4a-i's High-band action, real end-to-end as of BUILD_PLAN 3.4a-iii: gated by a
  * fresh cost-cap check, the 2.7a operating-rhythm guard, and BUILD_PLAN 3.4a-iii's own
- * situational-appropriateness gate (`evaluateCostAndRhythmGuard`/`isSituationallyAppropriate`,
- * `standing-proactive-guards.ts`), then composes, posts, persists, and seeds the reaction-gate
- * legend (`postAndPersistDraft`).
+ * situational-appropriateness gate (`evaluateCostAndRhythmGuard`/
+ * `evaluateSituationalAppropriatenessGuard`, `standing-proactive-guards.ts`), then composes,
+ * posts, persists, and seeds the reaction-gate legend (`postAndPersistDraft`).
  *
- * **BUILD_PLAN 3.9 — the operating-rhythm branch no longer drops the message.** When the rhythm
- * guard is what blocked, a `review_queue` row is written so the 3.5 sweep digest surfaces it. That
- * is a durable record, **not** a deferral: nothing picks it up later, and calling it one would
- * repeat the exact false promise this chunk was filed to remove. A cost-cap halt still returns
- * silently, and so does the fail-closed appropriateness gate below; both are still real losses,
- * deliberately left to BUILD_PLAN 3.10 so this chunk stays on the guard it was scoped to (Alex
- * settled 2026-07-27).
+ * **BUILD_PLAN 3.9 — the operating-rhythm branch no longer drops the message**, and **BUILD_PLAN
+ * 3.10 — neither do the other two guard exits.** Every way this function can decline to post now
+ * writes a `review_queue` row, with a reason-specific `outcomeReason` so the 3.5 sweep digest can
+ * tell causes apart: `evaluateCostAndRhythmGuard` blocking (`'high-band-off-hours'` for the rhythm
+ * guard, `'high-band-cost-cap'` for the cap) and `evaluateSituationalAppropriatenessGuard` failing
+ * CLOSED on an infrastructure blip (`'high-band-appropriateness-check-failed'`). None of these is a
+ * deferral: nothing picks any of them up later, and calling one that would repeat the exact false
+ * promise BUILD_PLAN 3.9 was filed to remove.
  *
- * **The condition is written as `!== 'cost-cap-reached'`, not `=== 'outside-core-hours'`, and that
- * asymmetry is deliberate** (DA review, this chunk). Both spellings behave identically today, since
- * those are the only two blocking reasons — but they fail in opposite directions when a *third* one
- * is added (BUILD_PLAN 2.7b's away-detection, built but unconsumed, is the nearest candidate — though
- * 7.2b, its named first consumer, is scoped to ceremony policy rather than this guard, so even that
- * is speculative). An equality test would send
- * the new reason down the bare `return`, silently reintroducing this chunk's own bug in two places,
- * and it would compile clean. The inequality test preserves the message by default and forces a
- * deliberate opt-out. Cheap insurance for the exact defect this chunk exists to fix.
+ * **One guard branch is deliberately still silent: a genuine `appropriate: false` verdict.** Alex
+ * settled (`AskUserQuestion`, BUILD_PLAN 3.10, 2026-07-28) that this is a considered decision the
+ * message should not be acted on, not silent data loss — logging it too would add queue noise for
+ * a settled judgement call, not the genuine ambiguity the queue exists for. This is the one place
+ * in the guard chain where "the action was blocked" does not by itself justify a row; the other two
+ * guard blocks below have no such alternative reading, so they always write one.
  *
- * **`'outside-core-hours'` covers all three of `evaluateOperatingRhythm`'s *blocking* reasons** (its
- * enum has a fourth, `'within-core-hours'`, which does not reach here) — including
+ * **The cost-and-rhythm branch below writes unconditionally, choosing only the label** — not the
+ * `!== 'cost-cap-reached'` conditional-write BUILD_PLAN 3.9 used. That was deliberately fail-safe
+ * for a hypothetical *third* blocking reason (DA review, 3.9): preserve the message by default
+ * rather than silently dropping it for a reason nobody had written a branch for yet. Now that both
+ * known reasons write a row, the only remaining question for a hypothetical third one is which
+ * *label* it gets, not whether it's kept — a strictly smaller failure mode than data loss, so an
+ * unconditional write with a two-way label choice is the safer shape, not a regression of 3.9's own
+ * insurance.
+ *
+ * **`'outside-core-hours'` still covers all three of `evaluateOperatingRhythm`'s *blocking*
+ * reasons** (its enum has a fourth, `'within-core-hours'`, which does not reach here) — including
  * `'bank-holiday'` and `'holiday-status-unknown'`, both of which are only reached *inside* the
- * clock window — so a row can be written at 10:00 on a Tuesday when the GOV.UK bank-holidays API
- * was unreachable at boot. That is correct rather than a mislabel: the guard fails **closed**,
- * meaning it treats an unknown holiday status as a rest day, and this row records the guard's
- * decision, not the calendar. The reason itself is logged but not persisted on the row, so the
- * digest cannot yet tell an infrastructure blip from a real 01:13 message — noted on 3.10.
+ * clock window — so a `'high-band-off-hours'` row can be written at 10:00 on a Tuesday when the
+ * GOV.UK bank-holidays API was unreachable at boot. That is correct rather than a mislabel: the
+ * guard fails **closed**, meaning it treats an unknown holiday status as a rest day, and this row
+ * records the guard's decision, not the calendar.
  *
- * **Why the row is written before the appropriateness gate has run**, making the off-hours path
- * marginally more permissive than the in-hours one: the gate is a billed Haiku call whose purpose
- * is deciding whether it is *appropriate to post into a shared channel* (VISION §9, whose own
- * illustration is a public-channel misstep). Nothing is posted here, so the risk it guards against
- * does not exist, and paying for it out of hours to decide whether to write a private row Alex
+ * **Why the row is written before the appropriateness gate has run**, making both guard-level
+ * blocks marginally more permissive than the in-hours, under-cap case: the gate is a billed Haiku
+ * call whose purpose is deciding whether it is *appropriate to post into a shared channel* (VISION
+ * §9, whose own illustration is a public-channel misstep). Nothing is posted here, so the risk it
+ * guards against does not exist, and paying for it to decide whether to write a private row Alex
  * alone reads would be spend for no protection. The §6.4/§14 operating-rhythm rules are likewise
  * untouched — this function writes through `reviewQueueStore` and `logger` only, never a Slack
  * client, so nothing reaches the workspace.
@@ -413,20 +420,34 @@ async function composeAndPostDraft(
   };
   const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
   if (!guard.satisfied) {
-    // Fail safe, not fail equal — see this function's own TSDoc. A future third blocking reason
-    // preserves the message rather than silently dropping it.
-    if (guard.reason !== 'cost-cap-reached') {
+    await logAmbientIntakeToReviewQueue(deps, {
+      message,
+      classified,
+      outcomeReason:
+        guard.reason === 'cost-cap-reached'
+          ? 'high-band-cost-cap'
+          : 'high-band-off-hours',
+    });
+    return;
+  }
+
+  const appropriateness = await evaluateSituationalAppropriatenessGuard(
+    deps,
+    guardInput,
+  );
+  if (!appropriateness.satisfied) {
+    // Unlike the cost-and-rhythm guard above, this one genuinely has two different right answers
+    // depending on why it failed — see this function's own TSDoc. Only the infra-blip case writes
+    // a row; a genuine inappropriate verdict stays silent.
+    if (appropriateness.reason === 'evaluation-failed') {
       await logAmbientIntakeToReviewQueue(deps, {
         message,
         classified,
-        outcomeReason: 'high-band-off-hours',
+        outcomeReason: 'high-band-appropriateness-check-failed',
       });
     }
     return;
   }
-
-  const gatePassed = await isSituationallyAppropriate(deps, guardInput);
-  if (!gatePassed) return;
 
   await postAndPersistDraft(deps, message, {
     now,

@@ -146,6 +146,13 @@ type PendingTicketDraftsTable = {
  * `'high-band-off-hours'`/`'mid-band-off-hours'` the same way — an **ambient** High- or Mid-band
  * message the 2.7a operating-rhythm guard blocked, which until then was dropped with nothing
  * persisted at all (`logAmbientIntakeToReviewQueue`).
+ * `0022_widen_review_queue_outcome_reason_guard_chain.sql` (BUILD_PLAN 3.10) added the same
+ * chain's two other silent-loss exits, additively on top: `'high-band-cost-cap'`/
+ * `'mid-band-cost-cap'` (a cost-cap halt inside `evaluateCostAndRhythmGuard`, mid-turn after the
+ * classifier output already exists) and `'high-band-appropriateness-check-failed'`/
+ * `'mid-band-appropriateness-check-failed'` (the situational-appropriateness gate failing CLOSED
+ * on an infrastructure blip, not a genuine `appropriate: false` verdict — that verdict stays
+ * silent by design, per Alex's own 2026-07-28 `AskUserQuestion` decision).
  *
  * Note `outcomeReason` is typed `string` here, not the union: Kysely's shape is the raw column, so
  * nothing in this file constrains the value. The enum lives in `./intake/review-queue-entry.ts` and

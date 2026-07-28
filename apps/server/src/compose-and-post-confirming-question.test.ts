@@ -302,7 +302,7 @@ describe('composeAndPostConfirmingQuestion', () => {
     }
   });
 
-  it('skips posting, and writes no review-queue row, when the cost cap is reached', async () => {
+  it('writes a mid-band-cost-cap review-queue row, instead of losing the message, when the cost cap is reached (BUILD_PLAN 3.10)', async () => {
     const deps = makeDeps({
       capStore: makeCapStore({
         getMonthlyCost: vi.fn<CapStore['getMonthlyCost']>().mockResolvedValue({
@@ -333,11 +333,18 @@ describe('composeAndPostConfirmingQuestion', () => {
     // alert ladder's own real DM to Alex (chunk 2.6b), a legitimate, unrelated `postMessage` call.
     // The confirming question itself never gets persisted is the precise thing to verify here.
     expect(deps.confirmingQuestionStore.create).not.toHaveBeenCalled();
-    // BUILD_PLAN 3.9's scope boundary, pinned: **only** the operating-rhythm block writes a
-    // review-queue row, not a cost-cap halt (Alex scoped 3.9 to the rhythm guard; the cap case is
-    // BUILD_PLAN 3.10). Without this assertion the two guard reasons are indistinguishable in the
-    // suite, and a later change collapsing them back into one bare boolean would stay green.
-    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+    // BUILD_PLAN 3.10 closes the scope boundary 3.9 deliberately left open (Alex scoped 3.9 to the
+    // rhythm guard only): a cost-cap halt now writes a row too, distinguishably from an off-hours
+    // block via its own `outcomeReason`.
+    expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'C123',
+      messageTs: CHANNEL_MESSAGE.ts,
+      sourceMessageText: CHANNEL_MESSAGE.text,
+      confidence: CLASSIFIED.confidence,
+      reasoning: CLASSIFIED.reasoning,
+      outcomeReason: 'mid-band-cost-cap',
+    });
   });
 
   // BUILD_PLAN 3.9 — this path had the byte-identical silent loss the High-band path did, and
@@ -379,7 +386,7 @@ describe('composeAndPostConfirmingQuestion', () => {
     }
   });
 
-  it('fails closed — skips posting — when the situational-appropriateness gate errors', async () => {
+  it('writes a mid-band-appropriateness-check-failed review-queue row, instead of losing the message, when the situational-appropriateness gate errors (BUILD_PLAN 3.10)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -401,10 +408,18 @@ describe('composeAndPostConfirmingQuestion', () => {
         expect.objectContaining({ errorMessage: 'rate limited' }),
       );
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
-      // BUILD_PLAN 3.10's boundary, pinned negatively — DA's mutation testing on 3.9 showed that
-      // writing a row here left the whole suite green. This branch is deliberately still a silent
-      // loss; 3.10 is where that changes, and it must update this assertion rather than only add.
-      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+      // DA's mutation testing at chunk 3.9 showed that writing a row here left the whole suite
+      // green — this infra-blip case (distinct from a genuine inappropriate verdict, pinned
+      // negatively below) now writes one.
+      expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: CHANNEL_MESSAGE.ts,
+        sourceMessageText: CHANNEL_MESSAGE.text,
+        confidence: CLASSIFIED.confidence,
+        reasoning: CLASSIFIED.reasoning,
+        outcomeReason: 'mid-band-appropriateness-check-failed',
+      });
     } finally {
       vi.useRealTimers();
     }
@@ -437,6 +452,11 @@ describe('composeAndPostConfirmingQuestion', () => {
         },
       );
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+      // BUILD_PLAN 3.10's own scope boundary, pinned: a genuine `appropriate: false` verdict is a
+      // considered decision, not silent data loss, and stays silent — unlike the gate's OTHER
+      // `return false` branch (an infrastructure blip), which now writes a row (see the
+      // fail-closed test above).
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }

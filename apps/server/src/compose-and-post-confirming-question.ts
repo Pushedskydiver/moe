@@ -11,7 +11,7 @@ import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-qu
 import { repositoryErrorMessage } from './repository-error.js';
 import {
   evaluateCostAndRhythmGuard,
-  isSituationallyAppropriate,
+  evaluateSituationalAppropriatenessGuard,
 } from './standing-proactive-guards.js';
 
 const ACTION_DESCRIPTION = 'confirming-question posting';
@@ -150,7 +150,7 @@ async function releaseQuestionClaimAfterPostFailure(
  * `handle-ambient-channel-message.ts`'s own `postAndPersistDraft` (BUILD_PLAN 5.2b), including that
  * it runs **no guard checks of its own**: gating is the caller's job. `composeAndPostConfirmingQuestion`
  * below (the ambient caller) only reaches it after both `evaluateCostAndRhythmGuard` and
- * `isSituationallyAppropriate` pass. BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`)
+ * `evaluateSituationalAppropriatenessGuard` pass. BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`)
  * calls it directly instead, deliberately running neither of those two guards — a DM-triggered
  * post is reactive rather than unprompted, the same distinction 2.7a already settled for DM replies
  * — while still running the cost cap upstream, since the classify call that routed here is billed.
@@ -217,17 +217,18 @@ export async function postAndPersistConfirmingQuestion(
  * source message — in-thread for an ambient one, top-level for a DM (`surface`) — persists a `pending_confirming_questions` row keyed on the posted message,
  * and seeds the 👍/👎 legend (`postAndPersistConfirmingQuestion`).
  *
- * **BUILD_PLAN 3.9 — the off-hours branch no longer drops the message.** This path had the
- * byte-identical silent loss the High-band path did, and 3.9's own spec never mentioned it (found
- * during that chunk's recon; Alex settled covering both bands on 2026-07-27). An ambient Mid-band
- * message outside core hours now writes a `'mid-band-off-hours'` `review_queue` row rather than
- * vanishing. A *distinct* value from the High band's, not a shared one, because the digest groups
- * by reason so a human can tell causes apart: "a draft was never composed" and "a question was
- * never asked" call for different responses from Alex.
+ * **BUILD_PLAN 3.9 — the off-hours branch no longer drops the message, and BUILD_PLAN 3.10 — nor
+ * do the other two guard exits.** This path has the byte-identical guard chain the High-band draft
+ * path does (`composeAndPostDraft`, whose own TSDoc carries the full reasoning this one mirrors):
+ * every way this function can decline to post now writes a `review_queue` row except a genuine
+ * `appropriate: false` verdict, which stays silent by design. Each `outcomeReason` is a *distinct*
+ * value from the High band's, not a shared one, because the digest groups by reason so a human can
+ * tell causes apart: "a draft was never composed" and "a question was never asked" call for
+ * different responses from Alex.
  *
  * Only the ambient caller runs this function at all — BUILD_PLAN 3.7's DM cascade calls
- * `postAndPersistConfirmingQuestion` directly and never consults the rhythm guard, so no DM can
- * produce either off-hours row. See `logAmbientIntakeToReviewQueue` for the full reasoning.
+ * `postAndPersistConfirmingQuestion` directly and never consults either guard, so no DM can
+ * produce any of these rows. See `logAmbientIntakeToReviewQueue` for the full reasoning.
  */
 export async function composeAndPostConfirmingQuestion(
   deps: HandlerDeps,
@@ -237,20 +238,34 @@ export async function composeAndPostConfirmingQuestion(
   const guardInput = { message, now, actionDescription: ACTION_DESCRIPTION };
   const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
   if (!guard.satisfied) {
-    // Fail safe, not fail equal — mirrors `composeAndPostDraft`, whose TSDoc carries the reasoning.
-    // A future third blocking reason preserves the message rather than silently dropping it.
-    if (guard.reason !== 'cost-cap-reached') {
+    await logAmbientIntakeToReviewQueue(deps, {
+      message,
+      classified,
+      outcomeReason:
+        guard.reason === 'cost-cap-reached'
+          ? 'mid-band-cost-cap'
+          : 'mid-band-off-hours',
+    });
+    return;
+  }
+
+  const appropriateness = await evaluateSituationalAppropriatenessGuard(
+    deps,
+    guardInput,
+  );
+  if (!appropriateness.satisfied) {
+    // Unlike the cost-and-rhythm guard above, this one genuinely has two different right answers
+    // depending on why it failed — see `composeAndPostDraft`'s own TSDoc. Only the infra-blip case
+    // writes a row; a genuine inappropriate verdict stays silent.
+    if (appropriateness.reason === 'evaluation-failed') {
       await logAmbientIntakeToReviewQueue(deps, {
         message,
         classified,
-        outcomeReason: 'mid-band-off-hours',
+        outcomeReason: 'mid-band-appropriateness-check-failed',
       });
     }
     return;
   }
-
-  const gatePassed = await isSituationallyAppropriate(deps, guardInput);
-  if (!gatePassed) return;
 
   await postAndPersistConfirmingQuestion(deps, input);
 }

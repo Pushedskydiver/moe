@@ -38,6 +38,21 @@ const nonBlankStringSchema = z
  * never consults the rhythm guard (2.7a settled DM replies as reactive; 3.7 extended that to
  * DM-triggered drafts), so a DM produces its draft or question at any hour and never writes either
  * value.
+ *
+ * `'high-band-cost-cap'`/`'mid-band-cost-cap'` and
+ * `'high-band-appropriateness-check-failed'`/`'mid-band-appropriateness-check-failed'` are
+ * BUILD_PLAN 3.10's own writes, added by migration
+ * `0022_widen_review_queue_outcome_reason_guard_chain.sql`, closing the ambient guard chain's two
+ * other silent-loss exits 3.9 deliberately left open: a cost-cap halt inside
+ * `evaluateCostAndRhythmGuard` (the guard-level check that can fire mid-turn, after the classifier
+ * output already exists — not the earlier per-turn short-circuit inside
+ * `classifyMessageForIntake`, which has no classifier output yet and so writes nothing here), and
+ * the situational-appropriateness gate failing CLOSED on an infrastructure blip
+ * (`evaluateSituationalAppropriatenessGuard`'s `'evaluation-failed'` reason — an Anthropic error,
+ * timeout, or unparseable response, not a genuine `appropriate: false` verdict). **Deliberately
+ * no value for a genuine `appropriate: false` verdict itself**: Alex settled (`AskUserQuestion`,
+ * 2026-07-28) that a considered decision the message shouldn't be acted on is not silent data
+ * loss, and stays silent rather than adding queue noise for every settled judgement call.
  */
 export const reviewQueueEntrySchema = z.object({
   id: z.uuid(),
@@ -54,6 +69,10 @@ export const reviewQueueEntrySchema = z.object({
     'mid-yes-failed',
     'high-band-off-hours',
     'mid-band-off-hours',
+    'high-band-cost-cap',
+    'mid-band-cost-cap',
+    'high-band-appropriateness-check-failed',
+    'mid-band-appropriateness-check-failed',
   ]),
   createdAt: z.date(),
 });
