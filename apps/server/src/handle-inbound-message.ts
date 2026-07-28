@@ -389,7 +389,7 @@ export function createInboundMessageHandler(
     // (`USLACKBOT`, distinct from `USLACK`), which this guard's exact match never touches. So there
     // is nothing for the review-queue's whole purpose — a human deciding what nobody else did — to
     // adjudicate on this path. The log line above is the visibility this needs, not a backstop 3.9's
-    // own "a log nobody greps is not a backstop" argument would apply to.
+    // own "a log line nobody greps is not a backstop" argument would apply to.
     if (message.userId === SLACKBOT_USER_ID) {
       deps.logger.info("skipping Slackbot's own notification DM", {
         personaId: deps.personaId,

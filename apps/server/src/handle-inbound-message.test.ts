@@ -1116,8 +1116,8 @@ describe('createInboundMessageHandler', () => {
       );
     });
 
-    // A real human DM is never authored by a reserved Slack system id — pins the discriminator
-    // itself, so a typo'd literal ('Uslack', 'USLACKBOT', etc.) can't silently stop matching.
+    // Confirms the guard is scoped to Slackbot's own DM, not DMs in general — a real human DM
+    // still gets a normal reply.
     it('still answers a real human DM normally — the check is exact-match on the userId, not a broader pattern', async () => {
       const deps = makeDeps();
       const handler = createInboundMessageHandler(deps);
