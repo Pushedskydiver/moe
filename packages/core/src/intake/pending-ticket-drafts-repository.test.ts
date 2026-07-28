@@ -1,4 +1,5 @@
 import type { Database } from '../schema.js';
+import type { NewPendingTicketDraft } from './pending-ticket-drafts-repository.js';
 import type { Kysely } from 'kysely';
 import type { Pool } from 'pg';
 
@@ -287,6 +288,36 @@ describe('pending ticket drafts repository', () => {
       ...newDraftInput(),
       sourceMessageTs: '   ',
     });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        kind: 'validation-failed',
+        issues: expect.any(String) as string,
+      },
+    });
+    const all = await db
+      .selectFrom('pendingTicketDrafts')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(0);
+  });
+
+  it('rejects a claim with a null sourceMessageTs, before it ever reaches the database (R2 review, BUILD_PLAN 5.2b)', async () => {
+    // Distinct from the blank-string test above on purpose: `pendingTicketDraftSchema`'s own
+    // `sourceMessageTs` is `.nullable()` (tolerating one legacy row that predates the column), so
+    // the actual bug this guards against is `null` specifically, not blankness — a blank string was
+    // already rejected before `newPendingTicketDraftSchema` existed (`.nullable()` still runs the
+    // inner non-blank check on any non-null value). Only a `null` input exercises the real gap:
+    // without `newPendingTicketDraftSchema`'s own non-nullable `sourceMessageTs`,
+    // `createPendingTicketDraft` would validate against the nullable round-trip schema instead and
+    // silently accept it. `as unknown as NewPendingTicketDraft` simulates a caller bypassing
+    // TypeScript's own compile-time-only guarantee (an untyped JS caller, or a stale `as` cast
+    // elsewhere) — exactly the gap DA review found: the TS type alone was never a runtime guarantee.
+    const result = await createPendingTicketDraft(db, {
+      ...newDraftInput(),
+      sourceMessageTs: null,
+    } as unknown as NewPendingTicketDraft);
 
     expect(result).toEqual({
       ok: false,
