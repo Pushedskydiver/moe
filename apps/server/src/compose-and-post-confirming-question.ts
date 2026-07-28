@@ -140,6 +140,21 @@ async function claimQuestion(
   return claimed.question;
 }
 
+// Extracted for the same `max-lines-per-function` reason as `claimQuestion` above — mirrors
+// `handle-ambient-channel-message.ts`'s own `releaseDraftClaimAfterPostFailure` exactly (DA
+// review, BUILD_PLAN 5.2b).
+async function releaseQuestionClaimAfterPostFailure(
+  deps: HandlerDeps,
+  claimedId: string,
+): Promise<void> {
+  const released = await deps.confirmingQuestionStore.releaseClaim(claimedId);
+  if (!released.ok) {
+    deps.logger.error('failed to release pending confirming question claim', {
+      errorMessage: String(released.error.cause),
+    });
+  }
+}
+
 export async function postAndPersistConfirmingQuestion(
   deps: HandlerDeps,
   input: ComposeAndPostConfirmingQuestionInput,
@@ -161,6 +176,7 @@ export async function postAndPersistConfirmingQuestion(
     deps.logger.error('failed to post confirming question', {
       errorMessage: posted.error.message,
     });
+    await releaseQuestionClaimAfterPostFailure(deps, claimed.id);
     return { ok: false };
   }
 

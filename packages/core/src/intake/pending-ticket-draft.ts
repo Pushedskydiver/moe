@@ -64,10 +64,14 @@ export type DraftOrigin = z.infer<typeof draftOriginSchema>;
  * production, not assumed — see migration `0020`'s own comment). The **claim key** is
  * `(channelId, sourceMessageTs)`, not `(channelId, messageTs)` — the old constraint never actually
  * arbitrated anything, since `messageTs` is the *posted* message's own ts, which doesn't exist
- * until after the Slack call this table exists to dedupe against. `createPendingTicketDraft`'s own
- * input type requires a real `sourceMessageTs` string despite this schema's nullability, mirroring
- * how `resolvedAt`/`createdAt` are schema-nullable-or-optional here but always supplied by the
- * repository layer, not the caller.
+ * until after the Slack call this table exists to dedupe against. This round-trip schema's own
+ * `.nullable()` on `sourceMessageTs` is deliberately **not** what enforces "every new claim has a
+ * real one" — that's `newPendingTicketDraftSchema` below, a separate, stricter schema
+ * `createPendingTicketDraft` actually validates its input through. Reusing this schema for that
+ * purpose would let `sourceMessageTs: null` silently pass Zod validation on insert (DA review,
+ * BUILD_PLAN 5.2b) — a real gap, since a null claim key would never dedupe against anything
+ * (Postgres treats NULLs as distinct in a unique index by default), defeating the whole point of
+ * `UNIQUE (channel_id, source_message_ts)`.
  */
 export const pendingTicketDraftSchema = z.object({
   id: z.uuid(),
@@ -84,3 +88,24 @@ export const pendingTicketDraftSchema = z.object({
 });
 
 export type PendingTicketDraft = z.infer<typeof pendingTicketDraftSchema>;
+
+/**
+ * The claim-time insert shape (BUILD_PLAN 5.2b) — `createPendingTicketDraft`
+ * (`./pending-ticket-drafts-repository.ts`) validates its input against this, not
+ * `pendingTicketDraftSchema` above, specifically so `sourceMessageTs` is really,
+ * Zod-enforced-at-the-boundary non-blank, not just non-null-at-the-TypeScript-level (erased at
+ * runtime, and bypassable). No `messageTs` field at all — genuinely unknown until
+ * `markPendingTicketDraftPosted` fills it in — and no `id`/`resolvedAt`/`createdAt`, which the
+ * repository layer supplies itself.
+ */
+export const newPendingTicketDraftSchema = z.object({
+  personaId: nonBlankStringSchema,
+  channelId: nonBlankStringSchema,
+  sourceMessageTs: nonBlankStringSchema,
+  sourceMessageText: nonBlankStringSchema,
+  draftTitle: nonBlankStringSchema,
+  draftBody: nonBlankStringSchema,
+  origin: draftOriginSchema,
+});
+
+export type NewPendingTicketDraft = z.infer<typeof newPendingTicketDraftSchema>;

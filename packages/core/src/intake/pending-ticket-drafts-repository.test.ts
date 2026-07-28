@@ -14,6 +14,7 @@ import {
   createPendingTicketDraft,
   getPendingTicketDraftByMessage,
   markPendingTicketDraftPosted,
+  releasePendingTicketDraftClaim,
   resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
 } from './pending-ticket-drafts-repository.js';
@@ -279,5 +280,67 @@ describe('pending ticket drafts repository', () => {
     );
 
     expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
+  });
+
+  it('rejects a claim with a blank sourceMessageTs, before it ever reaches the database (DA review, BUILD_PLAN 5.2b)', async () => {
+    const result = await createPendingTicketDraft(db, {
+      ...newDraftInput(),
+      sourceMessageTs: '   ',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: {
+        kind: 'validation-failed',
+        issues: expect.any(String) as string,
+      },
+    });
+    const all = await db
+      .selectFrom('pendingTicketDrafts')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(0);
+  });
+
+  it('deletes a still-claimed (never-posted) draft, freeing its sourceMessageTs for a fresh claim (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+
+    const released = await releasePendingTicketDraftClaim(db, created.draft.id);
+    expect(released).toEqual({ ok: true });
+
+    const all = await db
+      .selectFrom('pendingTicketDrafts')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(0);
+
+    // The whole point: releasing frees the claim key for the same source message to try again.
+    const retried = await createPendingTicketDraft(db, newDraftInput());
+    expect(retried.ok).toBe(true);
+  });
+
+  it('does not delete an already-posted draft, even when called with its id (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingTicketDraft(db, newDraftInput());
+    if (!created.ok) throw new Error('setup failed');
+    await markPendingTicketDraftPosted(db, created.draft.id, POSTED_MESSAGE_TS);
+
+    const released = await releasePendingTicketDraftClaim(db, created.draft.id);
+    expect(released).toEqual({ ok: true });
+
+    const all = await db
+      .selectFrom('pendingTicketDrafts')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(1);
+  });
+
+  it('is a no-op for a draft that does not exist (BUILD_PLAN 5.2b)', async () => {
+    const released = await releasePendingTicketDraftClaim(
+      db,
+      '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    );
+
+    expect(released).toEqual({ ok: true });
   });
 });

@@ -98,6 +98,7 @@ function makeDeps(
       getByMessage: vi.fn(),
       updateContent: vi.fn(),
       markPosted: vi.fn(),
+      releaseClaim: vi.fn(),
     },
     reviewQueueStore: { create: vi.fn() },
     confirmingQuestionStore: {
@@ -105,6 +106,7 @@ function makeDeps(
       getByMessage: vi.fn(),
       resolve: vi.fn(),
       markPosted: vi.fn(),
+      releaseClaim: vi.fn(),
     },
   };
 }

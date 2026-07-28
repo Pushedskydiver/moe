@@ -141,6 +141,7 @@ export {
   createPendingTicketDraft,
   getPendingTicketDraftByMessage,
   markPendingTicketDraftPosted,
+  releasePendingTicketDraftClaim,
   resolvePendingTicketDraft,
   updatePendingTicketDraftContent,
 } from './intake/pending-ticket-drafts-repository.js';
@@ -149,6 +150,7 @@ export type {
   PendingTicketDraftClaimError,
   PendingTicketDraftClaimResult,
   PendingTicketDraftOrNullResult,
+  PendingTicketDraftReleaseResult,
   PendingTicketDraftRepositoryError,
   PendingTicketDraftResult,
 } from './intake/pending-ticket-drafts-repository.js';
@@ -184,6 +186,7 @@ export {
   findStaleUnresolvedConfirmingQuestions,
   getPendingConfirmingQuestionByMessage,
   markPendingConfirmingQuestionPosted,
+  releasePendingConfirmingQuestionClaim,
   resolvePendingConfirmingQuestion,
 } from './intake/pending-confirming-questions-repository.js';
 export type {
@@ -192,6 +195,7 @@ export type {
   PendingConfirmingQuestionClaimResult,
   PendingConfirmingQuestionListResult,
   PendingConfirmingQuestionOrNullResult,
+  PendingConfirmingQuestionReleaseResult,
   PendingConfirmingQuestionRepositoryError,
   PendingConfirmingQuestionResult,
 } from './intake/pending-confirming-questions-repository.js';

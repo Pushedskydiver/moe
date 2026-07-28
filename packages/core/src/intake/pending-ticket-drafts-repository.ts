@@ -1,26 +1,18 @@
 import type { Database } from '../schema.js';
-import type { PendingTicketDraft } from './pending-ticket-draft.js';
+import type {
+  NewPendingTicketDraft,
+  PendingTicketDraft,
+} from './pending-ticket-draft.js';
 import type { Kysely } from 'kysely';
 
 import { sql } from 'kysely';
 
-import { pendingTicketDraftSchema } from './pending-ticket-draft.js';
+import {
+  newPendingTicketDraftSchema,
+  pendingTicketDraftSchema,
+} from './pending-ticket-draft.js';
 
-// BUILD_PLAN 5.2b — `sourceMessageTs` is nullable on `PendingTicketDraft` itself (one pre-5.2b
-// legacy row can't be backfilled with it), but every *new* claim always has a real one: it's the
-// natural key the claim-first insert is keyed on, known before the Slack post ever happens. No
-// `messageTs` here at all — genuinely unknown until `markPendingTicketDraftPosted` fills it in.
-export type NewPendingTicketDraft = Pick<
-  PendingTicketDraft,
-  | 'personaId'
-  | 'channelId'
-  | 'sourceMessageText'
-  | 'draftTitle'
-  | 'draftBody'
-  | 'origin'
-> & {
-  readonly sourceMessageTs: string;
-};
+export type { NewPendingTicketDraft } from './pending-ticket-draft.js';
 
 export type PendingTicketDraftRepositoryError =
   | { readonly kind: 'validation-failed'; readonly issues: string }
@@ -45,6 +37,12 @@ export type PendingTicketDraftClaimResult =
   | { readonly ok: true; readonly draft: PendingTicketDraft }
   | { readonly ok: false; readonly error: PendingTicketDraftClaimError };
 
+// BUILD_PLAN 5.2b — same shape as `../intake/ticket-github-issue-link-repository.ts`'s own
+// `ReleaseResult`, the precedent `releasePendingTicketDraftClaim` below mirrors.
+export type PendingTicketDraftReleaseResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: { readonly cause: unknown } };
+
 function parseDraftRow(row: unknown): PendingTicketDraftResult {
   const parsed = pendingTicketDraftSchema.safeParse(row);
   if (!parsed.success) {
@@ -64,24 +62,41 @@ function parseDraftRow(row: unknown): PendingTicketDraftResult {
  * computes identically ahead of any Slack call — `UNIQUE (channel_id, source_message_ts)`
  * (migration `0020`) is what actually arbitrates a race, unlike the old `(channel_id, messageTs)`
  * constraint, which never could (`messageTs` didn't exist until after the post). `messageTs` starts
- * `null` and is filled in by `markPendingTicketDraftPosted` once the post succeeds; a post that
- * fails leaves the claim row orphaned (`messageTs` stays `null` forever) rather than retried — the
- * same accepted trade-off `createGithubIssue`'s own claim-first idempotency guard already makes
- * (BUILD_PLAN 4.4b: "a still-`pending` row from a prior crashed run is surfaced for manual
- * reconciliation, never auto-retried"). Shared by all three writers — `composeAndPostDraft`'s
+ * `null` and is filled in by `markPendingTicketDraftPosted` once the post succeeds. A Slack post
+ * that fails with a definitive error is released, not orphaned — `releasePendingTicketDraftClaim`
+ * below, called by `apps/server`'s `postAndPersistDraft` on that path (DA review, BUILD_PLAN 5.2b),
+ * so the same source message can be claimed again rather than permanently blocked. Only a failure
+ * of the later mark-posted step still orphans — see that function's own comment. Shared by all
+ * three writers — `composeAndPostDraft`'s
  * ambient High-band auto-draft path, `draftFromConfirmingQuestion`'s Mid-band 👍-confirmed path,
  * and `runDmIntakeCascade`'s DM High-band path (BUILD_PLAN 3.7), each going through
  * `postAndPersistDraft` — with `input.origin` (BUILD_PLAN 3.6/3.7) recording which one produced
- * this particular row. Validates the full candidate row through `pendingTicketDraftSchema` before
- * writing, so an invalid input never reaches the database.
+ * this particular row. Validates `input` through `newPendingTicketDraftSchema` — not
+ * `pendingTicketDraftSchema` — specifically so `sourceMessageTs` is really Zod-enforced non-blank
+ * at this boundary (DA review, BUILD_PLAN 5.2b: `pendingTicketDraftSchema`'s own `.nullable()`
+ * there would silently accept `null`, which `NewPendingTicketDraft`'s TypeScript type forbids only
+ * at compile time). The full candidate is then re-validated through `pendingTicketDraftSchema`
+ * too, catching any shape mistake in the fields this function builds itself
+ * (`id`/`messageTs`/`resolvedAt`/`createdAt`).
  */
 export async function createPendingTicketDraft(
   db: Kysely<Database>,
   input: NewPendingTicketDraft,
 ): Promise<PendingTicketDraftResult> {
+  const validatedInput = newPendingTicketDraftSchema.safeParse(input);
+  if (!validatedInput.success) {
+    return {
+      ok: false,
+      error: {
+        kind: 'validation-failed',
+        issues: validatedInput.error.message,
+      },
+    };
+  }
+
   const candidate = {
     id: crypto.randomUUID(),
-    ...input,
+    ...validatedInput.data,
     messageTs: null,
     resolvedAt: null,
     createdAt: new Date(),
@@ -96,6 +111,35 @@ export async function createPendingTicketDraft(
     return parseDraftRow(row);
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
+ * Deletes a still-claimed (never-posted) draft so the same source message can be claimed again —
+ * called when the Slack post itself fails with a definitive error (`postMessage` returned
+ * `{ ok: false }`, not a crash/timeout), mirroring `releaseTicketGithubIssueClaim`'s own
+ * distinction (BUILD_PLAN 4.4b) between a definitive failure (release, allow retry) and an
+ * ambiguous one (leave the claim in place). BUILD_PLAN 5.2b's own orphan trade-off note only ever
+ * meant to cover the latter — a `messageTs`-null row left behind by a definitive post failure has
+ * no ambiguity to protect and, left in place, silently pollutes `getDraftOutcomeCounts`'s
+ * `'ignored'` bucket (DA review): a draft that was never posted would otherwise satisfy the same
+ * `resolvedAt IS NULL AND redoCount = 0 AND createdAt < cutoff` predicate as one a human genuinely
+ * ignored. Scoped to `WHERE messageTs IS NULL` so it can never delete an already-posted (real) row
+ * even if called with a stale/incorrect `id`.
+ */
+export async function releasePendingTicketDraftClaim(
+  db: Kysely<Database>,
+  id: string,
+): Promise<PendingTicketDraftReleaseResult> {
+  try {
+    await db
+      .deleteFrom('pendingTicketDrafts')
+      .where('id', '=', id)
+      .where('messageTs', 'is', null)
+      .execute();
+    return { ok: true };
+  } catch (cause) {
+    return { ok: false, error: { cause } };
   }
 }
 

@@ -272,6 +272,9 @@ function makeDraftStore(
         ok: true,
         draft: makePendingTicketDraft(),
       }),
+    releaseClaim: vi
+      .fn<HandlerDeps['draftStore']['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -340,6 +343,9 @@ function makeConfirmingQuestionStore(
         ok: true,
         question: { ...BASE_QUESTION, messageTs: '1700000000.000100' },
       }),
+    releaseClaim: vi
+      .fn<HandlerDeps['confirmingQuestionStore']['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }

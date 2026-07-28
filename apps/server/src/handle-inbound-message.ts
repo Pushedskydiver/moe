@@ -23,9 +23,11 @@ import type {
   NewTicket,
   PendingConfirmingQuestionClaimResult,
   PendingConfirmingQuestionOrNullResult,
+  PendingConfirmingQuestionReleaseResult,
   PendingConfirmingQuestionResult,
   PendingTicketDraftClaimResult,
   PendingTicketDraftOrNullResult,
+  PendingTicketDraftReleaseResult,
   PendingTicketDraftResult,
   PersonaCostUsageResult,
   ReviewQueueEntryResult,
@@ -135,6 +137,13 @@ type DraftStore = {
     id: string,
     messageTs: string,
   ) => Promise<PendingTicketDraftClaimResult>;
+  // BUILD_PLAN 5.2b (DA review fold) — deletes a still-claimed (never-posted) draft when the Slack
+  // post itself fails with a definitive error, so the same source message can be claimed again
+  // rather than leaving a permanent orphan that pollutes `getDraftOutcomeCounts`'s `'ignored'`
+  // bucket. `postAndPersistDraft`'s own real consumer.
+  readonly releaseClaim: (
+    id: string,
+  ) => Promise<PendingTicketDraftReleaseResult>;
 };
 
 // Same thin DI seam, over `@moe/core`'s review-queue repository (BUILD_PLAN 3.4c) — VISION §5.2's
@@ -177,6 +186,11 @@ type ConfirmingQuestionStore = {
     id: string,
     messageTs: string,
   ) => Promise<PendingConfirmingQuestionClaimResult>;
+  // BUILD_PLAN 5.2b (DA review fold) — mirrors `DraftStore.releaseClaim` exactly.
+  // `postAndPersistConfirmingQuestion`'s own real consumer.
+  readonly releaseClaim: (
+    id: string,
+  ) => Promise<PendingConfirmingQuestionReleaseResult>;
 };
 
 // `historyStore`/`costStore`/`capStore`/`costCapConfig`/`personaId`/`threadQueue`/

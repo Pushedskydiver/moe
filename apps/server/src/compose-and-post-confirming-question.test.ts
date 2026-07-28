@@ -158,6 +158,9 @@ function makeConfirmingQuestionStore(
         ok: true,
         question: { ...BASE_QUESTION, messageTs: '1700000099.000100' },
       }),
+    releaseClaim: vi
+      .fn<ConfirmingQuestionStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -195,6 +198,7 @@ function makeDeps(
       getByMessage: vi.fn<HandlerDeps['draftStore']['getByMessage']>(),
       updateContent: vi.fn<HandlerDeps['draftStore']['updateContent']>(),
       markPosted: vi.fn<HandlerDeps['draftStore']['markPosted']>(),
+      releaseClaim: vi.fn<HandlerDeps['draftStore']['releaseClaim']>(),
     },
     reviewQueueStore: {
       // Resolves rather than being a bare stub — BUILD_PLAN 3.9 gave this path a real
@@ -438,7 +442,7 @@ describe('composeAndPostConfirmingQuestion', () => {
     }
   });
 
-  it('logs an error, without throwing, when posting the confirming question to Slack fails — the claim already made stays orphaned, not retried (BUILD_PLAN 5.2b)', async () => {
+  it('logs an error, without throwing, when posting the confirming question to Slack fails — the claim already made is released, not left orphaned (DA review, BUILD_PLAN 5.2b)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -461,6 +465,43 @@ describe('composeAndPostConfirmingQuestion', () => {
       );
       expect(deps.confirmingQuestionStore.create).toHaveBeenCalled();
       expect(deps.confirmingQuestionStore.markPosted).not.toHaveBeenCalled();
+      expect(deps.confirmingQuestionStore.releaseClaim).toHaveBeenCalledWith(
+        '8fa85f64-5717-4562-b3fc-2c963f66afab',
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logs an error, without throwing, when releasing the claim itself fails after a Slack-post failure (BUILD_PLAN 5.2b)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        slackClient: makeSlackClient({ ok: false, error: 'channel_not_found' }),
+        confirmingQuestionStore: makeConfirmingQuestionStore({
+          releaseClaim: vi
+            .fn<ConfirmingQuestionStore['releaseClaim']>()
+            .mockResolvedValue({
+              ok: false,
+              error: { cause: new Error('connection reset') },
+            }),
+        }),
+      });
+
+      await expect(
+        composeAndPostConfirmingQuestion(deps as never, {
+          message: CHANNEL_MESSAGE,
+          now: new Date(),
+          classified: CLASSIFIED,
+          surface: 'channel',
+        }),
+      ).resolves.toBeUndefined();
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to release pending confirming question claim',
+        { errorMessage: 'Error: connection reset' },
+      );
     } finally {
       vi.useRealTimers();
     }

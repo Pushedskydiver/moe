@@ -181,6 +181,9 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
       ok: true,
       draft: makePendingTicketDraft(),
     }),
+    releaseClaim: vi
+      .fn<DraftStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -222,6 +225,9 @@ function makeConfirmingQuestionStore(
         ok: true,
         question: { ...BASE_QUESTION, messageTs: '1700000000.000100' },
       }),
+    releaseClaim: vi
+      .fn<ConfirmingQuestionStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }

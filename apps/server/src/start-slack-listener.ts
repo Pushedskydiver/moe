@@ -21,6 +21,8 @@ import {
   markPendingConfirmingQuestionPosted,
   markPendingTicketDraftPosted,
   recordUsage,
+  releasePendingConfirmingQuestionClaim,
+  releasePendingTicketDraftClaim,
   resolveConfirmingQuestionAndLog,
   resolvePendingConfirmingQuestion,
   updatePendingTicketDraftContent,
@@ -77,6 +79,8 @@ function createDraftStore(db: Kysely<Database>) {
       id: Parameters<typeof markPendingTicketDraftPosted>[1],
       messageTs: Parameters<typeof markPendingTicketDraftPosted>[2],
     ) => markPendingTicketDraftPosted(db, id, messageTs),
+    releaseClaim: (id: Parameters<typeof releasePendingTicketDraftClaim>[1]) =>
+      releasePendingTicketDraftClaim(db, id),
   };
 }
 
@@ -93,6 +97,9 @@ function createConfirmingQuestionStore(db: Kysely<Database>) {
       id: Parameters<typeof markPendingConfirmingQuestionPosted>[1],
       messageTs: Parameters<typeof markPendingConfirmingQuestionPosted>[2],
     ) => markPendingConfirmingQuestionPosted(db, id, messageTs),
+    releaseClaim: (
+      id: Parameters<typeof releasePendingConfirmingQuestionClaim>[1],
+    ) => releasePendingConfirmingQuestionClaim(db, id),
   };
 }
 

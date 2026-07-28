@@ -60,6 +60,12 @@ export type PendingConfirmingQuestionClaimResult =
       readonly error: PendingConfirmingQuestionClaimError;
     };
 
+// BUILD_PLAN 5.2b — mirrors `pending-ticket-drafts-repository.ts`'s own
+// `PendingTicketDraftReleaseResult` exactly; see its comment for the shared precedent.
+export type PendingConfirmingQuestionReleaseResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly error: { readonly cause: unknown } };
+
 function parseQuestionRow(row: unknown): PendingConfirmingQuestionResult {
   const parsed = pendingConfirmingQuestionSchema.safeParse(row);
   if (!parsed.success) {
@@ -142,6 +148,28 @@ export async function markPendingConfirmingQuestionPosted(
     return parseQuestionRow(row);
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
+ * Deletes a still-claimed (never-posted) confirming question so the same source message can be
+ * claimed again — mirrors `releasePendingTicketDraftClaim` exactly, including the same
+ * definitive-vs-ambiguous-failure distinction (BUILD_PLAN 4.4b/5.2b) and the same
+ * `WHERE messageTs IS NULL` scope guarding against deleting an already-posted row.
+ */
+export async function releasePendingConfirmingQuestionClaim(
+  db: Kysely<Database>,
+  id: string,
+): Promise<PendingConfirmingQuestionReleaseResult> {
+  try {
+    await db
+      .deleteFrom('pendingConfirmingQuestions')
+      .where('id', '=', id)
+      .where('messageTs', 'is', null)
+      .execute();
+    return { ok: true };
+  } catch (cause) {
+    return { ok: false, error: { cause } };
   }
 }
 

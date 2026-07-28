@@ -15,6 +15,7 @@ import {
   findStaleUnresolvedConfirmingQuestions,
   getPendingConfirmingQuestionByMessage,
   markPendingConfirmingQuestionPosted,
+  releasePendingConfirmingQuestionClaim,
   resolvePendingConfirmingQuestion,
 } from './pending-confirming-questions-repository.js';
 
@@ -256,6 +257,66 @@ describe('pending confirming questions repository', () => {
     );
 
     expect(result).toEqual({ ok: false, error: { kind: 'unavailable' } });
+  });
+
+  it('deletes a still-claimed (never-posted) question, freeing its sourceMessageTs for a fresh claim (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    if (!created.ok) throw new Error('setup failed');
+
+    const released = await releasePendingConfirmingQuestionClaim(
+      db,
+      created.question.id,
+    );
+    expect(released).toEqual({ ok: true });
+
+    const all = await db
+      .selectFrom('pendingConfirmingQuestions')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(0);
+
+    const retried = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    expect(retried.ok).toBe(true);
+  });
+
+  it('does not delete an already-posted question, even when called with its id (BUILD_PLAN 5.2b)', async () => {
+    const created = await createPendingConfirmingQuestion(
+      db,
+      newQuestionInput(),
+    );
+    if (!created.ok) throw new Error('setup failed');
+    await markPendingConfirmingQuestionPosted(
+      db,
+      created.question.id,
+      POSTED_MESSAGE_TS,
+    );
+
+    const released = await releasePendingConfirmingQuestionClaim(
+      db,
+      created.question.id,
+    );
+    expect(released).toEqual({ ok: true });
+
+    const all = await db
+      .selectFrom('pendingConfirmingQuestions')
+      .selectAll()
+      .execute();
+    expect(all).toHaveLength(1);
+  });
+
+  it('is a no-op for a question that does not exist (BUILD_PLAN 5.2b)', async () => {
+    const released = await releasePendingConfirmingQuestionClaim(
+      db,
+      '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+    );
+
+    expect(released).toEqual({ ok: true });
   });
 
   describe('findStaleUnresolvedConfirmingQuestions (BUILD_PLAN 3.5)', () => {

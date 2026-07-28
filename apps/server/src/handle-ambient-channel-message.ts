@@ -201,12 +201,16 @@ type PostAndPersistDraftOptions = {
 // exist until *after* the post — could never actually arbitrate a race between two processes
 // racing the same source message. Claiming on `UNIQUE (channel_id, source_message_ts)` first makes
 // a duplicate post structurally impossible rather than resting entirely on 5.2a's single-listener
-// designation being correct. A claim that then fails to post, or posts but fails the follow-up
-// mark-posted update, is left orphaned (`messageTs` stays `null` forever) rather than retried —
-// same accepted trade-off as `createGithubIssue`'s own claim-first idempotency guard (BUILD_PLAN
-// 4.4b). This function itself runs no guard checks of its own — it's the caller's job to gate it
-// first. `composeAndPostDraft` below (the ambient High-band caller) only reaches it after both
-// `evaluateCostAndRhythmGuard` and `isSituationallyAppropriate` pass.
+// designation being correct. A claim whose Slack post then fails with a definitive error is
+// released (`releaseDraftClaimAfterPostFailure` below), not left orphaned — an orphan there would
+// silently pollute `getDraftOutcomeCounts`'s `'ignored'` bucket with a draft that was never posted
+// (DA review, BUILD_PLAN 5.2b). Only a failure of the later mark-posted step still orphans
+// (`messageTs` stays `null` forever, unretried) — the same accepted trade-off as
+// `createGithubIssue`'s own claim-first idempotency guard for its own ambiguous-failure case
+// (BUILD_PLAN 4.4b): a real Slack message exists by then, so deleting the tracking row would make
+// it strictly worse, not better. This function itself runs no guard checks of its own — it's the
+// caller's job to gate it first. `composeAndPostDraft` below (the ambient High-band caller) only
+// reaches it after both `evaluateCostAndRhythmGuard` and `isSituationallyAppropriate` pass.
 //
 // Two other callers reuse this function directly rather than reimplementing it, and both
 // deliberately run **neither** guard first, because both are reactive rather than unprompted — the
@@ -247,6 +251,40 @@ async function claimDraft(
   return claimed.draft;
 }
 
+// Extracted for the same `max-lines-per-function` reason as `claimDraft` above. Definitive
+// failure — nothing was posted, so the claim is released rather than left orphaned (DA review,
+// BUILD_PLAN 5.2b): an orphan here would silently pollute `getDraftOutcomeCounts`'s `'ignored'`
+// bucket with a draft that was never actually posted.
+async function releaseDraftClaimAfterPostFailure(
+  deps: DraftPostingDeps,
+  claimedId: string,
+): Promise<void> {
+  const released = await deps.draftStore.releaseClaim(claimedId);
+  if (!released.ok) {
+    deps.logger.error('failed to release pending ticket draft claim', {
+      errorMessage: String(released.error.cause),
+    });
+  }
+}
+
+// Extracted for the same `max-lines-per-function` reason as `claimDraft` above. Returns `true` on
+// success so the caller can short-circuit without needing the marked draft itself back.
+async function markDraftPosted(
+  deps: DraftPostingDeps,
+  claimedId: string,
+  messageTs: string,
+): Promise<boolean> {
+  const marked = await deps.draftStore.markPosted(claimedId, messageTs);
+  if (marked.ok) return true;
+  deps.logger.error('failed to mark pending ticket draft posted', {
+    errorMessage:
+      marked.error.kind === 'unavailable'
+        ? 'draft was already marked posted, or no longer exists'
+        : repositoryErrorMessage(marked.error),
+  });
+  return false;
+}
+
 export async function postAndPersistDraft(
   deps: DraftPostingDeps,
   message: DraftSourceMessage,
@@ -275,19 +313,12 @@ export async function postAndPersistDraft(
     deps.logger.error('failed to post ticket draft', {
       errorMessage: posted.error.message,
     });
+    await releaseDraftClaimAfterPostFailure(deps, claimed.id);
     return { ok: false };
   }
 
-  const marked = await deps.draftStore.markPosted(claimed.id, posted.ts);
-  if (!marked.ok) {
-    deps.logger.error('failed to mark pending ticket draft posted', {
-      errorMessage:
-        marked.error.kind === 'unavailable'
-          ? 'draft was already marked posted, or no longer exists'
-          : repositoryErrorMessage(marked.error),
-    });
-    return { ok: false };
-  }
+  const wasMarkedPosted = await markDraftPosted(deps, claimed.id, posted.ts);
+  if (!wasMarkedPosted) return { ok: false };
 
   await seedReactionLegend(deps, {
     message,

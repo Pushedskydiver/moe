@@ -261,6 +261,9 @@ function makeDraftStore(overrides: Partial<DraftStore> = {}): DraftStore {
       ok: true,
       draft: makePendingTicketDraft(),
     }),
+    releaseClaim: vi
+      .fn<DraftStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -324,6 +327,9 @@ function makeConfirmingQuestionStore(
         ok: true,
         question: { ...BASE_QUESTION, messageTs: '1700000000.000100' },
       }),
+    releaseClaim: vi
+      .fn<ConfirmingQuestionStore['releaseClaim']>()
+      .mockResolvedValue({ ok: true }),
     ...overrides,
   };
 }
@@ -793,7 +799,7 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
-  it('logs an error, without throwing, when posting the ticket draft to Slack fails — the claim already made stays orphaned, not retried (BUILD_PLAN 5.2b)', async () => {
+  it('logs an error, without throwing, when posting the ticket draft to Slack fails — the claim already made is released, not left orphaned (DA review, BUILD_PLAN 5.2b)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -819,6 +825,44 @@ describe('handleAmbientChannelMessage', () => {
       );
       expect(deps.draftStore.create).toHaveBeenCalled();
       expect(deps.draftStore.markPosted).not.toHaveBeenCalled();
+      expect(deps.draftStore.releaseClaim).toHaveBeenCalledWith(
+        '5fa85f64-5717-4562-b3fc-2c963f66afa8',
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('logs an error, without throwing, when releasing the claim itself fails after a Slack-post failure (BUILD_PLAN 5.2b)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: { appropriate: true, reasoning: 'fine' },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+        slackClient: makeSlackClient({ ok: false, error: 'channel_not_found' }),
+        draftStore: makeDraftStore({
+          releaseClaim: vi.fn<DraftStore['releaseClaim']>().mockResolvedValue({
+            ok: false,
+            error: { cause: new Error('connection reset') },
+          }),
+        }),
+      });
+
+      await expect(
+        handleAmbientChannelMessage(deps, CHANNEL_MESSAGE),
+      ).resolves.toBeUndefined();
+
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to release pending ticket draft claim',
+        { errorMessage: 'Error: connection reset' },
+      );
     } finally {
       vi.useRealTimers();
     }
