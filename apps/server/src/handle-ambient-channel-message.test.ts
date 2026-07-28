@@ -754,6 +754,11 @@ describe('handleAmbientChannelMessage', () => {
       expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
       // The gate call itself succeeded, so its usage IS recorded — only compose never ran.
       expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(2);
+      // BUILD_PLAN 3.10's own scope boundary, pinned: a genuine `appropriate: false` verdict is a
+      // considered decision, not silent data loss, and stays silent — unlike the gate's OTHER
+      // `return false` branch (an infrastructure blip), which now writes a row (see the
+      // fail-closed test below).
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -1031,17 +1036,19 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
-  // BUILD_PLAN 3.9's scope boundary: a cost-cap halt writes NO review-queue row (Alex scoped 3.9
-  // to the rhythm guard; the cap case is BUILD_PLAN 3.10).
+  // BUILD_PLAN 3.10 closes the scope boundary 3.9 deliberately left open: a cost-cap halt now
+  // writes a review-queue row too, distinguishably from an off-hours block (`'high-band-cost-cap'`
+  // vs `'high-band-off-hours'`) — Alex scoped 3.9 to the rhythm guard only, and the cap case is
+  // this chunk's own.
   //
   // An already-over-cap persona halts inside `classifyMessageForIntake`, *before* the draft guard
   // is reached — so that scenario says nothing about the guard's own cap branch. DA review proved
-  // it: written that way, deleting `composeAndPostDraft`'s reason check entirely left the whole
-  // suite green, because the assertion was vacuously true on a function that never ran. This test
-  // therefore crosses the cap **mid-turn** — under at classify, over at the guard — which
+  // it (chunk 3.9): written that way, deleting `composeAndPostDraft`'s reason check entirely left
+  // the whole suite green, because the assertion was vacuously true on a function that never ran.
+  // This test therefore crosses the cap **mid-turn** — under at classify, over at the guard — which
   // `run-dm-intake-cascade.ts` documents as a real occurrence, not a contrived one, since the
   // classify call is itself billed and recorded before the guard re-checks.
-  it('does NOT write a review-queue row when the cost cap is crossed mid-turn, between the classify and the draft guard (BUILD_PLAN 3.9 scope boundary)', async () => {
+  it('writes a high-band-cost-cap review-queue row, instead of losing the message, when the cost cap is crossed mid-turn, between the classify and the draft guard (BUILD_PLAN 3.10)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -1083,17 +1090,25 @@ describe('handleAmbientChannelMessage', () => {
         'skipping ticket-draft composition — monthly cost cap reached',
         { personaId: 'sarah', channelId: 'C123' },
       );
-      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+      expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: CHANNEL_MESSAGE.ts,
+        sourceMessageText: CHANNEL_MESSAGE.text,
+        confidence: 88,
+        reasoning: 'describes a concrete bug',
+        outcomeReason: 'high-band-cost-cap',
+      });
     } finally {
       vi.useRealTimers();
     }
   });
 
-  // The OTHER unpinned branch DA's mutation testing found: writing a row on the fail-closed
-  // appropriateness gate also left the suite green. That branch is deliberately still a silent
-  // loss (BUILD_PLAN 3.10 owns it), so pin it negatively — otherwise 3.10's own instruction to
-  // "update these assertions rather than only add new ones" rests on assertions that don't exist.
-  it('does NOT write a review-queue row when the situational-appropriateness gate fails closed on a High-band ambient message (BUILD_PLAN 3.10 boundary)', async () => {
+  // The OTHER branch DA's mutation testing found unpinned at chunk 3.9 — the fail-closed
+  // appropriateness gate also left the suite green. BUILD_PLAN 3.10 closes it: an infrastructure
+  // blip (this test) now writes a row, distinguishably from a genuine `appropriate: false` verdict
+  // (which stays silent — see the test above pinning that boundary negatively).
+  it('writes a high-band-appropriateness-check-failed review-queue row, instead of losing the message, when the situational-appropriateness gate fails closed on a High-band ambient message (BUILD_PLAN 3.10)', async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
     try {
@@ -1115,7 +1130,15 @@ describe('handleAmbientChannelMessage', () => {
         'failed to evaluate situational appropriateness — skipping ticket-draft composition (fail-closed)',
         expect.objectContaining({ errorMessage: 'rate limited' }),
       );
-      expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+      expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: CHANNEL_MESSAGE.ts,
+        sourceMessageText: CHANNEL_MESSAGE.text,
+        confidence: 88,
+        reasoning: 'describes a concrete bug',
+        outcomeReason: 'high-band-appropriateness-check-failed',
+      });
     } finally {
       vi.useRealTimers();
     }

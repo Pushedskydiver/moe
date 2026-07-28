@@ -53,6 +53,7 @@ describe('runMigrations', () => {
         '0019_widen_review_queue_outcome_reason_off_hours.sql',
         '0020_claim_first_pending_ticket_drafts.sql',
         '0021_claim_first_pending_confirming_questions.sql',
+        '0022_widen_review_queue_outcome_reason_guard_chain.sql',
       ],
     });
 
@@ -81,6 +82,7 @@ describe('runMigrations', () => {
       { id: '0019_widen_review_queue_outcome_reason_off_hours.sql' },
       { id: '0020_claim_first_pending_ticket_drafts.sql' },
       { id: '0021_claim_first_pending_confirming_questions.sql' },
+      { id: '0022_widen_review_queue_outcome_reason_guard_chain.sql' },
     ]);
   });
 

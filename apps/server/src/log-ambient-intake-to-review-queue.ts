@@ -11,15 +11,27 @@ export type ReviewQueueLoggingDeps = Pick<
   'logger' | 'personaId' | 'reviewQueueStore'
 >;
 
-// The three ambient outcome reasons this function writes. Deliberately a narrowed subset of
+// The seven ambient outcome reasons this function writes. Deliberately a narrowed subset of
 // `ReviewQueueEntry['outcomeReason']` rather than the full union: the other three values
 // (`'mid-no'`, `'mid-silence'`, `'mid-yes-failed'`) all belong to the confirming-question answer
 // lifecycle and are written elsewhere, two of them transactionally inside
 // `resolveConfirmingQuestionAndLog`. Narrowing here means a future value cannot reach this write
 // path by accident just because it was added to the enum.
+//
+// BUILD_PLAN 3.10 added the four `'…-cost-cap'`/`'…-appropriateness-check-failed'` values,
+// closing the ambient guard chain's other two silent-loss exits the same way 3.9 closed the
+// rhythm-guard one. No value for a genuine `appropriate: false` verdict — Alex settled
+// (`AskUserQuestion`, 2026-07-28) that one stays silent; see `standing-proactive-guards.ts`'s own
+// `SituationalAppropriatenessGuardDecision` TSDoc for the full reasoning.
 type AmbientIntakeOutcomeReason = Extract<
   ReviewQueueEntry['outcomeReason'],
-  'low-confidence' | 'high-band-off-hours' | 'mid-band-off-hours'
+  | 'low-confidence'
+  | 'high-band-off-hours'
+  | 'mid-band-off-hours'
+  | 'high-band-cost-cap'
+  | 'mid-band-cost-cap'
+  | 'high-band-appropriateness-check-failed'
+  | 'mid-band-appropriateness-check-failed'
 >;
 
 export type LogAmbientIntakeInput = {
@@ -50,6 +62,15 @@ export type LogAmbientIntakeInput = {
  *   human-facing surface — `classifyMessageForIntake` had already logged its text, confidence and
  *   reasoning to the structured log stream, so "no trace at all" would overstate it, but a log line
  *   nobody greps is not a backstop.
+ * - `'high-band-cost-cap'` / `'mid-band-cost-cap'` (chunk 3.10) — the same guard's cost-cap
+ *   branch, the narrower mid-turn case where spend crosses the cap *between* the classify and the
+ *   compose (an already-over-cap persona short-circuits earlier, inside
+ *   `classifyMessageForIntake`, with no classifier output yet to write here).
+ * - `'high-band-appropriateness-check-failed'` / `'mid-band-appropriateness-check-failed'`
+ *   (chunk 3.10) — the situational-appropriateness gate failing CLOSED on an infrastructure blip
+ *   (an Anthropic error, timeout, or unparseable response), *not* a genuine `appropriate: false`
+ *   verdict — that verdict is a considered decision, not silent data loss, and stays silent by
+ *   design (Alex, `AskUserQuestion`, 2026-07-28).
  *
  * **Ambient only.** A DM never reaches here: the DM cascade (BUILD_PLAN 3.7) never consults the
  * rhythm guard, and deliberately writes no row on the Low band either, because a DM always gets a

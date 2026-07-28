@@ -6,7 +6,7 @@ import { createBankHolidaysCache } from '@moe/core';
 
 import {
   evaluateCostAndRhythmGuard,
-  isSituationallyAppropriate,
+  evaluateSituationalAppropriatenessGuard,
 } from './standing-proactive-guards.js';
 
 function makeBankHolidaysCache(dates: readonly string[] = []) {
@@ -184,23 +184,26 @@ describe('evaluateCostAndRhythmGuard', () => {
   });
 });
 
-describe('isSituationallyAppropriate', () => {
-  it('returns true and records usage when the gate says appropriate', async () => {
+describe('evaluateSituationalAppropriatenessGuard', () => {
+  it('returns satisfied and records usage when the gate says appropriate', async () => {
     const deps = makeDeps();
 
-    const result = await isSituationallyAppropriate(deps as never, {
-      message: MESSAGE,
-      now: new Date(),
-      actionDescription: 'confirming-question posting',
-    });
+    const result = await evaluateSituationalAppropriatenessGuard(
+      deps as never,
+      {
+        message: MESSAGE,
+        now: new Date(),
+        actionDescription: 'confirming-question posting',
+      },
+    );
 
-    expect(result).toBe(true);
+    expect(result).toEqual({ satisfied: true, reason: 'satisfied' });
     expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({ costUsdMicros: 60 }),
     );
   });
 
-  it('returns false and logs with the given action description when the gate says inappropriate', async () => {
+  it('reports inappropriate, distinguishably from an evaluation failure, and logs with the given action description when the gate says inappropriate (BUILD_PLAN 3.10)', async () => {
     const deps = makeDeps({
       parse: vi.fn().mockResolvedValue({
         parsed_output: {
@@ -211,13 +214,16 @@ describe('isSituationallyAppropriate', () => {
       }),
     });
 
-    const result = await isSituationallyAppropriate(deps as never, {
-      message: MESSAGE,
-      now: new Date(),
-      actionDescription: 'confirming-question posting',
-    });
+    const result = await evaluateSituationalAppropriatenessGuard(
+      deps as never,
+      {
+        message: MESSAGE,
+        now: new Date(),
+        actionDescription: 'confirming-question posting',
+      },
+    );
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ satisfied: false, reason: 'inappropriate' });
     expect(deps.logger.info).toHaveBeenCalledWith(
       'skipping confirming-question posting — situationally inappropriate',
       {
@@ -228,18 +234,21 @@ describe('isSituationallyAppropriate', () => {
     );
   });
 
-  it('fails closed and logs with the given action description when the gate call errors', async () => {
+  it('reports evaluation-failed, distinguishably from an inappropriate verdict, and logs with the given action description when the gate call errors (BUILD_PLAN 3.10)', async () => {
     const deps = makeDeps({
       parse: vi.fn().mockRejectedValue(new Error('rate limited')),
     });
 
-    const result = await isSituationallyAppropriate(deps as never, {
-      message: MESSAGE,
-      now: new Date(),
-      actionDescription: 'confirming-question posting',
-    });
+    const result = await evaluateSituationalAppropriatenessGuard(
+      deps as never,
+      {
+        message: MESSAGE,
+        now: new Date(),
+        actionDescription: 'confirming-question posting',
+      },
+    );
 
-    expect(result).toBe(false);
+    expect(result).toEqual({ satisfied: false, reason: 'evaluation-failed' });
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to evaluate situational appropriateness — skipping confirming-question posting (fail-closed)',
       { personaId: 'sarah', channelId: 'C123', errorMessage: 'rate limited' },

@@ -118,13 +118,14 @@ function toEvaluateSituationalAppropriatenessError(
 /**
  * BUILD_PLAN 3.4a-iii's situational-appropriateness gate (VISION §9) — consulted before the
  * **ambient** path's real Slack posts (`composeAndPostDraft`/`composeAndPostConfirmingQuestion`,
- * via their shared `isSituationallyAppropriate` step). Three call sites deliberately do **not**
- * consult it, all for the same reason — each responds to a human action rather than posting
- * unprompted, the "reactive vs proactive" distinction 2.7a's core-hours guard already draws for DM
- * replies: the Stage 1 classifier (which posts nothing at all), the reaction-outcome dispatch
- * (responding to a human's own ✅/🔁/📦 or 👍/👎 reaction — Alex confirmed via `AskUserQuestion` at
- * 3.4a-iii), and, since BUILD_PLAN 3.7, the DM intake cascade's own draft and confirming-question
- * posts, which exist only because someone sent a DM.
+ * via their shared `evaluateSituationalAppropriatenessGuard` step, `apps/server`'s
+ * `standing-proactive-guards.ts` — renamed from `isSituationallyAppropriate` at BUILD_PLAN 3.10).
+ * Three call sites deliberately do **not** consult it, all for the same reason — each responds to
+ * a human action rather than posting unprompted, the "reactive vs proactive" distinction 2.7a's
+ * core-hours guard already draws for DM replies: the Stage 1 classifier (which posts nothing at
+ * all), the reaction-outcome dispatch (responding to a human's own ✅/🔁/📦 or 👍/👎 reaction — Alex
+ * confirmed via `AskUserQuestion` at 3.4a-iii), and, since BUILD_PLAN 3.7, the DM intake cascade's
+ * own draft and confirming-question posts, which exist only because someone sent a DM.
  *
  * **Fails CLOSED, not open** — the opposite of `checkCostCapAndAlert`'s own fail-open design. A
  * cost-cap DB blip is unrelated to real spend risk, so failing open there just means "keep
@@ -133,7 +134,13 @@ function toEvaluateSituationalAppropriatenessError(
  * auto-post about — and VISION §14's own "better to wrongly rest once than wrongly act on an
  * actual holiday" reasoning for 2.7a's bank-holiday guard applies with equal force to this gate:
  * an uncertain safety signal should block the risky action, not wave it through. The caller
- * treats any `ok: false` result the same way as `appropriate: false`.
+ * treats any `ok: false` result the same way as `appropriate: false` for the purpose of blocking
+ * the post itself — neither ever reaches `postAndPersistDraft`/`postAndPersistConfirmingQuestion`.
+ * **They diverge downstream, though, as of BUILD_PLAN 3.10**: on the **ambient** path, an
+ * `ok: false` infrastructure blip now persists a `review_queue` row (a genuine remaining silent
+ * loss until then), while a real `appropriate: false` verdict stays silent by design — Alex settled
+ * (`AskUserQuestion`, 2026-07-28) that a considered decision the message shouldn't be acted on is
+ * not the same kind of loss an uncertain safety signal is.
  */
 export async function evaluateSituationalAppropriateness(
   client: EvaluateSituationalAppropriatenessClient,
