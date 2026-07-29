@@ -584,6 +584,11 @@ describe('handleAmbientChannelMessage', () => {
       'skipping classification — monthly cost cap reached',
       { personaId: 'sarah', channelId: 'C123' },
     );
+    // BUILD_PLAN 3.11's own scope boundary, pinned explicitly rather than left to the type system
+    // alone: this branch has no classifier output to persist (`classifyMessageForIntake` never
+    // reaches the billed call), unlike the sibling `'classification-failed'` reason below, which
+    // does write a row.
+    expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
   });
 
   it('composes, posts, persists, and seeds the reaction legend for a High-band ambient message, with its own cost accounting (BUILD_PLAN 3.4a-i/3.4a-iii)', async () => {

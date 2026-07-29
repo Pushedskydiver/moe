@@ -131,25 +131,33 @@ async function logStaleQuestionsAsSilent(
 // on 7.2a or 6.1a-i), so a label promising a later pickup would restate in the digest exactly the
 // false promise 3.9 was filed to remove. They are listed **first deliberately**, not alphabetically
 // or by age: `formatSweepMessage` derives its section order from this object's own key order
-// (`Object.keys`). The ordering test was originally a conjunction ("classified as worth acting on"
-// **and** "nothing reached the channel"), and BUILD_PLAN 3.11's own value doesn't satisfy the first
-// half literally — it was never classified at all, so no band was ever determined either way. The
-// real dividing line the conjunction was approximating is: **did the classifier reach a genuine
-// negative judgement, or was there no judgement at all?** `'low-confidence'` is the former — a
-// real verdict that the message wasn't worth escalating, which is the whole point of the Low band,
-// so it belongs with the "nothing more to see here" group below. Every value above the blank line
-// is the latter: either the classifier judged the message worth escalating and something downstream
-// then blocked it (3.9's two off-hours values, 3.10's four guard-chain values), or the classifier
-// never got the chance to judge it at all (3.11's `'classification-failed'`) — both leave a message
-// whose real worth is genuinely unknown, which is a sharper loss than a message the classifier
-// looked at and dismissed. The remaining three Mid-band values in the second group fail on a
-// different axis entirely: a question really was posted, and a human answered 👎, answered 👍 onto
-// a draft that then failed, or left it unanswered.
+// (`Object.keys`).
+//
+// **The placement test is two-part, not one — the second group needs an OR, and stating only its
+// first branch is exactly how BUILD_PLAN 3.11's own DA review caught the previous wording
+// understating it.** A value belongs in the quieter **second** group only if the message's fate was
+// genuinely, definitively resolved: **either** (a) the classifier itself reached a real negative
+// verdict — `'low-confidence'`, the whole point of the Low band — **or** (b) a Mid-band question
+// actually got posted and ran to a real conclusion: answered 👎 (`'mid-no'`), timed out unanswered
+// (`'mid-silence'`), or a 👍 answer's own downstream draft failed after the question was already
+// claimed (`'mid-yes-failed'`). Neither branch alone covers the whole group — `'low-confidence'`
+// satisfies (a) and fails (b); the three `mid-*` values satisfy (b) and fail (a) (a posted question
+// implies the classifier's own judgement was *positive*, not negative) — so both branches are load-
+// bearing, not redundant restatements of each other.
+//
+// Every other value belongs in the **first**, prominent group: the message's true worth is still
+// genuinely unknown, because it was never resolved by either branch above. That covers two distinct
+// causes — the classifier judged the message worth escalating and something downstream then blocked
+// it before a human ever saw it (3.9's two off-hours values, 3.10's four guard-chain values), or the
+// classifier never got the chance to judge it at all (3.11's `'classification-failed'`) — both are a
+// sharper loss than a message the classifier looked at and dismissed, or a question that ran its
+// course.
 //
 // Applying only "was anything put in front of a human" would misfile `'low-confidence'` up here,
 // since nothing ever is. That is not hypothetical — this comment's previous wording did exactly
 // that, in the course of fixing a *different* wrong universal about the same set, and R2 caught it.
-// Ask "was this a genuine negative judgement, or no judgement at all" when placing a twelfth value.
+// When placing a twelfth value, check it against **both** second-group branches above, not just
+// one — a value can fail branch (a) and still belong in the second group via branch (b).
 const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   ReviewQueueEntry['outcomeReason'],
   string

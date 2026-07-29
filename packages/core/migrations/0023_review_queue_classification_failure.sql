@@ -44,3 +44,15 @@ ALTER TABLE review_queue
       'mid-band-appropriateness-check-failed',
       'classification-failed'
     ));
+
+-- DA review, this chunk: `reviewQueueEntrySchema`'s own cross-field `.refine` enforces the
+-- confidence/outcome_reason "iff" invariant at the Zod layer, but `createReviewQueueEntry` is not
+-- the only theoretically possible writer of this table (a future raw insert/backfill/migration
+-- script would bypass it entirely) — the identical "one-layer-only guarantee" gap 5.2b's own DA
+-- review found for `sourceMessageTs`, one level further down the stack. This table already has
+-- real precedent for a cross-column CHECK (`0001_create_tickets_table.sql`'s
+-- `updated_at_not_before_created_at`), so mirroring it here rather than trusting the app layer
+-- alone.
+ALTER TABLE review_queue
+  ADD CONSTRAINT confidence_null_iff_classification_failed
+    CHECK ((confidence IS NULL) = (outcome_reason = 'classification-failed'));
