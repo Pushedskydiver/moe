@@ -121,32 +121,40 @@ async function logStaleQuestionsAsSilent(
 // origin to the human reader, not one flat list — grouped so Alex can tell "nobody answered" from
 // "the classifier itself wasn't confident" at a glance, not just a bare score. Three-way at ship
 // time; the claim-then-act fallback fix later added a 4th value, `'mid-yes-failed'`, BUILD_PLAN 3.9
-// added the two off-hours values, and BUILD_PLAN 3.10 added the four cost-cap/
-// appropriateness-check-failed values (the guard chain's other two silent-loss exits).
+// added the two off-hours values, BUILD_PLAN 3.10 added the four cost-cap/
+// appropriateness-check-failed values (the guard chain's other two silent-loss exits), and
+// BUILD_PLAN 3.11 added `'classification-failed'` — the classifier call itself erroring, one step
+// upstream of everything else in this list, before a band is ever determined.
 //
-// The 3.9/3.10 labels say "not drafted"/"not asked" rather than anything like "deferred": no timer
-// picks these up (genuine deferral is 3.9's own still-unbuilt step (2), gated on 7.2a or 6.1a-i),
-// so a label promising a later pickup would restate in the digest exactly the false promise 3.9 was
-// filed to remove. They are listed **first deliberately**, not alphabetically or by age:
-// `formatSweepMessage` derives its section order from this object's own key order (`Object.keys`).
-// The ordering test is a conjunction, and both halves are load-bearing: the message was
-// **classified as worth acting on** (High or Mid band) **and then** nothing at all reached the
-// channel. All six values above the blank line satisfy both — 3.10's four the same way 3.9's two
-// off-hours values already did, since a cost-cap halt or a fail-closed appropriateness check
-// blocks the post exactly as completely as the rhythm guard does. `'low-confidence'` fails the
-// first half — it is silent too, deliberately so, but the classifier judged it not worth acting on,
-// which is the whole point of the Low band. The remaining three Mid-band values fail the second
-// half: a question really was posted, and a human answered 👎, answered 👍 onto a draft that then
-// failed, or left it unanswered.
+// The 3.9/3.10/3.11 labels say "not drafted"/"not asked"/"not classified" rather than anything like
+// "deferred": no timer picks these up (genuine deferral is 3.9's own still-unbuilt step (2), gated
+// on 7.2a or 6.1a-i), so a label promising a later pickup would restate in the digest exactly the
+// false promise 3.9 was filed to remove. They are listed **first deliberately**, not alphabetically
+// or by age: `formatSweepMessage` derives its section order from this object's own key order
+// (`Object.keys`). The ordering test was originally a conjunction ("classified as worth acting on"
+// **and** "nothing reached the channel"), and BUILD_PLAN 3.11's own value doesn't satisfy the first
+// half literally — it was never classified at all, so no band was ever determined either way. The
+// real dividing line the conjunction was approximating is: **did the classifier reach a genuine
+// negative judgement, or was there no judgement at all?** `'low-confidence'` is the former — a
+// real verdict that the message wasn't worth escalating, which is the whole point of the Low band,
+// so it belongs with the "nothing more to see here" group below. Every value above the blank line
+// is the latter: either the classifier judged the message worth escalating and something downstream
+// then blocked it (3.9's two off-hours values, 3.10's four guard-chain values), or the classifier
+// never got the chance to judge it at all (3.11's `'classification-failed'`) — both leave a message
+// whose real worth is genuinely unknown, which is a sharper loss than a message the classifier
+// looked at and dismissed. The remaining three Mid-band values in the second group fail on a
+// different axis entirely: a question really was posted, and a human answered 👎, answered 👍 onto
+// a draft that then failed, or left it unanswered.
 //
 // Applying only "was anything put in front of a human" would misfile `'low-confidence'` up here,
 // since nothing ever is. That is not hypothetical — this comment's previous wording did exactly
 // that, in the course of fixing a *different* wrong universal about the same set, and R2 caught it.
-// Use both conjuncts when placing an eleventh value.
+// Ask "was this a genuine negative judgement, or no judgement at all" when placing a twelfth value.
 const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   ReviewQueueEntry['outcomeReason'],
   string
 > = {
+  'classification-failed': 'Classifier failed — not classified',
   'high-band-off-hours': 'Off-hours — not drafted',
   'mid-band-off-hours': 'Off-hours — not asked',
   'high-band-cost-cap': 'Cost cap reached — not drafted',
@@ -162,16 +170,22 @@ const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   'mid-yes-failed': 'Draft failed',
 };
 
+// `entry.confidence` is `null` only for `'classification-failed'` rows (BUILD_PLAN 3.11) — there
+// is no score to show, so the line shows the real error (`entry.reasoning`) instead of printing a
+// literal "confidence null", which would read as an unhandled case rather than an intentional one.
+function formatSweepEntryLine(entry: ReviewQueueEntry): string {
+  return entry.confidence === null
+    ? `• ${entry.sourceMessageText} (error: ${entry.reasoning})`
+    : `• ${entry.sourceMessageText} (confidence ${entry.confidence})`;
+}
+
 function formatSweepSection(
   outcomeReason: ReviewQueueEntry['outcomeReason'],
   group: readonly ReviewQueueEntry[],
 ): string {
   return [
     `*${SECTION_LABEL_BY_OUTCOME_REASON[outcomeReason]} (${group.length})*`,
-    ...group.map(
-      (entry) =>
-        `• ${entry.sourceMessageText} (confidence ${entry.confidence})`,
-    ),
+    ...group.map((entry) => formatSweepEntryLine(entry)),
   ].join('\n');
 }
 

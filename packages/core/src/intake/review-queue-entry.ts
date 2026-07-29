@@ -53,28 +53,56 @@ const nonBlankStringSchema = z
  * no value for a genuine `appropriate: false` verdict itself**: Alex settled (`AskUserQuestion`,
  * 2026-07-28) that a considered decision the message shouldn't be acted on is not silent data
  * loss, and stays silent rather than adding queue noise for every settled judgement call.
+ *
+ * `'classification-failed'` is BUILD_PLAN 3.11's own write, added by migration
+ * `0023_review_queue_classification_failure.sql` — the *other* branch inside
+ * `classifyMessageForIntake` that returns without a usable score: not the cost-cap short-circuit
+ * named above (which genuinely has nothing to write), but the Stage 1 classifier call itself
+ * erroring, timing out, or returning an unparseable response, the identical infrastructure-blip
+ * shape 3.10 already made durable one guard downstream. **Deliberately not band-prefixed** — no
+ * band was ever determined, since the classifier never produced a score at all — matching
+ * `'low-confidence'`'s own bare naming, the only other value written before a band exists.
+ * `confidence` is `null` on this row alone: there is no honest non-null score to put there (Alex
+ * confirmed via `AskUserQuestion`, 2026-07-29 — a sentinel like `0` would collide with a real low
+ * score). `reasoning` stays non-null and carries the real Anthropic error message, not a
+ * placeholder.
  */
-export const reviewQueueEntrySchema = z.object({
-  id: z.uuid(),
-  personaId: nonBlankStringSchema,
-  channelId: nonBlankStringSchema,
-  messageTs: nonBlankStringSchema,
-  sourceMessageText: nonBlankStringSchema,
-  confidence: z.number().int().min(0).max(100),
-  reasoning: nonBlankStringSchema,
-  outcomeReason: z.enum([
-    'low-confidence',
-    'mid-no',
-    'mid-silence',
-    'mid-yes-failed',
-    'high-band-off-hours',
-    'mid-band-off-hours',
-    'high-band-cost-cap',
-    'mid-band-cost-cap',
-    'high-band-appropriateness-check-failed',
-    'mid-band-appropriateness-check-failed',
-  ]),
-  createdAt: z.date(),
-});
+export const reviewQueueEntrySchema = z
+  .object({
+    id: z.uuid(),
+    personaId: nonBlankStringSchema,
+    channelId: nonBlankStringSchema,
+    messageTs: nonBlankStringSchema,
+    sourceMessageText: nonBlankStringSchema,
+    // Nullable only for the 'classification-failed' row (BUILD_PLAN 3.11) — every other
+    // outcomeReason still requires a real 0-100 score, enforced below by the cross-field `.refine`,
+    // not left as a type-level-only guarantee (5.2b's own DA-review lesson: a plain `.nullable()`
+    // here would let a `null` confidence silently pass validation on any other outcomeReason too).
+    confidence: z.number().int().min(0).max(100).nullable(),
+    reasoning: nonBlankStringSchema,
+    outcomeReason: z.enum([
+      'low-confidence',
+      'mid-no',
+      'mid-silence',
+      'mid-yes-failed',
+      'high-band-off-hours',
+      'mid-band-off-hours',
+      'high-band-cost-cap',
+      'mid-band-cost-cap',
+      'high-band-appropriateness-check-failed',
+      'mid-band-appropriateness-check-failed',
+      'classification-failed',
+    ]),
+    createdAt: z.date(),
+  })
+  .refine(
+    (entry) =>
+      (entry.outcomeReason === 'classification-failed') ===
+      (entry.confidence === null),
+    {
+      message:
+        "confidence must be null if and only if outcomeReason is 'classification-failed'",
+    },
+  );
 
 export type ReviewQueueEntry = z.infer<typeof reviewQueueEntrySchema>;

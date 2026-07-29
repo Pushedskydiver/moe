@@ -142,6 +142,40 @@ describe('runReviewQueueSweep', () => {
     });
   });
 
+  // BUILD_PLAN 3.11 — `confidence` is `null` only for this outcomeReason. Pins that the digest
+  // shows the real error instead of a literal "confidence null", which a naive reuse of the
+  // existing `(confidence ${entry.confidence})` line would have printed.
+  it('shows the real error, not a literal "confidence null", for a classification-failed entry', async () => {
+    const now = new Date('2026-07-19T12:00:00.000Z');
+    const deps = makeDeps({
+      reviewQueueStore: {
+        listSince: vi.fn<ReviewQueueStore['listSince']>().mockResolvedValue({
+          ok: true,
+          entries: [
+            makeEntry({
+              outcomeReason: 'classification-failed',
+              confidence: null,
+              reasoning: 'rate limited',
+            }),
+          ],
+        }),
+      },
+    });
+
+    await runReviewQueueSweep(deps, now);
+
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('(error: rate limited)') as string,
+      }),
+    );
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({
+        text: expect.stringContaining('confidence null') as string,
+      }),
+    );
+  });
+
   it('includes a draft-outcomes summary line in the digest, with an acceptance rate over committed+ignored only (BUILD_PLAN 3.6)', async () => {
     const now = new Date('2026-07-19T12:00:00.000Z');
     const deps = makeDeps({

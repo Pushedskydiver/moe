@@ -493,7 +493,12 @@ describe('handleAmbientChannelMessage', () => {
     expect(deps.logger.info).not.toHaveBeenCalled();
   });
 
-  it('logs an error and posts no reply when classifying an ambient channel message fails', async () => {
+  // BUILD_PLAN 3.11 — this test previously asserted `logger.info` was never called, which is
+  // exactly how the underlying silent loss survived: "posted nothing" was treated as the whole
+  // requirement, and "persisted nothing either" went unexamined, the identical shape 3.9's own
+  // off-hours fix corrected for the rhythm guard. It now pins the message SURVIVING as a
+  // `review_queue` row instead.
+  it('writes a classification-failed review-queue row, instead of losing the message, when classifying an ambient channel message fails', async () => {
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient({
         parseResponse: () => {
@@ -508,7 +513,15 @@ describe('handleAmbientChannelMessage', () => {
       'failed to classify inbound message',
       { errorMessage: 'rate limited' },
     );
-    expect(deps.logger.info).not.toHaveBeenCalled();
+    expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'C123',
+      messageTs: CHANNEL_MESSAGE.ts,
+      sourceMessageText: CHANNEL_MESSAGE.text,
+      confidence: null,
+      reasoning: 'rate limited',
+      outcomeReason: 'classification-failed',
+    });
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
   });
 

@@ -6,10 +6,34 @@ import { classifyMessageConfidence, haikuCostUsdMicros } from '@moe/agents';
 import { checkCostCapAndAlert } from './check-cost-cap.js';
 import { recordUsageLogged } from './record-usage-logged.js';
 
-export type IntakeClassification = {
+// Not exported (knip) — nothing outside this file needs the bare shape now that
+// `ClassifyForIntakeResult` is the public return type; only used here to compose it.
+type IntakeClassification = {
   readonly confidence: number;
   readonly reasoning: string;
 };
+
+/**
+ * A boolean-discriminated union, mirroring `standing-proactive-guards.ts`'s own
+ * `CostAndRhythmGuardDecision`/`SituationalAppropriatenessGuardDecision` shape (BUILD_PLAN 3.10) —
+ * the same `docs/CONVENTIONS.md` reasoning applies here: a decision derived from given inputs, not
+ * an expected domain failure, and a discriminated union so `reason` actually narrows at the call
+ * site rather than needing a second unchecked cast.
+ *
+ * **Renamed from a bare `IntakeClassification | undefined` at BUILD_PLAN 3.11**, when the two
+ * failure causes needed to become distinguishable: `'cost-cap-reached'` still has nothing
+ * classifier-derived to carry (the halt fires *before* the billed call), but
+ * `'classification-failed'` now carries the real Anthropic error message, since BUILD_PLAN 3.11's
+ * own fix needs it to persist an honest `review_queue` row.
+ */
+export type ClassifyForIntakeResult =
+  | ({ readonly ok: true } & IntakeClassification)
+  | { readonly ok: false; readonly reason: 'cost-cap-reached' }
+  | {
+      readonly ok: false;
+      readonly reason: 'classification-failed';
+      readonly errorMessage: string;
+    };
 
 /**
  * VISION §5.2's Stage 1, shared verbatim by both surfaces that run it: the ambient channel/group
@@ -21,39 +45,29 @@ export type IntakeClassification = {
  * caught exactly this call shipping uncapped. Two copies of a cap-check-then-bill sequence is two
  * places for that defect to reappear independently.
  *
- * Returns `undefined` on either a cost-cap halt or a classification failure — both already logged.
- * **What the caller does with `undefined` differs by surface, and that difference is the point:**
- * the ambient path returns silently (there is no reply path there to carry a visible signal),
- * whereas the DM path must fall through to its normal conversational reply, which re-checks the cap
- * itself and posts a visible `HALT_TEXT`/`FALLBACK_TEXT`. BUILD_PLAN 3.7's governing invariant is
- * that the cascade may only ever *add* to the DM response, never remove it, so a `undefined` here
- * must never become silence on a DM.
- *
- * **Known open gap on the ambient path, filed as `BUILD_PLAN.md`'s own 3.11 (found during BUILD_PLAN
- * 3.10's DA review): the classification-failure branch is a genuine silent loss, structurally
- * identical to the one 3.10 closed one guard downstream.** BUILD_PLAN 3.10 made the
- * situational-appropriateness gate's own infra-blip failure durable (a `review_queue` row), but this
- * function's `!classified.ok` branch — the Stage 1 classifier call itself erroring, timing out, or
- * returning an unparseable response — has no classifier output to write into that same row shape
- * (`confidence`/`reasoning` are both required, non-nullable fields), so fixing it needs its own
- * design decision (a sentinel value? a schema change making those fields nullable, mirroring
- * `sourceMessageTs`'s own precedent from BUILD_PLAN 5.2b?) rather than reusing the existing write
- * path unmodified. Deliberately not fixed here — 3.10 was itself filed narrowly from 3.9's own recon
- * for exactly this reason, and this gap deserves the same treatment rather than scope-creeping into
- * either chunk. See `BUILD_PLAN.md`'s own 3.11 entry for the full writeup.
+ * Returns `ok: false` on either a cost-cap halt or a classification failure — both already logged.
+ * **What the caller does with a failure differs by surface, and that difference is the point:**
+ * the ambient path returns silently on a cost-cap halt but now persists a `review_queue` row on a
+ * classification failure (BUILD_PLAN 3.11, `logAmbientIntakeToReviewQueue`'s own
+ * `'classification-failed'` write), whereas the DM path must fall through to its normal
+ * conversational reply regardless of which reason fired — `DmIntakeCascadeResult`'s own TSDoc
+ * states this is deliberate: "a Low band, a cost-cap halt, a classifier failure and a failed Slack
+ * post all mean the same thing to the caller... There is no third state." BUILD_PLAN 3.7's
+ * governing invariant is that the cascade may only ever *add* to the DM response, never remove it,
+ * so an `ok: false` here must never become silence on a DM.
  */
 export async function classifyMessageForIntake(
   deps: HandlerDeps,
   message: InboundMessage,
   now: Date,
-): Promise<IntakeClassification | undefined> {
+): Promise<ClassifyForIntakeResult> {
   const capCheck = await checkCostCapAndAlert(deps, now);
   if (capCheck.halt) {
     deps.logger.info('skipping classification — monthly cost cap reached', {
       personaId: deps.personaId,
       channelId: message.channelId,
     });
-    return undefined;
+    return { ok: false, reason: 'cost-cap-reached' };
   }
 
   const classified = await classifyMessageConfidence(deps.anthropicClient, {
@@ -63,7 +77,11 @@ export async function classifyMessageForIntake(
     deps.logger.error('failed to classify inbound message', {
       errorMessage: classified.error.message,
     });
-    return undefined;
+    return {
+      ok: false,
+      reason: 'classification-failed',
+      errorMessage: classified.error.message,
+    };
   }
 
   await recordUsageLogged(
@@ -83,5 +101,9 @@ export async function classifyMessageForIntake(
     reasoning: classified.reasoning,
   });
 
-  return classified;
+  return {
+    ok: true,
+    confidence: classified.confidence,
+    reasoning: classified.reasoning,
+  };
 }
