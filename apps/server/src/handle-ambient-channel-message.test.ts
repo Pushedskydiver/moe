@@ -3,6 +3,7 @@ import type { PendingTicketDraft } from '@moe/core';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { resolvePersonaModel } from '@moe/agents';
 import { createBankHolidaysCache } from '@moe/core';
 
 import { handleAmbientChannelMessage } from './handle-ambient-channel-message.js';
@@ -630,7 +631,10 @@ describe('handleAmbientChannelMessage', () => {
         model: string;
         messages: ReadonlyArray<{ role: string; content: string }>;
       };
-      expect(thirdCall.model).toBe('claude-sonnet-5');
+      // BUILD_PLAN 5.3a — asserted against resolvePersonaModel's own output for this persona
+      // rather than a hardcoded literal, so this still means something once a persona gets a
+      // real per-persona override.
+      expect(thirdCall.model).toBe(resolvePersonaModel(deps.personaId));
       expect(thirdCall.messages).toEqual([
         { role: 'user', content: channelMessage.text },
       ]);

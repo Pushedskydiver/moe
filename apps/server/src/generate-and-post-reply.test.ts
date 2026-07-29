@@ -2,6 +2,8 @@ import type { HandlerDeps } from './handle-inbound-message.js';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { resolvePersonaModel } from '@moe/agents';
+
 import { generateAndPost } from './generate-and-post-reply.js';
 
 type CapStore = HandlerDeps['capStore'];
@@ -209,6 +211,20 @@ describe('generateAndPost', () => {
 
     expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ thread_ts: '1700000000.000010' }),
+    );
+  });
+
+  // BUILD_PLAN 5.3a — asserts against `resolvePersonaModel`'s own real output for `deps.personaId`
+  // rather than a hardcoded literal, so this test still means something once a persona gets a
+  // real override (both currently resolve to the same `claude-sonnet-5` default, so this doesn't
+  // yet prove the wiring on its own — `resolve-persona-model.test.ts` covers the resolver itself).
+  it('sends the API call the model resolvePersonaModel(deps.personaId) resolves to, not a hardcoded default', async () => {
+    const deps = makeDeps();
+
+    await generateAndPost(deps, DM_MESSAGE, []);
+
+    expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({ model: resolvePersonaModel(deps.personaId) }),
     );
   });
 

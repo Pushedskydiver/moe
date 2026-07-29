@@ -95,6 +95,16 @@ describe('generateReply', () => {
     );
   });
 
+  it('uses the given model override instead of the sonnet-5 default when provided', async () => {
+    const client = makeClient(TEXT_MESSAGE);
+
+    await generateReply(client, { text: 'hello', model: 'claude-opus-5' });
+
+    expect(client.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'claude-opus-5' }),
+    );
+  });
+
   it('forwards prior turns ahead of the current message when history is provided', async () => {
     const client = makeClient(TEXT_MESSAGE);
     const history = [

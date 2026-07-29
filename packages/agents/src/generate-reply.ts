@@ -3,8 +3,10 @@ import type { Anthropic } from '@anthropic-ai/sdk';
 import { PLACEHOLDER_SYSTEM_PROMPT } from './placeholder-system-prompt.js';
 
 // claude-sonnet-5 is VISION §10's resolved "Sonnet-by-default" answer (docs/VISION.md, added
-// 2026-07-15) — this is the chunk that actually wires a model in, per that note's own framing.
-const MODEL = 'claude-sonnet-5';
+// 2026-07-15) — the default `params.model` falls back to when a caller doesn't override it.
+// BUILD_PLAN 5.3a gave per-persona overrides a real config value (`resolvePersonaModel`); this
+// function itself stays persona-agnostic, same shape as its own pre-existing `system` param.
+const DEFAULT_MODEL = 'claude-sonnet-5';
 const MAX_TOKENS = 1024;
 
 type GenerateReplyClient = {
@@ -29,6 +31,7 @@ export type GenerateReplyParams = {
     readonly content: string;
   }>;
   readonly system?: string;
+  readonly model?: string;
 };
 
 export type GenerateReplyUsage = {
@@ -88,7 +91,11 @@ function toGenerateReplyResult(
  * Calls the Anthropic Messages API (`docs/VISION.md` §11's verified model-client choice). `system`
  * defaults to `PLACEHOLDER_SYSTEM_PROMPT` (a generic, no-persona-named fallback) when omitted; the
  * real call site (`apps/server/src/handle-inbound-message.ts`) always overrides it with
- * `buildPersonaSystemPrompt(personaId)` instead. `history`, when provided, is forwarded ahead of
+ * `buildPersonaSystemPrompt(personaId)` instead. `model` defaults to `DEFAULT_MODEL`
+ * (`claude-sonnet-5`) when omitted; the real call site (`generate-and-post-reply.ts`) always
+ * overrides it with `resolvePersonaModel(deps.personaId)` instead (BUILD_PLAN 5.3a) — same
+ * "primitive stays persona-agnostic, caller resolves the persona-specific value" shape as
+ * `system`. `history`, when provided, is forwarded ahead of
  * `text` as prior turns (BUILD_PLAN 2.4b) — this function itself is stateless (it never reads or
  * writes any store), the caller decides what history to pass, if any. `tools`, when provided,
  * passes through to the API call as inline JSON-schema definitions (not MCP) — the real call site
@@ -105,7 +112,7 @@ export async function generateReply(
 ): Promise<GenerateReplyResult> {
   try {
     const message = await client.messages.create({
-      model: MODEL,
+      model: params.model ?? DEFAULT_MODEL,
       max_tokens: MAX_TOKENS,
       system: params.system ?? PLACEHOLDER_SYSTEM_PROMPT,
       messages: [

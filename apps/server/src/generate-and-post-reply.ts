@@ -5,6 +5,7 @@ import {
   buildPersonaSystemPrompt,
   composeGatedReply,
   generateReply,
+  resolvePersonaModel,
   sonnetCostUsdMicros,
   STATUS_CLAIM_TOOL,
 } from '@moe/agents';
@@ -87,6 +88,7 @@ export async function generateAndPost(
     text: message.text,
     history,
     system: buildPersonaSystemPrompt(deps.personaId),
+    model: resolvePersonaModel(deps.personaId),
     tools: [STATUS_CLAIM_TOOL],
   });
 
