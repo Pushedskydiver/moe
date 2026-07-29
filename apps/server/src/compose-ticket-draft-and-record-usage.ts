@@ -13,9 +13,9 @@ import { recordUsageLogged } from './record-usage-logged.js';
 // used" reasoning as `reaction-outcome-actions.ts`'s own identically-named local alias.
 type ComposeDraftClient = Parameters<typeof composeTicketDraft>[0];
 
-export type ComposeTicketDraftAndRecordUsageDeps = Omit<
-  Pick<HandlerDeps, 'anthropicClient' | 'personaId' | 'costStore' | 'logger'>,
-  'anthropicClient'
+export type ComposeTicketDraftAndRecordUsageDeps = Pick<
+  HandlerDeps,
+  'personaId' | 'costStore' | 'logger'
 > & { readonly anthropicClient: ComposeDraftClient };
 
 /**

@@ -404,7 +404,12 @@ type ComposeAndPostDraftInput = {
  * because it is the cheapest of the three (a synchronous in-memory lookup, no DB read, no billed
  * call) — the same "avoid spend for no protection" reasoning above, extended one guard further:
  * paying for a DB read or a Haiku call on a message this guard is about to suppress anyway would
- * be spend for no protection either.
+ * be spend for no protection either. **Running this ahead of `evaluateCostAndRhythmGuard` skips
+ * only that guard's own opportunistic cost-alert-threshold check for a blocked message** (DA
+ * review) — the cost-cap gate itself is never bypassed, since `classifyMessageForIntake` already
+ * runs its own `checkCostCapAndAlert` unconditionally before this function is ever reached; the
+ * only real effect is a possible brief delay in surfacing a newly-crossed alert threshold, which
+ * the very next ambient message for this persona picks up regardless of sender or channel.
  */
 async function composeAndPostDraft(
   deps: HandlerDeps,

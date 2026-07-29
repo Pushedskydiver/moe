@@ -11,7 +11,7 @@ export type ReviewQueueLoggingDeps = Pick<
   'logger' | 'personaId' | 'reviewQueueStore'
 >;
 
-// The eight ambient outcome reasons this function writes. Deliberately a narrowed subset of
+// The ten ambient outcome reasons this function writes. Deliberately a narrowed subset of
 // `ReviewQueueEntry['outcomeReason']` rather than the full union: the other three values
 // (`'mid-no'`, `'mid-silence'`, `'mid-yes-failed'`) all belong to the confirming-question answer
 // lifecycle and are written elsewhere, two of them transactionally inside

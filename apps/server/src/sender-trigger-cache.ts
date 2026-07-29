@@ -30,6 +30,16 @@ const DEFAULT_WINDOW_MS = 15 * 60 * 1000;
  * different persona's own cascade gets its own independent cooldown, and a different sender in
  * the same channel is never suppressed by someone else's trigger.
  *
+ * **The cooldown starts when the guard is *passed*, not when a draft/question is actually
+ * posted** (DA review) — a caller whose first High-band message never posted at all (a cost-cap
+ * halt, an off-hours block, a considered `appropriate: false` verdict, or a composition failure)
+ * still starts the window, so a second, genuinely different message from that same sender minutes
+ * later is suppressed too. This matches Alex's own "second trigger blocks" framing literally — a
+ * *trigger* is a message reaching High/Mid band, not a successful post — and the suppressed
+ * message still survives via the 3.5 sweep digest either way, so nothing is silently lost by this
+ * reading.
+ *
+
  * In-memory, not persisted — the same trade-off `packages/slack/src/seen-event-cache.ts` already
  * makes and documents: no migration, no write on the hot path of every inbound message, at the
  * cost of losing state across a process restart. That gap is a strictly smaller risk here than it
