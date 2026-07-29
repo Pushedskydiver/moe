@@ -11,7 +11,7 @@ export type ReviewQueueLoggingDeps = Pick<
   'logger' | 'personaId' | 'reviewQueueStore'
 >;
 
-// The seven ambient outcome reasons this function writes. Deliberately a narrowed subset of
+// The eight ambient outcome reasons this function writes. Deliberately a narrowed subset of
 // `ReviewQueueEntry['outcomeReason']` rather than the full union: the other three values
 // (`'mid-no'`, `'mid-silence'`, `'mid-yes-failed'`) all belong to the confirming-question answer
 // lifecycle and are written elsewhere, two of them transactionally inside
@@ -22,7 +22,9 @@ export type ReviewQueueLoggingDeps = Pick<
 // closing the ambient guard chain's other two silent-loss exits the same way 3.9 closed the
 // rhythm-guard one. No value for a genuine `appropriate: false` verdict — Alex settled
 // (`AskUserQuestion`, 2026-07-28) that one stays silent; see `standing-proactive-guards.ts`'s own
-// `SituationalAppropriatenessGuardDecision` TSDoc for the full reasoning.
+// `SituationalAppropriatenessGuardDecision` TSDoc for the full reasoning. BUILD_PLAN 3.11 added
+// `'classification-failed'`, the one value in this set with no real `confidence` to carry — see
+// `LogAmbientIntakeInput.classified.confidence`'s own nullability below.
 type AmbientIntakeOutcomeReason = Extract<
   ReviewQueueEntry['outcomeReason'],
   | 'low-confidence'
@@ -32,12 +34,18 @@ type AmbientIntakeOutcomeReason = Extract<
   | 'mid-band-cost-cap'
   | 'high-band-appropriateness-check-failed'
   | 'mid-band-appropriateness-check-failed'
+  | 'classification-failed'
 >;
 
 export type LogAmbientIntakeInput = {
   readonly message: InboundMessage;
   readonly classified: {
-    readonly confidence: number;
+    // `null` only for `outcomeReason: 'classification-failed'` (BUILD_PLAN 3.11) — every other
+    // caller in this file's own consumer set has a real Stage 1 score to pass. Not enforced at
+    // this input type (that would need per-`outcomeReason` overloads for one caller's sake); it is
+    // enforced where it matters, at the DB boundary, by `reviewQueueEntrySchema`'s own cross-field
+    // `.refine` (`@moe/core`).
+    readonly confidence: number | null;
     readonly reasoning: string;
   };
   readonly outcomeReason: AmbientIntakeOutcomeReason;
@@ -71,6 +79,13 @@ export type LogAmbientIntakeInput = {
  *   (an Anthropic error, timeout, or unparseable response), *not* a genuine `appropriate: false`
  *   verdict — that verdict is a considered decision, not silent data loss, and stays silent by
  *   design (Alex, `AskUserQuestion`, 2026-07-28).
+ * - `'classification-failed'` (chunk 3.11) — the Stage 1 classifier call itself erroring, timing
+ *   out, or returning an unparseable response, inside `classifyMessageForIntake`, before any band
+ *   is ever determined. Not band-prefixed like the two bullets above, since there is no band to
+ *   prefix with. `classified.confidence` is `null` on this write alone — there is no honest
+ *   non-null score for a classification that never completed (Alex, `AskUserQuestion`,
+ *   2026-07-29); `classified.reasoning` still carries the real Anthropic error message, not a
+ *   placeholder.
  *
  * **Ambient only.** A DM never reaches here: the DM cascade (BUILD_PLAN 3.7) never consults the
  * rhythm guard, and deliberately writes no row on the Low band either, because a DM always gets a
@@ -113,5 +128,27 @@ export async function logAmbientIntakeToReviewQueue(
     channelId: message.channelId,
     outcomeReason,
     confidence: classified.confidence,
+  });
+}
+
+/**
+ * Thin convenience wrapper around `logAmbientIntakeToReviewQueue` for the one caller that reaches
+ * this module before a classification exists at all (`handleAmbientChannelMessage`, on
+ * `classifyMessageForIntake`'s `'classification-failed'` reason, BUILD_PLAN 3.11) — builds the
+ * `{confidence: null, reasoning: errorMessage}` shape that reason always needs, co-located here
+ * rather than duplicated inline at the one call site. Not a "2+ consumer" extraction like this
+ * file's own sibling helpers; it exists to keep `handle-ambient-channel-message.ts` under eslint's
+ * `max-lines`, and belongs here specifically because this module already owns every other
+ * `review_queue`-row-shape decision for the ambient cascade.
+ */
+export async function logClassificationFailure(
+  deps: ReviewQueueLoggingDeps,
+  message: InboundMessage,
+  errorMessage: string,
+): Promise<void> {
+  await logAmbientIntakeToReviewQueue(deps, {
+    message,
+    classified: { confidence: null, reasoning: errorMessage },
+    outcomeReason: 'classification-failed',
   });
 }

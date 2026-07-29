@@ -153,6 +153,13 @@ type PendingTicketDraftsTable = {
  * `'mid-band-appropriateness-check-failed'` (the situational-appropriateness gate failing CLOSED
  * on an infrastructure blip, not a genuine `appropriate: false` verdict — that verdict stays
  * silent by design, per Alex's own 2026-07-28 `AskUserQuestion` decision).
+ * `0023_review_queue_classification_failure.sql` (BUILD_PLAN 3.11) added `'classification-failed'`
+ * — the Stage 1 classifier call itself erroring inside `classifyMessageForIntake`, before a band is
+ * ever determined, so this value is deliberately not band-prefixed like 3.10's four. This is also
+ * the migration that widened `confidence` to nullable: there is no honest non-null score to write
+ * for a classification that never completed (Alex confirmed via `AskUserQuestion`, 2026-07-29 — a
+ * sentinel value would collide with a real low score). Every other `outcomeReason` still requires a
+ * real score, enforced by `reviewQueueEntrySchema`'s own cross-field `.refine`.
  *
  * Note `outcomeReason` is typed `string` here, not the union: Kysely's shape is the raw column, so
  * nothing in this file constrains the value. The enum lives in `./intake/review-queue-entry.ts` and
@@ -167,7 +174,7 @@ type ReviewQueueTable = {
   readonly channelId: string;
   readonly messageTs: string;
   readonly sourceMessageText: string;
-  readonly confidence: number;
+  readonly confidence: number | null;
   readonly reasoning: string;
   readonly outcomeReason: string;
   readonly createdAt: Date;

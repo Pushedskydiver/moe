@@ -81,6 +81,56 @@ describe('review queue repository', () => {
     },
   );
 
+  // BUILD_PLAN 3.11 — the same real-CHECK-constraint proof as the off-hours values above, plus
+  // the null confidence this outcomeReason alone is allowed to carry.
+  it('creates a classification-failed review queue entry with a null confidence', async () => {
+    const result = await createReviewQueueEntry(db, {
+      ...newEntryInput(),
+      confidence: null,
+      reasoning: 'rate limited',
+      outcomeReason: 'classification-failed',
+    });
+
+    expect(result.ok).toBe(true);
+    const all = await db.selectFrom('reviewQueue').selectAll().execute();
+    expect(all).toHaveLength(1);
+    expect(all[0]?.outcomeReason).toBe('classification-failed');
+    expect(all[0]?.confidence).toBeNull();
+  });
+
+  // The cross-field invariant `reviewQueueEntrySchema`'s own `.refine` enforces — a plain
+  // `.nullable()` on `confidence` alone would let either of these slip through as a type-level-only
+  // guarantee (the exact gap BUILD_PLAN 5.2b's own DA review found for `sourceMessageTs`).
+  it('rejects a null confidence on any outcomeReason other than classification-failed, without writing a row', async () => {
+    const result = await createReviewQueueEntry(db, {
+      ...newEntryInput(),
+      confidence: null,
+      outcomeReason: 'low-confidence',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'validation-failed', issues: expect.any(String) },
+    });
+    const all = await db.selectFrom('reviewQueue').selectAll().execute();
+    expect(all).toHaveLength(0);
+  });
+
+  it('rejects a non-null confidence on classification-failed, without writing a row', async () => {
+    const result = await createReviewQueueEntry(db, {
+      ...newEntryInput(),
+      confidence: 12,
+      outcomeReason: 'classification-failed',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'validation-failed', issues: expect.any(String) },
+    });
+    const all = await db.selectFrom('reviewQueue').selectAll().execute();
+    expect(all).toHaveLength(0);
+  });
+
   it('rejects a blank source message text without writing a row to the database', async () => {
     const result = await createReviewQueueEntry(db, {
       ...newEntryInput(),

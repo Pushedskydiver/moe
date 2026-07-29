@@ -80,7 +80,7 @@ export async function runDmIntakeCascade(
   }
 
   const classified = await classifyMessageForIntake(deps, message, now);
-  if (classified === undefined) return NOT_HANDLED;
+  if (!classified.ok) return NOT_HANDLED;
 
   const band = classifyConfidenceBand(classified.confidence);
   if (band === 'low') return NOT_HANDLED;

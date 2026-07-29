@@ -122,17 +122,16 @@ const MESSAGE = {
 const NOW = new Date('2026-07-17T09:00:00.000Z');
 
 describe('classifyMessageForIntake', () => {
-  it("returns the classifier's score and reasoning on success", async () => {
+  it("returns ok:true with the classifier's score and reasoning on success", async () => {
     const deps = makeDeps();
 
     const result = await classifyMessageForIntake(deps, MESSAGE, NOW);
 
-    expect(result).toEqual(
-      expect.objectContaining({
-        confidence: 72,
-        reasoning: 'describes a concrete bug',
-      }),
-    );
+    expect(result).toEqual({
+      ok: true,
+      confidence: 72,
+      reasoning: 'describes a concrete bug',
+    });
   });
 
   it("records the call's usage at Haiku pricing — a billed call must never ship unaccounted for (DA, chunk 3.3)", async () => {
@@ -150,7 +149,7 @@ describe('classifyMessageForIntake', () => {
     });
   });
 
-  it('returns undefined, without calling the classifier at all, once the monthly cost cap is reached', async () => {
+  it('returns ok:false reason:cost-cap-reached, without calling the classifier at all, once the monthly cost cap is reached', async () => {
     const deps = makeDeps({
       capStore: makeCapStore({
         getMonthlyCost: vi.fn<CapStore['getMonthlyCost']>().mockResolvedValue({
@@ -168,7 +167,7 @@ describe('classifyMessageForIntake', () => {
 
     const result = await classifyMessageForIntake(deps, MESSAGE, NOW);
 
-    expect(result).toBeUndefined();
+    expect(result).toEqual({ ok: false, reason: 'cost-cap-reached' });
     expect(deps.anthropicClient.messages.parse).not.toHaveBeenCalled();
     expect(deps.logger.info).toHaveBeenCalledWith(
       'skipping classification — monthly cost cap reached',
@@ -176,7 +175,11 @@ describe('classifyMessageForIntake', () => {
     );
   });
 
-  it('returns undefined and logs, without recording usage, when the classifier call fails', async () => {
+  // BUILD_PLAN 3.11 — this branch used to return a bare `undefined`, identical to the cost-cap
+  // branch above, so a caller (`handleAmbientChannelMessage`) couldn't tell them apart to persist
+  // this one and correctly leave the other silent. `errorMessage` is the real Anthropic error, not
+  // a placeholder — it becomes the `review_queue` row's own `reasoning` at the write site.
+  it('returns ok:false reason:classification-failed with the real error message, and logs, without recording usage, when the classifier call fails', async () => {
     const deps = makeDeps({
       parseImpl: () => {
         throw new Error('rate limited');
@@ -185,7 +188,11 @@ describe('classifyMessageForIntake', () => {
 
     const result = await classifyMessageForIntake(deps, MESSAGE, NOW);
 
-    expect(result).toBeUndefined();
+    expect(result).toEqual({
+      ok: false,
+      reason: 'classification-failed',
+      errorMessage: 'rate limited',
+    });
     expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to classify inbound message',
@@ -193,7 +200,7 @@ describe('classifyMessageForIntake', () => {
     );
   });
 
-  it('never throws — both failure modes surface as undefined, which is what lets the DM caller fall through to its reply', async () => {
+  it('never throws — both failure modes surface as ok:false, which is what lets the DM caller fall through to its reply', async () => {
     // The property BUILD_PLAN 3.7's invariant depends on: this function returning rather than
     // throwing is what keeps a classifier failure from becoming a silent DM.
     const deps = makeDeps({
@@ -202,8 +209,12 @@ describe('classifyMessageForIntake', () => {
       },
     });
 
-    await expect(
-      classifyMessageForIntake(deps, MESSAGE, NOW),
-    ).resolves.toBeUndefined();
+    await expect(classifyMessageForIntake(deps, MESSAGE, NOW)).resolves.toEqual(
+      {
+        ok: false,
+        reason: 'classification-failed',
+        errorMessage: 'boom',
+      },
+    );
   });
 });

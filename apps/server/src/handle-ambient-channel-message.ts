@@ -20,7 +20,10 @@ import {
 } from './ambient-guard-outcome-reason.js';
 import { classifyMessageForIntake } from './classify-message-for-intake.js';
 import { composeAndPostConfirmingQuestion } from './compose-and-post-confirming-question.js';
-import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-queue.js';
+import {
+  logAmbientIntakeToReviewQueue,
+  logClassificationFailure,
+} from './log-ambient-intake-to-review-queue.js';
 import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import {
@@ -477,15 +480,24 @@ async function composeAndPostDraft(
  * This replaced the old "chat back to every message" behavior for ambient surfaces (BUILD_PLAN
  * 3.3's own DMs-only *chat* decision) — a DM never reaches this function.
  *
- * **This path is silent by construction, and the DM path is never silent — that asymmetry is the
- * reason they are separate.** Here, every guard block and every failure returns without posting
- * anything, because there is no reply for a draft to replace: an ambient message nobody addressed
- * expects no answer. On a DM there always is one, so BUILD_PLAN 3.7's invariant requires the
- * cascade to fall back to it rather than return. Two functions, so neither behaviour can be
- * reached by accident from the other's surface. This one additionally runs the operating-rhythm
- * guard and the situational-appropriateness gate (`standing-proactive-guards.ts`), which a
- * DM-triggered post deliberately does not — posting unprompted into a shared channel is exactly
- * what those two exist to gate.
+ * **The classifier call itself can fail before any band exists** (`classifyMessageForIntake`'s own
+ * `'classification-failed'` reason, BUILD_PLAN 3.11) — an Anthropic error, timeout, or unparseable
+ * response. That, too, now logs a real review-queue row (`'classification-failed'`, `confidence:
+ * null`) rather than dropping the message; the cost-cap halt sitting beside it in the same
+ * discriminated union still has nothing classifier-derived to write and stays silent, unchanged
+ * from before.
+ *
+ * **This path is silent *toward Slack* by construction, and the DM path is never silent — that
+ * asymmetry is the reason they are separate.** Here, every guard block and every failure returns
+ * without *posting* anything, because there is no reply for a draft to replace: an ambient message
+ * nobody addressed expects no answer. Some of those same failures do persist a durable
+ * `review_queue` row, though (BUILD_PLAN 3.9/3.10/3.11) — "silent" describes the workspace, not the
+ * database. On a DM there always is a reply, so BUILD_PLAN 3.7's invariant requires the cascade to
+ * fall back to it rather than return. Two functions, so neither behaviour can be reached by
+ * accident from the other's surface. This one additionally runs the operating-rhythm guard and the
+ * situational-appropriateness gate (`standing-proactive-guards.ts`), which a DM-triggered post
+ * deliberately does not — posting unprompted into a shared channel is exactly what those two exist
+ * to gate.
  *
  * A real, billed Anthropic call regardless of which model it's on — gated by the same
  * `checkCostCapAndAlert` the DM reply path uses (BUILD_PLAN 2.6b), not a separate or looser check,
@@ -516,7 +528,14 @@ export async function handleAmbientChannelMessage(
 
   const now = new Date();
   const classified = await classifyMessageForIntake(deps, message, now);
-  if (classified === undefined) return;
+  if (!classified.ok) {
+    // The cost-cap halt has nothing classifier-derived to write and stays silent, unchanged from
+    // before BUILD_PLAN 3.11 — only the classification-failure branch is new here.
+    if (classified.reason === 'classification-failed') {
+      await logClassificationFailure(deps, message, classified.errorMessage);
+    }
+    return;
+  }
 
   const band = classifyConfidenceBand(classified.confidence);
   if (band === 'high') {
