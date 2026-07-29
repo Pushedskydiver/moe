@@ -48,8 +48,8 @@ export type ClassifyForIntakeResult =
  * Returns `ok: false` on either a cost-cap halt or a classification failure — both already logged.
  * **What the caller does with a failure differs by surface, and that difference is the point:**
  * the ambient path returns silently on a cost-cap halt but now persists a `review_queue` row on a
- * classification failure (BUILD_PLAN 3.11, `logAmbientIntakeToReviewQueue`'s own
- * `'classification-failed'` write), whereas the DM path must fall through to its normal
+ * classification failure (BUILD_PLAN 3.11, `log-ambient-intake-to-review-queue.ts`'s own
+ * `logClassificationFailure`), whereas the DM path must fall through to its normal
  * conversational reply regardless of which reason fired — `DmIntakeCascadeResult`'s own TSDoc
  * states this is deliberate: "a Low band, a cost-cap halt, a classifier failure and a failed Slack
  * post all mean the same thing to the caller... There is no third state." BUILD_PLAN 3.7's
