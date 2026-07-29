@@ -160,6 +160,10 @@ type PendingTicketDraftsTable = {
  * for a classification that never completed (Alex confirmed via `AskUserQuestion`, 2026-07-29 — a
  * sentinel value would collide with a real low score). Every other `outcomeReason` still requires a
  * real score, enforced by `reviewQueueEntrySchema`'s own cross-field `.refine`.
+ * `0024_review_queue_repeated_sender.sql` (BUILD_PLAN 5.3a) added
+ * `'high-band-repeated-sender'`/`'mid-band-repeated-sender'`, additively on top —
+ * `evaluateSenderFrequencyGuard` blocking a second High/Mid-band trigger from the same sender in
+ * the same channel within a 15-minute cooldown window.
  *
  * Note `outcomeReason` is typed `string` here, not the union: Kysely's shape is the raw column, so
  * nothing in this file constrains the value. The enum lives in `./intake/review-queue-entry.ts` and

@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBankHolidaysCache } from '@moe/core';
 
 import { composeAndPostConfirmingQuestion } from './compose-and-post-confirming-question.js';
+import { createSenderTriggerCache } from './sender-trigger-cache.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 type CapStore = HandlerDeps['capStore'];
@@ -171,6 +172,7 @@ function makeDeps(
     readonly slackClient: ReturnType<typeof makeSlackClient>;
     readonly capStore: ReturnType<typeof makeCapStore>;
     readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
+    readonly senderTriggerCache: HandlerDeps['senderTriggerCache'];
     readonly confirmingQuestionStore: HandlerDeps['confirmingQuestionStore'];
   }> = {},
 ) {
@@ -192,6 +194,7 @@ function makeDeps(
     threadQueue: makeThreadQueue(),
     channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
     bankHolidaysCache: makeBankHolidaysCache(),
+    senderTriggerCache: createSenderTriggerCache(),
     ticketStore: { create: vi.fn<HandlerDeps['ticketStore']['create']>() },
     draftStore: {
       create: vi.fn<HandlerDeps['draftStore']['create']>(),

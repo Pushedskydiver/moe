@@ -124,7 +124,10 @@ async function logStaleQuestionsAsSilent(
 // added the two off-hours values, BUILD_PLAN 3.10 added the four cost-cap/
 // appropriateness-check-failed values (the guard chain's other two silent-loss exits), and
 // BUILD_PLAN 3.11 added `'classification-failed'` — the classifier call itself erroring, one step
-// upstream of everything else in this list, before a band is ever determined.
+// upstream of everything else in this list, before a band is ever determined. BUILD_PLAN 5.3a
+// added the two `'…-repeated-sender'` values — `evaluateSenderFrequencyGuard`'s own squeaky-wheel
+// block, a second High/Mid-band trigger from the same sender in the same channel suppressed
+// within a 15-minute cooldown window.
 //
 // The 3.9/3.10/3.11 labels say "not drafted"/"not asked"/"not classified" rather than anything like
 // "deferred": no timer picks these up (genuine deferral is 3.9's own still-unbuilt step (2), gated
@@ -156,8 +159,10 @@ async function logStaleQuestionsAsSilent(
 // Applying only "was anything put in front of a human" would misfile `'low-confidence'` up here,
 // since nothing ever is. That is not hypothetical — this comment's previous wording did exactly
 // that, in the course of fixing a *different* wrong universal about the same set, and R2 caught it.
-// When placing a twelfth value, check it against **both** second-group branches above, not just
-// one — a value can fail branch (a) and still belong in the second group via branch (b).
+// When placing a value, check it against **both** second-group branches above, not just one — a
+// value can fail branch (a) and still belong in the second group via branch (b). The two 5.3a
+// values fail both: nothing was posted (fails (b)), and the classifier's own verdict was positive,
+// not negative (fails (a)) — same first-group placement as the other guard-chain blocks.
 const SECTION_LABEL_BY_OUTCOME_REASON: Record<
   ReviewQueueEntry['outcomeReason'],
   string
@@ -171,6 +176,8 @@ const SECTION_LABEL_BY_OUTCOME_REASON: Record<
     'Appropriateness check failed — not drafted',
   'mid-band-appropriateness-check-failed':
     'Appropriateness check failed — not asked',
+  'high-band-repeated-sender': 'Repeated sender — not drafted',
+  'mid-band-repeated-sender': 'Repeated sender — not asked',
 
   'low-confidence': 'Low confidence',
   'mid-no': 'Answered no',

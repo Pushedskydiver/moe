@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBankHolidaysCache } from '@moe/core';
 
 import { runDmIntakeCascade } from './run-dm-intake-cascade.js';
+import { createSenderTriggerCache } from './sender-trigger-cache.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 type CapStore = HandlerDeps['capStore'];
@@ -241,6 +242,7 @@ function makeDeps(
     readonly capStore: ReturnType<typeof makeCapStore>;
     readonly channelScopeConfig: HandlerDeps['channelScopeConfig'];
     readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
+    readonly senderTriggerCache: HandlerDeps['senderTriggerCache'];
     readonly draftStore: HandlerDeps['draftStore'];
     readonly reviewQueueStore: HandlerDeps['reviewQueueStore'];
     readonly confirmingQuestionStore: HandlerDeps['confirmingQuestionStore'];
@@ -267,6 +269,7 @@ function makeDeps(
     // which pin the surface-kind decision directly rather than relying on this asymmetry alone.
     channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
     bankHolidaysCache: makeBankHolidaysCache(),
+    senderTriggerCache: createSenderTriggerCache(),
     ticketStore: {
       create: vi.fn<HandlerDeps['ticketStore']['create']>(),
     },

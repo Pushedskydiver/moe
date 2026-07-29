@@ -104,6 +104,7 @@ function makeDeps(
     threadQueue: { run: vi.fn() },
     channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
     bankHolidaysCache: {} as HandlerDeps['bankHolidaysCache'],
+    senderTriggerCache: {} as HandlerDeps['senderTriggerCache'],
     ticketStore: { create: vi.fn() },
     draftStore: {
       create: vi.fn(),

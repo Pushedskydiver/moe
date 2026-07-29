@@ -6,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createBankHolidaysCache } from '@moe/core';
 
 import { createInboundMessageHandler } from './handle-inbound-message.js';
+import { createSenderTriggerCache } from './sender-trigger-cache.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 type HistoryStore = HandlerDeps['historyStore'];
@@ -363,6 +364,7 @@ function makeDeps(
     readonly threadQueue: ReturnType<typeof makeThreadQueue>;
     readonly channelScopeConfig: HandlerDeps['channelScopeConfig'];
     readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
+    readonly senderTriggerCache: HandlerDeps['senderTriggerCache'];
     readonly ticketStore: HandlerDeps['ticketStore'];
     readonly draftStore: HandlerDeps['draftStore'];
     readonly reviewQueueStore: HandlerDeps['reviewQueueStore'];
@@ -384,6 +386,7 @@ function makeDeps(
     threadQueue: makeThreadQueue(),
     channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
     bankHolidaysCache: makeBankHolidaysCache(),
+    senderTriggerCache: createSenderTriggerCache(),
     ticketStore: makeTicketStore(),
     draftStore: makeDraftStore(),
     reviewQueueStore: makeReviewQueueStore(),

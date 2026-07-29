@@ -4,8 +4,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createBankHolidaysCache } from '@moe/core';
 
+import { createSenderTriggerCache } from './sender-trigger-cache.js';
 import {
   evaluateCostAndRhythmGuard,
+  evaluateSenderFrequencyGuard,
   evaluateSituationalAppropriatenessGuard,
 } from './standing-proactive-guards.js';
 
@@ -33,6 +35,7 @@ type MakeDepsOverrides = Partial<{
   readonly getMonthlyCost: HandlerDeps['capStore']['getMonthlyCost'];
   readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
   readonly parse: (...args: readonly unknown[]) => unknown;
+  readonly senderTriggerCache: HandlerDeps['senderTriggerCache'];
 }>;
 
 function makeDeps(overrides: MakeDepsOverrides = {}) {
@@ -92,6 +95,8 @@ function makeDeps(overrides: MakeDepsOverrides = {}) {
     },
     personaId: 'sarah' as const,
     bankHolidaysCache: overrides.bankHolidaysCache ?? makeBankHolidaysCache(),
+    senderTriggerCache:
+      overrides.senderTriggerCache ?? createSenderTriggerCache(),
   };
 }
 
@@ -102,6 +107,60 @@ const MESSAGE = {
   text: 'hello',
   ts: '1700000000.000100',
 };
+
+describe('evaluateSenderFrequencyGuard (BUILD_PLAN 5.3a)', () => {
+  it('is satisfied on the first trigger from a given sender in a channel', () => {
+    const deps = makeDeps();
+
+    const result = evaluateSenderFrequencyGuard(deps as never, {
+      message: MESSAGE,
+      now: new Date(),
+      actionDescription: 'confirming-question posting',
+    });
+
+    expect(result).toEqual({ satisfied: true, reason: 'satisfied' });
+  });
+
+  it('reports repeated-sender and logs, without an Anthropic call or a DB read, on a second trigger from the same sender in the same channel', () => {
+    const cache = createSenderTriggerCache();
+    const deps = makeDeps({ senderTriggerCache: cache });
+    cache.checkAndRecord({
+      personaId: 'sarah',
+      channelId: MESSAGE.channelId,
+      userId: MESSAGE.userId,
+    });
+
+    const result = evaluateSenderFrequencyGuard(deps as never, {
+      message: MESSAGE,
+      now: new Date(),
+      actionDescription: 'confirming-question posting',
+    });
+
+    expect(result).toEqual({ satisfied: false, reason: 'repeated-sender' });
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'skipping confirming-question posting — repeated sender within cooldown window',
+      { personaId: 'sarah', channelId: 'C123', userId: 'U123' },
+    );
+  });
+
+  it('is satisfied for a different sender even after one sender already triggered in the same channel', () => {
+    const cache = createSenderTriggerCache();
+    const deps = makeDeps({ senderTriggerCache: cache });
+    cache.checkAndRecord({
+      personaId: 'sarah',
+      channelId: MESSAGE.channelId,
+      userId: 'U999',
+    });
+
+    const result = evaluateSenderFrequencyGuard(deps as never, {
+      message: MESSAGE,
+      now: new Date(),
+      actionDescription: 'confirming-question posting',
+    });
+
+    expect(result).toEqual({ satisfied: true, reason: 'satisfied' });
+  });
+});
 
 describe('evaluateCostAndRhythmGuard', () => {
   it('is satisfied when within core hours and under the cost cap', async () => {

@@ -81,6 +81,25 @@ describe('review queue repository', () => {
     },
   );
 
+  // BUILD_PLAN 5.3a — the same real-CHECK-constraint proof as the off-hours values above, for the
+  // squeaky-wheel guard's own two band-prefixed values.
+  it.each(['high-band-repeated-sender', 'mid-band-repeated-sender'] as const)(
+    'creates a review queue entry with outcomeReason %s',
+    async (outcomeReason) => {
+      const result = await createReviewQueueEntry(db, {
+        ...newEntryInput(),
+        confidence: 80,
+        reasoning: 'a concrete bug report, blocked as a repeated trigger',
+        outcomeReason,
+      });
+
+      expect(result.ok).toBe(true);
+      const all = await db.selectFrom('reviewQueue').selectAll().execute();
+      expect(all).toHaveLength(1);
+      expect(all[0]?.outcomeReason).toBe(outcomeReason);
+    },
+  );
+
   // BUILD_PLAN 3.11 — the same real-CHECK-constraint proof as the off-hours values above, plus
   // the null confidence this outcomeReason alone is allowed to carry.
   it('creates a classification-failed review queue entry with a null confidence', async () => {

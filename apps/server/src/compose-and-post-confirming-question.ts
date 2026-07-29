@@ -15,6 +15,7 @@ import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-qu
 import { repositoryErrorMessage } from './repository-error.js';
 import {
   evaluateCostAndRhythmGuard,
+  evaluateSenderFrequencyGuard,
   evaluateSituationalAppropriatenessGuard,
 } from './standing-proactive-guards.js';
 
@@ -236,6 +237,10 @@ export async function postAndPersistConfirmingQuestion(
  * cost-and-rhythm label choice and the appropriateness-failure log decision are both shared,
  * exhaustive-`switch` helpers (`ambient-guard-outcome-reason.ts`) — see that file's own TSDoc for
  * why each needs to be exhaustive rather than a ternary/equality check.
+ *
+ * **BUILD_PLAN 5.3a — `evaluateSenderFrequencyGuard` runs first here too**, mirroring
+ * `composeAndPostDraft`'s own reasoning byte-for-byte: cheapest guard first, always writes
+ * `'mid-band-repeated-sender'` on block (infra-shaped suppression, not a considered verdict).
  */
 export async function composeAndPostConfirmingQuestion(
   deps: HandlerDeps,
@@ -243,6 +248,17 @@ export async function composeAndPostConfirmingQuestion(
 ): Promise<void> {
   const { message, now, classified } = input;
   const guardInput = { message, now, actionDescription: ACTION_DESCRIPTION };
+
+  const frequency = evaluateSenderFrequencyGuard(deps, guardInput);
+  if (!frequency.satisfied) {
+    await logAmbientIntakeToReviewQueue(deps, {
+      message,
+      classified,
+      outcomeReason: 'mid-band-repeated-sender',
+    });
+    return;
+  }
+
   const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
   if (!guard.satisfied) {
     await logAmbientIntakeToReviewQueue(deps, {

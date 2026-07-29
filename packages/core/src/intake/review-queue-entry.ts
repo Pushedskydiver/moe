@@ -66,6 +66,13 @@ const nonBlankStringSchema = z
  * confirmed via `AskUserQuestion`, 2026-07-29 — a sentinel like `0` would collide with a real low
  * score). `reasoning` stays non-null and carries the real Anthropic error message, not a
  * placeholder.
+ *
+ * `'high-band-repeated-sender'`/`'mid-band-repeated-sender'` are BUILD_PLAN 5.3a's own writes,
+ * added by migration `0024_review_queue_repeated_sender.sql` — `evaluateSenderFrequencyGuard`'s
+ * (`apps/server/src/standing-proactive-guards.ts`) squeaky-wheel guard blocking a second
+ * High/Mid-band trigger from the same sender in the same channel within a 15-minute cooldown
+ * window. Band-prefixed like 3.10's four values, not bare like `'classification-failed'` — the
+ * band is already known by the time this guard runs.
  */
 export const reviewQueueEntrySchema = z
   .object({
@@ -92,6 +99,8 @@ export const reviewQueueEntrySchema = z
       'high-band-appropriateness-check-failed',
       'mid-band-appropriateness-check-failed',
       'classification-failed',
+      'high-band-repeated-sender',
+      'mid-band-repeated-sender',
     ]),
     createdAt: z.date(),
   })

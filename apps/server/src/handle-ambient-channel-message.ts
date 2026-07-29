@@ -28,6 +28,7 @@ import {
 import { repositoryErrorMessage } from './repository-error.js';
 import {
   evaluateCostAndRhythmGuard,
+  evaluateSenderFrequencyGuard,
   evaluateSituationalAppropriatenessGuard,
 } from './standing-proactive-guards.js';
 
@@ -339,9 +340,10 @@ type ComposeAndPostDraftInput = {
 };
 
 /**
- * BUILD_PLAN 3.4a-i's High-band action, real end-to-end as of BUILD_PLAN 3.4a-iii: gated by a
- * fresh cost-cap check, the 2.7a operating-rhythm guard, and BUILD_PLAN 3.4a-iii's own
- * situational-appropriateness gate (`evaluateCostAndRhythmGuard`/
+ * BUILD_PLAN 3.4a-i's High-band action, real end-to-end as of BUILD_PLAN 3.4a-iii: gated by
+ * BUILD_PLAN 5.3a's own squeaky-wheel guard, a fresh cost-cap check, the 2.7a operating-rhythm
+ * guard, and BUILD_PLAN 3.4a-iii's own situational-appropriateness gate
+ * (`evaluateSenderFrequencyGuard`/`evaluateCostAndRhythmGuard`/
  * `evaluateSituationalAppropriatenessGuard`, `standing-proactive-guards.ts`), then composes,
  * posts, persists, and seeds the reaction-gate legend (`postAndPersistDraft`).
  *
@@ -393,6 +395,16 @@ type ComposeAndPostDraftInput = {
  * alone reads would be spend for no protection. The §6.4/§14 operating-rhythm rules are likewise
  * untouched — this function writes through `reviewQueueStore` and `logger` only, never a Slack
  * client, so nothing reaches the workspace.
+ *
+ * **BUILD_PLAN 5.3a — `evaluateSenderFrequencyGuard` runs first, ahead of both guards above,**
+ * blocking a second High-band trigger from the same sender in the same channel within a 15-minute
+ * cooldown window (`'high-band-repeated-sender'`, always written — the same "infra-shaped
+ * suppression, not a considered verdict" reasoning the cost-and-rhythm guard's own two reasons
+ * get, not the appropriateness guard's silent `'inappropriate'` branch). It runs first specifically
+ * because it is the cheapest of the three (a synchronous in-memory lookup, no DB read, no billed
+ * call) — the same "avoid spend for no protection" reasoning above, extended one guard further:
+ * paying for a DB read or a Haiku call on a message this guard is about to suppress anyway would
+ * be spend for no protection either.
  */
 async function composeAndPostDraft(
   deps: HandlerDeps,
@@ -404,6 +416,17 @@ async function composeAndPostDraft(
     now,
     actionDescription: 'ticket-draft composition',
   };
+
+  const frequency = evaluateSenderFrequencyGuard(deps, guardInput);
+  if (!frequency.satisfied) {
+    await logAmbientIntakeToReviewQueue(deps, {
+      message,
+      classified,
+      outcomeReason: 'high-band-repeated-sender',
+    });
+    return;
+  }
+
   const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
   if (!guard.satisfied) {
     await logAmbientIntakeToReviewQueue(deps, {
