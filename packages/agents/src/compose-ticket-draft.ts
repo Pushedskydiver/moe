@@ -112,8 +112,9 @@ function toComposeTicketDraftError(
  * gates this behind `checkCostCapAndAlert` and records cost via `sonnetCostUsdMicros`, same
  * mechanism as the DM reply path (BUILD_PLAN 2.6a/2.6b, and the lesson from 3.3's own DA finding:
  * every real, billed LLM call site needs this from the start, not discovered missing in review).
- * `params.model` defaults to `DEFAULT_MODEL` when omitted; the real call sites
- * (`handle-ambient-channel-message.ts`, `reaction-outcome-actions.ts`) always override it with
+ * `params.model` defaults to `DEFAULT_MODEL` when omitted; the real call site
+ * (`compose-ticket-draft-and-record-usage.ts`, shared by both of `handle-ambient-channel-message.ts`'s
+ * and `reaction-outcome-actions.ts`'s own callers) always overrides it with
  * `resolvePersonaModel(deps.personaId)` instead (BUILD_PLAN 5.3a).
  */
 export async function composeTicketDraft(

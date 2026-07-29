@@ -16,9 +16,10 @@ const PERSONA_MODEL_OVERRIDES: Partial<Record<PersonaId, string>> = {};
  * The per-persona model-selection lookup BUILD_PLAN 5.3a's own shared prompt-template
  * requirements call for — a fallback chain (override if configured, else the shared default),
  * hence `resolve*` rather than `evaluate*` (`docs/CONVENTIONS.md`'s verb vocabulary). Real call
- * sites (`generate-and-post-reply.ts`, `handle-ambient-channel-message.ts`,
- * `reaction-outcome-actions.ts`) pass this into `generateReply`/`composeTicketDraft`'s own
- * optional `model` param, the same "caller resolves a persona-specific value, the primitive
+ * sites (`generate-and-post-reply.ts` directly; `handle-ambient-channel-message.ts` and
+ * `reaction-outcome-actions.ts` indirectly, via their shared
+ * `compose-ticket-draft-and-record-usage.ts`) pass this into `generateReply`/`composeTicketDraft`'s
+ * own optional `model` param, the same "caller resolves a persona-specific value, the primitive
  * defaults if omitted" shape those functions already use for `system`.
  */
 export function resolvePersonaModel(personaId: PersonaId): string {
