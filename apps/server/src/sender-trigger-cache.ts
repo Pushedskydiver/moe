@@ -39,7 +39,6 @@ const DEFAULT_WINDOW_MS = 15 * 60 * 1000;
  * message still survives via the 3.5 sweep digest either way, so nothing is silently lost by this
  * reading.
  *
-
  * In-memory, not persisted — the same trade-off `packages/slack/src/seen-event-cache.ts` already
  * makes and documents: no migration, no write on the hot path of every inbound message, at the
  * cost of losing state across a process restart. That gap is a strictly smaller risk here than it
