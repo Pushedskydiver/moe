@@ -3,9 +3,11 @@ import type { PendingTicketDraft } from '@moe/core';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { resolvePersonaModel } from '@moe/agents';
 import { createBankHolidaysCache } from '@moe/core';
 
 import { handleAmbientChannelMessage } from './handle-ambient-channel-message.js';
+import { createSenderTriggerCache } from './sender-trigger-cache.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 type CapStore = HandlerDeps['capStore'];
@@ -342,6 +344,7 @@ function makeDeps(
     readonly costStore: ReturnType<typeof makeCostStore>;
     readonly capStore: ReturnType<typeof makeCapStore>;
     readonly bankHolidaysCache: HandlerDeps['bankHolidaysCache'];
+    readonly senderTriggerCache: HandlerDeps['senderTriggerCache'];
     readonly ticketStore: HandlerDeps['ticketStore'];
     readonly draftStore: HandlerDeps['draftStore'];
     readonly reviewQueueStore: HandlerDeps['reviewQueueStore'];
@@ -374,6 +377,7 @@ function makeDeps(
     threadQueue: makeThreadQueue(),
     channelScopeConfig: { workRelevantChannelIds: new Set(['C123']) },
     bankHolidaysCache: makeBankHolidaysCache(),
+    senderTriggerCache: createSenderTriggerCache(),
     ticketStore: makeTicketStore(),
     draftStore: makeDraftStore(),
     reviewQueueStore: makeReviewQueueStore(),
@@ -630,7 +634,10 @@ describe('handleAmbientChannelMessage', () => {
         model: string;
         messages: ReadonlyArray<{ role: string; content: string }>;
       };
-      expect(thirdCall.model).toBe('claude-sonnet-5');
+      // BUILD_PLAN 5.3a — asserted against resolvePersonaModel's own output for this persona
+      // rather than a hardcoded literal, so this still means something once a persona gets a
+      // real per-persona override.
+      expect(thirdCall.model).toBe(resolvePersonaModel(deps.personaId));
       expect(thirdCall.messages).toEqual([
         { role: 'user', content: channelMessage.text },
       ]);
@@ -966,6 +973,132 @@ describe('handleAmbientChannelMessage', () => {
     }
   });
 
+  // BUILD_PLAN 5.3a — the squeaky-wheel guard: a second High-band trigger from the same sender in
+  // the same channel within the cooldown window is suppressed, not posted, but still survives as a
+  // review-queue row (same "nothing silently eaten" treatment as every other guard exit).
+  it('writes a high-band-repeated-sender review-queue row, and pays for no further Anthropic call, on a second High-band trigger from the same sender in the same channel', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: {
+            appropriate: true,
+            reasoning: 'a routine bug report',
+          },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+      const callsAfterFirst =
+        deps.anthropicClient.messages.parse.mock.calls.length;
+      // Queues the second message's own Stage 1 classify response — the mock only pre-loads
+      // enough responses for one full flow, and this message's flow should stop at classify.
+      deps.anthropicClient.messages.parse.mockResolvedValueOnce({
+        parsed_output: {
+          confidence: 88,
+          reasoning: 'describes a concrete bug',
+        },
+        usage: { input_tokens: 40, output_tokens: 12 },
+      });
+
+      await handleAmbientChannelMessage(deps, {
+        ...CHANNEL_MESSAGE,
+        ts: '1700000000.000200',
+        text: 'a second, different message from the same person',
+      });
+
+      // Only one more parse call — the second message's own Stage 1 classify. Neither the
+      // situational-appropriateness gate nor the draft composer are paid for: the frequency guard
+      // blocks before either runs.
+      expect(deps.anthropicClient.messages.parse.mock.calls.length).toBe(
+        callsAfterFirst + 1,
+      );
+      expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: '1700000000.000200',
+        sourceMessageText: 'a second, different message from the same person',
+        confidence: 88,
+        reasoning: 'describes a concrete bug',
+        outcomeReason: 'high-band-repeated-sender',
+      });
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'skipping ticket-draft composition — repeated sender within cooldown window',
+        { personaId: 'sarah', channelId: 'C123', userId: 'U123' },
+      );
+      // Only the first message's own draft was posted — the blocked second one produced nothing.
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(1);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('is satisfied for a second High-band trigger from a different sender in the same channel, even right after the first', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          appropriatenessResponse: {
+            appropriate: true,
+            reasoning: 'a routine bug report',
+          },
+          draftResponse: { title: 'x', body: 'y' },
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+      // Queues a second full flow's worth of responses (classify, appropriateness, draft) — the
+      // mock only pre-loads enough for one, and this message's flow should run all the way through
+      // since it's a different sender, not suppressed by the frequency guard.
+      deps.anthropicClient.messages.parse
+        .mockResolvedValueOnce({
+          parsed_output: {
+            confidence: 88,
+            reasoning: 'describes a concrete bug',
+          },
+          usage: { input_tokens: 40, output_tokens: 12 },
+        })
+        .mockResolvedValueOnce({
+          parsed_output: {
+            appropriate: true,
+            reasoning: 'a routine bug report',
+          },
+          usage: { input_tokens: 20, output_tokens: 8 },
+        })
+        .mockResolvedValueOnce({
+          parsed_output: { title: 'x', body: 'y' },
+          usage: { input_tokens: 120, output_tokens: 40 },
+        });
+
+      await handleAmbientChannelMessage(deps, {
+        ...CHANNEL_MESSAGE,
+        ts: '1700000000.000200',
+        userId: 'U999',
+        text: 'a different person reporting a different bug',
+      });
+
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(2);
+      expect(deps.reviewQueueStore.create).not.toHaveBeenCalledWith(
+        expect.objectContaining({
+          outcomeReason: 'high-band-repeated-sender',
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // BUILD_PLAN 3.9 — this test previously asserted only that nothing was posted, which is exactly
   // how the bug survived: "did not post" was treated as the whole requirement, and "did not
   // persist anything either" went unexamined. It now pins the message SURVIVING.
@@ -1190,6 +1323,49 @@ describe('handleAmbientChannelMessage', () => {
         expect.anything(),
       );
       expect(deps.reviewQueueStore.create).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // BUILD_PLAN 5.3a — same squeaky-wheel mechanism as the High-band tests above, Mid-band's own
+  // outcomeReason. Not re-testing cross-sender/cross-channel independence here — that's the
+  // guard's own concern, already covered by `standing-proactive-guards.test.ts` and the High-band
+  // tests above; this just pins that the Mid-band caller is wired to the same guard.
+  it('writes a mid-band-repeated-sender review-queue row on a second Mid-band trigger from the same sender in the same channel', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: { confidence: 50, reasoning: 'ambiguous' },
+        }),
+      });
+
+      await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+      deps.anthropicClient.messages.parse.mockResolvedValueOnce({
+        parsed_output: { confidence: 50, reasoning: 'still ambiguous' },
+        usage: { input_tokens: 40, output_tokens: 12 },
+      });
+
+      await handleAmbientChannelMessage(deps, {
+        ...CHANNEL_MESSAGE,
+        ts: '1700000000.000200',
+        text: 'a second, still-ambiguous message from the same person',
+      });
+
+      expect(deps.reviewQueueStore.create).toHaveBeenCalledWith({
+        personaId: 'sarah',
+        channelId: 'C123',
+        messageTs: '1700000000.000200',
+        sourceMessageText:
+          'a second, still-ambiguous message from the same person',
+        confidence: 50,
+        reasoning: 'still ambiguous',
+        outcomeReason: 'mid-band-repeated-sender',
+      });
+      // Only the first message's own confirming question was posted.
+      expect(deps.confirmingQuestionStore.create).toHaveBeenCalledTimes(1);
     } finally {
       vi.useRealTimers();
     }

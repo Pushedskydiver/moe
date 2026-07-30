@@ -60,3 +60,4 @@ export type {
   SituationalAppropriateness,
 } from './evaluate-situational-appropriateness.js';
 export { evaluateSituationalAppropriateness } from './evaluate-situational-appropriateness.js';
+export { resolvePersonaModel } from './resolve-persona-model.js';

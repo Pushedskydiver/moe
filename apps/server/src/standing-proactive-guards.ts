@@ -30,6 +30,65 @@ type StandingProactiveGuardInput = {
 };
 
 /**
+ * A boolean-discriminated union, same shape as `CostAndRhythmGuardDecision`/
+ * `SituationalAppropriatenessGuardDecision` below, for the identical `docs/CONVENTIONS.md`
+ * reasoning — a single blocking reason today, but the union shape costs nothing and stays
+ * consistent with its two siblings rather than being the one guard decision in this file that
+ * doesn't narrow.
+ */
+export type SenderFrequencyGuardDecision =
+  | { readonly satisfied: true; readonly reason: 'satisfied' }
+  | { readonly satisfied: false; readonly reason: 'repeated-sender' };
+
+/**
+ * BUILD_PLAN 5.3a's squeaky-wheel guard — the PM-persona research surfaced that message
+ * frequency/repetition alone shouldn't raise triage confidence or trigger repeated action
+ * (evidenced independently in both LLM-sycophancy and PM-industry-practice research; full
+ * findings: `.claude/research/pm-persona-landscape/landscape-survey.md`). Alex settled
+ * (`AskUserQuestion`, 2026-07-29) the concrete shape: a standing guard in this same chain, scoped
+ * to the same (persona, channel, sender) triple, 15-minute window, second trigger blocks —
+ * `sender-trigger-cache.ts` owns the actual cache/window mechanics, this function only adapts its
+ * `boolean` result into this file's own decision shape and logs.
+ *
+ * **Runs first, unlike the other two guards below, and is the only one of the three that isn't
+ * `async`.** The cache check is a synchronous in-memory `Map` lookup with no I/O — placing it
+ * ahead of `evaluateCostAndRhythmGuard`'s DB read and `evaluateSituationalAppropriatenessGuard`'s
+ * billed Haiku call avoids paying for either on a message this guard is about to suppress anyway,
+ * the identical "avoid spend for no protection" reasoning `composeAndPostDraft`'s own TSDoc
+ * already applies to its guard ordering.
+ *
+ * **Always writes a `review_queue` row on block, unlike the appropriateness guard's
+ * `'inappropriate'` branch** — a repeated trigger within the cooldown window is an infrastructure-
+ * shaped suppression (the message may still be real, distinct work), not a considered verdict that
+ * it shouldn't be acted on, so it gets the same "nothing silently eaten" treatment as the
+ * cost-and-rhythm guard's two reasons.
+ */
+export function evaluateSenderFrequencyGuard(
+  deps: HandlerDeps,
+  input: StandingProactiveGuardInput,
+): SenderFrequencyGuardDecision {
+  const { message, actionDescription } = input;
+  const blocked = deps.senderTriggerCache.checkAndRecord({
+    personaId: deps.personaId,
+    channelId: message.channelId,
+    userId: message.userId,
+  });
+  if (blocked) {
+    deps.logger.info(
+      `skipping ${actionDescription} — repeated sender within cooldown window`,
+      {
+        personaId: deps.personaId,
+        channelId: message.channelId,
+        userId: message.userId,
+      },
+    );
+    return { satisfied: false, reason: 'repeated-sender' };
+  }
+
+  return { satisfied: true, reason: 'satisfied' };
+}
+
+/**
  * A boolean-discriminated union, mirroring `@moe/core`'s own
  * `OperatingRhythmDecision`/`WipLimitDecision` — the two existing `*Decision` types, which is where
  * this shape comes from. **`docs/CONVENTIONS.md` prescribes the `evaluate*` verb, not the return

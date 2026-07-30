@@ -51,6 +51,19 @@ describe('composeTicketDraft', () => {
     expect(call.system.length).toBeGreaterThan(0);
   });
 
+  it('uses the given model override instead of the sonnet-5 default when provided', async () => {
+    const client = makeClient({ title: 'x', body: 'y' });
+
+    await composeTicketDraft(client, {
+      text: 'something needs doing',
+      model: 'claude-opus-5',
+    });
+
+    expect(client.messages.parse).toHaveBeenCalledWith(
+      expect.objectContaining({ model: 'claude-opus-5' }),
+    );
+  });
+
   it('returns ok:false with kind no-parsed-output when parsed_output is null', async () => {
     const client = makeClient(null);
 

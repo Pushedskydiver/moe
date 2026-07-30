@@ -11,7 +11,7 @@ export type ReviewQueueLoggingDeps = Pick<
   'logger' | 'personaId' | 'reviewQueueStore'
 >;
 
-// The eight ambient outcome reasons this function writes. Deliberately a narrowed subset of
+// The ten ambient outcome reasons this function writes. Deliberately a narrowed subset of
 // `ReviewQueueEntry['outcomeReason']` rather than the full union: the other three values
 // (`'mid-no'`, `'mid-silence'`, `'mid-yes-failed'`) all belong to the confirming-question answer
 // lifecycle and are written elsewhere, two of them transactionally inside
@@ -24,7 +24,8 @@ export type ReviewQueueLoggingDeps = Pick<
 // (`AskUserQuestion`, 2026-07-28) that one stays silent; see `standing-proactive-guards.ts`'s own
 // `SituationalAppropriatenessGuardDecision` TSDoc for the full reasoning. BUILD_PLAN 3.11 added
 // `'classification-failed'`, the one value in this set with no real `confidence` to carry — see
-// `LogAmbientIntakeInput.classified.confidence`'s own nullability below.
+// `LogAmbientIntakeInput.classified.confidence`'s own nullability below. BUILD_PLAN 5.3a added the
+// two `'…-repeated-sender'` values, `evaluateSenderFrequencyGuard`'s own squeaky-wheel block.
 type AmbientIntakeOutcomeReason = Extract<
   ReviewQueueEntry['outcomeReason'],
   | 'low-confidence'
@@ -35,6 +36,8 @@ type AmbientIntakeOutcomeReason = Extract<
   | 'high-band-appropriateness-check-failed'
   | 'mid-band-appropriateness-check-failed'
   | 'classification-failed'
+  | 'high-band-repeated-sender'
+  | 'mid-band-repeated-sender'
 >;
 
 export type LogAmbientIntakeInput = {
@@ -86,6 +89,10 @@ export type LogAmbientIntakeInput = {
  *   non-null score for a classification that never completed (Alex, `AskUserQuestion`,
  *   2026-07-29); `classified.reasoning` still carries the real Anthropic error message, not a
  *   placeholder.
+ * - `'high-band-repeated-sender'` / `'mid-band-repeated-sender'` (chunk 5.3a) —
+ *   `evaluateSenderFrequencyGuard` blocked a second High/Mid-band trigger from the same sender in
+ *   the same channel within a 15-minute cooldown window — an infra-shaped suppression, not a
+ *   considered verdict, so it always logs.
  *
  * **Ambient only.** A DM never reaches here: the DM cascade (BUILD_PLAN 3.7) never consults the
  * rhythm guard, and deliberately writes no row on the Low band either, because a DM always gets a

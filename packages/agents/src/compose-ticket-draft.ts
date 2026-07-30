@@ -6,8 +6,10 @@ import { z } from 'zod';
 
 // claude-sonnet-5 is VISION §10/§11's resolved "Sonnet-by-default" model — this is a compositional
 // writing task (matching `generateReply`'s own use), not the cheap, high-volume classification
-// gate `classify-message-confidence.ts` uses Haiku 4.5 for.
-const MODEL = 'claude-sonnet-5';
+// gate `classify-message-confidence.ts` uses Haiku 4.5 for. `params.model` falls back to this when
+// a caller doesn't override it — BUILD_PLAN 5.3a gave per-persona overrides a real config value
+// (`resolvePersonaModel`); this function itself stays persona-agnostic.
+const DEFAULT_MODEL = 'claude-sonnet-5';
 const MAX_TOKENS = 512;
 
 // BUILD_PLAN's Stage 3 exit criterion: "at this stage ... a link-only draft (the URL plus whatever
@@ -51,6 +53,7 @@ type ComposeTicketDraftClient = {
 
 export type ComposeTicketDraftParams = {
   readonly text: string;
+  readonly model?: string;
 };
 
 export type ComposeTicketDraftUsage = {
@@ -109,6 +112,10 @@ function toComposeTicketDraftError(
  * gates this behind `checkCostCapAndAlert` and records cost via `sonnetCostUsdMicros`, same
  * mechanism as the DM reply path (BUILD_PLAN 2.6a/2.6b, and the lesson from 3.3's own DA finding:
  * every real, billed LLM call site needs this from the start, not discovered missing in review).
+ * `params.model` defaults to `DEFAULT_MODEL` when omitted; the real call site
+ * (`compose-ticket-draft-and-record-usage.ts`, shared by both of `handle-ambient-channel-message.ts`'s
+ * and `reaction-outcome-actions.ts`'s own callers) always overrides it with
+ * `resolvePersonaModel(deps.personaId)` instead (BUILD_PLAN 5.3a).
  */
 export async function composeTicketDraft(
   client: ComposeTicketDraftClient,
@@ -116,7 +123,7 @@ export async function composeTicketDraft(
 ): Promise<ComposeTicketDraftResult> {
   try {
     const message = await client.messages.parse({
-      model: MODEL,
+      model: params.model ?? DEFAULT_MODEL,
       max_tokens: MAX_TOKENS,
       system: DRAFT_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: params.text }],

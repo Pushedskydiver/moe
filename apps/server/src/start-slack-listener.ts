@@ -38,6 +38,7 @@ import {
 
 import { createInboundMessageHandler } from './handle-inbound-message.js';
 import { createReactionHandler } from './handle-reaction-added.js';
+import { createSenderTriggerCache } from './sender-trigger-cache.js';
 import { makeThreadQueue } from './thread-queue.js';
 
 // Bundled into one object, not two extra params, to stay under eslint's max-params: 3 — the
@@ -167,6 +168,7 @@ type ListenerContext = {
   readonly channelScopeConfig: ChannelScopeConfig;
   readonly bankHolidaysCache: ReturnType<typeof createBankHolidaysCache>;
   readonly seenEventCache: ReturnType<typeof createSeenEventCache>;
+  readonly senderTriggerCache: ReturnType<typeof createSenderTriggerCache>;
   readonly botUserId: string;
   readonly logger: Logger;
   readonly exit: (code: number) => void;
@@ -189,6 +191,7 @@ function wireAndStartListener(ctx: ListenerContext): void {
       threadQueue: makeThreadQueue(),
       channelScopeConfig: ctx.channelScopeConfig,
       bankHolidaysCache: ctx.bankHolidaysCache,
+      senderTriggerCache: ctx.senderTriggerCache,
       ticketStore: ctx.ticketStore,
       draftStore: ctx.draftStore,
       reviewQueueStore: ctx.reviewQueueStore,
@@ -254,6 +257,9 @@ export const startSlackListener: StartSlackListenerFn = (
   // Same "construct once, share across the process lifetime" reasoning — a per-message instance
   // would defeat the whole point of tracking recently-seen event ids across separate deliveries.
   const seenEventCache = createSeenEventCache();
+  // Same reasoning again (BUILD_PLAN 5.3a) — a per-message instance would defeat the whole point
+  // of tracking a sender's own recent trigger across separate ambient messages.
+  const senderTriggerCache = createSenderTriggerCache();
 
   fetchBotUserId(webClient)
     .then((botUserIdResult) => {
@@ -274,6 +280,7 @@ export const startSlackListener: StartSlackListenerFn = (
         channelScopeConfig,
         bankHolidaysCache,
         seenEventCache,
+        senderTriggerCache,
         botUserId: botUserIdResult.botUserId,
         logger,
         exit,

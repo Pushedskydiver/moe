@@ -1,5 +1,6 @@
 import type { CapStore } from './check-cost-cap.js';
 import type { DmIntakeCascadeResult } from './run-dm-intake-cascade.js';
+import type { createSenderTriggerCache } from './sender-trigger-cache.js';
 import type { ThreadQueue } from './thread-queue.js';
 import type {
   classifyMessageConfidence,
@@ -64,6 +65,9 @@ type AddReactionClient = Parameters<typeof addReaction>[0];
 // exported avoids that question entirely, same `ReturnType<typeof X>` idiom this file already
 // uses for `GenerateReplyClient`/`ClassifierClient` above.
 type BankHolidaysCache = ReturnType<typeof createBankHolidaysCache>;
+// Same `ReturnType<typeof X>` idiom as `BankHolidaysCache` above, for the identical reason —
+// `createSenderTriggerCache` is the exported constructor, not a publicly re-exported class.
+type SenderTriggerCache = ReturnType<typeof createSenderTriggerCache>;
 type InboundMessageLogger = {
   readonly info: (
     message: string,
@@ -216,6 +220,7 @@ export type HandlerDeps = {
   readonly threadQueue: ThreadQueue;
   readonly channelScopeConfig: ChannelScopeConfig;
   readonly bankHolidaysCache: BankHolidaysCache;
+  readonly senderTriggerCache: SenderTriggerCache;
   readonly ticketStore: TicketStore;
   readonly draftStore: DraftStore;
   readonly reviewQueueStore: ReviewQueueStore;

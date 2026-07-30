@@ -1,4 +1,5 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
+import type { composeTicketDraft } from '@moe/agents';
 import type {
   DraftOrigin,
   PendingTicketDraft,
@@ -6,7 +7,6 @@ import type {
 } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
-import { composeTicketDraft, sonnetCostUsdMicros } from '@moe/agents';
 import {
   classifyConfidenceBand,
   isAmbientIntakeListener,
@@ -20,14 +20,15 @@ import {
 } from './ambient-guard-outcome-reason.js';
 import { classifyMessageForIntake } from './classify-message-for-intake.js';
 import { composeAndPostConfirmingQuestion } from './compose-and-post-confirming-question.js';
+import { composeTicketDraftAndRecordUsage } from './compose-ticket-draft-and-record-usage.js';
 import {
   logAmbientIntakeToReviewQueue,
   logClassificationFailure,
 } from './log-ambient-intake-to-review-queue.js';
-import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import {
   evaluateCostAndRhythmGuard,
+  evaluateSenderFrequencyGuard,
   evaluateSituationalAppropriatenessGuard,
 } from './standing-proactive-guards.js';
 
@@ -124,38 +125,6 @@ async function seedReactionLegend(
   }
 
   await seedReactionLegend(deps, { ...input, remaining: rest });
-}
-
-// Both guard functions moved to `standing-proactive-guards.ts` (BUILD_PLAN 3.4b-i) once the
-// Mid-band confirming-question post needed the exact same checks — see that file's own TSDoc.
-// Extracted from `postAndPersistDraft` purely to stay under eslint's `max-lines-per-function`
-// (`docs/CONVENTIONS.md` §Code Style) — composes the draft and records its own cost accounting,
-// returning `undefined` on failure (already logged) so the caller can short-circuit.
-async function composeDraftContent(
-  deps: DraftPostingDeps,
-  message: DraftSourceMessage,
-  now: Date,
-): Promise<DraftContent | undefined> {
-  const drafted = await composeTicketDraft(deps.anthropicClient, {
-    text: message.text,
-  });
-  if (!drafted.ok) {
-    deps.logger.error('failed to compose ticket draft', {
-      errorMessage: drafted.error.message,
-    });
-    return undefined;
-  }
-
-  await recordUsageLogged(
-    deps,
-    {
-      usage: drafted.usage,
-      costUsdMicros: sonnetCostUsdMicros(drafted.usage, now),
-    },
-    now,
-  );
-
-  return drafted;
 }
 
 // The claim-then-act fallback fix's own success signal — `draftFromConfirmingQuestion`
@@ -301,7 +270,11 @@ export async function postAndPersistDraft(
   message: DraftSourceMessage,
   options: PostAndPersistDraftOptions,
 ): Promise<PostAndPersistDraftResult> {
-  const drafted = await composeDraftContent(deps, message, options.now);
+  const drafted = await composeTicketDraftAndRecordUsage(deps, {
+    text: message.text,
+    now: options.now,
+    failureLogMessage: 'failed to compose ticket draft',
+  });
   if (drafted === undefined) return { ok: false };
 
   const claimed = await claimDraft(deps, {
@@ -367,9 +340,10 @@ type ComposeAndPostDraftInput = {
 };
 
 /**
- * BUILD_PLAN 3.4a-i's High-band action, real end-to-end as of BUILD_PLAN 3.4a-iii: gated by a
- * fresh cost-cap check, the 2.7a operating-rhythm guard, and BUILD_PLAN 3.4a-iii's own
- * situational-appropriateness gate (`evaluateCostAndRhythmGuard`/
+ * BUILD_PLAN 3.4a-i's High-band action, real end-to-end as of BUILD_PLAN 3.4a-iii: gated by
+ * BUILD_PLAN 5.3a's own squeaky-wheel guard, a fresh cost-cap check, the 2.7a operating-rhythm
+ * guard, and BUILD_PLAN 3.4a-iii's own situational-appropriateness gate
+ * (`evaluateSenderFrequencyGuard`/`evaluateCostAndRhythmGuard`/
  * `evaluateSituationalAppropriatenessGuard`, `standing-proactive-guards.ts`), then composes,
  * posts, persists, and seeds the reaction-gate legend (`postAndPersistDraft`).
  *
@@ -421,6 +395,21 @@ type ComposeAndPostDraftInput = {
  * alone reads would be spend for no protection. The §6.4/§14 operating-rhythm rules are likewise
  * untouched — this function writes through `reviewQueueStore` and `logger` only, never a Slack
  * client, so nothing reaches the workspace.
+ *
+ * **BUILD_PLAN 5.3a — `evaluateSenderFrequencyGuard` runs first, ahead of both guards above,**
+ * blocking a second High-band trigger from the same sender in the same channel within a 15-minute
+ * cooldown window (`'high-band-repeated-sender'`, always written — the same "infra-shaped
+ * suppression, not a considered verdict" reasoning the cost-and-rhythm guard's own two reasons
+ * get, not the appropriateness guard's silent `'inappropriate'` branch). It runs first specifically
+ * because it is the cheapest of the three (a synchronous in-memory lookup, no DB read, no billed
+ * call) — the same "avoid spend for no protection" reasoning above, extended one guard further:
+ * paying for a DB read or a Haiku call on a message this guard is about to suppress anyway would
+ * be spend for no protection either. **Running this ahead of `evaluateCostAndRhythmGuard` skips
+ * only that guard's own opportunistic cost-alert-threshold check for a blocked message** (DA
+ * review) — the cost-cap gate itself is never bypassed, since `classifyMessageForIntake` already
+ * runs its own `checkCostCapAndAlert` unconditionally before this function is ever reached; the
+ * only real effect is a possible brief delay in surfacing a newly-crossed alert threshold, which
+ * the very next ambient message for this persona picks up regardless of sender or channel.
  */
 async function composeAndPostDraft(
   deps: HandlerDeps,
@@ -432,6 +421,17 @@ async function composeAndPostDraft(
     now,
     actionDescription: 'ticket-draft composition',
   };
+
+  const frequency = evaluateSenderFrequencyGuard(deps, guardInput);
+  if (!frequency.satisfied) {
+    await logAmbientIntakeToReviewQueue(deps, {
+      message,
+      classified,
+      outcomeReason: 'high-band-repeated-sender',
+    });
+    return;
+  }
+
   const guard = await evaluateCostAndRhythmGuard(deps, guardInput);
   if (!guard.satisfied) {
     await logAmbientIntakeToReviewQueue(deps, {

@@ -1,4 +1,5 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
+import type { composeTicketDraft } from '@moe/agents';
 import type {
   CommitTicketDraftResult,
   NewTicket,
@@ -7,11 +8,9 @@ import type {
   ResolveConfirmingQuestionAndLogResult,
 } from '@moe/core';
 
-import { composeTicketDraft, sonnetCostUsdMicros } from '@moe/agents';
-
 import { checkCostCapAndAlert } from './check-cost-cap.js';
+import { composeTicketDraftAndRecordUsage } from './compose-ticket-draft-and-record-usage.js';
 import { postAndPersistDraft } from './handle-ambient-channel-message.js';
-import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
 
 // Narrowed to just the `composeTicketDraft` client shape, not `HandlerDeps['anthropicClient']`'s
@@ -152,8 +151,8 @@ export async function parkTicketDraftToBacklog(
  * then overwrites the pending draft's content in place — not a terminal claim
  * (`draftStore.updateContent`, not `.resolve`), since regeneration leaves the draft open for a
  * further reaction. A real, billed Anthropic call like every other call site in this cascade: its
- * own fresh `checkCostCapAndAlert` check (not a stale one from whichever step dispatched here) and
- * `sonnetCostUsdMicros` accounting via `recordUsageLogged`.
+ * own fresh `checkCostCapAndAlert` check (not a stale one from whichever step dispatched here),
+ * composed and cost-accounted via the shared `composeTicketDraftAndRecordUsage`.
  */
 export async function regenerateTicketDraft(
   deps: ReactionOutcomeDeps,
@@ -169,24 +168,12 @@ export async function regenerateTicketDraft(
     return;
   }
 
-  const recomposed = await composeTicketDraft(deps.anthropicClient, {
+  const recomposed = await composeTicketDraftAndRecordUsage(deps, {
     text: draft.sourceMessageText,
-  });
-  if (!recomposed.ok) {
-    deps.logger.error('failed to regenerate ticket draft', {
-      errorMessage: recomposed.error.message,
-    });
-    return;
-  }
-
-  await recordUsageLogged(
-    deps,
-    {
-      usage: recomposed.usage,
-      costUsdMicros: sonnetCostUsdMicros(recomposed.usage, now),
-    },
     now,
-  );
+    failureLogMessage: 'failed to regenerate ticket draft',
+  });
+  if (recomposed === undefined) return;
 
   const updated = await deps.draftStore.updateContent(draft.id, {
     draftTitle: recomposed.title,

@@ -8,6 +8,8 @@ import type {
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { resolvePersonaModel } from '@moe/agents';
+
 import {
   commitTicketDraft,
   draftFromConfirmingQuestion,
@@ -387,8 +389,12 @@ describe('regenerateTicketDraft (🔁)', () => {
 
       await regenerateTicketDraft(deps, draft);
 
+      // BUILD_PLAN 5.3a — model asserted against resolvePersonaModel's own output for this
+      // persona rather than a hardcoded literal, so this still means something once a persona
+      // gets a real per-persona override.
       expect(deps.anthropicClient.messages.parse).toHaveBeenCalledWith(
         expect.objectContaining({
+          model: resolvePersonaModel(deps.personaId),
           messages: [{ role: 'user', content: draft.sourceMessageText }],
         }),
       );
