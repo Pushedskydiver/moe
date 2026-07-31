@@ -435,9 +435,9 @@ describe('createInboundMessageHandler', () => {
     await handler(DM_MESSAGE);
 
     const call = deps.anthropicClient.messages.create.mock.calls[0]?.[0] as {
-      system: string;
+      system: ReadonlyArray<{ readonly text: string }>;
     };
-    expect(call.system).toContain('Marcus');
+    expect(call.system[0]?.text).toContain('Marcus');
   });
 
   it('replies in the thread when the inbound DM carries a thread_ts', async () => {

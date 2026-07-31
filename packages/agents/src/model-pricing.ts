@@ -12,23 +12,48 @@ const INTRODUCTORY_PRICING = {
 };
 const STANDARD_PRICING = { inputMicrosPerToken: 3, outputMicrosPerToken: 15 };
 
+// Standard Anthropic prompt-caching multipliers, applied against whichever input rate is active
+// at `now` (cache write/read cost scales with base input price, not a separate flat rate) —
+// BUILD_PLAN 5.3a-ii. Fractional per-token (2.5, 0.2, 3.75, 0.3 micros/token at these rates) is
+// expected and handled by rounding the total, not by the constants themselves being integers.
+const CACHE_WRITE_MULTIPLIER = 1.25;
+const CACHE_READ_MULTIPLIER = 0.1;
+
 /**
  * Converts one turn's token usage into its cost in micro-USD (USD × 1,000,000 — see
  * `@moe/core`'s `personaCostUsageSchema` doc comment for why), selecting introductory vs.
  * standard Sonnet-5 pricing by `now`, not by when this function happens to run — so a turn
  * accounted for after the cutover with a `now` from before it still prices correctly.
+ * `cacheCreationInputTokens`/`cacheReadInputTokens` (BUILD_PLAN 5.3a-ii — the two SDK `Usage`
+ * fields that appear once any call site sets `cache_control`, separate from `input_tokens`) default
+ * to 0 when omitted, so every pre-caching call site is priced identically to before. The result is
+ * rounded to the nearest whole micro-USD — `personaCostUsageSchema`'s own `.int()` fields
+ * (`packages/core/src/cost-usage/cost-usage.ts`) can't hold the fractional totals the cache
+ * multipliers above can produce.
  */
 export function sonnetCostUsdMicros(
-  usage: { readonly inputTokens: number; readonly outputTokens: number },
+  usage: {
+    readonly inputTokens: number;
+    readonly outputTokens: number;
+    readonly cacheCreationInputTokens?: number;
+    readonly cacheReadInputTokens?: number;
+  },
   now: Date,
 ): number {
   const pricing =
     now.getTime() < CUTOVER_UTC_MS ? INTRODUCTORY_PRICING : STANDARD_PRICING;
 
-  return (
+  const costUsdMicros =
     usage.inputTokens * pricing.inputMicrosPerToken +
-    usage.outputTokens * pricing.outputMicrosPerToken
-  );
+    usage.outputTokens * pricing.outputMicrosPerToken +
+    (usage.cacheCreationInputTokens ?? 0) *
+      pricing.inputMicrosPerToken *
+      CACHE_WRITE_MULTIPLIER +
+    (usage.cacheReadInputTokens ?? 0) *
+      pricing.inputMicrosPerToken *
+      CACHE_READ_MULTIPLIER;
+
+  return Math.round(costUsdMicros);
 }
 
 // Claude Haiku 4.5 pricing (`docs/decisions/STAGE-1-CLASSIFIER.md`'s Decision 2, verified against
