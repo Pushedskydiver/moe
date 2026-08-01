@@ -39,7 +39,7 @@ function makeSlackClient(
   };
 }
 
-// A third `.parse()` slot, below the appropriateness gate's own, for the BUILD_PLAN 5.3a-ii
+// A second `.parse()` slot, below the appropriateness gate's own, for the BUILD_PLAN 5.3a-ii
 // confirming-question lead-in composition — every test that reaches `postAndPersistConfirmingQuestion`
 // now makes this second call. Defaults to a real success so existing tests (written before this
 // call existed) keep exercising the same happy path unless they explicitly override it.

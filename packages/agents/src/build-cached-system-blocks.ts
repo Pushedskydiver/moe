@@ -1,12 +1,11 @@
 import type { Anthropic } from '@anthropic-ai/sdk';
 
 /**
- * Designed to be shared across every persona-scoped system-prompt call site (BUILD_PLAN
- * 5.3a-ii) — `buildPersonaSystemPrompt` and `composeTicketDraft` both call it today; the
- * confirming-question composer is wired to it in a follow-up PR (DA review caught this doc
- * originally overclaiming all three as already wired, then caught it going stale a second time
- * once `composeTicketDraft` actually landed). Drops `undefined`/empty segments, then marks only
- * the *last* remaining block `cache_control`.
+ * Shared by every persona-scoped system-prompt call site (BUILD_PLAN 5.3a-ii) —
+ * `buildPersonaSystemPrompt`, `composeTicketDraft`, and `composeConfirmingQuestionLeadIn` all
+ * call it (DA review caught this doc going stale twice already as each of the three landed —
+ * this is the third and final wiring, closing chunk 5.3a-ii). Drops `undefined`/empty segments,
+ * then marks only the *last* remaining block `cache_control`.
  * Deliberately the last block, not the first — every segment here is 100% static per
  * (persona, call-type), so caching everything up to and including the last one (rather than
  * just a leading persona-voice block) captures the whole static prefix as one cached unit

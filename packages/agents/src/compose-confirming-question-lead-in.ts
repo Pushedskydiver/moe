@@ -18,15 +18,25 @@ const MAX_TOKENS = 256;
 // TSDoc for the full reasoning): a fixed, code-controlled trailer naming the literal 👍/👎
 // mechanic is appended by the caller, so the interactive affordance can never drift out of sync
 // with model phrasing variance.
+//
+// DA review flagged an unaddressed tension worth naming here: Sarah's own `prompt.md` (do-not-touch
+// — this file can't edit it, only work around it) says "lead with the question itself, not a runup
+// to it" for confirming questions in general. This specific call site is a deliberate, narrower
+// exception to that general preference, called out explicitly below rather than left for the model
+// to reconcile silently — live-tested across both this project's own adversarial-validation rounds
+// with no observed defect, but worth Alex's awareness as a known, currently-inert edge of the
+// do-not-touch/new-instruction boundary.
 const TASK_INSTRUCTION =
   'You are about to post a short confirming question to a Slack channel or DM, about a single ' +
   'message that a separate, already-run classifier flagged as possibly-but-not-certainly real ' +
-  'work — you are not re-deciding whether it is work, only framing why it looked that way. Given ' +
-  "the message and the classifier's own confidence/reasoning, write a one-to-two-sentence " +
-  'lead-in, in your own voice, naming the specific thing about the message that made this ' +
-  "uncertain. Do not invent detail the message doesn't state. A fixed trailer sentence naming " +
-  "the reaction mechanic is appended after your text by the caller — don't restate or invent " +
-  'your own call-to-action; end right where your framing ends.';
+  'work — you are not re-deciding whether it is work, only framing why it looked that way. This ' +
+  'specific interaction is structured framing-first: a fixed trailer sentence naming the literal ' +
+  'reaction mechanic is appended after your text by the caller, so the actual question/call-to-action ' +
+  'always comes last, code-controlled — a deliberate exception here to your own general instinct to ' +
+  "lead with the question itself. Given the message and the classifier's own confidence/reasoning, " +
+  'write a one-to-two-sentence lead-in, in your own voice, naming the specific thing about the ' +
+  "message that made this uncertain. Do not invent detail the message doesn't state. Don't restate " +
+  'or invent your own call-to-action; end right where your framing ends.';
 
 const leadInSchema = z.object({ questionLeadIn: z.string().min(1) });
 
@@ -116,11 +126,21 @@ function toComposeConfirmingQuestionLeadInError(
   };
 }
 
+// The message text is the exact, unquoted tail of the turn — nothing follows it. DA review
+// live-reproduced a real failure in an earlier `Message: "${text}"`-wrapped version: a message
+// combining a quote with field-label-shaped content (e.g. mimicking "Classifier confidence: ...")
+// reliably broke the model's own structured-JSON output, since the literal `"..."` wrapping gave
+// untrusted text a closing delimiter to spoof. Putting the labeled fields first and the raw
+// message last, with no delimiter after it to escape, removes that spoofable boundary entirely —
+// `composeTicketDraft.ts`'s own precedent (`content: params.text`, no wrapping at all) is the
+// same underlying idea, adapted here since this call site also needs to carry confidence/reasoning
+// in the same turn.
 function buildUserTurn(params: ComposeConfirmingQuestionLeadInParams): string {
   return (
-    `Message: "${params.text}"\n\n` +
     `Classifier confidence: ${params.confidence}/100\n` +
-    `Classifier reasoning: ${params.reasoning}`
+    `Classifier reasoning: ${params.reasoning}\n\n` +
+    'Message (verbatim, exactly as sent — everything from here to the end of this turn):\n' +
+    params.text
   );
 }
 

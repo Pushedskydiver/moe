@@ -166,10 +166,14 @@ async function releaseQuestionClaimAfterPostFailure(
 // after spec-grill R1 flagged the original "gate the whole call site" draft of this fix as a
 // regression risk: the DM cascade's own Mid band always posts *something*, for free, regardless
 // of spend state, and gating entry here would have silently taken that away). Covers both real
-// callers from one shared location: the ambient caller (`composeAndPostConfirmingQuestion` below)
-// already gates entry with `evaluateCostAndRhythmGuard` before ever reaching this function, so
-// this check is a harmless, redundant no-op there; `run-dm-intake-cascade.ts`'s Mid band has no
-// upstream check for this specific spend at all, so this is the only gate it gets.
+// callers from one shared location. **Not a redundant no-op on the ambient path** (DA review
+// caught an earlier draft of this comment claiming it was): `composeAndPostConfirmingQuestion`
+// below runs `evaluateCostAndRhythmGuard`'s own cap check, but `evaluateSituationalAppropriatenessGuard`'s
+// own billed Haiku call (and its `recordUsageLogged`) runs *between* that check and this one, so
+// spend can genuinely cross the cap inside this exact turn — the same "the classify/gate call that
+// routed here is itself billed and already recorded" reasoning `run-dm-intake-cascade.ts`'s own
+// High-band comment already documents for an identical shape. `run-dm-intake-cascade.ts`'s Mid
+// band has no upstream check for this specific spend at all, so this is its only gate.
 async function composeLeadInUnlessCapped(
   deps: HandlerDeps,
   input: ComposeAndPostConfirmingQuestionInput,
