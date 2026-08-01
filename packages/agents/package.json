@@ -13,7 +13,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json",
+    "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json && cp -r src/personas dist/personas",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

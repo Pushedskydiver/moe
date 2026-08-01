@@ -87,7 +87,7 @@ export async function generateAndPost(
   const generated = await generateReply(deps.anthropicClient, {
     text: message.text,
     history,
-    system: buildPersonaSystemPrompt(deps.personaId),
+    system: await buildPersonaSystemPrompt(deps.personaId, deps.logger),
     model: resolvePersonaModel(deps.personaId),
     tools: [STATUS_CLAIM_TOOL],
   });

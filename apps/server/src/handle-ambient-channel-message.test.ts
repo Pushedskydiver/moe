@@ -122,7 +122,7 @@ function makeAnthropicClient(options: MakeAnthropicClientOptions = {}) {
 }
 
 function makeLogger() {
-  return { info: vi.fn(), error: vi.fn() };
+  return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
 
 function makeCapStore(

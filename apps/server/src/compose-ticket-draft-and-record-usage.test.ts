@@ -22,7 +22,7 @@ function makeDeps(
         }),
     },
     personaId: 'sarah' as const,
-    logger: { info: vi.fn(), error: vi.fn() },
+    logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     costStore: {
       recordUsage:
         overrides.recordUsage ??

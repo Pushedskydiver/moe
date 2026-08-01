@@ -49,6 +49,61 @@ describe('sonnetCostUsdMicros', () => {
 
     expect(cost).toBe(0);
   });
+
+  it('prices cache-creation (write) tokens at 1.25x the introductory input rate (BUILD_PLAN 5.3a-ii)', () => {
+    const cost = sonnetCostUsdMicros(
+      { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 1_000 },
+      new Date('2026-07-17T09:00:00.000Z'),
+    );
+
+    // 1_000 * (2 * 1.25) = 2_500 micro-USD
+    expect(cost).toBe(2_500);
+  });
+
+  it('prices cache-read tokens at 0.1x the introductory input rate', () => {
+    const cost = sonnetCostUsdMicros(
+      { inputTokens: 0, outputTokens: 0, cacheReadInputTokens: 1_000 },
+      new Date('2026-07-17T09:00:00.000Z'),
+    );
+
+    // 1_000 * (2 * 0.1) = 200 micro-USD
+    expect(cost).toBe(200);
+  });
+
+  it('prices cache tokens at the standard rate after the cutover, alongside plain input/output', () => {
+    const cost = sonnetCostUsdMicros(
+      {
+        inputTokens: 100,
+        outputTokens: 0,
+        cacheCreationInputTokens: 1_000,
+        cacheReadInputTokens: 1_000,
+      },
+      new Date('2027-01-01T00:00:00.000Z'),
+    );
+
+    // 100 * 3 + 1_000 * (3 * 1.25) + 1_000 * (3 * 0.1) = 300 + 3_750 + 300 = 4_350 micro-USD
+    expect(cost).toBe(4_350);
+  });
+
+  it('rounds a fractional cache-token total to the nearest whole micro-USD (personaCostUsageSchema stores an int)', () => {
+    const cost = sonnetCostUsdMicros(
+      { inputTokens: 0, outputTokens: 0, cacheCreationInputTokens: 3 },
+      new Date('2026-07-17T09:00:00.000Z'),
+    );
+
+    // 3 * 2.5 = 7.5, rounds to 8
+    expect(cost).toBe(8);
+    expect(Number.isInteger(cost)).toBe(true);
+  });
+
+  it('treats omitted cache fields as zero, matching pre-caching behavior exactly', () => {
+    const cost = sonnetCostUsdMicros(
+      { inputTokens: 1_000, outputTokens: 500 },
+      new Date('2026-07-17T09:00:00.000Z'),
+    );
+
+    expect(cost).toBe(7_000);
+  });
 });
 
 describe('haikuCostUsdMicros', () => {

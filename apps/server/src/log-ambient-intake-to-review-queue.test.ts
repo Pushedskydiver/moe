@@ -23,7 +23,7 @@ function makeDeps(
   overrides: Partial<{ readonly create: ReviewQueueStore['create'] }> = {},
 ) {
   return {
-    logger: { info: vi.fn(), error: vi.fn() },
+    logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     personaId: 'sarah' as const,
     reviewQueueStore: {
       create:

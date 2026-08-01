@@ -73,6 +73,13 @@ type InboundMessageLogger = {
     message: string,
     fields?: Readonly<Record<string, unknown>>,
   ) => void;
+  // `warn` added for `buildPersonaSystemPrompt`'s own optional `logger` param (BUILD_PLAN
+  // 5.3a-ii PR 1, DA review) — it needs somewhere to report a real `fetchPersonaPromptContent`
+  // read failure (not just an undrafted persona) without escalating to `.error`.
+  readonly warn: (
+    message: string,
+    fields?: Readonly<Record<string, unknown>>,
+  ) => void;
   readonly error: (
     message: string,
     fields?: Readonly<Record<string, unknown>>,

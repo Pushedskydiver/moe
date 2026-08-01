@@ -51,7 +51,7 @@ function makeDeps(overrides: MakeDepsOverrides = {}) {
           }),
       },
     },
-    logger: { info: vi.fn(), error: vi.fn() },
+    logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     costStore: {
       recordUsage: vi.fn().mockResolvedValue({
         ok: true,

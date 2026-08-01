@@ -17,6 +17,8 @@ function makeClient(
         readonly usage?: {
           readonly input_tokens: number;
           readonly output_tokens: number;
+          readonly cache_creation_input_tokens?: number | null;
+          readonly cache_read_input_tokens?: number | null;
         };
       }
     | (() => never),
@@ -66,6 +68,48 @@ describe('generateReply', () => {
     });
   });
 
+  it('surfaces cache_creation/cache_read token counts when the response carries them (BUILD_PLAN 5.3a-ii — needed so sonnetCostUsdMicros can price caching, not silently drop it)', async () => {
+    const client = makeClient({
+      content: [{ type: 'text', text: 'Hi there!', citations: null }],
+      stop_reason: 'end_turn',
+      usage: {
+        input_tokens: 12,
+        output_tokens: 34,
+        cache_creation_input_tokens: 2_100,
+        cache_read_input_tokens: 0,
+      },
+    });
+
+    const result = await generateReply(client, { text: 'hello' });
+
+    expect(result.ok && result.usage).toEqual({
+      inputTokens: 12,
+      outputTokens: 34,
+      cacheCreationInputTokens: 2_100,
+      cacheReadInputTokens: 0,
+    });
+  });
+
+  it('omits cache token fields entirely when the response has them as null (the real SDK shape when nothing was cached), same as when absent', async () => {
+    const client = makeClient({
+      content: [{ type: 'text', text: 'Hi there!', citations: null }],
+      stop_reason: 'end_turn',
+      usage: {
+        input_tokens: 12,
+        output_tokens: 34,
+        cache_creation_input_tokens: null,
+        cache_read_input_tokens: null,
+      },
+    });
+
+    const result = await generateReply(client, { text: 'hello' });
+
+    expect(result.ok && result.usage).toEqual({
+      inputTokens: 12,
+      outputTokens: 34,
+    });
+  });
+
   it('sends a single-turn user message with the placeholder system prompt and the sonnet-5 model when no history is provided', async () => {
     const client = makeClient(TEXT_MESSAGE);
 
@@ -93,6 +137,25 @@ describe('generateReply', () => {
         system: "You're Sarah, replying on Slack.",
       }),
     );
+  });
+
+  it('accepts a cached-block-array system prompt (buildPersonaSystemPrompt, BUILD_PLAN 5.3a-ii) and passes it through as a mutable array', async () => {
+    const client = makeClient(TEXT_MESSAGE);
+    const systemBlocks = [
+      {
+        type: 'text' as const,
+        text: "You're Sarah.",
+        cache_control: { type: 'ephemeral' as const },
+      },
+    ];
+
+    await generateReply(client, { text: 'hello', system: systemBlocks });
+
+    const call = client.messages.create.mock.calls[0]?.[0] as {
+      system: unknown;
+    };
+    expect(call.system).toEqual(systemBlocks);
+    expect(Array.isArray(call.system)).toBe(true);
   });
 
   it('uses the given model override instead of the sonnet-5 default when provided', async () => {
