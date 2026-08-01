@@ -57,9 +57,10 @@ describe('classifyMessageConfidence', () => {
   });
 
   // BUILD_PLAN 3.12 — a real production bug: the classifier scored "is the auth work finished?"
-  // as 75 (High band) and auto-drafted a ticket whose entire body was "someone asked whether the
-  // auth work is finished." Root cause was the system prompt's own category definition ("a
-  // question that needs someone to act"), not the thresholds. This pins the prompt-text fix
+  // as 75 (High band) and auto-drafted a ticket whose entire body was "Someone asked whether the
+  // auth work is finished. No other detail was given in the message." Root cause was the system
+  // prompt's own category definition ("a question that needs someone to act"), not the
+  // thresholds. This pins the prompt-text fix
   // itself — the actual scoring behaviour is validated live against the real API (see
   // docs/decisions/STAGE-1-CLASSIFIER.md's 2026-08-01 addendum), which a mocked-client unit test
   // cannot do, but a mocked test *can* guard against this exact clause silently regressing back to

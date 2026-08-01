@@ -18,7 +18,8 @@ const MAX_TOKENS = 256;
 // BUILD_PLAN 3.12 (2026-08-01): the original "or a question that needs someone to act" clause was
 // wide enough to also catch a question asking about the *progress* of already-known work ("is the
 // auth work finished?") — Haiku scored it 75 and it auto-drafted a ticket whose entire body was
-// "someone asked whether the auth work is finished." The replacement below narrows that one clause
+// "Someone asked whether the auth work is finished. No other detail was given in the message."
+// The replacement below narrows that one clause
 // to "asking whether an already-identified piece of work is finished, done, or has happened yet" —
 // deliberately not "a status/informational question" more broadly, which a first attempt at this
 // wording tried and which pulled a genuine resource-existence gap ("do we have a billing docs
