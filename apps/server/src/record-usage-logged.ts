@@ -11,17 +11,20 @@ import { repositoryErrorMessage } from './repository-error.js';
 type RecordUsageDeps = Pick<HandlerDeps, 'personaId' | 'costStore' | 'logger'>;
 
 /**
- * Accounts for one LLM call's token usage against the persona/day cost bucket (BUILD_PLAN 2.6a,
- * extended at 3.3 to a second model/call site, at 3.4a-i to a third, and at 3.4a-ii to a fourth —
- * the 🔁 redo outcome path's own `composeTicketDraft` regeneration call) — "log, don't throw" on
- * failure, same as `handle-inbound-message.ts`'s `appendTurnLogged`; a cost-tracking write should
- * never be why a reply doesn't reach Slack (or, for the ambient path, why classification/drafting
- * doesn't complete). Model-agnostic — the caller prices `usage` with whichever model it just
- * called (`sonnetCostUsdMicros` for the DM chat-reply path, the ticket-draft composer, and the
- * redo regeneration call; `haikuCostUsdMicros` for the Stage 1 classifier) and passes the result
- * in, so this function only ever persists, never decides pricing. Only called after its own LLM
- * call succeeded — a failed API call has no real `usage` to account for. Extracted to its own file
- * (not `handle-inbound-message.ts`) purely to stay under `max-lines` once BUILD_PLAN 3.4a-i's
+ * Accounts for one LLM call's token usage against the persona/day cost bucket (BUILD_PLAN 2.6a) —
+ * "log, don't throw" on failure, same as `handle-inbound-message.ts`'s `appendTurnLogged`; a
+ * cost-tracking write should never be why a reply doesn't reach Slack (or, for the ambient path,
+ * why classification/drafting doesn't complete). Model-agnostic — the caller prices `usage` with
+ * whichever model it just called (`sonnetCostUsdMicros` for the DM chat-reply path, the
+ * ticket-draft composer and its 🔁 redo regeneration call, and the confirming-question lead-in
+ * composer, BUILD_PLAN 5.3a-ii; `haikuCostUsdMicros` for the Stage 1 classifier and the
+ * situational-appropriateness gate) and passes the result in, so this function only ever
+ * persists, never decides pricing. Deliberately named by call site here rather than by an ordinal
+ * count ("a second... a third...") — DA review found that scheme stale twice over, once already
+ * missing a real call site before this chunk even landed, since every future addition has to
+ * remember to bump a number nothing enforces. Only called after its own LLM call succeeded — a
+ * failed API call has no real `usage` to account for. Extracted to its own file (not
+ * `handle-inbound-message.ts`) purely to stay under `max-lines` once BUILD_PLAN 3.4a-i's
  * ambient-channel drafting moved into its own file too and both needed this same shared
  * accounting step.
  */

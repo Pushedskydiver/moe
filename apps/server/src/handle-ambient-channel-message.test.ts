@@ -67,6 +67,8 @@ type MakeAnthropicClientOptions = {
     | (() => never);
   readonly draftResponse?:
     { readonly title: string; readonly body: string } | null | (() => never);
+  readonly leadInResponse?:
+    { readonly questionLeadIn: string } | null | (() => never);
 };
 
 // `handleAmbientChannelMessage` takes the full `HandlerDeps['anthropicClient']` intersection
@@ -84,6 +86,7 @@ function makeAnthropicClient(options: MakeAnthropicClientOptions = {}) {
       reasoning: 'default: nothing sensitive here',
     },
     draftResponse,
+    leadInResponse,
   } = options;
   const parse = vi.fn();
   if (typeof parseResponse === 'function') {
@@ -109,6 +112,16 @@ function makeAnthropicClient(options: MakeAnthropicClientOptions = {}) {
       parse.mockResolvedValueOnce({
         parsed_output: draftResponse,
         usage: { input_tokens: 120, output_tokens: 40 },
+      });
+    }
+  }
+  if (leadInResponse !== undefined) {
+    if (typeof leadInResponse === 'function') {
+      parse.mockImplementationOnce(leadInResponse);
+    } else {
+      parse.mockResolvedValueOnce({
+        parsed_output: leadInResponse,
+        usage: { input_tokens: 30, output_tokens: 15 },
       });
     }
   }
@@ -1302,15 +1315,19 @@ describe('handleAmbientChannelMessage', () => {
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient({
           parseResponse: { confidence: 50, reasoning: 'ambiguous' },
+          leadInResponse: {
+            questionLeadIn: 'The phrasing here sounds uncertain.',
+          },
         }),
       });
 
       await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
-      // Two parse calls: the Stage 1 classifier, then the situational-appropriateness gate
+      // Three parse calls: the Stage 1 classifier, the situational-appropriateness gate, then
+      // the confirming-question lead-in composition (BUILD_PLAN 5.3a-ii) —
       // composeAndPostConfirmingQuestion itself runs — Mid-band no longer stops at classification
       // alone, unlike before this chunk.
-      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(3);
       expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
         expect.objectContaining({
           channel: 'C123',
@@ -1339,10 +1356,16 @@ describe('handleAmbientChannelMessage', () => {
       const deps = makeDeps({
         anthropicClient: makeAnthropicClient({
           parseResponse: { confidence: 50, reasoning: 'ambiguous' },
+          leadInResponse: {
+            questionLeadIn: 'The phrasing here sounds uncertain.',
+          },
         }),
       });
 
       await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
+      // Second trigger is blocked by the sender-frequency guard before any billed call, so only
+      // one more response needs queuing — the frequency guard's own block never reaches the
+      // appropriateness gate or the lead-in composition a second time.
       deps.anthropicClient.messages.parse.mockResolvedValueOnce({
         parsed_output: { confidence: 50, reasoning: 'still ambiguous' },
         usage: { input_tokens: 40, output_tokens: 12 },

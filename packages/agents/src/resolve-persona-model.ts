@@ -18,9 +18,11 @@ const PERSONA_MODEL_OVERRIDES: Partial<Record<PersonaId, string>> = {};
  * hence `resolve*` rather than `evaluate*` (`docs/CONVENTIONS.md`'s verb vocabulary). Real call
  * sites (`generate-and-post-reply.ts` directly; `handle-ambient-channel-message.ts` and
  * `reaction-outcome-actions.ts` indirectly, via their shared
- * `compose-ticket-draft-and-record-usage.ts`) pass this into `generateReply`/`composeTicketDraft`'s
- * own optional `model` param, the same "caller resolves a persona-specific value, the primitive
- * defaults if omitted" shape those functions already use for `system`.
+ * `compose-ticket-draft-and-record-usage.ts`; `compose-and-post-confirming-question.ts`'s own
+ * `composeLeadInUnlessCapped`, BUILD_PLAN 5.3a-ii) pass this into
+ * `generateReply`/`composeTicketDraft`/`composeConfirmingQuestionLeadIn`'s own optional `model`
+ * param, the same "caller resolves a persona-specific value, the primitive defaults if omitted"
+ * shape those functions already use for `system`.
  */
 export function resolvePersonaModel(personaId: PersonaId): string {
   return PERSONA_MODEL_OVERRIDES[personaId] ?? DEFAULT_MODEL;
