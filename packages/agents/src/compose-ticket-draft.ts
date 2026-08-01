@@ -147,8 +147,10 @@ export async function composeTicketDraft(
       max_tokens: MAX_TOKENS,
       // Persona voice first (cacheable-if-large), task instructions last — the last block gets
       // `cache_control`, capturing the whole static prefix as one cached unit (BUILD_PLAN
-      // 5.3a-ii). `undefined` when no persona has a real `prompt.md` yet — `DRAFT_SYSTEM_PROMPT`
-      // alone, byte-for-byte the pre-5.3a-ii behavior.
+      // 5.3a-ii). `undefined` when no persona has a real `prompt.md` yet — `DRAFT_SYSTEM_PROMPT`'s
+      // own text is unchanged, though `system` is still always an array now, not a plain string
+      // (R2 review — this comment previously claimed "byte-for-byte," contradicting the TSDoc
+      // above it, which was fixed but left this sibling comment stale).
       system: [
         ...buildCachedSystemBlocks([
           params.personaPromptContent,
