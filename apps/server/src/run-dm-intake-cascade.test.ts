@@ -34,10 +34,12 @@ function makeSlackClient(
 }
 
 // The DM cascade makes **two** `.parse()` calls at most, in this order: the Stage 1 classifier,
-// then — only on a High band — the ticket-draft composer. Deliberately no third slot for the
-// situational-appropriateness gate, unlike `handle-ambient-channel-message.test.ts`'s own
-// equivalent factory: BUILD_PLAN 3.7 settles that gate as not applying to a DM-triggered post, and
-// several tests below assert the call count directly to keep that from silently regressing.
+// then — on a High band, the ticket-draft composer; on a Mid band, the confirming-question
+// lead-in composer (BUILD_PLAN 5.3a-ii — before that chunk, Mid band made only the one classify
+// call). Deliberately no third slot for the situational-appropriateness gate, unlike
+// `handle-ambient-channel-message.test.ts`'s own equivalent factory: BUILD_PLAN 3.7 settles that
+// gate as not applying to a DM-triggered post, and several tests below assert the call count
+// directly to keep that from silently regressing.
 type MakeAnthropicClientOptions = {
   readonly parseResponse?:
     | { readonly confidence: number; readonly reasoning: string }
@@ -45,6 +47,8 @@ type MakeAnthropicClientOptions = {
     | (() => never);
   readonly draftResponse?:
     { readonly title: string; readonly body: string } | null | (() => never);
+  readonly leadInResponse?:
+    { readonly questionLeadIn: string } | null | (() => never);
 };
 
 function makeAnthropicClient(options: MakeAnthropicClientOptions = {}) {
@@ -54,6 +58,7 @@ function makeAnthropicClient(options: MakeAnthropicClientOptions = {}) {
       reasoning: 'default test classification',
     },
     draftResponse,
+    leadInResponse,
   } = options;
   const parse = vi.fn();
   if (typeof parseResponse === 'function') {
@@ -71,6 +76,16 @@ function makeAnthropicClient(options: MakeAnthropicClientOptions = {}) {
       parse.mockResolvedValueOnce({
         parsed_output: draftResponse,
         usage: { input_tokens: 120, output_tokens: 40 },
+      });
+    }
+  }
+  if (leadInResponse !== undefined) {
+    if (typeof leadInResponse === 'function') {
+      parse.mockImplementationOnce(leadInResponse);
+    } else {
+      parse.mockResolvedValueOnce({
+        parsed_output: leadInResponse,
+        usage: { input_tokens: 30, output_tokens: 15 },
       });
     }
   }
@@ -298,6 +313,9 @@ const MID_BAND = { confidence: 55, reasoning: 'plausibly a bug' };
 const DRAFT = {
   title: 'CLI hangs on large repos',
   body: 'The CLI hangs when run against large repos.',
+};
+const LEAD_IN = {
+  questionLeadIn: 'The phrasing here sounds uncertain about the CLI issue.',
 };
 
 describe('runDmIntakeCascade', () => {
@@ -627,7 +645,10 @@ describe('runDmIntakeCascade', () => {
   describe('Mid band', () => {
     it('posts a confirming question with the 👍/👎 legend and reports its text back', async () => {
       const deps = makeDeps({
-        anthropicClient: makeAnthropicClient({ parseResponse: MID_BAND }),
+        anthropicClient: makeAnthropicClient({
+          parseResponse: MID_BAND,
+          leadInResponse: LEAD_IN,
+        }),
         slackClient: makeSlackClient({ ok: true, ts: '1700000099.000100' }),
       });
 
@@ -639,7 +660,12 @@ describe('runDmIntakeCascade', () => {
 
       expect(result).toEqual({
         handled: true,
-        postedText: expect.stringContaining('draft a ticket') as string,
+        // The persona-voiced lead-in (BUILD_PLAN 5.3a-ii) plus the fixed, code-controlled
+        // trailer naming the reaction mechanic — the trailer is the stable part to assert on;
+        // the lead-in's own exact wording is the LLM's, not a literal this test should pin.
+        postedText: expect.stringContaining(
+          'React 👍 to draft it, or 👎 if not.',
+        ) as string,
       });
       // Posted top-level in the DM, same reasoning as the High-band draft above.
       const questionArg = deps.slackClient.chat.postMessage.mock
@@ -666,18 +692,86 @@ describe('runDmIntakeCascade', () => {
 
     it('never composes a ticket draft — the confirming question is the whole Mid-band action', async () => {
       const deps = makeDeps({
-        anthropicClient: makeAnthropicClient({ parseResponse: MID_BAND }),
+        anthropicClient: makeAnthropicClient({
+          parseResponse: MID_BAND,
+          leadInResponse: LEAD_IN,
+        }),
       });
 
       await runDmIntakeCascade(deps, DM_MESSAGE, WITHIN_CORE_HOURS);
 
-      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      // Two calls now, not one (BUILD_PLAN 5.3a-ii) — the classifier, then the confirming-question
+      // lead-in composer. `draftStore.create` never being called is still the actual intent this
+      // test pins: no *ticket draft* gets composed on the Mid band, regardless of how many `.parse()`
+      // calls the confirming-question path itself makes.
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(2);
       expect(deps.draftStore.create).not.toHaveBeenCalled();
+    });
+
+    it('skips the lead-in composition and posts the fixed template when the cost cap is reached between the classify and compose calls (BUILD_PLAN 5.3a-ii)', async () => {
+      // Mirrors the High band's own "cost cap reached between classify and compose" test above,
+      // but the outcome differs: the High band has no free fallback (a ticket draft requires a
+      // real LLM call), so it falls through entirely. The Mid band always has the pre-5.3a-ii
+      // fixed template to fall back to, so it still posts — just without the persona-voiced
+      // lead-in, exactly as if the compose call itself had failed.
+      const getMonthlyCost = vi
+        .fn<CapStore['getMonthlyCost']>()
+        .mockResolvedValueOnce({
+          ok: true,
+          total: {
+            personaId: 'sarah',
+            month: '2026-07',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsdMicros: 0,
+          },
+        })
+        .mockResolvedValue({
+          ok: true,
+          total: {
+            personaId: 'sarah',
+            month: '2026-07',
+            inputTokens: 0,
+            outputTokens: 0,
+            costUsdMicros: 100_000_000,
+          },
+        });
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient({
+          parseResponse: MID_BAND,
+          leadInResponse: LEAD_IN,
+        }),
+        capStore: makeCapStore({ getMonthlyCost }),
+      });
+
+      const result = await runDmIntakeCascade(
+        deps,
+        DM_MESSAGE,
+        WITHIN_CORE_HOURS,
+      );
+
+      // Still posts — the fixed template, not `handled: false` and not the persona-voiced lead-in.
+      expect(result).toEqual({
+        handled: true,
+        postedText:
+          'This might be worth tracking — want me to draft a ticket for it? ' +
+          'React 👍 to draft it, or 👎 if not.',
+      });
+      // The classification happened (one `.parse()`); the billed lead-in composition did not —
+      // the queued `leadInResponse` mock is never consumed.
+      expect(deps.anthropicClient.messages.parse).toHaveBeenCalledTimes(1);
+      expect(deps.logger.info).toHaveBeenCalledWith(
+        'skipping confirming-question lead-in composition — monthly cost cap reached',
+        { personaId: 'sarah', channelId: 'D123' },
+      );
     });
 
     it('still posts outside core hours — same reactive reasoning as the High band', async () => {
       const deps = makeDeps({
-        anthropicClient: makeAnthropicClient({ parseResponse: MID_BAND }),
+        anthropicClient: makeAnthropicClient({
+          parseResponse: MID_BAND,
+          leadInResponse: LEAD_IN,
+        }),
       });
 
       const result = await runDmIntakeCascade(
@@ -696,7 +790,10 @@ describe('runDmIntakeCascade', () => {
       // post-persist step — the reorder moved `create` to the pre-post claim step, so a `create`
       // failure now means the claim never happened and `postMessage` is never reached at all.
       const deps = makeDeps({
-        anthropicClient: makeAnthropicClient({ parseResponse: MID_BAND }),
+        anthropicClient: makeAnthropicClient({
+          parseResponse: MID_BAND,
+          leadInResponse: LEAD_IN,
+        }),
         confirmingQuestionStore: makeConfirmingQuestionStore({
           create: vi.fn<ConfirmingQuestionStore['create']>().mockResolvedValue({
             ok: false,
@@ -717,7 +814,10 @@ describe('runDmIntakeCascade', () => {
 
     it('falls through when posting the confirming question fails', async () => {
       const deps = makeDeps({
-        anthropicClient: makeAnthropicClient({ parseResponse: MID_BAND }),
+        anthropicClient: makeAnthropicClient({
+          parseResponse: MID_BAND,
+          leadInResponse: LEAD_IN,
+        }),
         slackClient: makeSlackClient({ ok: false, error: 'channel_not_found' }),
       });
 

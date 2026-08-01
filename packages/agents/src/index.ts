@@ -55,6 +55,13 @@ export type {
 } from './compose-ticket-draft.js';
 export { composeTicketDraft } from './compose-ticket-draft.js';
 export type {
+  ComposeConfirmingQuestionLeadInParams,
+  ComposeConfirmingQuestionLeadInResult,
+  ComposeConfirmingQuestionLeadInUsage,
+  ConfirmingQuestionLeadIn,
+} from './compose-confirming-question-lead-in.js';
+export { composeConfirmingQuestionLeadIn } from './compose-confirming-question-lead-in.js';
+export type {
   EvaluateSituationalAppropriatenessParams,
   EvaluateSituationalAppropriatenessResult,
   EvaluateSituationalAppropriatenessUsage,

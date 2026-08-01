@@ -4,6 +4,7 @@ import type { createSenderTriggerCache } from './sender-trigger-cache.js';
 import type { ThreadQueue } from './thread-queue.js';
 import type {
   classifyMessageConfidence,
+  composeConfirmingQuestionLeadIn,
   composeTicketDraft,
   CostCapConfig,
   evaluateSituationalAppropriateness,
@@ -56,6 +57,10 @@ type ClassifierClient = Parameters<typeof classifyMessageConfidence>[0];
 type ComposeDraftClient = Parameters<typeof composeTicketDraft>[0];
 type SituationalGateClient = Parameters<
   typeof evaluateSituationalAppropriateness
+>[0];
+// BUILD_PLAN 5.3a-ii — the confirming-question lead-in composer's own client shape.
+type ComposeConfirmingQuestionLeadInClient = Parameters<
+  typeof composeConfirmingQuestionLeadIn
 >[0];
 type PostMessageClient = Parameters<typeof postMessage>[0];
 type AddReactionClient = Parameters<typeof addReaction>[0];
@@ -207,16 +212,18 @@ type ConfirmingQuestionStore = {
 // `historyStore`/`costStore`/`capStore`/`costCapConfig`/`personaId`/`threadQueue`/
 // `channelScopeConfig` bundled alongside the pre-existing 3 params into one options object — the
 // 3-param signature was already at eslint's `max-params: 3` ceiling, same bundling pattern
-// `start-slack-listener.ts` already uses for its own deps. `anthropicClient` satisfies both
-// `generateReply`'s (DM chat replies) and `classifyMessageConfidence`'s (ambient-channel Stage 1
-// gate, BUILD_PLAN 3.3) client shapes — one real `Anthropic` SDK instance from
-// `createAnthropicClient` structurally satisfies both, same "one client, many call sites" pattern
-// as the rest of this file's DI seams.
+// `start-slack-listener.ts` already uses for its own deps. `anthropicClient` satisfies
+// `generateReply`'s (DM chat replies), `classifyMessageConfidence`'s (ambient-channel Stage 1
+// gate, BUILD_PLAN 3.3), `composeTicketDraft`'s, `evaluateSituationalAppropriateness`'s, and
+// `composeConfirmingQuestionLeadIn`'s (BUILD_PLAN 5.3a-ii) client shapes all at once — one real
+// `Anthropic` SDK instance from `createAnthropicClient` structurally satisfies all five, same
+// "one client, many call sites" pattern as the rest of this file's DI seams.
 export type HandlerDeps = {
   readonly anthropicClient: GenerateReplyClient &
     ClassifierClient &
     ComposeDraftClient &
-    SituationalGateClient;
+    SituationalGateClient &
+    ComposeConfirmingQuestionLeadInClient;
   readonly slackClient: PostMessageClient & AddReactionClient;
   readonly logger: InboundMessageLogger;
   readonly historyStore: HistoryStore;

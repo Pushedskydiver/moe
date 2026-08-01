@@ -39,10 +39,17 @@ function makeSlackClient(
   };
 }
 
+// A third `.parse()` slot, below the appropriateness gate's own, for the BUILD_PLAN 5.3a-ii
+// confirming-question lead-in composition — every test that reaches `postAndPersistConfirmingQuestion`
+// now makes this second call. Defaults to a real success so existing tests (written before this
+// call existed) keep exercising the same happy path unless they explicitly override it.
 function makeAnthropicClient(
   appropriatenessResponse:
     | { readonly appropriate: boolean; readonly reasoning: string }
     | (() => never) = { appropriate: true, reasoning: 'a routine bug report' },
+  leadInResponse: { readonly questionLeadIn: string } | (() => never) = {
+    questionLeadIn: 'The phrasing here sounds uncertain about the CLI issue.',
+  },
 ) {
   const parse = vi.fn();
   if (typeof appropriatenessResponse === 'function') {
@@ -51,6 +58,14 @@ function makeAnthropicClient(
     parse.mockResolvedValueOnce({
       parsed_output: appropriatenessResponse,
       usage: { input_tokens: 20, output_tokens: 8 },
+    });
+  }
+  if (typeof leadInResponse === 'function') {
+    parse.mockImplementationOnce(leadInResponse);
+  } else {
+    parse.mockResolvedValueOnce({
+      parsed_output: leadInResponse,
+      usage: { input_tokens: 30, output_tokens: 15 },
     });
   }
   return { messages: { create: vi.fn(), parse } };
@@ -622,6 +637,66 @@ describe('composeAndPostConfirmingQuestion', () => {
       expect(deps.logger.info).toHaveBeenCalledWith(
         'posted mid-band confirming question',
         expect.anything(),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('posts the composed lead-in prefixed to the fixed trailer, in the persona-voiced case (BUILD_PLAN 5.3a-ii)', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(undefined, {
+          questionLeadIn: 'This looks like a real bug worth tracking.',
+        }),
+      });
+
+      await composeAndPostConfirmingQuestion(deps, {
+        message: CHANNEL_MESSAGE,
+        now: new Date(),
+        classified: CLASSIFIED,
+        surface: 'channel',
+      });
+
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: 'This looks like a real bug worth tracking. React 👍 to draft it, or 👎 if not.',
+        }),
+      );
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('falls back to the fixed full template when the lead-in composition fails — never regresses below the pre-5.3a-ii default', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-07-16T09:00:00.000Z'));
+    try {
+      const deps = makeDeps({
+        anthropicClient: makeAnthropicClient(undefined, () => {
+          throw new Error('rate limited');
+        }),
+      });
+
+      await composeAndPostConfirmingQuestion(deps, {
+        message: CHANNEL_MESSAGE,
+        now: new Date(),
+        classified: CLASSIFIED,
+        surface: 'channel',
+      });
+
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text:
+            'This might be worth tracking — want me to draft a ticket for it? ' +
+            'React 👍 to draft it, or 👎 if not.',
+        }),
+      );
+      expect(deps.logger.error).toHaveBeenCalledWith(
+        'failed to compose confirming-question lead-in',
+        expect.objectContaining({ errorMessage: 'rate limited' }),
       );
     } finally {
       vi.useRealTimers();

@@ -5,13 +5,21 @@ import type {
 } from '@moe/core';
 import type { InboundMessage } from '@moe/slack';
 
+import {
+  composeConfirmingQuestionLeadIn,
+  fetchPersonaPromptContent,
+  resolvePersonaModel,
+  sonnetCostUsdMicros,
+} from '@moe/agents';
 import { addReaction, postMessage } from '@moe/slack';
 
 import {
   evaluateMidBandCostAndRhythmOutcomeReason,
   shouldLogAppropriatenessFailure,
 } from './ambient-guard-outcome-reason.js';
+import { checkCostCapAndAlert } from './check-cost-cap.js';
 import { logAmbientIntakeToReviewQueue } from './log-ambient-intake-to-review-queue.js';
+import { recordUsageLogged } from './record-usage-logged.js';
 import { repositoryErrorMessage } from './repository-error.js';
 import {
   evaluateCostAndRhythmGuard,
@@ -20,6 +28,7 @@ import {
 } from './standing-proactive-guards.js';
 
 const ACTION_DESCRIPTION = 'confirming-question posting';
+const FIXED_TRAILER = 'React 👍 to draft it, or 👎 if not.';
 
 // VISION §5.2's Mid-band reaction legend — 👍 (yes, draft it) / 👎 (no) — deliberately distinct
 // from the High-band 📦/🔁/✅ legend so a later reaction-outcome dispatch (BUILD_PLAN 3.4b-ii) can
@@ -36,14 +45,16 @@ const REACTION_NAME_BY_LEGEND_EMOJI: Readonly<
   '👎': 'thumbsdown',
 };
 
-// VISION §5.2's "short, low-friction confirming question" — a fixed template, not an LLM-composed
-// one (Alex confirmed via `AskUserQuestion`): no new billed call site, and the question's own
-// wording is cheap to change later since it's a plain string, not a schema/architecture choice.
-function formatConfirmingQuestionText(): string {
-  return (
-    'This might be worth tracking — want me to draft a ticket for it? ' +
-    'React 👍 to draft it, or 👎 if not.'
-  );
+// VISION §5.2's "short, low-friction confirming question" — a fixed template originally (Alex
+// confirmed via `AskUserQuestion`), now persona-voiced when the lead-in composition succeeds
+// (BUILD_PLAN 5.3a-ii). `leadIn` is `undefined` on any compose failure (including a cost-cap
+// halt, treated identically) — the trailer naming the literal 👍/👎 mechanic is always the same,
+// code-controlled string regardless, so the interactive affordance can never drift out of sync
+// with what the model happened to say.
+function formatConfirmingQuestionText(leadIn: string | undefined): string {
+  return leadIn !== undefined
+    ? `${leadIn} ${FIXED_TRAILER}`
+    : `This might be worth tracking — want me to draft a ticket for it? ${FIXED_TRAILER}`;
 }
 
 // Recursive, not a loop or `.reduce()` (`docs/CONVENTIONS.md`'s Code Style section bans the
@@ -148,19 +159,76 @@ async function releaseQuestionClaimAfterPostFailure(
   }
 }
 
+// Extracted for the same `max-lines-per-function` reason as `claimQuestion` above. Treats a
+// cost-cap halt exactly like a compose failure — skip the billed call, return `undefined` so the
+// caller falls back to the fixed template — rather than blocking the whole confirming-question
+// action the way the High-band draft path's own cap check does (BUILD_PLAN 5.3a-ii, redesigned
+// after spec-grill R1 flagged the original "gate the whole call site" draft of this fix as a
+// regression risk: the DM cascade's own Mid band always posts *something*, for free, regardless
+// of spend state, and gating entry here would have silently taken that away). Covers both real
+// callers from one shared location: the ambient caller (`composeAndPostConfirmingQuestion` below)
+// already gates entry with `evaluateCostAndRhythmGuard` before ever reaching this function, so
+// this check is a harmless, redundant no-op there; `run-dm-intake-cascade.ts`'s Mid band has no
+// upstream check for this specific spend at all, so this is the only gate it gets.
+async function composeLeadInUnlessCapped(
+  deps: HandlerDeps,
+  input: ComposeAndPostConfirmingQuestionInput,
+): Promise<string | undefined> {
+  const capCheck = await checkCostCapAndAlert(deps, input.now);
+  if (capCheck.halt) {
+    deps.logger.info(
+      'skipping confirming-question lead-in composition — monthly cost cap reached',
+      { personaId: deps.personaId, channelId: input.message.channelId },
+    );
+    return undefined;
+  }
+
+  const composed = await composeConfirmingQuestionLeadIn(deps.anthropicClient, {
+    text: input.message.text,
+    confidence: input.classified.confidence,
+    reasoning: input.classified.reasoning,
+    model: resolvePersonaModel(deps.personaId),
+    personaPromptContent: await fetchPersonaPromptContent(
+      deps.personaId,
+      deps.logger,
+    ),
+  });
+  if (!composed.ok) {
+    deps.logger.error('failed to compose confirming-question lead-in', {
+      errorMessage: composed.error.message,
+    });
+    return undefined;
+  }
+
+  await recordUsageLogged(
+    deps,
+    {
+      usage: composed.usage,
+      costUsdMicros: sonnetCostUsdMicros(composed.usage, input.now),
+    },
+    input.now,
+  );
+
+  return composed.questionLeadIn;
+}
+
 /**
  * Claims the `pending_confirming_questions` row *before* posting to Slack, keyed on the source
- * message's own ts, then posts the fixed-template question, fills in the real posted message's ts
- * on the claimed row, and seeds the 👍/👎 legend — same claim-first shape as
- * `handle-ambient-channel-message.ts`'s own `postAndPersistDraft` (BUILD_PLAN 5.2b), including that
- * it runs **no guard checks of its own**: gating is the caller's job. `composeAndPostConfirmingQuestion`
- * below (the ambient caller) only reaches it after both `evaluateCostAndRhythmGuard` and
- * `evaluateSituationalAppropriatenessGuard` pass. BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`)
- * calls it directly instead, deliberately running neither of those two guards — a DM-triggered
- * post is reactive rather than unprompted, the same distinction 2.7a already settled for DM replies
- * — while still running the cost cap upstream, since the classify call that routed here is billed.
- * Exported for that caller, mirroring `postAndPersistDraft`'s own precedent of being reused
- * directly by a non-ambient caller rather than reimplemented.
+ * message's own ts, then posts the (now persona-voiced, BUILD_PLAN 5.3a-ii) question, fills in the
+ * real posted message's ts on the claimed row, and seeds the 👍/👎 legend — same claim-first shape
+ * as `handle-ambient-channel-message.ts`'s own `postAndPersistDraft` (BUILD_PLAN 5.2b). Runs no
+ * *ambient-appropriateness* guard checks of its own — that gating is still the caller's job, exactly
+ * as before 5.3a-ii — but does now run its own cost-cap check internally, ahead of the billed
+ * lead-in composition (`composeLeadInUnlessCapped`), since that spend has no other gate on the DM
+ * path. `composeAndPostConfirmingQuestion` below (the ambient caller) only reaches this function
+ * after both `evaluateCostAndRhythmGuard` and `evaluateSituationalAppropriatenessGuard` pass.
+ * BUILD_PLAN 3.7's DM cascade (`run-dm-intake-cascade.ts`) calls it directly instead, deliberately
+ * running neither of those two guards — a DM-triggered post is reactive rather than unprompted,
+ * the same distinction 2.7a already settled for DM replies — while still running the cost cap
+ * upstream twice: once inside `classifyMessageForIntake` for the billed classify call, and again
+ * inside this function for the billed lead-in composition. Exported for that caller, mirroring
+ * `postAndPersistDraft`'s own precedent of being reused directly by a non-ambient caller rather
+ * than reimplemented.
  */
 export async function postAndPersistConfirmingQuestion(
   deps: HandlerDeps,
@@ -168,12 +236,14 @@ export async function postAndPersistConfirmingQuestion(
 ): Promise<PostAndPersistConfirmingQuestionResult> {
   const { message } = input;
 
+  const leadIn = await composeLeadInUnlessCapped(deps, input);
+
   const claimed = await claimQuestion(deps, input);
   if (claimed === undefined) return { ok: false };
 
   // Composed once and reused for both the Slack post and the `postedText` returned below, so the
   // persisted conversation turn can never drift from what the user actually saw.
-  const questionText = formatConfirmingQuestionText();
+  const questionText = formatConfirmingQuestionText(leadIn);
   const posted = await postMessage(deps.slackClient, {
     channelId: message.channelId,
     text: questionText,

@@ -122,9 +122,12 @@ export async function runDmIntakeCascade(
       : NOT_HANDLED;
   }
 
-  // No second cap check on the Mid band, deliberately: `postAndPersistConfirmingQuestion` posts a
-  // fixed template string (BUILD_PLAN 3.4b-i — Alex chose a template over an LLM-composed question
-  // precisely so it needs no billed call site), so there is no further spend to gate here.
+  // No second cap check needed *here* specifically, unlike the High band above — not because
+  // there's no further spend to gate (BUILD_PLAN 5.3a-ii converted the Mid band's own fixed
+  // template into a real, persona-voiced LLM call), but because `postAndPersistConfirmingQuestion`
+  // now runs that check internally, ahead of the billed lead-in composition
+  // (`composeLeadInUnlessCapped`, `compose-and-post-confirming-question.ts`) — one shared gate for
+  // both this caller and the ambient one, rather than duplicating the check at every call site.
 
   const posted = await postAndPersistConfirmingQuestion(deps, {
     message,
