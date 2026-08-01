@@ -39,7 +39,9 @@ export async function fetchPersonaPromptContent(
   } catch (error) {
     const code =
       error instanceof Error && 'code' in error
-        ? (error as NodeJS.ErrnoException).code
+        ? // Safe: `'code' in error` already narrows to an object carrying that property; the cast
+          // only adds Node's own typed name (`NodeJS.ErrnoException`) for the fs-error-code shape.
+          (error as NodeJS.ErrnoException).code
         : undefined;
     if (code !== 'ENOENT') {
       logger?.warn(

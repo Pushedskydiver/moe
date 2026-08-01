@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildPersonaSystemPrompt,
@@ -92,6 +92,39 @@ describe('buildPersonaSystemPrompt', () => {
 
       expect(text).toContain("You're moe's PM and the team's front door");
       expect(text).not.toContain("don't have a defined personality or voice");
+    });
+  });
+
+  describe('logger threading to fetchPersonaPromptContent (DA review, R2 completeness finding)', () => {
+    afterEach(() => {
+      vi.doUnmock('node:fs/promises');
+      vi.resetModules();
+    });
+
+    it("forwards its own logger param all the way to fetchPersonaPromptContent, so a real infra failure (not just an undrafted persona) is observable — regression coverage for the exact 'silently degrades to the placeholder' bug class R1 flagged", async () => {
+      vi.resetModules();
+      vi.doMock('node:fs/promises', () => ({
+        readFile: vi.fn().mockRejectedValue(
+          Object.assign(new Error('permission denied'), {
+            code: 'EACCES',
+          }),
+        ),
+      }));
+      const { buildPersonaSystemPrompt: buildWithMockedFs } =
+        await import('./placeholder-system-prompt.js');
+      const logger = { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
+
+      const blocks = await buildWithMockedFs('sarah', logger);
+
+      // Still falls back to the generic template — a real infra failure never blocks a reply.
+      expect(blocks[0]?.text).toContain('Sarah');
+      expect(blocks[0]?.text).not.toContain(
+        "You're moe's PM and the team's front door",
+      );
+      expect(logger.warn).toHaveBeenCalledWith(
+        'failed to read persona prompt.md (not a missing-file case)',
+        expect.objectContaining({ personaId: 'sarah' }),
+      );
     });
   });
 });
