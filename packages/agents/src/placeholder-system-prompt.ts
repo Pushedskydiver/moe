@@ -1,5 +1,6 @@
 import type { PersonaId } from './persona-config.js';
 import type { Anthropic } from '@anthropic-ai/sdk';
+import type { AppLogger } from '@moe/core';
 
 import { buildCachedSystemBlocks } from './build-cached-system-blocks.js';
 import { fetchPersonaPromptContent } from './fetch-persona-prompt-content.js';
@@ -57,13 +58,17 @@ function buildGenericTemplate(personaId: PersonaId): string {
  * chunk, for the 7 personas without a `prompt.md` yet — each one's own 5.3 sub-chunk lights this
  * up automatically the day its `prompt.md` merges, no further wiring needed. Wraps the result via
  * `buildCachedSystemBlocks` (BUILD_PLAN 5.3a-ii) so the (potentially large, always static per
- * persona) content is eligible for Anthropic prompt caching.
+ * persona) content is eligible for Anthropic prompt caching. `logger`, when given, is forwarded
+ * to `fetchPersonaPromptContent` so a real read failure (not just an undrafted persona) is
+ * observable rather than silently degrading to the generic template (DA review, BUILD_PLAN
+ * 5.3a-ii PR 1).
  */
 export async function buildPersonaSystemPrompt(
   personaId: PersonaId,
+  logger?: AppLogger,
 ): Promise<readonly Anthropic.TextBlockParam[]> {
   const content =
-    (await fetchPersonaPromptContent(personaId)) ??
+    (await fetchPersonaPromptContent(personaId, logger)) ??
     buildGenericTemplate(personaId);
   return buildCachedSystemBlocks([content]);
 }

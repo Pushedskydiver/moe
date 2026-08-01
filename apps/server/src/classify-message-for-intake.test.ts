@@ -77,7 +77,7 @@ function makeDeps(
       chat: { postMessage: vi.fn().mockResolvedValue({ ok: true, ts: '1.1' }) },
       reactions: { add: vi.fn().mockResolvedValue({ ok: true }) },
     },
-    logger: { info: vi.fn(), error: vi.fn() },
+    logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     historyStore: {
       getRecentTurns: vi.fn<HandlerDeps['historyStore']['getRecentTurns']>(),
       appendTurn: vi.fn<HandlerDeps['historyStore']['appendTurn']>(),

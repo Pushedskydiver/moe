@@ -26,8 +26,6 @@ export {
   buildPersonaSystemPrompt,
   PLACEHOLDER_SYSTEM_PROMPT,
 } from './placeholder-system-prompt.js';
-export { fetchPersonaPromptContent } from './fetch-persona-prompt-content.js';
-export { buildCachedSystemBlocks } from './build-cached-system-blocks.js';
 export type { GatedReplyEvidence } from './compose-gated-reply.js';
 export { composeGatedReply } from './compose-gated-reply.js';
 export { STATUS_CLAIM_TOOL } from './status-claim-tool.js';
