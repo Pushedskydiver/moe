@@ -38,8 +38,9 @@ const OUTPUT_FORMAT = zodOutputFormat(ticketDraftSchema);
 // classify-message-confidence.ts's client type, for the same reason: a hand-rolled `readonly`
 // mirror of `messages` isn't assignable to the SDK's own mutable `MessageParam[]`. `usage`'s two
 // cache fields (BUILD_PLAN 5.3a-ii — the real SDK's `ParsedMessage`/`Usage` shape, matched here
-// since this system prompt now sets `cache_control`) are `number | null`, not `?: number` — the
-// SDK always returns them once a request can cache, it just returns `null` when nothing did.
+// since this system prompt now sets `cache_control`) are `number | null`, always present — not
+// `?:` — the SDK always returns them once a request can cache, it just returns `null` when
+// nothing did (DA review caught the original `?:` contradicting this exact comment).
 type ComposeTicketDraftClient = {
   readonly messages: {
     readonly parse: (
@@ -51,8 +52,8 @@ type ComposeTicketDraftClient = {
       readonly usage: {
         readonly input_tokens: number;
         readonly output_tokens: number;
-        readonly cache_creation_input_tokens?: number | null;
-        readonly cache_read_input_tokens?: number | null;
+        readonly cache_creation_input_tokens: number | null;
+        readonly cache_read_input_tokens: number | null;
       };
     }>;
   };
@@ -129,9 +130,12 @@ function toComposeTicketDraftError(
  * and `reaction-outcome-actions.ts`'s own callers) always overrides it with
  * `resolvePersonaModel(deps.personaId)` instead (BUILD_PLAN 5.3a). `params.personaPromptContent`,
  * when given, prefixes the persona's own voice ahead of the fixed draft-composition instructions
- * (BUILD_PLAN 5.3a-ii) — omitted, the system prompt is byte-for-byte what it was before that
- * chunk. `usage`'s two cache fields are populated whenever the response actually cached anything;
- * `sonnetCostUsdMicros` prices them the same way it already does for the DM reply path.
+ * (BUILD_PLAN 5.3a-ii) — omitted, `DRAFT_SYSTEM_PROMPT`'s own text is unchanged from before that
+ * chunk, though the wire-level request shape isn't byte-for-byte identical even then: `system`
+ * is now always a cached-block array (DA review), not a plain string, for every persona including
+ * the 7 without a `prompt.md` yet. `usage`'s two cache fields are populated whenever the response
+ * actually cached anything; `sonnetCostUsdMicros` prices them the same way it already does for
+ * the DM reply path.
  */
 export async function composeTicketDraft(
   client: ComposeTicketDraftClient,

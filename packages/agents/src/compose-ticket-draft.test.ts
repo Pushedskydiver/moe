@@ -8,11 +8,13 @@ function makeClient(
   usage: {
     readonly input_tokens: number;
     readonly output_tokens: number;
-    readonly cache_creation_input_tokens?: number | null;
-    readonly cache_read_input_tokens?: number | null;
+    readonly cache_creation_input_tokens: number | null;
+    readonly cache_read_input_tokens: number | null;
   } = {
     input_tokens: 120,
     output_tokens: 40,
+    cache_creation_input_tokens: null,
+    cache_read_input_tokens: null,
   },
 ) {
   return {
