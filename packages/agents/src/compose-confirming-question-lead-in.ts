@@ -10,7 +10,18 @@ import { buildCachedSystemBlocks } from './build-cached-system-blocks.js';
 // `composeTicketDraft` makes for the identical reason (a compositional writing task, not the
 // cheap high-volume classification gate Haiku is used for).
 const DEFAULT_MODEL = 'claude-sonnet-5';
-const MAX_TOKENS = 256;
+// Deliberately generous for a one-to-two-sentence output (the lead-in itself runs ~30-50 tokens).
+// `max_tokens` caps *all* output including extended-thinking blocks, and this task — "explain why
+// this message is ambiguous," given a message the classifier itself was unsure about — invites
+// heavy deliberation exactly when the input is confusing or adversarial. At the original 256 this
+// truncated deterministically on such inputs: `stop_reason: max_tokens`, the full budget spent on
+// a `thinking` block, and no JSON emitted at all, so `parsed_output` came back `null` (live-
+// diagnosed; one legitimate run needed 1126 output tokens). A ceiling isn't a reservation — an
+// ordinary call still costs its ~50 tokens — so headroom here is close to free, and the failure
+// it prevents is total for that call. `composeTicketDraft`'s own 512 was live-checked against the
+// same adversarial shape and stays well clear (~112 peak), so this is a per-task ceiling, not a
+// repo-wide one to raise everywhere.
+const MAX_TOKENS = 2048;
 
 // BUILD_PLAN 5.3a-ii's Mid-band confirming-question conversion. The model composes only the
 // "why this looked like work" framing, in the persona's own voice — never the reaction mechanic
@@ -126,24 +137,23 @@ function toComposeConfirmingQuestionLeadInError(
   };
 }
 
-// The message text is the exact, unquoted tail of the turn — nothing follows it. DA review
-// live-reproduced a real failure in an earlier `Message: "${text}"`-wrapped version: a message
-// combining a quote with field-label-shaped content (e.g. mimicking "Classifier confidence: ...")
-// reliably broke the model's own structured-JSON output, since the literal `"..."` wrapping gave
-// untrusted text a closing delimiter to spoof. Putting the labeled fields first and the raw
-// message last, with no delimiter after it to escape removes *that specific* spoofable boundary —
-// `composeTicketDraft.ts`'s own precedent (`content: params.text`, no wrapping at all) is the
-// same underlying idea, adapted here since this call site also needs to carry confidence/reasoning
-// in the same turn. **Does not fully close the risk** (R2 review, confirmed by two independent
-// live-testing rounds): the exact adversarial combination above — quote plus fake field-label
-// content together — still fails near-100% of the time even with this construction, most likely a
-// deeper model-side JSON-escaping limit rather than something further prompt-construction changes
-// can fix. Bounded either way: a failure here is caught by the `try`/`catch` below and treated
-// exactly like any other compose failure by the caller, falling back to the safe fixed template —
-// but the failure is fully deterministic on a describable, not-purely-adversarial input shape (an
-// ordinary paste containing literal "confidence:"/"reasoning:"-labeled text would trigger it too)
-// and produces no Slack-visible signal, only a logged error — flagged for Alex's own awareness,
-// not something to treat as silently resolved.
+// The message text is the exact, unquoted tail of the turn — nothing follows it, so untrusted
+// content has no closing delimiter to spoof. `composeTicketDraft.ts`'s own precedent
+// (`content: params.text`, no wrapping at all) is the same underlying idea, adapted here since
+// this call site also has to carry confidence/reasoning in the same turn.
+//
+// Worth recording, since two review rounds and an earlier version of this comment all got the
+// causation wrong: DA review found that a message combining a quote character with field-label-
+// shaped content (mimicking "Classifier confidence: ...") deterministically broke this call, and
+// both that round and its R2 attributed it to the quote-wrapping in an earlier
+// `Message: "${text}"` construction — a JSON-escaping/delimiter-spoofing story. That was wrong.
+// The real cause was `MAX_TOKENS` truncation (see the constant above): adversarial input makes
+// the model think harder, thinking blocks count against `max_tokens`, and at 256 the whole budget
+// went to thinking with no JSON emitted. Raising the ceiling fixed it completely; the construction
+// below is genuine hardening on its own merits, but it was never what fixed those failures. The
+// lesson worth keeping: "the model mangles its own structured output" is a symptom with at least
+// two very different causes, and `stop_reason`/`output_tokens` distinguish them immediately —
+// check those before theorising about escaping.
 function buildUserTurn(params: ComposeConfirmingQuestionLeadInParams): string {
   return (
     `Classifier confidence: ${params.confidence}/100\n` +
