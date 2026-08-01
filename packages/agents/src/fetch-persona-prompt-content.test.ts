@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { fetchPersonaPromptContent } from './fetch-persona-prompt-content.js';
 
@@ -28,30 +28,35 @@ describe('fetchPersonaPromptContent', () => {
     expect(logger.warn).not.toHaveBeenCalled();
   });
 
-  it('warns, but still returns undefined, on a non-ENOENT read failure (a real infra regression, not an unwritten persona)', async () => {
-    vi.resetModules();
-    vi.doMock('node:fs/promises', () => ({
-      readFile: vi
-        .fn()
-        .mockRejectedValue(
-          Object.assign(new Error('permission denied'), { code: 'EACCES' }),
-        ),
-    }));
-    const { fetchPersonaPromptContent: fetchWithMockedFs } =
-      await import('./fetch-persona-prompt-content.js');
-    const logger = makeLogger();
+  describe('a non-ENOENT read failure (a real infra regression, not an unwritten persona)', () => {
+    afterEach(() => {
+      vi.doUnmock('node:fs/promises');
+      vi.resetModules();
+    });
 
-    const content = await fetchWithMockedFs('sarah', logger);
+    it('warns, but still returns undefined', async () => {
+      vi.resetModules();
+      vi.doMock('node:fs/promises', () => ({
+        readFile: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('permission denied'), { code: 'EACCES' }),
+          ),
+      }));
+      const { fetchPersonaPromptContent: fetchWithMockedFs } =
+        await import('./fetch-persona-prompt-content.js');
+      const logger = makeLogger();
 
-    expect(content).toBeUndefined();
-    expect(logger.warn).toHaveBeenCalledWith(
-      'failed to read persona prompt.md (not a missing-file case)',
-      expect.objectContaining({
-        personaId: 'sarah',
-        errorMessage: expect.any(String),
-      }),
-    );
-    vi.doUnmock('node:fs/promises');
-    vi.resetModules();
+      const content = await fetchWithMockedFs('sarah', logger);
+
+      expect(content).toBeUndefined();
+      expect(logger.warn).toHaveBeenCalledWith(
+        'failed to read persona prompt.md (not a missing-file case)',
+        expect.objectContaining({
+          personaId: 'sarah',
+          errorMessage: expect.any(String),
+        }),
+      );
+    });
   });
 });
