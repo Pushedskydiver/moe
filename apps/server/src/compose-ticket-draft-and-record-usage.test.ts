@@ -10,6 +10,7 @@ function makeDeps(
   overrides: {
     readonly parse?: ReturnType<typeof vi.fn>;
     readonly recordUsage?: HandlerDeps['costStore']['recordUsage'];
+    readonly personaId?: HandlerDeps['personaId'];
   } = {},
 ) {
   return {
@@ -21,7 +22,7 @@ function makeDeps(
           usage: { input_tokens: 120, output_tokens: 40 },
         }),
     },
-    personaId: 'sarah' as const,
+    personaId: overrides.personaId ?? ('sarah' as const),
     logger: { info: vi.fn(), warn: vi.fn(), error: vi.fn() },
     costStore: {
       recordUsage:
@@ -78,6 +79,39 @@ describe('composeTicketDraftAndRecordUsage', () => {
     expect(deps.anthropicClient.messages.parse).toHaveBeenCalledWith(
       expect.objectContaining({ model: resolvePersonaModel(deps.personaId) }),
     );
+  });
+
+  it("prepends the persona's real prompt.md content ahead of the draft task instructions when the persona has one (BUILD_PLAN 5.3a-ii)", async () => {
+    const deps = withMessagesWrapper(makeDeps());
+
+    await composeTicketDraftAndRecordUsage(deps as never, {
+      text: 'anything',
+      now: new Date('2026-07-29T09:00:00.000Z'),
+      failureLogMessage: 'failed to compose ticket draft',
+    });
+
+    const call = deps.anthropicClient.messages.parse.mock.calls[0]?.[0] as {
+      system: ReadonlyArray<{ readonly text: string }>;
+    };
+    expect(call.system).toHaveLength(2);
+    expect(call.system[0]?.text).toContain(
+      "You're moe's PM and the team's front door",
+    );
+  });
+
+  it('sends only the draft task instructions (unchanged from before this chunk) for a persona without a prompt.md yet', async () => {
+    const deps = withMessagesWrapper(makeDeps({ personaId: 'marcus' }));
+
+    await composeTicketDraftAndRecordUsage(deps as never, {
+      text: 'anything',
+      now: new Date('2026-07-29T09:00:00.000Z'),
+      failureLogMessage: 'failed to compose ticket draft',
+    });
+
+    const call = deps.anthropicClient.messages.parse.mock.calls[0]?.[0] as {
+      system: ReadonlyArray<{ readonly text: string }>;
+    };
+    expect(call.system).toHaveLength(1);
   });
 
   it('returns undefined and logs under the caller-supplied failureLogMessage, without recording usage, on a composition failure', async () => {

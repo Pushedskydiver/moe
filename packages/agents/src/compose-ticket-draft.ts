@@ -4,6 +4,8 @@ import { AnthropicError, APIError } from '@anthropic-ai/sdk';
 import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 
+import { buildCachedSystemBlocks } from './build-cached-system-blocks.js';
+
 // claude-sonnet-5 is VISION §10/§11's resolved "Sonnet-by-default" model — this is a compositional
 // writing task (matching `generateReply`'s own use), not the cheap, high-volume classification
 // gate `classify-message-confidence.ts` uses Haiku 4.5 for. `params.model` falls back to this when
@@ -34,7 +36,10 @@ const OUTPUT_FORMAT = zodOutputFormat(ticketDraftSchema);
 
 // Same "reuse the real Anthropic.MessageCreateParamsNonStreaming shape" approach as
 // classify-message-confidence.ts's client type, for the same reason: a hand-rolled `readonly`
-// mirror of `messages` isn't assignable to the SDK's own mutable `MessageParam[]`.
+// mirror of `messages` isn't assignable to the SDK's own mutable `MessageParam[]`. `usage`'s two
+// cache fields (BUILD_PLAN 5.3a-ii — the real SDK's `ParsedMessage`/`Usage` shape, matched here
+// since this system prompt now sets `cache_control`) are `number | null`, not `?: number` — the
+// SDK always returns them once a request can cache, it just returns `null` when nothing did.
 type ComposeTicketDraftClient = {
   readonly messages: {
     readonly parse: (
@@ -46,6 +51,8 @@ type ComposeTicketDraftClient = {
       readonly usage: {
         readonly input_tokens: number;
         readonly output_tokens: number;
+        readonly cache_creation_input_tokens?: number | null;
+        readonly cache_read_input_tokens?: number | null;
       };
     }>;
   };
@@ -54,11 +61,16 @@ type ComposeTicketDraftClient = {
 export type ComposeTicketDraftParams = {
   readonly text: string;
   readonly model?: string;
+  // Already-resolved value, not a `personaId` — mirrors `model`'s own "caller resolves the
+  // persona-specific value, primitive stays generic/filesystem-free" shape (BUILD_PLAN 5.3a-ii).
+  readonly personaPromptContent?: string;
 };
 
 export type ComposeTicketDraftUsage = {
   readonly inputTokens: number;
   readonly outputTokens: number;
+  readonly cacheCreationInputTokens?: number;
+  readonly cacheReadInputTokens?: number;
 };
 
 export type ComposeTicketDraftResult =
@@ -115,7 +127,11 @@ function toComposeTicketDraftError(
  * `params.model` defaults to `DEFAULT_MODEL` when omitted; the real call site
  * (`compose-ticket-draft-and-record-usage.ts`, shared by both of `handle-ambient-channel-message.ts`'s
  * and `reaction-outcome-actions.ts`'s own callers) always overrides it with
- * `resolvePersonaModel(deps.personaId)` instead (BUILD_PLAN 5.3a).
+ * `resolvePersonaModel(deps.personaId)` instead (BUILD_PLAN 5.3a). `params.personaPromptContent`,
+ * when given, prefixes the persona's own voice ahead of the fixed draft-composition instructions
+ * (BUILD_PLAN 5.3a-ii) — omitted, the system prompt is byte-for-byte what it was before that
+ * chunk. `usage`'s two cache fields are populated whenever the response actually cached anything;
+ * `sonnetCostUsdMicros` prices them the same way it already does for the DM reply path.
  */
 export async function composeTicketDraft(
   client: ComposeTicketDraftClient,
@@ -125,7 +141,16 @@ export async function composeTicketDraft(
     const message = await client.messages.parse({
       model: params.model ?? DEFAULT_MODEL,
       max_tokens: MAX_TOKENS,
-      system: DRAFT_SYSTEM_PROMPT,
+      // Persona voice first (cacheable-if-large), task instructions last — the last block gets
+      // `cache_control`, capturing the whole static prefix as one cached unit (BUILD_PLAN
+      // 5.3a-ii). `undefined` when no persona has a real `prompt.md` yet — `DRAFT_SYSTEM_PROMPT`
+      // alone, byte-for-byte the pre-5.3a-ii behavior.
+      system: [
+        ...buildCachedSystemBlocks([
+          params.personaPromptContent,
+          DRAFT_SYSTEM_PROMPT,
+        ]),
+      ],
       messages: [{ role: 'user', content: params.text }],
       output_config: { format: OUTPUT_FORMAT },
     });
@@ -146,6 +171,10 @@ export async function composeTicketDraft(
       usage: {
         inputTokens: message.usage.input_tokens,
         outputTokens: message.usage.output_tokens,
+        cacheCreationInputTokens:
+          message.usage.cache_creation_input_tokens ?? undefined,
+        cacheReadInputTokens:
+          message.usage.cache_read_input_tokens ?? undefined,
       },
     };
   } catch (error) {

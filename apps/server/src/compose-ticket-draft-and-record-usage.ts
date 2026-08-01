@@ -3,6 +3,7 @@ import type { TicketDraft } from '@moe/agents';
 
 import {
   composeTicketDraft,
+  fetchPersonaPromptContent,
   resolvePersonaModel,
   sonnetCostUsdMicros,
 } from '@moe/agents';
@@ -27,7 +28,10 @@ export type ComposeTicketDraftAndRecordUsageDeps = Pick<
  * usage on success (`recordUsageLogged`, `sonnetCostUsdMicros`). Returns `undefined` on failure,
  * already logged under the caller-supplied `failureLogMessage` — the two callers used slightly
  * different wording ("failed to compose ticket draft" vs. "failed to regenerate ticket draft")
- * before this fold, and there's no reason to force one on the other.
+ * before this fold, and there's no reason to force one on the other. Also resolves the persona's
+ * own voice (`fetchPersonaPromptContent`, BUILD_PLAN 5.3a-ii) and prepends it ahead of the fixed
+ * draft-composition instructions when a real `prompt.md` exists — `undefined` (unchanged
+ * pre-5.3a-ii behavior) for the personas that don't have one yet.
  */
 export async function composeTicketDraftAndRecordUsage(
   deps: ComposeTicketDraftAndRecordUsageDeps,
@@ -40,6 +44,10 @@ export async function composeTicketDraftAndRecordUsage(
   const composed = await composeTicketDraft(deps.anthropicClient, {
     text: input.text,
     model: resolvePersonaModel(deps.personaId),
+    personaPromptContent: await fetchPersonaPromptContent(
+      deps.personaId,
+      deps.logger,
+    ),
   });
   if (!composed.ok) {
     deps.logger.error(input.failureLogMessage, {

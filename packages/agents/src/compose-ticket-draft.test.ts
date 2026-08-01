@@ -5,7 +5,12 @@ import { composeTicketDraft } from './compose-ticket-draft.js';
 
 function makeClient(
   parsedOutput: { readonly title: string; readonly body: string } | null,
-  usage: { readonly input_tokens: number; readonly output_tokens: number } = {
+  usage: {
+    readonly input_tokens: number;
+    readonly output_tokens: number;
+    readonly cache_creation_input_tokens?: number | null;
+    readonly cache_read_input_tokens?: number | null;
+  } = {
     input_tokens: 120,
     output_tokens: 40,
   },
@@ -36,7 +41,28 @@ describe('composeTicketDraft', () => {
     });
   });
 
-  it('sends the message as a single user turn with the Sonnet-5 model and the draft system prompt', async () => {
+  it('surfaces cache_creation/cache_read token counts when the response carries them (BUILD_PLAN 5.3a-ii)', async () => {
+    const client = makeClient(
+      { title: 'x', body: 'y' },
+      {
+        input_tokens: 40,
+        output_tokens: 12,
+        cache_creation_input_tokens: 900,
+        cache_read_input_tokens: 0,
+      },
+    );
+
+    const result = await composeTicketDraft(client, { text: 'anything' });
+
+    expect(result.ok && result.usage).toEqual({
+      inputTokens: 40,
+      outputTokens: 12,
+      cacheCreationInputTokens: 900,
+      cacheReadInputTokens: 0,
+    });
+  });
+
+  it('sends the message as a single user turn with the Sonnet-5 model, as a cached system-block array with a cache_control marker', async () => {
     const client = makeClient({ title: 'x', body: 'y' });
 
     await composeTicketDraft(client, { text: 'something needs doing' });
@@ -47,8 +73,14 @@ describe('composeTicketDraft', () => {
         messages: [{ role: 'user', content: 'something needs doing' }],
       }),
     );
-    const call = client.messages.parse.mock.calls[0]?.[0] as { system: string };
-    expect(call.system.length).toBeGreaterThan(0);
+    const call = client.messages.parse.mock.calls[0]?.[0] as {
+      system: ReadonlyArray<{
+        readonly text: string;
+        readonly cache_control?: unknown;
+      }>;
+    };
+    expect(Array.isArray(call.system)).toBe(true);
+    expect(call.system.at(-1)?.cache_control).toEqual({ type: 'ephemeral' });
   });
 
   it('uses the given model override instead of the sonnet-5 default when provided', async () => {
@@ -61,6 +93,38 @@ describe('composeTicketDraft', () => {
 
     expect(client.messages.parse).toHaveBeenCalledWith(
       expect.objectContaining({ model: 'claude-opus-5' }),
+    );
+  });
+
+  it('prepends personaPromptContent ahead of the draft task instructions when given', async () => {
+    const client = makeClient({ title: 'x', body: 'y' });
+
+    await composeTicketDraft(client, {
+      text: 'something needs doing',
+      personaPromptContent: "You're Sarah, moe's PM.",
+    });
+
+    const call = client.messages.parse.mock.calls[0]?.[0] as {
+      system: ReadonlyArray<{ readonly text: string }>;
+    };
+    expect(call.system).toHaveLength(2);
+    expect(call.system[0]?.text).toBe("You're Sarah, moe's PM.");
+    expect(call.system[1]?.text).toContain(
+      'You compose a short work-ticket draft',
+    );
+  });
+
+  it('omits the persona block (unchanged from before this chunk) when personaPromptContent is not given', async () => {
+    const client = makeClient({ title: 'x', body: 'y' });
+
+    await composeTicketDraft(client, { text: 'something needs doing' });
+
+    const call = client.messages.parse.mock.calls[0]?.[0] as {
+      system: ReadonlyArray<{ readonly text: string }>;
+    };
+    expect(call.system).toHaveLength(1);
+    expect(call.system[0]?.text).toContain(
+      'You compose a short work-ticket draft',
     );
   });
 
