@@ -131,10 +131,19 @@ function toComposeConfirmingQuestionLeadInError(
 // combining a quote with field-label-shaped content (e.g. mimicking "Classifier confidence: ...")
 // reliably broke the model's own structured-JSON output, since the literal `"..."` wrapping gave
 // untrusted text a closing delimiter to spoof. Putting the labeled fields first and the raw
-// message last, with no delimiter after it to escape, removes that spoofable boundary entirely —
+// message last, with no delimiter after it to escape removes *that specific* spoofable boundary —
 // `composeTicketDraft.ts`'s own precedent (`content: params.text`, no wrapping at all) is the
 // same underlying idea, adapted here since this call site also needs to carry confidence/reasoning
-// in the same turn.
+// in the same turn. **Does not fully close the risk** (R2 review, confirmed by two independent
+// live-testing rounds): the exact adversarial combination above — quote plus fake field-label
+// content together — still fails near-100% of the time even with this construction, most likely a
+// deeper model-side JSON-escaping limit rather than something further prompt-construction changes
+// can fix. Bounded either way: a failure here is caught by the `try`/`catch` below and treated
+// exactly like any other compose failure by the caller, falling back to the safe fixed template —
+// but the failure is fully deterministic on a describable, not-purely-adversarial input shape (an
+// ordinary paste containing literal "confidence:"/"reasoning:"-labeled text would trigger it too)
+// and produces no Slack-visible signal, only a logged error — flagged for Alex's own awareness,
+// not something to treat as silently resolved.
 function buildUserTurn(params: ComposeConfirmingQuestionLeadInParams): string {
   return (
     `Classifier confidence: ${params.confidence}/100\n` +
