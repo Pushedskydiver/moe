@@ -97,12 +97,15 @@ function toGenerateReplyResult(
 
 /**
  * Calls the Anthropic Messages API (`docs/VISION.md` §11's verified model-client choice). `system`
- * defaults to `PLACEHOLDER_SYSTEM_PROMPT` (a generic, no-persona-named fallback) when omitted; the
- * real call site (`apps/server/src/generate-and-post-reply.ts`) always overrides it with
- * `buildPersonaSystemPrompt(personaId)` instead — a plain string or, once a persona has a real
- * `prompt.md` (BUILD_PLAN 5.3a-ii), a cached-block array; either form is accepted and spread into
- * a fresh mutable array before reaching the SDK, which requires one. `model` defaults to
- * `DEFAULT_MODEL` (`claude-sonnet-5`) when omitted; the same real call site always overrides it
+ * defaults to `PLACEHOLDER_SYSTEM_PROMPT` (a generic, no-persona-named fallback, a plain string)
+ * when omitted; the real call site (`apps/server/src/generate-and-post-reply.ts`) always overrides
+ * it with `buildPersonaSystemPrompt(personaId)` instead — always a cached-block array now
+ * (BUILD_PLAN 5.3a-ii), for every persona regardless of whether a real `prompt.md` exists yet, not
+ * conditionally a plain string (copilot-surrogate caught the original wording overclaiming a
+ * string/array split that never actually happens at this call site). `system` accepts either form
+ * and spreads an array into a fresh mutable one before reaching the SDK, which requires one.
+ * `model` defaults to `DEFAULT_MODEL` (`claude-sonnet-5`) when omitted; the same real call site
+ * always overrides it
  * with `resolvePersonaModel(deps.personaId)` instead (BUILD_PLAN 5.3a) — same "primitive stays
  * persona-agnostic, caller resolves the persona-specific value" shape as `system`. `history`, when
  * provided, is forwarded ahead of `text` as prior turns (BUILD_PLAN 2.4b) — this function itself

@@ -5,6 +5,9 @@ import {
   PLACEHOLDER_SYSTEM_PROMPT,
 } from './placeholder-system-prompt.js';
 
+// The full 8-name roster (`packages/core/src/persona-roster.ts`) — 'maya' (Designer, activated
+// BUILD_PLAN chunk 5.0) was missing here (copilot-surrogate, PR #84), which meant this test
+// couldn't have caught a leak of her name into the fallback prompt.
 const ROSTER_NAMES = [
   'sarah',
   'marcus',
@@ -13,6 +16,7 @@ const ROSTER_NAMES = [
   'dom',
   'theo',
   'nia',
+  'maya',
 ];
 
 describe('PLACEHOLDER_SYSTEM_PROMPT', () => {
