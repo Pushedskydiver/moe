@@ -1,6 +1,8 @@
 import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js';
 
+import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 import { usedTool } from '../../../persona-replay/used-tool.js';
 
 // Grounded directly in packages/agents/src/personas/riley/prompt.md — each scenario guards one of
@@ -52,7 +54,14 @@ export const scenarios: readonly ReplayScenario[] = [
           'proceeding on, rather than silently picking an interpretation',
         check: (fixture) => {
           const reply = dmReplyText(fixture) ?? '';
-          const asksQuestion = /\?/.test(reply);
+          // A bare `?` anywhere is too permissive — a rhetorical tag question on a reply that
+          // actually commits to a silent guess ("I'll just dedupe by timestamp, seems
+          // reasonable, right?") would pass. Require a genuine interrogative clause (a
+          // question-word opener before the `?`), not just trailing punctuation.
+          const asksQuestion =
+            /\b(what|which|does|do|is|are|can|could|should|would|will|how)\b[^.!?]*\?/i.test(
+              reply,
+            );
           const namesAssumption =
             /\b(assum\w*|going with|treating\s+\S+\s+as|i'?ll (assume|treat)|for now,? i'?m)\b/i.test(
               reply,
@@ -82,7 +91,7 @@ export const scenarios: readonly ReplayScenario[] = [
         description: 'reply acknowledges the three-occurrence pattern',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          return /\bthir(d|ce)\b/.test(reply);
+          return /\b(third|thrice)\b/.test(reply);
         },
       },
       {
@@ -186,10 +195,8 @@ export const scenarios: readonly ReplayScenario[] = [
         description:
           'draft body does not claim a cause the message never stated',
         check: (fixture) => {
-          if (!fixture.result.ok || !('body' in fixture.result)) {
-            return false;
-          }
-          return !/\bcaused by\b/i.test(fixture.result.body);
+          const body = ticketDraftBody(fixture);
+          return body !== undefined && !/\bcaused by\b/i.test(body);
         },
       },
     ],
@@ -210,11 +217,14 @@ export const scenarios: readonly ReplayScenario[] = [
       {
         description:
           'lead-in is non-empty and does not restate a fixed reaction trailer itself',
-        check: (fixture) =>
-          fixture.result.ok &&
-          'questionLeadIn' in fixture.result &&
-          fixture.result.questionLeadIn.trim().length > 0 &&
-          !/👍|👎/.test(fixture.result.questionLeadIn),
+        check: (fixture) => {
+          const leadIn = confirmingQuestionLeadIn(fixture);
+          return (
+            leadIn !== undefined &&
+            leadIn.trim().length > 0 &&
+            !/👍|👎/.test(leadIn)
+          );
+        },
       },
     ],
   },
