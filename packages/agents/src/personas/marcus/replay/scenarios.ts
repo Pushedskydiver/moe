@@ -3,18 +3,30 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
 import { usedTool } from '../../../persona-replay/used-tool.js';
 
-// Shared between `calibrated-ambiguity-names-and-proceeds`'s reply-text and report_status-claim
-// checks (a stall can be phrased in either channel) — a saga worth the shared name: R1 found a
-// keyword-presence assertion vacuously true on a real stall; R2 mutation-tested the fix and found
-// it still vacuously true; R3 found `report_status` tool-use alone doesn't discriminate a real
-// plan from a sanctioned "blocked" claim through the same tool; R4 found the claim-content check
-// that closed R3's gap could itself be defeated by negating the word it looked for ("not ready");
-// R5 found the sibling "don't know/have enough" alternative had no topic anchor (false-positived
-// on an unrelated aside — "I don't have enough context on X, but the plan itself is settled") —
-// anchored to the same plan/grounding nouns its `not enough` sibling already uses.
-function indicatesIncomplete(text: string): boolean {
+// `calibrated-ambiguity-names-and-proceeds`'s stall-detection — a saga worth naming plainly, six
+// review rounds deep, each finding a real (if progressively narrower) false-pass: R1 a keyword-
+// presence check trivially true on a stall; R2 confirmed the fix was still trivially true; R3
+// found bare `report_status` tool-use doesn't discriminate a real plan from a sanctioned "blocked"
+// claim through the same tool; R4 found negating the claim's own "ready" defeats a bare keyword
+// check; R5 found the negation guard applied to "ready" but not its sibling "blocked", plus an
+// unanchored "don't know/have enough" alternative false-positiving on an unrelated aside inside an
+// otherwise-complete plan; R6 found that same false-positive shape recurring on two *other*
+// alternatives in the same regex ("still waiting"/"pending confirmation" mentioned as a trailing
+// caveat, not the lede) — the anchoring fix from R5 had only been applied to one of five
+// alternatives. The actual root cause R6 surfaced: scanning the *whole* reply/claim for any
+// incompleteness-shaped phrase fights against Marcus's own prompt.md, which explicitly instructs
+// him to name a real unverified detail *within* an otherwise-complete plan ("Time-box a real
+// unknown instead of designing around a guess... say so plainly and name it as unverified") — the
+// real recorded fixture does exactly this ("I haven't actually read either implementation...
+// Worth a 30-second look... not a blocker"). No amount of per-phrase topic-anchoring closes that:
+// the discriminating signal was never "does the text ever mention uncertainty," it's "does the
+// reply *open* with a stall instead of a plan" (the real stalling transcript's first sentence is
+// "Not enough here to plan against yet"; the real plan's first sentence commits to an approach) —
+// so this only scans the opening sentence, not the whole body.
+function opensWithIncompleteness(text: string): boolean {
+  const opening = text.split(/\.\s|\n\n/)[0] ?? '';
   return /not enough (here|information|to plan|to ground)|don'?t (know|have) enough (here|information|to plan|to ground)|can'?t (plan|ground this)( yet)?|still (need|gathering|waiting)|pending (confirmation|an? answer)/.test(
-    text,
+    opening,
   );
 }
 
@@ -149,19 +161,21 @@ export const scenarios: readonly ReplayScenario[] = [
           'yet" and asked for the retry helpers\' own behavior before committing to either',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          return reply.length > 0 && !indicatesIncomplete(reply);
+          return reply.length > 0 && !opensWithIncompleteness(reply);
         },
       },
       {
         description:
-          'response routes a status claim through report_status, the claim text is a genuine ' +
-          '"ready" claim (not negated — "not ready"/"isn\'t ready" is a real stall phrased with ' +
-          'the same anchor word this check looks for) and does not itself read as blocked or ' +
-          'stalling by the same incompleteness-phrase check applied to the reply above — ' +
-          'report_status is also the sanctioned path for a genuinely blocked plan (his own ' +
-          'prompt.md: "done, ready to hand off, or blocked"), so mere tool-use presence, or an ' +
-          'unnegated keyword match, can\'t distinguish "proceeded with a plan" from a stall that ' +
-          'happens to route through the same tool',
+          'response routes a status claim through report_status, and the claim text is a ' +
+          'genuine, unnegated "ready" claim — not "not ready"/"isn\'t ready" (a real stall ' +
+          'phrased with the same anchor word this check looks for), and not an unnegated ' +
+          '"blocked" (report_status is also the sanctioned path for a genuinely blocked plan, ' +
+          'per his own prompt.md: "done, ready to hand off, or blocked") — deliberately does ' +
+          'NOT also scan the whole claim for any incompleteness-shaped phrase: a report_status ' +
+          'claim legitimately names a minor caveat alongside an affirmative ready statement ' +
+          "(the real recorded fixture's own claim is clean, but the free-text reply routinely " +
+          'names real unverified details per his own "time-box a real unknown" commitment — ' +
+          "penalizing that here would fight the persona's own instructed behavior)",
         check: (fixture) => {
           if (!fixture.result.ok || !('toolUses' in fixture.result)) {
             return false;
@@ -181,12 +195,7 @@ export const scenarios: readonly ReplayScenario[] = [
           const unnegatedBlocked =
             /\bblocked\b/.test(claim) &&
             !/\b(not|isn'?t|n't|wasn'?t)\s+blocked\b/.test(claim);
-          return (
-            /\bready\b/.test(claim) &&
-            !negatedReady &&
-            !unnegatedBlocked &&
-            !indicatesIncomplete(claim)
-          );
+          return /\bready\b/.test(claim) && !negatedReady && !unnegatedBlocked;
         },
       },
       {
