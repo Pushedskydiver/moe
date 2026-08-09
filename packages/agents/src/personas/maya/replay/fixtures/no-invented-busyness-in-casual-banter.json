@@ -1,0 +1,22 @@
+{
+  "scenarioId": "no-invented-busyness-in-casual-banter",
+  "personaId": "maya",
+  "callSite": "dmReply",
+  "promptContentHash": "ec7e40731acc4f48e4ead4ff140a4cf3db7c1e593e92aefd0af772e09b934e41",
+  "scenarioInputHash": "2284f48932e691f7169b63880111583fc2b7ff88af5bfccc103e15d91c9a1cdf",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T16:55:35.145Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 95,
+  "result": {
+    "ok": true,
+    "reply": "Going fine — nothing's actually on my plate right now, so I won't pretend otherwise. What's up?",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 85,
+      "outputTokens": 95,
+      "cacheCreationInputTokens": 4996,
+      "cacheReadInputTokens": 0
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
+  "personaId": "sarah",
+  "callSite": "confirmingQuestion",
+  "promptContentHash": "dde2aee73e6151cd049d939da59ac77ac0518930182288eebacba17db59221d6",
+  "scenarioInputHash": "085a059492d1d090b0522346bc834bca32af29b212ba9cc8b851cb549742401d",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T16:53:58.072Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 58,
+  "result": {
+    "ok": true,
+    "questionLeadIn": "No specific issue named here, just a general nudge on the onboarding flow — not sure yet if this is a real ticket or just a passing comment.",
+    "usage": {
+      "inputTokens": 102,
+      "outputTokens": 58,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 3386
+    }
+  }
+}

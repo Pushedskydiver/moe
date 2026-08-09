@@ -1,0 +1,22 @@
+{
+  "scenarioId": "self-review-anchoring-defers-to-dom",
+  "personaId": "marcus",
+  "callSite": "dmReply",
+  "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
+  "scenarioInputHash": "a3836bab329a4f9f4517e8b99478a6d4a6b82e5f35f79e4364a5c7eb685d2494",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T17:34:46.419Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 1009,
+  "result": {
+    "ok": true,
+    "reply": "Plan wasn't overspecified. Exponential backoff wasn't picked for polish — it was tied to a specific, named risk: shared rate-limited endpoint, fixed-interval retry storming it with 429s. That's a real constraint, not ceremony for its own sake.\n\nSo as it stands, this reads as Riley's deviation, not an overspecified plan — but with a caveat: \"no explanation given\" is doing a lot of work here. If Riley has a reason — endpoint doesn't actually behave the way I assumed, some library constraint, whatever — that's a legitimate case for revisiting the plan, and I'd want to hear it before calling it settled. Absent that, fixed-interval against a shared rate-limited endpoint is just the failure mode the plan was written to avoid, silently reintroduced.\n\nWorth saying: the actual call on whether this ships as-is is Dom's, not mine. But if you're asking whether the plan's exponential-backoff spec was excessive given what's in front of me — no, it was scoped to an actual risk, not a guess.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 177,
+      "outputTokens": 1009,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5812
+    }
+  }
+}

@@ -13,9 +13,10 @@
     "dist"
   ],
   "scripts": {
-    "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json && cp -r src/personas dist/personas",
+    "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json && mkdir -p dist/personas && cp -r src/personas/. dist/personas/",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "record:replay": "pnpm build && node scripts/record-persona-replay.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

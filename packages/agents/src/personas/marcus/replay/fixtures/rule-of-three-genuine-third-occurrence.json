@@ -1,0 +1,22 @@
+{
+  "scenarioId": "rule-of-three-genuine-third-occurrence",
+  "personaId": "marcus",
+  "callSite": "dmReply",
+  "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
+  "scenarioInputHash": "1a149e56928c8339a74c4b3bc3d50bc993abe55642b45c7d6f9c8aa0739d9297",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T17:34:31.567Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 711,
+  "result": {
+    "ok": true,
+    "reply": "Three's the real threshold, so I'm not going to reflexively say \"just live with the duplication\" here — that'd be ignoring my own rule.\n\nBefore I say build it though: are the three actually the same shape, or just similar? Specifically — same backoff strategy (fixed/exponential, base delay, cap, jitter or not), same max-retry count, and same set of exceptions/conditions that trigger a retry vs. bail immediately? If all three agree on those, it's a clean extraction — small function, maybe takes the callable and a config struct, done. If they disagree on more than one of those axes, you're looking at a helper with five optional params trying to cover three slightly different policies, and that's often worse than the duplication it replaces.\n\nSo: what do the three call sites actually differ on, if anything?",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 109,
+      "outputTokens": 711,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5812
+    }
+  }
+}

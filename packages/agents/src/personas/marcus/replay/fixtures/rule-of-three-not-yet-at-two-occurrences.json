@@ -1,0 +1,22 @@
+{
+  "scenarioId": "rule-of-three-not-yet-at-two-occurrences",
+  "personaId": "marcus",
+  "callSite": "dmReply",
+  "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
+  "scenarioInputHash": "ea9fcd146828676cd4f4e1d0fe3a328559a047c168458612cf9ee12184194461",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T17:34:19.683Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 282,
+  "result": {
+    "ok": true,
+    "reply": "Two call sites isn't the threshold — Rule of Three. Two instances of retry-with-backoff logic is duplication, but it's not yet a confirmed shape. Building a shared helper now means guessing at the interface (what's configurable — max retries, backoff curve, which exceptions trigger a retry, jitter or not) before there's a real third example to tell you which of those actually vary and which don't.\n\nWhat I'd actually do: leave both as they are, but note it plainly — \"retry-with-backoff, now twice, watching for a third.\" If a third call site shows up needing the same thing, pull the common shape out then, informed by three real examples instead of two plus a guess.\n\nIf there's a reason this pair is special — like they're already diverging in a way that's causing bugs, not just repeating — that's a different conversation. Is that what's going on, or is it just the duplication itself bugging you?",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 109,
+      "outputTokens": 282,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5812
+    }
+  }
+}
