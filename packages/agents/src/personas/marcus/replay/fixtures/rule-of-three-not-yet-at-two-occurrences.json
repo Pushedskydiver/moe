@@ -1,0 +1,22 @@
+{
+  "scenarioId": "rule-of-three-not-yet-at-two-occurrences",
+  "personaId": "marcus",
+  "callSite": "dmReply",
+  "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
+  "scenarioInputHash": "ea9fcd146828676cd4f4e1d0fe3a328559a047c168458612cf9ee12184194461",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T16:59:36.189Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 351,
+  "result": {
+    "ok": true,
+    "reply": "Two call sites, not three. That's the threshold I'd wait on — Rule of Three, not Rule of Two.\n\nReasoning: with only two instances, you're guessing at the shape of the abstraction — what actually varies between the two (max retries, backoff curve, which exceptions are retryable, jitter or not) isn't clear yet from just two data points. Build the helper now and there's a real chance the interface ends up wrong for the third call site anyway, and then you're refactoring the helper *and* the two callers instead of just adding a third caller.\n\nWorth naming plainly, which I'm doing: we've hit this twice, keep an eye out, and if a third shows up, that's when it's worth pulling out — not before.\n\nIf there's a reason to think a third is imminent (known upcoming work that'll need the same pattern), that changes the calculus — happy to look at it now if so. Otherwise I'd leave the duplication alone.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 109,
+      "outputTokens": 351,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5812
+    }
+  }
+}

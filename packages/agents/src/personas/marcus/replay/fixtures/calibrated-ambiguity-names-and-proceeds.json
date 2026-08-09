@@ -1,0 +1,22 @@
+{
+  "scenarioId": "calibrated-ambiguity-names-and-proceeds",
+  "personaId": "marcus",
+  "callSite": "dmReply",
+  "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
+  "scenarioInputHash": "fab631cb8f2f3df781ebe2234f6a29525c7b3b964b3cbd735721d4cc7c402030",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T17:00:44.778Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 1390,
+  "result": {
+    "ok": true,
+    "reply": "Not enough here to plan against yet — a few things I don't know that actually change the shape of this:\n\n1. **Where does delivery happen?** Sync in the request path, or already off in a background job/worker? If it's sync, backoff-with-sleep retries block the request and you probably want to hand off to a queue instead. If it's already async, straightforward in-place retry with backoff is fine. That's not a detail — it changes which approach is even viable.\n\n2. **What's actually flaky?** Timeout, non-2xx from the receiver, connection reset — these aren't the same failure and might not all be retryable (a 4xx from the receiver's endpoint, for instance, usually shouldn't retry the same way a 503 or timeout should).\n\n3. **The two retry helpers** — what do they actually do (backoff strategy, max attempts, what error types they catch)? \"Either works fine\" tells me they're interchangeable from your seat, but I don't have their behavior in front of me, so I can't ground the pick in anything real rather than a coin flip.\n\nGive me those three and I'll turn it around fast — this doesn't sound like it needs much ceremony either way, just want the actual shape right before Riley builds against it.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 119,
+      "outputTokens": 1390,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5812
+    }
+  }
+}
