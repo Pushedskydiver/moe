@@ -53,4 +53,19 @@ describe('buildPersonaSlackManifest', () => {
       'event_subscriptions.request_url',
     );
   });
+
+  it('enables the Messages tab and turns off its read-only default — Slack showed Alex a real "turned off" error when he tried to DM Maya, since a new app defaults to read-only there', () => {
+    const manifest = buildPersonaSlackManifest('maya');
+
+    expect(manifest.features.app_home.messages_tab_enabled).toBe(true);
+    expect(manifest.features.app_home.messages_tab_read_only_enabled).toBe(
+      false,
+    );
+  });
+
+  it('disables the Home tab — no persona implements one', () => {
+    const manifest = buildPersonaSlackManifest('maya');
+
+    expect(manifest.features.app_home.home_tab_enabled).toBe(false);
+  });
 });
