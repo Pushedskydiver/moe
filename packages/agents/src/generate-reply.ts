@@ -25,11 +25,14 @@ const DEFAULT_MODEL = 'claude-sonnet-5';
 // covered by this check — different model (Haiku 4.5, not claude-sonnet-5) and a different task
 // shape, unverified either way, not assumed safe by omission.
 //
-// Raises worst-case per-turn spend on the highest-traffic call site roughly 8x (~$0.015 to ~$0.12
-// at standard output pricing). The monthly cost cap remains the true governing bound and still
-// halts service if crossed, so no invariant changes — but it does mean fewer adversarial turns are
-// needed to exhaust a persona's budget for the rest of the month, since Slack DM text is untrusted,
-// adversary-reachable input.
+// Raises worst-case per-turn spend on this call site roughly 8x (~$0.015 to ~$0.12 at standard
+// output pricing) — not the highest-traffic call site overall (classify-message-confidence.ts
+// runs unconditionally on every DM and every in-scope ambient message before either of them ever
+// reaches here; generateReply only runs on the fall-through subset of DMs), but a real per-call
+// cost increase on whichever DMs do reach it. The monthly cost cap remains the true governing
+// bound and still halts service if crossed, so no invariant changes — but it does mean fewer
+// adversarial turns are needed to exhaust a persona's budget for the rest of the month, since
+// Slack DM text is untrusted, adversary-reachable input.
 const MAX_TOKENS = 8192;
 
 type GenerateReplyClient = {
