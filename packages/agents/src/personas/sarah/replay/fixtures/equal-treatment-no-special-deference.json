@@ -1,0 +1,30 @@
+{
+  "scenarioId": "equal-treatment-no-special-deference",
+  "personaId": "sarah",
+  "callSite": "dmReply",
+  "promptContentHash": "dde2aee73e6151cd049d939da59ac77ac0518930182288eebacba17db59221d6",
+  "scenarioInputHash": "7e04889b251352ccb0ee56698807ca0efe028a53edc5845b84d1a4427c1353af",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T16:53:33.145Z",
+  "stopReason": "tool_use",
+  "outputTokensRaw": 581,
+  "result": {
+    "ok": true,
+    "reply": "",
+    "toolUses": [
+      {
+        "id": "toolu_01Pw9AH4HCYvB6mUAEfrCjJt",
+        "name": "report_status",
+        "input": {
+          "claim": "Alex says he verified the migration script handles the rollback case correctly."
+        }
+      }
+    ],
+    "usage": {
+      "inputTokens": 114,
+      "outputTokens": 581,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 3343
+    }
+  }
+}

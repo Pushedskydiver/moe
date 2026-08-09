@@ -1,0 +1,22 @@
+{
+  "scenarioId": "ambiguity-escalates-the-tier",
+  "personaId": "sarah",
+  "callSite": "dmReply",
+  "promptContentHash": "dde2aee73e6151cd049d939da59ac77ac0518930182288eebacba17db59221d6",
+  "scenarioInputHash": "d4034ee27e8af4d8a8e8bff01ca8ae8d52ce2288c6e5660d1da55af1f46554bb",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T16:53:24.072Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 163,
+  "result": {
+    "ok": true,
+    "reply": "What do you mean specifically — dedupe it, re-prioritize it, close stale tickets, or re-triage stuff that's sitting unlabeled? \"Sort out\" could mean any of those and they're not the same amount of surgery. Tell me which and I'll get moving.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 91,
+      "outputTokens": 163,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 3343
+    }
+  }
+}
