@@ -16,7 +16,7 @@ A persona's synthetic unit tests, shaped to match its output schema, can pass 10
 
 Watch for: a persona `prompt.md` edit (`packages/agents/src/personas/*/prompt.md` — a do-not-touch surface, Alex's explicit approval required) that lands without a corresponding replay re-recording. `docs/GIT.md`'s "executable markdown" rule already routes prompt edits through the PR flow; this pattern is the specific thing to check once they're there.
 
-**Status: live, mechanism still unbuilt.** Personas exist now (Sarah since 5.3a, Maya since 5.3b) and their `prompt.md` files do get edited post-launch — this pattern has real diffs to catch. Chunk 5.4's replay harness itself is still unbuilt (`BUILD_PLAN.md` chunk 5.4, unchecked), so there is genuinely nothing to "re-record" yet; the project's actual substitute is ad-hoc live-model-harness testing against the real Claude API on every persona-prompt PR (5.3a's nine rounds, 5.3b's seven-scenario harness, both pre-launch drafts — and, post-launch, this pattern's first real live instance so far: a small `prompt.md` fix validated the same way, multiple scenarios re-run after every review round rather than trusted from the prompt text). Once 5.4 lands, backfill a recorded replay for every already-shipped persona rather than only gating new ones.
+**Status: live, mechanism built (chunk 5.4).** `docs/decisions/PERSONA-REPLAY-HARNESS.md` — a committed-JSON-fixture replay harness (`packages/agents/src/persona-replay/`), a manual recording script (`pnpm --filter @moe/agents record:replay -- <personaId>`), and a per-persona `persona-replay.test.ts` wired into `pnpm test` (no live network, CI-blocking on every PR). Sarah, Maya, and Marcus are all backfilled (7 scenarios each, grounded in their real shipped prompts — including a permanent regression fixture for Maya's own PR #91 banter-honesty fix). A `prompt.md` edit that lands without a corresponding re-recording now fails CI directly via the staleness gate below, not just via reviewer discipline. Riley/Priya/Dom/Theo/Nia have no scenarios yet — add them the day each gets a real `prompt.md`, per 5.4's own "used by every 5.3 sub-chunk from the second persona on."
 
 ### Recorded-transcript drift
 
@@ -24,7 +24,7 @@ Related to persona-prompt drift, but specifically about the replay fixtures them
 
 Watch for: any `prompt.md` change (see above) that doesn't re-record its persona's replay fixtures in the same PR, per `docs/CONVENTIONS.md` §Testing Standards ("Any persona prompt change needs a replay pass, not just green synthetic tests").
 
-**Status: pre-seeded, not yet triggered.** No replay harness exists before chunk 5.4. Seeded alongside persona-prompt drift since they're the same underlying risk viewed from two angles — the prompt side and the fixture side.
+**Status: live, mechanism built (chunk 5.4).** Structurally, not just procedurally, closed: each fixture stores a SHA-256 hash of the `prompt.md` content (and the scenario's own input, and the resolved model id) at record time, and `verifyReplayFixture` fails CI loudly — naming the re-record command — the moment any of the three drift, rather than silently replaying stale data forever (`docs/decisions/PERSONA-REPLAY-HARNESS.md` decisions 3/7). Not yet triggered by a real post-5.4 `prompt.md` edit — that's the first real test of whether the gate catches this in practice, per the ADR's own "Triggers for re-evaluation."
 
 ## TypeScript / ESM
 
