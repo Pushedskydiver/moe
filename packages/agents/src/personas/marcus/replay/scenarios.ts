@@ -129,17 +129,25 @@ export const scenarios: readonly ReplayScenario[] = [
     assertions: [
       {
         description:
-          'reply proposes a real plan (references the actual retry behavior — 5xx/timeout, 3 ' +
-          'attempts, log-and-drop) rather than opening with clarifying questions and no plan at ' +
-          'all',
+          'reply does not open with a stalling/insufficient-grounding admission — a real ' +
+          'stalling transcript on this exact scenario opened "Not enough here to plan against ' +
+          'yet" and asked for the retry helpers\' own behavior before committing to either',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          const proposesPlan =
-            /\b(3|three)\b/.test(reply) &&
-            /5xx|timeout/.test(reply) &&
-            /retry|backoff/.test(reply);
-          return reply.length > 0 && proposesPlan;
+          const stallsOnGrounding =
+            /not enough (here|information|to plan)|don'?t (know|have) enough|can'?t (plan|ground this)( yet)?/.test(
+              reply,
+            );
+          return reply.length > 0 && !stallsOnGrounding;
         },
+      },
+      {
+        description:
+          'response routes a "ready" status claim through report_status — the structural signal ' +
+          'that a real plan was actually reached, not just discussed; a genuine stalling reply ' +
+          'has nothing ready to report and correctly calls no tool at all (verified against the ' +
+          "real stalling transcript this scenario's input was redesigned to rule out)",
+        check: (fixture) => usedTool(fixture, 'report_status'),
       },
       {
         description:
