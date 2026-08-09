@@ -143,11 +143,28 @@ export const scenarios: readonly ReplayScenario[] = [
       },
       {
         description:
-          'response routes a "ready" status claim through report_status — the structural signal ' +
-          'that a real plan was actually reached, not just discussed; a genuine stalling reply ' +
-          'has nothing ready to report and correctly calls no tool at all (verified against the ' +
-          "real stalling transcript this scenario's input was redesigned to rule out)",
-        check: (fixture) => usedTool(fixture, 'report_status'),
+          'response routes a status claim through report_status, and the claim text itself ' +
+          'indicates the plan is ready, not blocked — report_status is also the sanctioned path ' +
+          'for a genuinely blocked plan (his own prompt.md: "done, ready to hand off, or ' +
+          'blocked"), so mere tool-use presence can\'t distinguish "proceeded with a plan" from ' +
+          '"declared itself blocked" — a future over-cautious drift toward framing this exact ' +
+          'kind of open-but-not-blocking ambiguity as "blocked" must fail this, not pass it',
+        check: (fixture) => {
+          if (!fixture.result.ok || !('toolUses' in fixture.result)) {
+            return false;
+          }
+          const statusCall = fixture.result.toolUses.find(
+            (use) => use.name === 'report_status',
+          );
+          if (!statusCall) {
+            return false;
+          }
+          const rawClaim = (statusCall.input as { claim?: unknown } | undefined)
+            ?.claim;
+          const claim =
+            typeof rawClaim === 'string' ? rawClaim.toLowerCase() : '';
+          return /\bready\b/.test(claim) && !/\bblocked\b/.test(claim);
+        },
       },
       {
         description:
