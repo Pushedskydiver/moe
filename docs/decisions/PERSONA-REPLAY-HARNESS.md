@@ -211,6 +211,17 @@ scripts/<name>.ts` shape of every existing script in this repo (`migrate`, `back
    instructions direct backfilling all three in this chunk) — BUILD_PLAN 5.4's own checklist text
    should be corrected to name all three personas once this chunk lands.
 
+10. **The recording script uses a longer request timeout than every production call site, via an
+    explicit override, not a global increase.** `createAnthropicClient`'s existing 20s default
+    (`packages/agents/src/create-anthropic-client.ts`) is tuned for a live Slack reply's latency
+    target — a batch recording script has no such constraint, and live-recording the redesigned
+    `calibrated-ambiguity-names-and-proceeds` scenario (BUILD_PLAN 5.4's Marcus backfill) genuinely
+    timed out at 20s, confirmed by actually running the script, not assumed. `createAnthropicClient`
+    gained an optional third `timeoutMs` parameter defaulting to the unchanged 20s constant; every
+    production call site's behavior is untouched, and `record-persona-replay.ts` is the one caller
+    passing 120s. Rejected: raising the shared default for every caller — the value is tuned for a
+    different task shape (live vs. batch), not a repo-wide constant that happened to be too small.
+
 ## Deferred / explicitly rejected
 
 - **Automated re-recording on every `prompt.md` PR (a CI job with a live API key).** Rejected for

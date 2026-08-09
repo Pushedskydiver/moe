@@ -3,7 +3,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
 import { usedTool } from '../../../persona-replay/used-tool.js';
 
-// `calibrated-ambiguity-names-and-proceeds`'s stall-detection — a saga worth naming plainly, six
+// `calibrated-ambiguity-names-and-proceeds`'s stall-detection — a saga worth naming plainly, seven
 // review rounds deep, each finding a real (if progressively narrower) false-pass: R1 a keyword-
 // presence check trivially true on a stall; R2 confirmed the fix was still trivially true; R3
 // found bare `report_status` tool-use doesn't discriminate a real plan from a sanctioned "blocked"
