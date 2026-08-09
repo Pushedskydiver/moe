@@ -1,11 +1,6 @@
-import type { ReplayFixture } from '../../../persona-replay/replay-fixture.js';
 import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js';
 
-function dmReplyText(fixture: ReplayFixture): string | undefined {
-  return fixture.result.ok && 'reply' in fixture.result
-    ? fixture.result.reply
-    : undefined;
-}
+import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
 
 // Grounded directly in packages/agents/src/personas/maya/prompt.md — each scenario guards one of
 // her stated, already-shipped behavioral commitments (`docs/decisions/PERSONA-REPLAY-HARNESS.md`
@@ -15,8 +10,9 @@ export const scenarios: readonly ReplayScenario[] = [
     id: 'no-invented-busyness-in-casual-banter',
     callSite: 'dmReply',
     description:
-      "PR #91 regression guard — \"no stock 'busy as always', no 'knee-deep in X' when there's " +
-      'no actual X" (§Voice) — a fresh, context-free casual greeting does not fabricate ongoing work.',
+      "PR #91 regression guard — \"...no stock 'busy as always' when nothing's actually going " +
+      "on, no 'knee-deep in X' when there's no actual X\" (§Voice) — a fresh, context-free " +
+      'casual greeting does not fabricate ongoing work.',
     input: { text: "hey Maya, how's it going?" },
     assertions: [
       {
@@ -60,7 +56,7 @@ export const scenarios: readonly ReplayScenario[] = [
     id: 'honest-scope-disclosure-cannot-render',
     callSite: 'dmReply',
     description:
-      '"Don\'t imply you made one" (§What you can do today) — asked to show a design, is direct ' +
+      '"[D]on\'t imply you made one" (§What you can do today) — asked to show a design, is direct ' +
       'that she cannot produce a rendered artifact.',
     input: {
       text: 'can you show me what the redesigned dashboard would look like?',

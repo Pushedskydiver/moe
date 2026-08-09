@@ -79,7 +79,15 @@ if (!parsedAnthropic.ok) {
   process.exit(1);
 }
 
-const realClient = createAnthropicClient(parsedAnthropic.config.apiKey, logger);
+// A batch-recording script has no live-Slack-reply latency target, unlike every production call
+// site — `createAnthropicClient`'s 20s default genuinely timed out live on a scenario that
+// provoked heavy extended thinking (confirmed by running this exact script, not assumed).
+const RECORDING_TIMEOUT_MS = 120_000;
+const realClient = createAnthropicClient(
+  parsedAnthropic.config.apiKey,
+  logger,
+  RECORDING_TIMEOUT_MS,
+);
 
 type RawCapture = {
   readonly stopReason: string | null;
@@ -120,6 +128,10 @@ function wrapClientForRecording(client: Anthropic): {
   return {
     client: {
       messages: {
+        // The real SDK's `create()` has overloaded signatures (streaming vs. non-streaming); this
+        // wrapper only ever forwards `MessageCreateParamsNonStreaming` (all three cascade
+        // functions do too), so the single-signature cast is narrowing to the one overload
+        // actually used, not widening past what the real method supports.
         create: (async (
           params: Parameters<Anthropic['messages']['create']>[0],
         ) => {
@@ -127,6 +139,11 @@ function wrapClientForRecording(client: Anthropic): {
           capture(message);
           return message;
         }) as Anthropic['messages']['create'],
+        // Same overload-narrowing reasoning as `create` above — `parse()`'s real generic return
+        // type (`ParsedMessage<T>`) is inferred from `output_config.format`, which this wrapper
+        // forwards opaquely; the cast asserts what's already true at every real call site
+        // (`ParsedMessage<T> = Message & {...}`, confirmed against the installed SDK's own type
+        // declarations, so `stop_reason`/`usage` are present regardless of `T`).
         parse: (async (
           params: Parameters<Anthropic['messages']['parse']>[0],
         ) => {

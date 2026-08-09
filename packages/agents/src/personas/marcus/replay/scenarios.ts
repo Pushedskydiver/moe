@@ -1,19 +1,7 @@
-import type { ReplayFixture } from '../../../persona-replay/replay-fixture.js';
 import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js';
 
-function dmReplyText(fixture: ReplayFixture): string | undefined {
-  return fixture.result.ok && 'reply' in fixture.result
-    ? fixture.result.reply
-    : undefined;
-}
-
-function usedTool(fixture: ReplayFixture, name: string): boolean {
-  return (
-    fixture.result.ok &&
-    'toolUses' in fixture.result &&
-    fixture.result.toolUses.some((use) => use.name === name)
-  );
-}
+import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { usedTool } from '../../../persona-replay/used-tool.js';
 
 // Grounded directly in packages/agents/src/personas/marcus/prompt.md — each scenario guards one
 // of his stated, already-shipped behavioral commitments (`docs/decisions/PERSONA-REPLAY-HARNESS.md`
@@ -128,18 +116,35 @@ export const scenarios: readonly ReplayScenario[] = [
     callSite: 'dmReply',
     description:
       '"Name it as an open question and proceed when the plan\'s core approach holds either way" ' +
-      "(§Planning philosophy) — a detail-level ambiguity that doesn't change the approach gets " +
-      'named, not blocked on.',
+      '(§Planning philosophy) — given enough concrete grounding that only a genuinely detail-' +
+      'level choice is open, proceeds with a real plan rather than stalling on it.',
     input: {
       text:
-        'plan the retry logic for the flaky webhook delivery — pick whichever of the two existing ' +
-        'retry helpers makes sense, either would work fine here',
+        'ticket: retry the outbound webhook POST (integrations service, delivering to the ' +
+        "customer's endpoint) up to 3 times on a 5xx or timeout, then log it and drop it — no " +
+        'dead-lettering needed yet. plan it — pick whichever of the two existing retry helpers ' +
+        '(retryWithBackoff in packages/core, or simpleRetry in packages/github) makes sense, ' +
+        'either would work fine for this.',
     },
     assertions: [
       {
         description:
-          'reply does not stall on the open question — it proceeds with a plan, optionally ' +
-          'naming the choice as open',
+          'reply proposes a real plan (references the actual retry behavior — 5xx/timeout, 3 ' +
+          'attempts, log-and-drop) rather than opening with clarifying questions and no plan at ' +
+          'all',
+        check: (fixture) => {
+          const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
+          const proposesPlan =
+            /\b(3|three)\b/.test(reply) &&
+            /5xx|timeout/.test(reply) &&
+            /retry|backoff/.test(reply);
+          return reply.length > 0 && proposesPlan;
+        },
+      },
+      {
+        description:
+          'reply does not stall waiting on the helper-choice question before proceeding — no bare ' +
+          'question-only reply under 200 characters',
         check: (fixture) => {
           const reply = dmReplyText(fixture) ?? '';
           const onlyAsksNoPlan =

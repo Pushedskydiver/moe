@@ -21,14 +21,21 @@ const REQUEST_TIMEOUT_MS = 20_000;
  * `console` logger — the same gap `@moe/slack`'s client builders already close. Every new
  * secret-handling SDK client this repo has added has needed this same wiring; it's easy to skip
  * on the next one too, so it's called out explicitly here rather than assumed obvious.
+ *
+ * `timeoutMs` defaults to `REQUEST_TIMEOUT_MS` (20s, tuned for a live Slack reply's latency
+ * target) — every production call site keeps that default unchanged. `record-persona-replay.ts`
+ * is the one caller that overrides it: a manual batch-recording script has no live-reply latency
+ * target, and a real recording measured genuinely timing out at 20s on a scenario that provoked
+ * heavy extended thinking (live-diagnosed, not assumed).
  */
 export function createAnthropicClient(
   apiKey: string,
   logger: AppLogger,
+  timeoutMs: number = REQUEST_TIMEOUT_MS,
 ): Anthropic {
   return new Anthropic({
     apiKey,
-    timeout: REQUEST_TIMEOUT_MS,
+    timeout: timeoutMs,
     logger: createAnthropicSdkLoggerAdapter(logger, [apiKey]),
   });
 }

@@ -115,17 +115,28 @@ parse } }` DI seam every test in this repo already mocks) reads the raw message 
    }
    ```
 
-   What "not a hand-rolled parallel shape" (the original framing) actually means: the `result`
-   field specifically is the cascade function's real, unmodified Result value — a reviewer (and a
-   scenario's own assertions) read back the exact type a live caller would have received, not a
-   paraphrase of it. The envelope around it exists because the diagnostic and staleness data is a
+   **This is the shape at the moment `record-persona-replay.ts` first records it** — `result` there
+   genuinely is whatever `generateReply`/`composeTicketDraft`/`composeConfirmingQuestionLeadIn`
+   returned, unmodified. Once written to JSON and read back, though, `packages/agents/src/
+persona-replay/replay-fixture.ts` validates `result` against a **hand-maintained Zod mirror** of
+   those three Result shapes, not the imported TS types themselves — Zod schemas can't be derived
+   from a hand-written type, only the reverse, and a fixture is JSON, a different boundary from the
+   in-memory value a live caller receives (`docs/CONVENTIONS.md` §Zod). So "not a hand-rolled
+   parallel shape" is true only at record time; the _loaded/verified_ type is exactly that — a
+   separate, manually-kept-in-sync mirror — and `replay-fixture.ts`'s own code comment says so
+   directly. What doesn't change between the two: the mirror is checked field-for-field against the
+   real three files (including the exact `error.kind` literal union), so a loaded fixture still
+   faithfully represents what a live caller would have received, even though the TypeScript type
+   doing the representing is a different, parallel one after the JSON round-trip. The envelope
+   around `result` exists because the diagnostic and staleness data is a
    different concern from the call's own outcome.
 
 6. **Scenario definitions are real TypeScript**
    (`packages/agents/src/personas/<id>/replay/scenarios.ts`, part of the normal `tsc` build), each
    scenario naming a `callSite` (`dmReply` | `ticketDraft` | `confirmingQuestion`), an input, and a
-   small array of pure assertion predicates over the fixture. `tsconfig.build.json`'s `include:
-["src"]` picks these up automatically, so `tsc` now produces real output under `dist/personas/`
+   small array of pure assertion predicates over the fixture. `tsconfig.json`'s `include: ["src"]`
+   (inherited by `tsconfig.build.json` via `extends`, which adds no `include` of its own) picks
+   these up automatically, so `tsc` now produces real output under `dist/personas/`
    for the first time (previously that directory held only `.md` files, added exclusively by the
    whole-tree `cp -r` step below). **This required an actual build-script fix, caught live, not
    just a documentation note as first assumed:** `cp -r SRC DEST` nests `SRC` _inside_ `DEST` when
@@ -177,7 +188,7 @@ scripts/<name>.ts` shape of every existing script in this repo (`migrate`, `back
 
 8. **If a recording comes back `result.ok === false` or truncated (`stop_reason === 'max_tokens'`),
    the recording script refuses to write the fixture** — it prints the raw failure/truncation
-   detail to stdout and exits non-zero, rather than committing a fixture that would then fail CI
+   detail to stderr and exits non-zero, rather than committing a fixture that would then fail CI
    forever (replay verification never re-calls the network, so a committed failing fixture can't
    self-heal). A failure is a signal to fix the scenario, the persona prompt, or a `MAX_TOKENS`
    ceiling before recording again — never a state this harness treats as a legitimate, permanently
@@ -233,5 +244,7 @@ scripts/<name>.ts` shape of every existing script in this repo (`migrate`, `back
 - `BUILD_PLAN.md` chunk 5.4
 - `docs/CONVENTIONS.md` §Testing Standards ("Persona-replay tests are load-bearing, not optional")
 - `docs/REVIEW-PATTERNS.md` — "Persona-prompt drift", "Recorded-transcript drift"
-- `PROGRESS.md` Session 32 loading instructions (primary workstream decision, branch KK)
+- `PROGRESS.md` Session 32 loading instructions (top-level "Primary workstream" bullet — not one of
+  the lettered decision branches; branch KK there is the unrelated `docs/PERSONAS.md`
+  roster-staleness lesson)
 - BUILD_PLAN 5.3a-ii's `MAX_TOKENS` misdiagnosis (`stop_reason`/`output_tokens` capture rationale)

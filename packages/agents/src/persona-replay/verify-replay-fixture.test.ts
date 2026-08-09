@@ -48,6 +48,7 @@ describe('verifyReplayFixture', () => {
       fixture: fixture(),
       currentPromptContent: PROMPT_CONTENT,
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result).toEqual({ ok: true, failures: [] });
   });
@@ -58,6 +59,7 @@ describe('verifyReplayFixture', () => {
       fixture: undefined,
       currentPromptContent: PROMPT_CONTENT,
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result.ok).toBe(false);
     expect(result.failures[0]).toContain('no recorded fixture');
@@ -70,6 +72,7 @@ describe('verifyReplayFixture', () => {
       fixture: fixture(),
       currentPromptContent: 'a completely different prompt now',
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result.ok).toBe(false);
     expect(result.failures.some((f) => f.includes('prompt.md'))).toBe(true);
@@ -84,6 +87,7 @@ describe('verifyReplayFixture', () => {
       fixture: fixture(),
       currentPromptContent: PROMPT_CONTENT,
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result.ok).toBe(false);
     expect(result.failures.some((f) => f.includes('input'))).toBe(true);
@@ -95,6 +99,7 @@ describe('verifyReplayFixture', () => {
       fixture: fixture(),
       currentPromptContent: PROMPT_CONTENT,
       currentModel: 'claude-opus-5',
+      personaId: 'sarah',
     });
     expect(result.ok).toBe(false);
     expect(result.failures.some((f) => f.includes('model'))).toBe(true);
@@ -106,6 +111,7 @@ describe('verifyReplayFixture', () => {
       fixture: fixture({ stopReason: 'max_tokens' }),
       currentPromptContent: PROMPT_CONTENT,
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result.ok).toBe(false);
     expect(result.failures.some((f) => f.includes('truncated'))).toBe(true);
@@ -122,6 +128,7 @@ describe('verifyReplayFixture', () => {
       }),
       currentPromptContent: PROMPT_CONTENT,
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result.ok).toBe(false);
     expect(result.failures.some((f) => f.includes('rate limited'))).toBe(true);
@@ -144,6 +151,7 @@ describe('verifyReplayFixture', () => {
       fixture: fixture(),
       currentPromptContent: PROMPT_CONTENT,
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result.ok).toBe(false);
     expect(
@@ -170,6 +178,7 @@ describe('verifyReplayFixture', () => {
       fixture: fixture(),
       currentPromptContent: PROMPT_CONTENT,
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result).toEqual({ ok: true, failures: [] });
   });
@@ -180,6 +189,7 @@ describe('verifyReplayFixture', () => {
       fixture: fixture({ stopReason: 'max_tokens', model: 'claude-opus-5' }),
       currentPromptContent: 'a different prompt',
       currentModel: MODEL,
+      personaId: 'sarah',
     });
     expect(result.ok).toBe(false);
     expect(result.failures.length).toBeGreaterThanOrEqual(3);

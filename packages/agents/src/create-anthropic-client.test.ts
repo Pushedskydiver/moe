@@ -20,6 +20,16 @@ describe('createAnthropicClient', () => {
     expect(client.timeout).toBeLessThan(60_000);
   });
 
+  it('accepts an explicit timeoutMs override for non-live-reply callers', () => {
+    const client = createAnthropicClient(
+      'sk-ant-fake-key',
+      makeLogger(),
+      120_000,
+    );
+
+    expect(client.timeout).toBe(120_000);
+  });
+
   it('routes the SDK logger through the given logger, redacting the API key — never falls back to the SDK default console logger', () => {
     const logger = makeLogger();
     const client = createAnthropicClient('sk-ant-fake-key', logger);

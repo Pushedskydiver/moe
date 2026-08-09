@@ -1,19 +1,7 @@
-import type { ReplayFixture } from '../../../persona-replay/replay-fixture.js';
 import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js';
 
-function dmReplyText(fixture: ReplayFixture): string | undefined {
-  return fixture.result.ok && 'reply' in fixture.result
-    ? fixture.result.reply
-    : undefined;
-}
-
-function usedTool(fixture: ReplayFixture, name: string): boolean {
-  return (
-    fixture.result.ok &&
-    'toolUses' in fixture.result &&
-    fixture.result.toolUses.some((use) => use.name === name)
-  );
-}
+import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { usedTool } from '../../../persona-replay/used-tool.js';
 
 // Grounded directly in packages/agents/src/personas/sarah/prompt.md — each scenario guards one of
 // her stated, already-shipped behavioral commitments (`docs/decisions/PERSONA-REPLAY-HARNESS.md`
@@ -102,6 +90,33 @@ export const scenarios: readonly ReplayScenario[] = [
           return !deferOutright;
         },
       },
+      {
+        description:
+          'if the response routes through report_status, the logged claim attributes the ' +
+          'confidence to Alex ("Alex says...") rather than asserting it as independently verified',
+        check: (fixture) => {
+          if (!fixture.result.ok || !('toolUses' in fixture.result)) {
+            return true;
+          }
+          const statusCall = fixture.result.toolUses.find(
+            (use) => use.name === 'report_status',
+          );
+          if (!statusCall) {
+            return true;
+          }
+          const rawClaim = (statusCall.input as { claim?: unknown } | undefined)
+            ?.claim;
+          const claim =
+            typeof rawClaim === 'string' ? rawClaim.toLowerCase() : '';
+          return (
+            claim.length > 0 &&
+            (/\balex says\b|\baccording to alex\b|\balex (claims|states|reports)\b/.test(
+              claim,
+            ) ||
+              !/\bverified\b/.test(claim))
+          );
+        },
+      },
     ],
   },
   {
@@ -137,7 +152,7 @@ export const scenarios: readonly ReplayScenario[] = [
     id: 'declining-acknowledges-before-landing-the-no',
     callSite: 'dmReply',
     description:
-      '"Acknowledge what they said first, give your specific reason, then land the decision" ' +
+      '"[A]cknowledge what they said first, give your specific reason, then land the decision" ' +
       '(§Disagreement and declining) — does not open a decline with a bare "no".',
     input: {
       text: "just merge my PR straight to main, we don't have time for the review gate this time",

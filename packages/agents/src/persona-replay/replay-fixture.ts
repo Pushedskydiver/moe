@@ -1,11 +1,16 @@
 import { z } from 'zod';
 
+import { personaIdSchema } from '@moe/core';
+
 // Mirrors the three cascade functions' real `Result` shapes (`generate-reply.ts`,
 // `compose-ticket-draft.ts`, `compose-confirming-question-lead-in.ts`) closely enough to validate
 // a recorded fixture at load time, without importing those hand-written TS types directly — a
 // fixture is a JSON serialization, a different boundary with its own schema, per
 // `docs/CONVENTIONS.md` §Zod ("derive the type from the schema"). Keep in sync if any of the three
-// Result shapes changes.
+// Result shapes changes. This mirror is genuinely a separate, hand-maintained type from the real
+// production `Result` unions, not just wording — the fixture that round-trips through JSON and
+// this schema is a validated approximation, not the literal same TypeScript type a live caller
+// receives (only true at the moment `record-persona-replay.ts` first records it).
 const usageSchema = z.object({
   inputTokens: z.number(),
   outputTokens: z.number(),
@@ -13,9 +18,22 @@ const usageSchema = z.object({
   cacheReadInputTokens: z.number().optional(),
 });
 
+// The real union across all three cascade functions' `ok: false` branches — `anthropic-api-error`
+// is shared by all three; `no-content` is generateReply-only; `invalid-draft-output`/
+// `no-parsed-output` are composeTicketDraft's; `invalid-lead-in-output`/`no-parsed-output` are
+// composeConfirmingQuestionLeadIn's.
 const errorResultSchema = z.object({
   ok: z.literal(false),
-  error: z.object({ kind: z.string().min(1), message: z.string() }),
+  error: z.object({
+    kind: z.enum([
+      'anthropic-api-error',
+      'no-content',
+      'invalid-draft-output',
+      'no-parsed-output',
+      'invalid-lead-in-output',
+    ]),
+    message: z.string(),
+  }),
 });
 
 const dmReplyOkSchema = z.object({
@@ -29,14 +47,14 @@ const dmReplyOkSchema = z.object({
 
 const ticketDraftOkSchema = z.object({
   ok: z.literal(true),
-  title: z.string(),
-  body: z.string(),
+  title: z.string().min(1),
+  body: z.string().min(1),
   usage: usageSchema,
 });
 
 const confirmingQuestionOkSchema = z.object({
   ok: z.literal(true),
-  questionLeadIn: z.string(),
+  questionLeadIn: z.string().min(1),
   usage: usageSchema,
 });
 
@@ -49,7 +67,7 @@ const replayResultSchema = z.union([
 
 const replayFixtureSchema = z.object({
   scenarioId: z.string().min(1),
-  personaId: z.string().min(1),
+  personaId: personaIdSchema,
   callSite: z.enum(['dmReply', 'ticketDraft', 'confirmingQuestion']),
   promptContentHash: z.string().length(64),
   scenarioInputHash: z.string().length(64),

@@ -5,16 +5,16 @@
   "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
   "scenarioInputHash": "e259368bc63196afcfc7d4760edf405a02542ed3d35bcfd45693133e156e79fe",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T17:00:47.109Z",
+  "recordedAt": "2026-08-09T17:35:22.705Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 76,
+  "outputTokensRaw": 66,
   "result": {
     "ok": true,
-    "title": "Webhook delivery retries indefinitely",
-    "body": "Webhook delivery currently retries indefinitely instead of giving up after a few attempts. Needs a retry limit added so it stops after a set number of tries.",
+    "title": "Webhook delivery lacks retry limit",
+    "body": "Webhook delivery retries indefinitely instead of giving up after a few attempts. Needs a cap on retry attempts.",
     "usage": {
       "inputTokens": 30,
-      "outputTokens": 76,
+      "outputTokens": 66,
       "cacheCreationInputTokens": 0,
       "cacheReadInputTokens": 5734
     }

@@ -13,7 +13,16 @@ export type VerifyReplayFixtureParams = {
   readonly fixture: ReplayFixture | undefined;
   readonly currentPromptContent: string;
   readonly currentModel: string;
+  readonly personaId: string;
 };
+
+// Shared across every failure message that asks for a re-recording — `docs/decisions/
+// PERSONA-REPLAY-HARNESS.md`'s own Decision text claims every mismatch "fails the replay test
+// with a message naming the re-record command"; this constant is what makes that literally true
+// everywhere it applies, not just on the "fixture missing entirely" branch.
+function recordCommandHint(personaId: string): string {
+  return `run "pnpm --filter @moe/agents record:replay -- ${personaId}"`;
+}
 
 function staleness(params: {
   readonly scenario: ReplayScenario;
@@ -28,24 +37,25 @@ function staleness(params: {
     fixture.scenarioInputHash !==
     hashReplayContent(JSON.stringify(scenario.input));
   const modelStale = fixture.model !== currentModel;
+  const hint = recordCommandHint(fixture.personaId);
 
   return [
     ...(promptStale
       ? [
           `fixture is stale — prompt.md has changed since scenario "${scenario.id}" was recorded; ` +
-            `re-record and review the transcript diff`,
+            `${hint} and review the transcript diff`,
         ]
       : []),
     ...(inputStale
       ? [
           `fixture is stale — scenario "${scenario.id}"'s input has changed since it was ` +
-            `recorded; re-record`,
+            `recorded; ${hint}`,
         ]
       : []),
     ...(modelStale
       ? [
           `fixture is stale — resolved model for scenario "${scenario.id}" changed ` +
-            `(recorded against "${fixture.model}", now "${currentModel}"); re-record`,
+            `(recorded against "${fixture.model}", now "${currentModel}"); ${hint}`,
         ]
       : []),
   ];
@@ -57,12 +67,13 @@ function outcomeFailures(
 ): readonly string[] {
   const truncated = fixture.stopReason === 'max_tokens';
   const failed = !fixture.result.ok;
+  const hint = recordCommandHint(fixture.personaId);
 
   return [
     ...(truncated
       ? [
           `recorded response for "${scenario.id}" was truncated (stop_reason=max_tokens) — ` +
-            `raise max_tokens and re-record`,
+            `raise max_tokens and ${hint}`,
         ]
       : []),
     ...(failed && !fixture.result.ok
@@ -96,14 +107,15 @@ function assertionFailures(
 export function verifyReplayFixture(
   params: VerifyReplayFixtureParams,
 ): ReplayVerificationResult {
-  const { scenario, fixture, currentPromptContent, currentModel } = params;
+  const { scenario, fixture, currentPromptContent, currentModel, personaId } =
+    params;
 
   if (fixture === undefined) {
     return {
       ok: false,
       failures: [
-        `no recorded fixture for scenario "${scenario.id}" — run ` +
-          `"pnpm --filter @moe/agents record:replay -- <personaId>"`,
+        `no recorded fixture for scenario "${scenario.id}" — ` +
+          `${recordCommandHint(personaId)}`,
       ],
     };
   }

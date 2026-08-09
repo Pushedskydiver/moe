@@ -24,6 +24,7 @@ describe('sarah persona replay', () => {
       fixture,
       currentPromptContent: promptContent ?? '',
       currentModel: resolvePersonaModel(PERSONA_ID),
+      personaId: PERSONA_ID,
     });
 
     expect(result.failures).toEqual([]);
