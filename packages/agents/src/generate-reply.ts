@@ -7,7 +7,19 @@ import { PLACEHOLDER_SYSTEM_PROMPT } from './placeholder-system-prompt.js';
 // BUILD_PLAN 5.3a gave per-persona overrides a real config value (`resolvePersonaModel`); this
 // function itself stays persona-agnostic, same shape as its own pre-existing `system` param.
 const DEFAULT_MODEL = 'claude-sonnet-5';
-const MAX_TOKENS = 1024;
+// 1024 silently truncated real conversational replies to empty text — confirmed live 2026-08-09
+// (BUILD_PLAN 5.3b follow-up), the same MAX_TOKENS-truncation failure class BUILD_PLAN 5.3a-ii
+// already fixed once for compose-confirming-question-lead-in.ts's narrower task. This call site's
+// task is open-ended conversational reply, not a templated lead-in, so it needs materially more
+// headroom: claude-sonnet-5 spends output tokens on unrequested extended thinking before any text
+// block, and a real (non-adversarial) "spec these button states" request measured 2504-3533 output
+// tokens end-to-end, truncating with stop_reason "max_tokens" and zero text at both 1024 and 2048,
+// only completing at 4096. 8192 gives real margin above that measured need, not just enough to
+// clear it — this project's own precedent (5.3a-ii) explicitly tests multiple input shapes rather
+// than trusting a single passing case, and a per-task ceiling here, not a repo-wide constant, since
+// composeTicketDraft's 512 and compose-confirming-question-lead-in.ts's 2048 are comfortably clear
+// for their own narrower tasks.
+const MAX_TOKENS = 8192;
 
 type GenerateReplyClient = {
   readonly messages: {
