@@ -16,7 +16,7 @@ A persona's synthetic unit tests, shaped to match its output schema, can pass 10
 
 Watch for: a persona `prompt.md` edit (`packages/agents/src/personas/*/prompt.md` — a do-not-touch surface, Alex's explicit approval required) that lands without a corresponding replay re-recording. `docs/GIT.md`'s "executable markdown" rule already routes prompt edits through the PR flow; this pattern is the specific thing to check once they're there.
 
-**Status: pre-seeded, not yet triggered.** No persona exists before Stage 5 (`BUILD_PLAN.md` chunk 5.3), so this pattern has nothing to catch yet. Seeded now per `docs/VISION.md` §12 so the review agent already has it in scope when 5.3 lands, rather than learning it after the first incident.
+**Status: live, mechanism still unbuilt.** Personas exist now (Sarah since 5.3a, Maya since 5.3b) and their `prompt.md` files do get edited post-launch — this pattern has real diffs to catch. Chunk 5.4's replay harness itself is still unbuilt (`BUILD_PLAN.md` chunk 5.4, unchecked), so there is genuinely nothing to "re-record" yet; the project's actual substitute is ad-hoc live-model-harness testing against the real Claude API on every persona-prompt PR (5.3a's nine rounds, 5.3b's seven-scenario harness, both pre-launch drafts — and, post-launch, this pattern's first real live instance so far: a small `prompt.md` fix validated the same way, multiple scenarios re-run after every review round rather than trusted from the prompt text). Once 5.4 lands, backfill a recorded replay for every already-shipped persona rather than only gating new ones.
 
 ### Recorded-transcript drift
 
