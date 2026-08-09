@@ -22,11 +22,32 @@ import { usedTool } from '../../../persona-replay/used-tool.js';
 // the discriminating signal was never "does the text ever mention uncertainty," it's "does the
 // reply *open* with a stall instead of a plan" (the real stalling transcript's first sentence is
 // "Not enough here to plan against yet"; the real plan's first sentence commits to an approach) —
-// so this only scans the opening sentence, not the whole body.
+// so this only scans the opening sentence, not the whole body. R7 found this still had two gaps:
+// (a) with no ". "/blank-line anywhere, `split()[0]` silently returns the *entire* text, quietly
+// reverting to the whole-body scan R6 already discredited — bounded to a fixed-length prefix
+// instead, so "no sentence boundary found" degrades to "scan a bounded window," never the whole
+// body; (b) dropping the claim-side check entirely (see the report_status assertion below) let a
+// genuinely conditional "ready" claim through — a claim can name a real open item as a trailing
+// detail on an otherwise-firm "ready" (fine, shouldn't fail) or make the readiness itself
+// contingent on a future event ("ready once confirmed... before this is final" — not actually
+// ready, should fail); `impliesConditionalReadiness` targets that second shape specifically,
+// narrower than a full incompleteness scan.
+const OPENING_WINDOW_CHARS = 200;
+
 function opensWithIncompleteness(text: string): boolean {
-  const opening = text.split(/\.\s|\n\n/)[0] ?? '';
+  const [firstSentence] = text.split(/\.\s|\n\n/);
+  const opening =
+    firstSentence !== undefined && firstSentence.length < text.length
+      ? firstSentence
+      : text.slice(0, OPENING_WINDOW_CHARS);
   return /not enough (here|information|to plan|to ground)|don'?t (know|have) enough (here|information|to plan|to ground)|can'?t (plan|ground this)( yet)?|still (need|gathering|waiting)|pending (confirmation|an? answer)/.test(
     opening,
+  );
+}
+
+function impliesConditionalReadiness(claim: string): boolean {
+  return /\b(once|after|when)\s+(confirmed|finalized|riley'?s?\s+(answer|confirmation))\b|before (this|it) (is|'s) final|not yet final/.test(
+    claim,
   );
 }
 
@@ -167,15 +188,16 @@ export const scenarios: readonly ReplayScenario[] = [
       {
         description:
           'response routes a status claim through report_status, and the claim text is a ' +
-          'genuine, unnegated "ready" claim — not "not ready"/"isn\'t ready" (a real stall ' +
-          'phrased with the same anchor word this check looks for), and not an unnegated ' +
-          '"blocked" (report_status is also the sanctioned path for a genuinely blocked plan, ' +
-          'per his own prompt.md: "done, ready to hand off, or blocked") — deliberately does ' +
-          'NOT also scan the whole claim for any incompleteness-shaped phrase: a report_status ' +
-          'claim legitimately names a minor caveat alongside an affirmative ready statement ' +
-          "(the real recorded fixture's own claim is clean, but the free-text reply routinely " +
-          'names real unverified details per his own "time-box a real unknown" commitment — ' +
-          "penalizing that here would fight the persona's own instructed behavior)",
+          'genuine, unconditional "ready" claim — not "not ready"/"isn\'t ready" (a real stall ' +
+          'phrased with the same anchor word this check looks for), not an unnegated "blocked" ' +
+          '(report_status is also the sanctioned path for a genuinely blocked plan, per his own ' +
+          'prompt.md: "done, ready to hand off, or blocked"), and not made conditional on a ' +
+          'future event ("ready once confirmed... before this is final" is not actually ready) ' +
+          '— deliberately does NOT fail on a claim that merely *names* an open item as a ' +
+          "trailing detail on an otherwise-firm ready statement (the real recorded fixture's " +
+          'own claim does exactly this, and his prompt.md explicitly instructs naming a real ' +
+          'unverified detail rather than hiding it): the line is conditional-on-the-future vs. ' +
+          'a peripheral detail already named, not "mentions an open item at all"',
         check: (fixture) => {
           if (!fixture.result.ok || !('toolUses' in fixture.result)) {
             return false;
@@ -195,7 +217,12 @@ export const scenarios: readonly ReplayScenario[] = [
           const unnegatedBlocked =
             /\bblocked\b/.test(claim) &&
             !/\b(not|isn'?t|n't|wasn'?t)\s+blocked\b/.test(claim);
-          return /\bready\b/.test(claim) && !negatedReady && !unnegatedBlocked;
+          return (
+            /\bready\b/.test(claim) &&
+            !negatedReady &&
+            !unnegatedBlocked &&
+            !impliesConditionalReadiness(claim)
+          );
         },
       },
       {
