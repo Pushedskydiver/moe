@@ -9,7 +9,7 @@ Per-persona voice, personality, and signature moves — the human-readable compa
 | Persona | Role         | Status                                                                                                                                                                 |
 | ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Sarah   | PM           | Confirmed first/front-door persona (Stage 2) — real `prompt.md` drafted and deployed (BUILD_PLAN 5.3a, [PR #83](https://github.com/Pushedskydiver/moe/pull/83))        |
-| Marcus  | Architect    | Real `prompt.md` drafted, PR pending review (BUILD_PLAN 5.3c)                                                                                                          |
+| Marcus  | Architect    | Real `prompt.md` drafted and merged (BUILD_PLAN 5.3c, [PR #92](https://github.com/Pushedskydiver/moe/pull/92)) — not yet deployed                                      |
 | Riley   | Engineer     | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
 | Priya   | QA           | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
 | Dom     | Reviewer     | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
