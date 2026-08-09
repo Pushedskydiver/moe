@@ -28,6 +28,7 @@ import { hashReplayContent } from '../dist/persona-replay/hash-replay-content.js
 import { saveReplayFixture } from '../dist/persona-replay/save-replay-fixture.js';
 import { scenarios as marcusScenarios } from '../dist/personas/marcus/replay/scenarios.js';
 import { scenarios as mayaScenarios } from '../dist/personas/maya/replay/scenarios.js';
+import { scenarios as rileyScenarios } from '../dist/personas/riley/replay/scenarios.js';
 import { scenarios as sarahScenarios } from '../dist/personas/sarah/replay/scenarios.js';
 
 // One entry per backfilled persona, not a dynamic string-built import — explicit code over
@@ -39,6 +40,7 @@ const SCENARIOS_BY_PERSONA: Partial<
   sarah: sarahScenarios,
   maya: mayaScenarios,
   marcus: marcusScenarios,
+  riley: rileyScenarios,
 };
 
 // Minimal AppLogger — `createAnthropicClient` requires one to route the SDK's own internal

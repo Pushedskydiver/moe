@@ -1,0 +1,21 @@
+{
+  "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
+  "personaId": "riley",
+  "callSite": "confirmingQuestion",
+  "promptContentHash": "49acf694811eddf0cfafa084e7272ee8139a8e90958d76a83fea7fc884a348fb",
+  "scenarioInputHash": "b4914d2f51e16d3dd2a34718c1ee909be451ee1caa5c1f91af0369c006a9f886",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T20:45:59.753Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 60,
+  "result": {
+    "ok": true,
+    "questionLeadIn": "\"Feels slow\" with no number or step called out — could be a real regression worth timing, or just noise. Not sure this is a ticket yet.",
+    "usage": {
+      "inputTokens": 98,
+      "outputTokens": 60,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4812
+    }
+  }
+}
