@@ -411,13 +411,13 @@ Requiring the _user_ to cite sources backfires (authority cues increase deferenc
 
 **Layering by persona:**
 
-| Persona            | Patterns to layer (priority order)                                              |
-| ------------------ | ------------------------------------------------------------------------------- |
-| Sarah, Marcus, Nia | 1 (permission), 2 (preamble), 6 (priority), 5 (calibrated)                      |
-| Riley, Dom         | 1 (permission), 4 (form) — code work; reasons must be cited                     |
-| Priya              | 1 (permission), 2 (preamble), 4 (form) — skepticism is the role; 1+4 amplify it |
-| Theo               | 5 (calibrated), 6 (priority) — he's the citation-bringer already                |
-| Maya               | TBD at 5.3 — no persona-specific layering decided yet, same as her voice/prompt |
-| All personas       | 7 (drift mitigation) — universal                                                |
+| Persona            | Patterns to layer (priority order)                                                                                                                                                  |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sarah, Marcus, Nia | 1 (permission), 2 (preamble), 6 (priority), 5 (calibrated)                                                                                                                          |
+| Riley, Dom         | 1 (permission), 4 (form) — code work; reasons must be cited                                                                                                                         |
+| Priya              | 1 (permission), 2 (preamble), 4 (form) — skepticism is the role; 1+4 amplify it                                                                                                     |
+| Theo               | 5 (calibrated), 6 (priority) — he's the citation-bringer already                                                                                                                    |
+| Maya               | 1 (permission), 2 (preamble), 4 (form), 5 (calibrated), 6 (priority) — critique work is structurally close to Priya's, plus 5/6 since design judgment is often genuinely subjective |
+| All personas       | 7 (drift mitigation) — universal                                                                                                                                                    |
 
 **Iteration discipline:** first-attempt prompts will underperform. Validate per persona with adversarial conversations (Alex as the pushy user; the persona should hold position when right, update when shown wrong). Capture failure modes; iterate. This catalogue is currently load-bearing for the disagreement-prompt track referenced in §9 — treat it as the actual source, not a placeholder.
