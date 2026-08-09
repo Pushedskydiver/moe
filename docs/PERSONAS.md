@@ -6,16 +6,16 @@ Per-persona voice, personality, and signature moves — the human-readable compa
 
 ## Roster
 
-| Persona | Role         | Status                                                                             |
-| ------- | ------------ | ---------------------------------------------------------------------------------- |
-| Sarah   | PM           | Confirmed first/front-door persona (Stage 2) — voice/personality TBD at 5.3        |
-| Marcus  | Architect    | Roster confirmed — voice/personality TBD at 5.3                                    |
-| Riley   | Engineer     | Roster confirmed — voice/personality TBD at 5.3                                    |
-| Priya   | QA           | Roster confirmed — voice/personality TBD at 5.3                                    |
-| Dom     | Reviewer     | Roster confirmed — voice/personality TBD at 5.3                                    |
-| Theo    | Researcher   | Roster confirmed — voice/personality TBD at 5.3                                    |
-| Nia     | Scrum Master | Roster confirmed — voice/personality TBD at 5.3                                    |
-| Maya    | Designer     | Roster confirmed (BUILD_PLAN chunk 5.0, 2026-07-24) — voice/personality TBD at 5.3 |
+| Persona | Role         | Status                                                                                                                                                                 |
+| ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Sarah   | PM           | Confirmed first/front-door persona (Stage 2) — real `prompt.md` drafted and deployed (BUILD_PLAN 5.3a, [PR #83](https://github.com/Pushedskydiver/moe/pull/83))        |
+| Marcus  | Architect    | Real `prompt.md` drafted, PR pending review (BUILD_PLAN 5.3c)                                                                                                          |
+| Riley   | Engineer     | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
+| Priya   | QA           | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
+| Dom     | Reviewer     | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
+| Theo    | Researcher   | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
+| Nia     | Scrum Master | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
+| Maya    | Designer     | Roster confirmed (BUILD_PLAN chunk 5.0, 2026-07-24) — real `prompt.md` drafted and deployed (BUILD_PLAN 5.3b, [PR #89](https://github.com/Pushedskydiver/moe/pull/89)) |
 
 ## Open, independent of the roster
 

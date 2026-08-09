@@ -34,7 +34,7 @@ describe('PLACEHOLDER_SYSTEM_PROMPT', () => {
 
 describe('buildPersonaSystemPrompt', () => {
   it('returns a single system block with a cache_control marker on it', async () => {
-    const blocks = await buildPersonaSystemPrompt('marcus');
+    const blocks = await buildPersonaSystemPrompt('riley');
 
     expect(blocks).toHaveLength(1);
     expect(blocks[0]?.type).toBe('text');
@@ -43,30 +43,30 @@ describe('buildPersonaSystemPrompt', () => {
 
   describe('when the persona has no prompt.md yet (placeholder fallback)', () => {
     it('names the given persona, capitalized, as its identity in this context', async () => {
-      const blocks = await buildPersonaSystemPrompt('marcus');
+      const blocks = await buildPersonaSystemPrompt('riley');
       const text = blocks[0]?.text ?? '';
 
-      expect(text.toLowerCase()).toContain('marcus');
-      expect(text).toContain('Marcus');
+      expect(text.toLowerCase()).toContain('riley');
+      expect(text).toContain('Riley');
     });
 
     it('produces a different prompt per persona, not a shared hardcoded name', async () => {
-      const marcus = await buildPersonaSystemPrompt('marcus');
       const riley = await buildPersonaSystemPrompt('riley');
+      const priya = await buildPersonaSystemPrompt('priya');
 
-      expect(marcus[0]?.text).not.toEqual(riley[0]?.text);
-      expect(riley[0]?.text).toContain('Riley');
+      expect(riley[0]?.text).not.toEqual(priya[0]?.text);
+      expect(priya[0]?.text).toContain('Priya');
     });
 
     it("tells the model not to correct someone who uses its name — doesn't deny the persona identity", async () => {
-      const blocks = await buildPersonaSystemPrompt('marcus');
+      const blocks = await buildPersonaSystemPrompt('riley');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain('no need to correct');
     });
 
     it('does not claim a defined personality or voice — that stays Stage 5', async () => {
-      const blocks = await buildPersonaSystemPrompt('marcus');
+      const blocks = await buildPersonaSystemPrompt('riley');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain("don't have a defined personality or voice");
@@ -75,14 +75,14 @@ describe('buildPersonaSystemPrompt', () => {
     });
 
     it('does not claim to have or lack memory of past conversations — that depends on what history the caller forwards, not a static claim in the prompt', async () => {
-      const blocks = await buildPersonaSystemPrompt('marcus');
+      const blocks = await buildPersonaSystemPrompt('riley');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).not.toContain('memory');
     });
 
     it('instructs the model to call report_status for a status claim rather than stating it directly (BUILD_PLAN 2.5)', async () => {
-      const blocks = await buildPersonaSystemPrompt('marcus');
+      const blocks = await buildPersonaSystemPrompt('riley');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain('report_status');

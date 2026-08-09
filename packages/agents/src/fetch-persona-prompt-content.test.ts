@@ -15,7 +15,7 @@ describe('fetchPersonaPromptContent', () => {
   });
 
   it('returns undefined for a persona with no prompt.md directory yet', async () => {
-    const content = await fetchPersonaPromptContent('marcus');
+    const content = await fetchPersonaPromptContent('riley');
 
     expect(content).toBeUndefined();
   });
@@ -23,7 +23,7 @@ describe('fetchPersonaPromptContent', () => {
   it('does not warn for the expected ENOENT case (a persona with no prompt.md yet)', async () => {
     const logger = makeLogger();
 
-    await fetchPersonaPromptContent('marcus', logger);
+    await fetchPersonaPromptContent('riley', logger);
 
     expect(logger.warn).not.toHaveBeenCalled();
   });
