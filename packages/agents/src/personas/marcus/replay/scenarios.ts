@@ -3,6 +3,18 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
 import { usedTool } from '../../../persona-replay/used-tool.js';
 
+// Shared between `calibrated-ambiguity-names-and-proceeds`'s reply-text and report_status-claim
+// checks (a stall can be phrased in either channel) — a saga worth the shared name: R1 found a
+// keyword-presence assertion vacuously true on a real stall; R2 mutation-tested the fix and found
+// it still vacuously true; R3 found `report_status` tool-use alone doesn't discriminate a real
+// plan from a sanctioned "blocked" claim through the same tool; R4 found the claim-content check
+// that closed R3's gap could itself be defeated by negating the word it looked for ("not ready").
+function indicatesIncomplete(text: string): boolean {
+  return /not enough (here|information|to plan)|don'?t (know|have) enough|can'?t (plan|ground this)( yet)?|still (need|gathering|waiting)|pending (confirmation|an? answer)/.test(
+    text,
+  );
+}
+
 // Grounded directly in packages/agents/src/personas/marcus/prompt.md — each scenario guards one
 // of his stated, already-shipped behavioral commitments (`docs/decisions/PERSONA-REPLAY-HARNESS.md`
 // decision 9), not a synthetic schema-shaped case.
@@ -134,21 +146,19 @@ export const scenarios: readonly ReplayScenario[] = [
           'yet" and asked for the retry helpers\' own behavior before committing to either',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          const stallsOnGrounding =
-            /not enough (here|information|to plan)|don'?t (know|have) enough|can'?t (plan|ground this)( yet)?/.test(
-              reply,
-            );
-          return reply.length > 0 && !stallsOnGrounding;
+          return reply.length > 0 && !indicatesIncomplete(reply);
         },
       },
       {
         description:
-          'response routes a status claim through report_status, and the claim text itself ' +
-          'indicates the plan is ready, not blocked — report_status is also the sanctioned path ' +
-          'for a genuinely blocked plan (his own prompt.md: "done, ready to hand off, or ' +
-          'blocked"), so mere tool-use presence can\'t distinguish "proceeded with a plan" from ' +
-          '"declared itself blocked" — a future over-cautious drift toward framing this exact ' +
-          'kind of open-but-not-blocking ambiguity as "blocked" must fail this, not pass it',
+          'response routes a status claim through report_status, the claim text is a genuine ' +
+          '"ready" claim (not negated — "not ready"/"isn\'t ready" is a real stall phrased with ' +
+          'the same anchor word this check looks for) and does not itself read as blocked or ' +
+          'stalling by the same incompleteness-phrase check applied to the reply above — ' +
+          'report_status is also the sanctioned path for a genuinely blocked plan (his own ' +
+          'prompt.md: "done, ready to hand off, or blocked"), so mere tool-use presence, or an ' +
+          'unnegated keyword match, can\'t distinguish "proceeded with a plan" from a stall that ' +
+          'happens to route through the same tool',
         check: (fixture) => {
           if (!fixture.result.ok || !('toolUses' in fixture.result)) {
             return false;
@@ -163,7 +173,14 @@ export const scenarios: readonly ReplayScenario[] = [
             ?.claim;
           const claim =
             typeof rawClaim === 'string' ? rawClaim.toLowerCase() : '';
-          return /\bready\b/.test(claim) && !/\bblocked\b/.test(claim);
+          const negatedReady =
+            /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?ready\b/.test(claim);
+          return (
+            /\bready\b/.test(claim) &&
+            !negatedReady &&
+            !/\bblocked\b/.test(claim) &&
+            !indicatesIncomplete(claim)
+          );
         },
       },
       {
