@@ -14,11 +14,22 @@ const DEFAULT_MODEL = 'claude-sonnet-5';
 // headroom: claude-sonnet-5 spends output tokens on unrequested extended thinking before any text
 // block, and a real (non-adversarial) "spec these button states" request measured 2504-3533 output
 // tokens end-to-end, truncating with stop_reason "max_tokens" and zero text at both 1024 and 2048,
-// only completing at 4096. 8192 gives real margin above that measured need, not just enough to
-// clear it — this project's own precedent (5.3a-ii) explicitly tests multiple input shapes rather
-// than trusting a single passing case, and a per-task ceiling here, not a repo-wide constant, since
-// composeTicketDraft's 512 and compose-confirming-question-lead-in.ts's 2048 are comfortably clear
-// for their own narrower tasks.
+// only completing at 4096. 8192 gives real margin above that measured need — verified live across
+// three scenarios of increasing complexity, including one that used 93.6% of the budget and still
+// completed cleanly, not just enough to clear the one broken case.
+//
+// A per-task ceiling here, not a repo-wide constant: composeTicketDraft's 512 and
+// compose-confirming-question-lead-in.ts's 2048 were both live-checked the same way and sit
+// comfortably clear for their own narrower tasks (BUILD_PLAN 5.3a-ii). classify-message-
+// confidence.ts's and evaluate-situational-appropriateness.ts's own 256-token ceilings are NOT
+// covered by this check — different model (Haiku 4.5, not claude-sonnet-5) and a different task
+// shape, unverified either way, not assumed safe by omission.
+//
+// Raises worst-case per-turn spend on the highest-traffic call site roughly 8x (~$0.015 to ~$0.12
+// at standard output pricing). The monthly cost cap remains the true governing bound and still
+// halts service if crossed, so no invariant changes — but it does mean fewer adversarial turns are
+// needed to exhaust a persona's budget for the rest of the month, since Slack DM text is untrusted,
+// adversary-reachable input.
 const MAX_TOKENS = 8192;
 
 type GenerateReplyClient = {

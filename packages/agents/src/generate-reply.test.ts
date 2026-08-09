@@ -53,6 +53,16 @@ describe('generateReply', () => {
     });
   });
 
+  it('sends max_tokens high enough that a real conversational reply cannot silently truncate to empty text — regression pin for the 1024-truncation bug (BUILD_PLAN 5.3b follow-up)', async () => {
+    const client = makeClient(TEXT_MESSAGE);
+
+    await generateReply(client, { text: 'hello' });
+
+    expect(client.messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({ max_tokens: 8192 }),
+    );
+  });
+
   it('surfaces the input/output token usage from the response', async () => {
     const client = makeClient({
       content: [{ type: 'text', text: 'Hi there!', citations: null }],
