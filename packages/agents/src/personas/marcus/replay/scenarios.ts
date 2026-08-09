@@ -8,9 +8,12 @@ import { usedTool } from '../../../persona-replay/used-tool.js';
 // keyword-presence assertion vacuously true on a real stall; R2 mutation-tested the fix and found
 // it still vacuously true; R3 found `report_status` tool-use alone doesn't discriminate a real
 // plan from a sanctioned "blocked" claim through the same tool; R4 found the claim-content check
-// that closed R3's gap could itself be defeated by negating the word it looked for ("not ready").
+// that closed R3's gap could itself be defeated by negating the word it looked for ("not ready");
+// R5 found the sibling "don't know/have enough" alternative had no topic anchor (false-positived
+// on an unrelated aside — "I don't have enough context on X, but the plan itself is settled") —
+// anchored to the same plan/grounding nouns its `not enough` sibling already uses.
 function indicatesIncomplete(text: string): boolean {
-  return /not enough (here|information|to plan)|don'?t (know|have) enough|can'?t (plan|ground this)( yet)?|still (need|gathering|waiting)|pending (confirmation|an? answer)/.test(
+  return /not enough (here|information|to plan|to ground)|don'?t (know|have) enough (here|information|to plan|to ground)|can'?t (plan|ground this)( yet)?|still (need|gathering|waiting)|pending (confirmation|an? answer)/.test(
     text,
   );
 }
@@ -175,10 +178,13 @@ export const scenarios: readonly ReplayScenario[] = [
             typeof rawClaim === 'string' ? rawClaim.toLowerCase() : '';
           const negatedReady =
             /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?ready\b/.test(claim);
+          const unnegatedBlocked =
+            /\bblocked\b/.test(claim) &&
+            !/\b(not|isn'?t|n't|wasn'?t)\s+blocked\b/.test(claim);
           return (
             /\bready\b/.test(claim) &&
             !negatedReady &&
-            !/\bblocked\b/.test(claim) &&
+            !unnegatedBlocked &&
             !indicatesIncomplete(claim)
           );
         },
