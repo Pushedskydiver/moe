@@ -1,0 +1,21 @@
+{
+  "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
+  "personaId": "maya",
+  "callSite": "confirmingQuestion",
+  "promptContentHash": "ec7e40731acc4f48e4ead4ff140a4cf3db7c1e593e92aefd0af772e09b934e41",
+  "scenarioInputHash": "6de0b9943139d9ddc4ae9c6d2d3b3dd6236159147ada923333564ab1130272c9",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T16:56:15.804Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 52,
+  "result": {
+    "ok": true,
+    "questionLeadIn": "\"Could probably use some love at some point\" doesn't tell me which empty states or what's actually wrong with them right now.",
+    "usage": {
+      "inputTokens": 91,
+      "outputTokens": 52,
+      "cacheCreationInputTokens": 5039,
+      "cacheReadInputTokens": 0
+    }
+  }
+}
