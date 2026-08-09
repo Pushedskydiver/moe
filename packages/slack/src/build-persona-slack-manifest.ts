@@ -11,7 +11,7 @@ import { PERSONA_ROSTER } from '@moe/core';
  * Sarah's real app didn't have it and the first real `users.profile.get` call returned
  * `missing_scope` (BUILD_PLAN 2.7b); the other three config-only-reasoned scopes above rest on
  * that reasoning alone, not a similarly recorded discovery. `mpim:history` is deliberately
- * excluded — `raw-message-event.ts`'s own comment confirms Alex's app has never had it.
+ * excluded — `raw-message-event.ts`'s own comment confirms Alex's app doesn't currently have it.
  */
 export const PERSONA_SLACK_BOT_SCOPES: readonly string[] = [
   'chat:write',
@@ -42,6 +42,11 @@ export type SlackAppManifest = {
       readonly display_name: string;
       readonly always_online: boolean;
     };
+    readonly app_home: {
+      readonly home_tab_enabled: boolean;
+      readonly messages_tab_enabled: boolean;
+      readonly messages_tab_read_only_enabled: boolean;
+    };
   };
   readonly oauth_config: {
     readonly scopes: {
@@ -67,7 +72,11 @@ export type SlackAppManifest = {
  * NOT independently verified against Sarah's own real, currently-working manifest — do that via
  * `apps.manifest.export` before actually provisioning the other 7 apps, since not every scope
  * above traces to a documented discovery (only `users.profile:read` does; the rest rest on the
- * config/call-site reasoning above, unconfirmed against a real exported manifest).
+ * config/call-site reasoning above, unconfirmed against a real exported manifest). The same gap
+ * applies to `features.app_home` below: its field names are confirmed against Slack's own current
+ * docs (docs.slack.dev/reference/app-manifest), but the whole manifest hasn't been schema-checked
+ * together via a live `apps.manifest.validate` call — attempted 2026-08-09, blocked by an expired
+ * `MOE_SLACK_APP_CONFIG_TOKEN` (`invalid_auth`), not by anything wrong with the manifest itself.
  */
 export function buildPersonaSlackManifest(
   personaId: PersonaId,
@@ -83,6 +92,18 @@ export function buildPersonaSlackManifest(
       bot_user: {
         display_name: persona.displayName,
         always_online: true,
+      },
+      // All three fields set explicitly rather than relying on whatever Slack's own default
+      // happens to be (discovered live on Maya's app post-5.3b-deploy, 2026-08-09: Slack showed
+      // Alex a real, visible "Sending messages to this app has been turned off" error when he
+      // tried to DM her — an app's Messages tab defaults to read-only, which nothing in this
+      // codebase's tests or manifest generation had caught before that live deploy).
+      // `home_tab_enabled: false` since no persona implements a Home tab (no `app_home_opened`
+      // handler or `views.publish` call exists anywhere in this codebase).
+      app_home: {
+        home_tab_enabled: false,
+        messages_tab_enabled: true,
+        messages_tab_read_only_enabled: false,
       },
     },
     oauth_config: {
