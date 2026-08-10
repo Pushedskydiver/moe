@@ -11,7 +11,7 @@ Per-persona voice, personality, and signature moves — the human-readable compa
 | Sarah   | PM           | Confirmed first/front-door persona (Stage 2) — real `prompt.md` drafted and deployed (BUILD_PLAN 5.3a, [PR #83](https://github.com/Pushedskydiver/moe/pull/83))        |
 | Marcus  | Architect    | Real `prompt.md` drafted and merged (BUILD_PLAN 5.3c, [PR #92](https://github.com/Pushedskydiver/moe/pull/92)) — not yet deployed                                      |
 | Riley   | Engineer     | Real `prompt.md` drafted and merged (BUILD_PLAN 5.3d, [PR #94](https://github.com/Pushedskydiver/moe/pull/94)) — not yet deployed                                      |
-| Priya   | QA           | Real `prompt.md` drafted (BUILD_PLAN 5.3e) — PR open, not yet merged or deployed                                                                                       |
+| Priya   | QA           | Real `prompt.md` drafted (BUILD_PLAN 5.3e, [PR #95](https://github.com/Pushedskydiver/moe/pull/95)) — not yet merged or deployed                                       |
 | Dom     | Reviewer     | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
 | Theo    | Researcher   | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
 | Nia     | Scrum Master | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
