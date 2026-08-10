@@ -1,0 +1,22 @@
+{
+  "scenarioId": "uncertain-finding-still-raised",
+  "personaId": "priya",
+  "callSite": "dmReply",
+  "promptContentHash": "e4323bc0ca486f287c4f8c83ba1844b6198c2e139df1fc1da5a4736cde222e72",
+  "scenarioInputHash": "ec9e1bda0517ea37ecf453de40724a755ed0e26dc4e45bce4e55116e5f5db741",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-10T03:11:24.336Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 450,
+  "result": {
+    "ok": true,
+    "reply": "Stale after saving an edit — stale in what sense? Same search-results page not refreshing until they reload, or a genuinely different/old value showing up even after a refresh?\n\nThat distinguishes a caching/indexing lag (real bug, probably) from just not having refreshed the page (not a bug). Worth going back to the user for that one detail before it's worth writing up.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 123,
+      "outputTokens": 450,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5794
+    }
+  }
+}

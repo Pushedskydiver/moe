@@ -55,7 +55,7 @@ function buildGenericTemplate(personaId: PersonaId): string {
  * `buildGenericTemplate` exists to convey (e.g. its "Reasoning discipline" section already
  * instructs the `report_status`-tool-routing behavior above), so layering the two would be
  * redundant, not additive. Still falls back to `buildGenericTemplate`, unchanged from before this
- * chunk, for the 7 personas without a `prompt.md` yet — each one's own 5.3 sub-chunk lights this
+ * chunk, for any persona without a `prompt.md` yet — each one's own 5.3 sub-chunk lights this
  * up automatically the day its `prompt.md` merges, no further wiring needed. Wraps the result via
  * `buildCachedSystemBlocks` (BUILD_PLAN 5.3a-ii) so the (potentially large, always static per
  * persona) content is eligible for Anthropic prompt caching. `logger`, when given, is forwarded

@@ -1,0 +1,22 @@
+{
+  "scenarioId": "confident-explanation-is-a-claim-to-check",
+  "personaId": "priya",
+  "callSite": "dmReply",
+  "promptContentHash": "e4323bc0ca486f287c4f8c83ba1844b6198c2e139df1fc1da5a4736cde222e72",
+  "scenarioInputHash": "aea1bc1f14b8cf57a9a31a3b0dd7110e9726bcc8fbecf7b373433e65048fc942",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-10T03:10:52.028Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 789,
+  "result": {
+    "ok": true,
+    "reply": "Retrying after a timeout isn't the same as it \"can't time out\" — it just gets another 30s shot at the same slow operation. If the original timeout was caused by something that's slow every time (large export, big dataset) rather than a one-off network blip, the retry hits the same wall and times out again, just later.\n\nWhat was the actual root cause of the original timeout? And is there a cap on retries, or does it keep going indefinitely if every attempt times out?",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 113,
+      "outputTokens": 789,
+      "cacheCreationInputTokens": 5794,
+      "cacheReadInputTokens": 0
+    }
+  }
+}

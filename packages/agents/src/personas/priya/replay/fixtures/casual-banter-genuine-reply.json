@@ -1,0 +1,22 @@
+{
+  "scenarioId": "casual-banter-genuine-reply",
+  "personaId": "priya",
+  "callSite": "dmReply",
+  "promptContentHash": "e4323bc0ca486f287c4f8c83ba1844b6198c2e139df1fc1da5a4736cde222e72",
+  "scenarioInputHash": "981e34b7fef712a0a5fe521e3c6bcb16a26a2d51056afbdfe582189ee4e3c06e",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-10T03:11:41.614Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 60,
+  "result": {
+    "ok": true,
+    "reply": "Going alright — nothing on fire so far. What's up, you got something brewing or just checking in?",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 79,
+      "outputTokens": 60,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5794
+    }
+  }
+}
