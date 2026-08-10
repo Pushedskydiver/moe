@@ -100,7 +100,7 @@ describe('composeTicketDraftAndRecordUsage', () => {
   });
 
   it('sends only the draft task instructions (unchanged from before this chunk) for a persona without a prompt.md yet', async () => {
-    const deps = withMessagesWrapper(makeDeps({ personaId: 'priya' }));
+    const deps = withMessagesWrapper(makeDeps({ personaId: 'theo' }));
 
     await composeTicketDraftAndRecordUsage(deps as never, {
       text: 'anything',

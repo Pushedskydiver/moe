@@ -1,0 +1,22 @@
+{
+  "scenarioId": "ticket-draft-restates-plainly",
+  "personaId": "priya",
+  "callSite": "ticketDraft",
+  "promptContentHash": "e4323bc0ca486f287c4f8c83ba1844b6198c2e139df1fc1da5a4736cde222e72",
+  "scenarioInputHash": "fcdcbb0976329cb23f26ec97c20124047dbde7625f476c0b71c92fecbf890e37",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-10T03:11:44.714Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 71,
+  "result": {
+    "ok": true,
+    "title": "Duplicate rows when filtering search results by tag",
+    "body": "Filtering the search results page by tag shows the same row appearing two or three times. Need to look into why duplicates appear under tag filtering.",
+    "usage": {
+      "inputTokens": 31,
+      "outputTokens": 71,
+      "cacheCreationInputTokens": 5716,
+      "cacheReadInputTokens": 0
+    }
+  }
+}
