@@ -133,7 +133,7 @@ function toComposeTicketDraftError(
  * (BUILD_PLAN 5.3a-ii) — omitted, `DRAFT_SYSTEM_PROMPT`'s own text is unchanged from before that
  * chunk, though the wire-level request shape isn't byte-for-byte identical even then: `system`
  * is now always a cached-block array (DA review), not a plain string, for every persona including
- * the 7 without a `prompt.md` yet. `usage`'s two cache fields are populated whenever the response
+ * whichever ones don't have a `prompt.md` yet. `usage`'s two cache fields are populated whenever the response
  * actually cached anything; `sonnetCostUsdMicros` prices them the same way it already does for
  * the DM reply path.
  */

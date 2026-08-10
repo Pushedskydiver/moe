@@ -12,16 +12,17 @@ import { fileURLToPath } from 'node:url';
  * `"files": ["dist"]` declaration instead of depending on the Dockerfile happening to ship more
  * than that (BUILD_PLAN 5.3a-ii).
  *
- * Returns `undefined`, never throws, on any read failure — including the 7 personas with no
+ * Returns `undefined`, never throws, on any read failure — including any persona with no
  * `prompt.md` yet, which every caller here treats identically to a broken copy step (fall back to
  * the existing generic default). There's no caller-relevant category to branch on between those
  * cases (`docs/CONVENTIONS.md` §Error Handling reserves `Result` for failures with more than one
  * meaningfully different outcome), so this mirrors `resolvePersonaModel`'s own bare-value shape
  * rather than wrapping defensively. `ENOENT` specifically (no `prompt.md` for this persona yet) is
- * silent, since it's expected for 7 of 8 personas on every turn — anything else (permissions, a
- * broken `dist/personas` copy in production) is a real infra regression indistinguishable from
- * "not drafted yet" by return value alone, so it's logged via the optional `logger` (DA review,
- * BUILD_PLAN 5.3a-ii PR 1) rather than masked with zero signal.
+ * silent, since it's expected on every turn for whichever personas haven't reached their own 5.3
+ * sub-chunk yet — anything else (permissions, a broken `dist/personas` copy in production) is a
+ * real infra regression indistinguishable from "not drafted yet" by return value alone, so it's
+ * logged via the optional `logger` (DA review, BUILD_PLAN 5.3a-ii PR 1) rather than masked with
+ * zero signal.
  */
 export async function fetchPersonaPromptContent(
   personaId: PersonaId,
