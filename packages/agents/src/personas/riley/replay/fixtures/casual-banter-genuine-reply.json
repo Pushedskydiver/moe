@@ -1,0 +1,22 @@
+{
+  "scenarioId": "casual-banter-genuine-reply",
+  "personaId": "riley",
+  "callSite": "dmReply",
+  "promptContentHash": "49acf694811eddf0cfafa084e7272ee8139a8e90958d76a83fea7fc884a348fb",
+  "scenarioInputHash": "981e34b7fef712a0a5fe521e3c6bcb16a26a2d51056afbdfe582189ee4e3c06e",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T20:45:53.477Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 70,
+  "result": {
+    "ok": true,
+    "reply": "Nothing on fire yet. Picking through the backlog, no active blockers. What's up?",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 79,
+      "outputTokens": 70,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4769
+    }
+  }
+}

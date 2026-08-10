@@ -1,6 +1,8 @@
 import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js';
 
+import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 
 // Grounded directly in packages/agents/src/personas/maya/prompt.md — each scenario guards one of
 // her stated, already-shipped behavioral commitments (`docs/decisions/PERSONA-REPLAY-HARNESS.md`
@@ -139,10 +141,8 @@ export const scenarios: readonly ReplayScenario[] = [
         description:
           'draft body does not claim a cause the message never stated',
         check: (fixture) => {
-          if (!fixture.result.ok || !('body' in fixture.result)) {
-            return false;
-          }
-          return !/\bcaused by\b/i.test(fixture.result.body);
+          const body = ticketDraftBody(fixture);
+          return body !== undefined && !/\bcaused by\b/i.test(body);
         },
       },
     ],
@@ -163,11 +163,14 @@ export const scenarios: readonly ReplayScenario[] = [
       {
         description:
           'lead-in is non-empty and does not restate a fixed reaction trailer itself',
-        check: (fixture) =>
-          fixture.result.ok &&
-          'questionLeadIn' in fixture.result &&
-          fixture.result.questionLeadIn.trim().length > 0 &&
-          !/👍|👎/.test(fixture.result.questionLeadIn),
+        check: (fixture) => {
+          const leadIn = confirmingQuestionLeadIn(fixture);
+          return (
+            leadIn !== undefined &&
+            leadIn.trim().length > 0 &&
+            !/👍|👎/.test(leadIn)
+          );
+        },
       },
     ],
   },

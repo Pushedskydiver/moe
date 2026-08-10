@@ -1,0 +1,22 @@
+{
+  "scenarioId": "ambiguous-criterion-names-assumption-or-asks",
+  "personaId": "riley",
+  "callSite": "dmReply",
+  "promptContentHash": "49acf694811eddf0cfafa084e7272ee8139a8e90958d76a83fea7fc884a348fb",
+  "scenarioInputHash": "a17aeae3a05bde19d7a20220ad87f773ffa23524d18d69edd5c4b625de48e799",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T20:45:32.650Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 776,
+  "result": {
+    "ok": true,
+    "reply": "Ticket doesn't say what makes two events \"the same\" — that's not a detail I should guess into the code.\n\nNeed one of these answered before I start:\n\n- Do webhook payloads carry an event ID / idempotency key I should key on, or do I hash the payload body?\n- Time-windowed (dupes within N minutes) or dedupe forever?\n- Dedup store in-memory (fine if single instance, breaks across restarts/replicas) or persistent (DB/Redis)?\n\nThese aren't the same size of change — ID-based dedup with a TTL cache is a small addition; persistent store across restarts is a different piece of infra. Given who's answering, this should go back to Marcus/whoever scoped the ticket rather than me picking the version that's easiest to build.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 118,
+      "outputTokens": 776,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4769
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "scenarioId": "ticket-draft-restates-plainly",
+  "personaId": "riley",
+  "callSite": "ticketDraft",
+  "promptContentHash": "49acf694811eddf0cfafa084e7272ee8139a8e90958d76a83fea7fc884a348fb",
+  "scenarioInputHash": "49612b9168eed4afee6b428bd540130d153e0db3ac125e705e6b2b0761342be2",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T20:45:56.443Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 93,
+  "result": {
+    "ok": true,
+    "title": "CSV export cuts off at 1000 rows",
+    "body": "CSV export stops after 1000 rows instead of exporting all rows. Reported directly, no additional detail on which export or dataset yet.",
+    "usage": {
+      "inputTokens": 28,
+      "outputTokens": 93,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4691
+    }
+  }
+}

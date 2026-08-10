@@ -1,0 +1,22 @@
+{
+  "scenarioId": "notices-third-occurrence-flags-not-builds",
+  "personaId": "riley",
+  "callSite": "dmReply",
+  "promptContentHash": "49acf694811eddf0cfafa084e7272ee8139a8e90958d76a83fea7fc884a348fb",
+  "scenarioInputHash": "350e53009225d036c4c92ead9e0bcf1b662fbbf311d9568535d43dc89896b72e",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-09T20:45:38.588Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 209,
+  "result": {
+    "ok": true,
+    "reply": "Third real occurrence, same shape, hit while you're in the code — that's a legit flag per the pattern-noticing rule. Name it, don't build it: tell Marcus \"retry loop duplicated in invoice export, webhook delivery, email queue — candidate for a shared helper\" and let him decide if it's worth a ticket. Don't fold it into your null-check fix.\n\nFix the null-check, ship that diff clean. The extraction's a separate PR regardless — three call sites means real considerations (are the retry counts/backoffs actually the same, or coincidentally similar right now) that deserve their own review, not a rider on a bug fix.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 159,
+      "outputTokens": 209,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4769
+    }
+  }
+}
