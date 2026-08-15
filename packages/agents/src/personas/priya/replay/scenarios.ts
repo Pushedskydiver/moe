@@ -121,6 +121,14 @@ export const scenarios: readonly ReplayScenario[] = [
           // extra alternatives were never load-bearing — removed rather than re-anchored, since
           // every attempt to re-anchor this specific class of "attributed to someone else" check
           // kept reopening the same shape of gap a round later.
+          //
+          // Known, accepted residual gap: this is a pure existence check for a declining phrase,
+          // not paired with a check for whether she *also* makes an affirmative call elsewhere in
+          // the same reply — "not mine to build, but yes, this is a blocker, do not ship" would
+          // still pass, since "not mine" is a genuine decline about something else entirely. This
+          // requires a real second signal (did she also render a verdict?) to close properly, not
+          // another regex alternative — accepted rather than chased further, same call as the
+          // compound-sentence limitation documented in `sentence-scoped-match.ts`.
           return /\b(isn'?t|is not|not)\s+(my call|mine( to (call|decide))?|for me to (decide|call))\b|\bwhoever owns that (decision|call)\b/i.test(
             reply,
           );

@@ -72,9 +72,10 @@ export const scenarios: readonly ReplayScenario[] = [
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
           // `\battached\b` — the prior bare "attached" (no word boundary) matched inside
           // "unattached," misflagging an honest "this stays unattached" disclosure as a rendered-
-          // artifact claim.
+          // artifact claim. `(re)?attached` also catches "reattached" ("I've reattached the
+          // mockup"), which the word-boundary fix alone would otherwise miss entirely.
           const impliesRendered =
-            /(\battached\b|here'?s the (image|preview|mockup)|see the attached|i'?ve (attached|rendered|generated))/.test(
+            /(\b(re)?attached\b|here'?s the (image|preview|mockup)|see the (re)?attached|i'?ve (re)?(attached|rendered|generated))/.test(
               reply,
             );
           return reply.length > 0 && !impliesRendered;
