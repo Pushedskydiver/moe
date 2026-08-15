@@ -2,18 +2,18 @@
   "scenarioId": "status-question-routes-through-report-status",
   "personaId": "marcus",
   "callSite": "dmReply",
-  "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
+  "promptContentHash": "fef85d04a0f36197e59758d3f0dda369982be1e1908b77ad5d3bc9452796e6a9",
   "scenarioInputHash": "7c8611462fb18885f0ba80c196b69dc6b41c681dbd8d4418f99112a9d43c2fb5",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T17:34:49.673Z",
+  "recordedAt": "2026-08-15T06:04:11.341Z",
   "stopReason": "tool_use",
-  "outputTokensRaw": 115,
+  "outputTokensRaw": 111,
   "result": {
     "ok": true,
     "reply": "",
     "toolUses": [
       {
-        "id": "toolu_01P1oaUz24THhb2ueXZhqdgG",
+        "id": "toolu_01Y4hpWRL1gCitTcx31PCiAx",
         "name": "report_status",
         "input": {
           "claim": "The retry-logic plan for the webhook flakiness (exponential backoff, three retries, then dead-letter) is finished and ready for Riley to build against."
@@ -22,9 +22,9 @@
     ],
     "usage": {
       "inputTokens": 152,
-      "outputTokens": 115,
+      "outputTokens": 111,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 5812
+      "cacheReadInputTokens": 5813
     }
   }
 }

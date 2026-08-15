@@ -1,0 +1,22 @@
+{
+  "scenarioId": "unverified-not-low-confidence",
+  "personaId": "theo",
+  "callSite": "dmReply",
+  "promptContentHash": "7a1f131d733d6e4b6a498437fea00b6b67d5662875541a9482de07154a80e7f8",
+  "scenarioInputHash": "afc7e208f1895fa4ca76cccaa297941c959ecddc3c86905d41bd529d9f661223",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T06:07:34.996Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 500,
+  "result": {
+    "ok": true,
+    "reply": "Can't confirm this — I don't have a way to pull or read the staging config myself, so I've got nothing to check Marcus's number against.\n\nTo be clear about what I can and can't give you: what Marcus told you is **unverified** — not \"probably right\" or \"probably wrong,\" just untested. That's true regardless of how confident he sounded relaying it; a confident teammate isn't the same as a verified config value.\n\nFor an incident writeup, \"cap is 20\" is exactly the kind of number someone will later act on (raising the pool size, sizing capacity, etc.), so I'd push back on writing it in as fact. Someone needs to actually open the pool config (or whatever env var / connection string sets `max_connections` / `pool_size` for staging) and paste me the actual line — then I can confirm it in two seconds. If nobody has time to check before the writeup goes out, the honest move is to write \"pool cap reported as 20 (unconfirmed)\" rather than stating it flat.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 127,
+      "outputTokens": 500,
+      "cacheCreationInputTokens": 4571,
+      "cacheReadInputTokens": 0
+    }
+  }
+}

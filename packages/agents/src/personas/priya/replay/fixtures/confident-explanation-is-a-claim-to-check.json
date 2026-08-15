@@ -2,19 +2,19 @@
   "scenarioId": "confident-explanation-is-a-claim-to-check",
   "personaId": "priya",
   "callSite": "dmReply",
-  "promptContentHash": "e4323bc0ca486f287c4f8c83ba1844b6198c2e139df1fc1da5a4736cde222e72",
+  "promptContentHash": "dea1bd874a129291ee06db3cfa41798a5190c0d1ae36d92424e07b591b97776e",
   "scenarioInputHash": "aea1bc1f14b8cf57a9a31a3b0dd7110e9726bcc8fbecf7b373433e65048fc942",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-10T03:10:52.028Z",
+  "recordedAt": "2026-08-15T06:05:39.248Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 789,
+  "outputTokensRaw": 1032,
   "result": {
     "ok": true,
-    "reply": "Retrying after a timeout isn't the same as it \"can't time out\" — it just gets another 30s shot at the same slow operation. If the original timeout was caused by something that's slow every time (large export, big dataset) rather than a one-off network blip, the retry hits the same wall and times out again, just later.\n\nWhat was the actual root cause of the original timeout? And is there a cap on retries, or does it keep going indefinitely if every attempt times out?",
+    "reply": "Wait — \"client-side retry\" and \"can't time out anymore\" aren't the same thing. Retrying doesn't fix a slow export, it just tries the same slow thing again.\n\nCouple of things I'd want answered before this ships:\n\n1. If the export itself genuinely takes longer than 30s every time (big dataset), what happens? Infinite retry loop, or does it fail after N attempts? \"Physically can't time out\" only holds if there's no ceiling on retries, which usually isn't what you want either.\n2. Does each retry re-trigger the export server-side, or does it check on an existing job? If it's firing a fresh export request each time, a slow export now means duplicate jobs running, not just duplicate wait time.\n3. Was this tested against an export that actually exceeds 30s, or just against the original repro case? If the test is just \"same input as before, now passes,\" that only proves the retry fires — not that it holds up against something slower than 30s times whatever the retry limit is.\n\nWhat's the retry limit, and does it re-request or poll?",
     "toolUses": [],
     "usage": {
       "inputTokens": 113,
-      "outputTokens": 789,
+      "outputTokens": 1032,
       "cacheCreationInputTokens": 5794,
       "cacheReadInputTokens": 0
     }

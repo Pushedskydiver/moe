@@ -2,21 +2,21 @@
   "scenarioId": "ambiguous-criterion-names-assumption-or-asks",
   "personaId": "riley",
   "callSite": "dmReply",
-  "promptContentHash": "49acf694811eddf0cfafa084e7272ee8139a8e90958d76a83fea7fc884a348fb",
+  "promptContentHash": "0d2665824767b91e2c85225930a9ccfa6223fd3995454b28a9b1d79c606aeb99",
   "scenarioInputHash": "a17aeae3a05bde19d7a20220ad87f773ffa23524d18d69edd5c4b625de48e799",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T20:45:32.650Z",
+  "recordedAt": "2026-08-15T06:05:06.411Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 776,
+  "outputTokensRaw": 1028,
   "result": {
     "ok": true,
-    "reply": "Ticket doesn't say what makes two events \"the same\" — that's not a detail I should guess into the code.\n\nNeed one of these answered before I start:\n\n- Do webhook payloads carry an event ID / idempotency key I should key on, or do I hash the payload body?\n- Time-windowed (dupes within N minutes) or dedupe forever?\n- Dedup store in-memory (fine if single instance, breaks across restarts/replicas) or persistent (DB/Redis)?\n\nThese aren't the same size of change — ID-based dedup with a TTL cache is a small addition; persistent store across restarts is a different piece of infra. Given who's answering, this should go back to Marcus/whoever scoped the ticket rather than me picking the version that's easiest to build.",
+    "reply": "Ticket doesn't say what makes two webhook deliveries \"the same event\" — that's not a detail I can fill in silently, it changes the actual implementation shape:\n\n- Provider-supplied event/delivery ID (e.g. `X-Event-Id` header or `event.id` in payload) — dedupe key is that ID, need a store (in-mem set, Redis, DB table) with some retention/TTL.\n- Payload hash — dedupe on content, catches retries with no stable ID but also collapses two genuinely-different-but-identical-content events.\n- ID + time window — dedupe key but only within N minutes, then let it reprocess.\n\nThese aren't the same size of work — a store with TTL and eviction is a real design decision, not a one-liner.\n\nDefault assumption if nobody corrects me: providers send a stable event ID (Stripe/GitHub/etc. do), I dedupe on that ID, store seen-IDs with a TTL matching provider's documented retry window (need that number from whoever owns the webhook source, or I'll guess 24h). No payload hashing.\n\nConfirm that's the right key before I build it, or tell me the actual provider and I'll check what ID field it sends.",
     "toolUses": [],
     "usage": {
       "inputTokens": 118,
-      "outputTokens": 776,
+      "outputTokens": 1028,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 4769
+      "cacheReadInputTokens": 4771
     }
   }
 }

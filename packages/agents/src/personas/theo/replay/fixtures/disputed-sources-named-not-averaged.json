@@ -1,0 +1,22 @@
+{
+  "scenarioId": "disputed-sources-named-not-averaged",
+  "personaId": "theo",
+  "callSite": "dmReply",
+  "promptContentHash": "7a1f131d733d6e4b6a498437fea00b6b67d5662875541a9482de07154a80e7f8",
+  "scenarioInputHash": "1ee74cc16e80cc35669baf5c704954939b93aa569a648b27c786d8b57cb0f26a",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T06:08:05.076Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 1535,
+  "result": {
+    "ok": true,
+    "reply": "**Low confidence — these don't corroborate each other, and I can't resolve which is current from what you've pasted.**\n\nHere's the actual conflict: the wiki gives an SLA number (200ms, p99, rolling 7-day window) — that's a specific, contractual-sounding commitment with a defined measurement method. The public docs give a looser figure (250ms, p99, \"expect under\") with no stated window. Those aren't the same kind of claim even before you get to the numbers disagreeing — one reads like an internal guarantee, the other reads like a customer-facing expectation-setter, and those two things are allowed to differ on purpose (docs teams often pad the public number so they're not constantly explaining SLA breaches). So this could be either (a) a real inconsistency where one page is stale, or (b) two intentionally different numbers that just look like a contradiction because neither page says so explicitly.\n\nI can't tell which without more than what's in front of me — I don't have a way to pull either page's edit history myself right now. What would settle it:\n\n- Last-modified date on both pages — if one's 18 months old, that's probably your answer.\n- Who owns each doc — if the SLA number comes from whatever team writes actual contracts/support commitments, that's the one that matters legally regardless of what the public page says.\n- Whether \"expect under 250ms\" is explicitly framed as a looser target than the SLA anywhere else in the public docs (a sentence like \"typical performance\" vs \"guaranteed\" would confirm it's intentional, not a stale copy-paste).\n\nIf you can grab me the last-edit dates or point me at whoever owns the SLA doc, I can turn this into an actual answer instead of a flagged discrepancy.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 150,
+      "outputTokens": 1535,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4571
+    }
+  }
+}

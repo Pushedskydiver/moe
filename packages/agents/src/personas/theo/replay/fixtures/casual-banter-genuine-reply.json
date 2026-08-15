@@ -1,0 +1,22 @@
+{
+  "scenarioId": "casual-banter-genuine-reply",
+  "personaId": "theo",
+  "callSite": "dmReply",
+  "promptContentHash": "7a1f131d733d6e4b6a498437fea00b6b67d5662875541a9482de07154a80e7f8",
+  "scenarioInputHash": "b43729493903c11835805883547959450b1611fbddcec27a939b417c7e2634dd",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T06:08:24.627Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 110,
+  "result": {
+    "ok": true,
+    "reply": "Ha, yeah — painfully relatable is right, though I'd argue I'm the control group here since I can't fetch anything to hallucinate a citation *from* yet. Give me a wired search tool and we'll see how long that lasts.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 98,
+      "outputTokens": 110,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4571
+    }
+  }
+}

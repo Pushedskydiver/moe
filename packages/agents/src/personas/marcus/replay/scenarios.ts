@@ -33,7 +33,15 @@ import { usedTool } from '../../../persona-replay/used-tool.js';
 // detail on an otherwise-firm "ready" (fine, shouldn't fail) or make the readiness itself
 // contingent on a future event ("ready once confirmed... before this is final" — not actually
 // ready, should fail); `impliesConditionalReadiness` targets that second shape specifically,
-// narrower than a full incompleteness scan.
+// narrower than a full incompleteness scan. R8 (BUILD_PLAN 5.3g, a re-record triggered by an
+// unrelated fix elsewhere in this prompt) found the report_status assertion had an unstated
+// assumption baked in: that finishing a complete plan must always also emit a status claim
+// through the tool. His own prompt.md's instruction is conditional ("if you want to tell someone
+// a plan is... ready to hand off"), not a requirement — a real recording answered "plan it" with
+// a complete plan and no report_status call at all, which the assertion then failed purely for
+// lacking a tool call, not for anything actually wrong with the reply. Fixed by adding a no-call
+// branch that passes as long as the free-prose reply doesn't itself assert an ungated "ready"
+// claim outside the tool — the actual property this assertion exists to guard, per R7 above.
 const OPENING_WINDOW_CHARS = 200;
 
 function opensWithIncompleteness(text: string): boolean {
@@ -50,6 +58,24 @@ function opensWithIncompleteness(text: string): boolean {
 function impliesConditionalReadiness(claim: string): boolean {
   return /\b(once|after|when)\s+(confirmed|finalized|riley'?s?\s+(answer|confirmation))\b|before (this|it) (is|'s) final|not yet final/.test(
     claim,
+  );
+}
+
+// R8 (BUILD_PLAN 5.3g): extracted from the report_status assertion's own check callback purely to
+// keep its cyclomatic complexity under the repo's lint threshold once the no-tool-call branch was
+// added — same logic, not a behavior change.
+function isGenuineReadyClaim(claim: string): boolean {
+  const negatedReady = /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?ready\b/.test(
+    claim,
+  );
+  const unnegatedBlocked =
+    /\bblocked\b/.test(claim) &&
+    !/\b(not|isn'?t|n't|wasn'?t)\s+blocked\b/.test(claim);
+  return (
+    /\bready\b/.test(claim) &&
+    !negatedReady &&
+    !unnegatedBlocked &&
+    !impliesConditionalReadiness(claim)
   );
 }
 
@@ -208,23 +234,25 @@ export const scenarios: readonly ReplayScenario[] = [
             (use) => use.name === 'report_status',
           );
           if (!statusCall) {
-            return false;
+            // No status claim was made at all — his prompt's own instruction is conditional
+            // ("if you want to tell someone a plan is done... ready to hand off... route it
+            // through report_status"), not a requirement that finishing a plan must always also
+            // emit a separate readiness ping. That's fine, as long as the free-prose reply
+            // doesn't itself assert an ungated "ready" claim outside the tool — which is the
+            // actual thing this assertion guards against, per the R7 fix this scenario's own
+            // header comment documents.
+            const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
+            const assertsReadyInProse =
+              /\b(this (plan )?is ready|ready to hand off|plan'?s ready)\b/.test(
+                reply,
+              );
+            return !assertsReadyInProse;
           }
           const rawClaim = (statusCall.input as { claim?: unknown } | undefined)
             ?.claim;
           const claim =
             typeof rawClaim === 'string' ? rawClaim.toLowerCase() : '';
-          const negatedReady =
-            /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?ready\b/.test(claim);
-          const unnegatedBlocked =
-            /\bblocked\b/.test(claim) &&
-            !/\b(not|isn'?t|n't|wasn'?t)\s+blocked\b/.test(claim);
-          return (
-            /\bready\b/.test(claim) &&
-            !negatedReady &&
-            !unnegatedBlocked &&
-            !impliesConditionalReadiness(claim)
-          );
+          return isGenuineReadyClaim(claim);
         },
       },
       {

@@ -2,21 +2,21 @@
   "scenarioId": "declining-acknowledges-before-landing-the-no",
   "personaId": "sarah",
   "callSite": "dmReply",
-  "promptContentHash": "dde2aee73e6151cd049d939da59ac77ac0518930182288eebacba17db59221d6",
+  "promptContentHash": "a7d001342ba7b3a20b94b51c08ee89c066757ef63b6806640d2bfa558c013eef",
   "scenarioInputHash": "0f3ce5c42863a1cb0ccf438fe28f817ed0d59997b10920861689d39118b458c5",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T16:53:51.370Z",
+  "recordedAt": "2026-08-15T06:02:50.543Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 645,
+  "outputTokensRaw": 385,
   "result": {
     "ok": true,
-    "reply": "Not doing that. Skipping review isn't a time-savings call, it's a risk call — if something breaks on main with no second set of eyes, that costs way more than the review would've.\n\nWhat's actually driving the time crunch? If it's a deadline, let's get someone to do a fast look instead of no look — even 10 minutes on the diff beats zero.",
+    "reply": "Skipping review isn't mine to sign off on — and even if it were, \"no time\" isn't a reason to skip it, it's a reason we should specifically not skip it right before a deadline. That gate exists to catch stuff nobody wants to find in prod at 2am.\n\nIf it's genuinely urgent, get someone to do a fast pass instead of no pass — I can go grab Marcus or Priya right now for a quick look. What's actually in the PR?",
     "toolUses": [],
     "usage": {
       "inputTokens": 97,
-      "outputTokens": 645,
+      "outputTokens": 385,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 3343
+      "cacheReadInputTokens": 3302
     }
   }
 }

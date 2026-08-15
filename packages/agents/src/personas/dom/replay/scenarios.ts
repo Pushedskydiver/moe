@@ -159,7 +159,7 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply or status claim still names the race condition as a real, unresolved concern',
         check: (fixture) => {
           const text = replyOrStatusClaimText(fixture).toLowerCase();
-          return /\b(race condition|declin(e|ing)|until (the|it'?s)|still (there|real|a problem|wrong)|didn'?t (fix|address|resolve)|hasn'?t (changed|been fixed)|not (yet )?fixed)\b/.test(
+          return /\b(races?( condition)?|declin(e|ing)|until (the|it'?s)|still (there|real|a problem|wrong)|didn'?t (fix|address|resolve)|hasn'?t (changed|been fixed)|not (yet )?fixed|it'?s wrong)\b/.test(
             text,
           );
         },

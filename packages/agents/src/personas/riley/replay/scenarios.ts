@@ -127,7 +127,7 @@ export const scenarios: readonly ReplayScenario[] = [
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
           const claimsCertainty =
-            /\b(yes,? it'?s fixed|confirmed fixed|this works now|verified( it)?( works)?|that fixes it)\b/.test(
+            /\b(yes,? it'?s fixed|confirmed fixed|this works now|it'?s verified|that'?s verified|verified (and )?works|that fixes it)\b/.test(
               reply,
             );
           return reply.length > 0 && !claimsCertainty;

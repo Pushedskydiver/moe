@@ -43,30 +43,30 @@ describe('buildPersonaSystemPrompt', () => {
 
   describe('when the persona has no prompt.md yet (placeholder fallback)', () => {
     it('names the given persona, capitalized, as its identity in this context', async () => {
-      const blocks = await buildPersonaSystemPrompt('theo');
+      const blocks = await buildPersonaSystemPrompt('nia');
       const text = blocks[0]?.text ?? '';
 
-      expect(text.toLowerCase()).toContain('theo');
-      expect(text).toContain('Theo');
+      expect(text.toLowerCase()).toContain('nia');
+      expect(text).toContain('Nia');
     });
 
     it('produces a different prompt per persona, not a shared hardcoded name', async () => {
-      const theo = await buildPersonaSystemPrompt('theo');
+      const nia = await buildPersonaSystemPrompt('nia');
       const dom = await buildPersonaSystemPrompt('dom');
 
-      expect(theo[0]?.text).not.toEqual(dom[0]?.text);
+      expect(nia[0]?.text).not.toEqual(dom[0]?.text);
       expect(dom[0]?.text).toContain('Dom');
     });
 
     it("tells the model not to correct someone who uses its name — doesn't deny the persona identity", async () => {
-      const blocks = await buildPersonaSystemPrompt('theo');
+      const blocks = await buildPersonaSystemPrompt('nia');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain('no need to correct');
     });
 
     it('does not claim a defined personality or voice — that stays Stage 5', async () => {
-      const blocks = await buildPersonaSystemPrompt('theo');
+      const blocks = await buildPersonaSystemPrompt('nia');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain("don't have a defined personality or voice");
@@ -75,14 +75,14 @@ describe('buildPersonaSystemPrompt', () => {
     });
 
     it('does not claim to have or lack memory of past conversations — that depends on what history the caller forwards, not a static claim in the prompt', async () => {
-      const blocks = await buildPersonaSystemPrompt('theo');
+      const blocks = await buildPersonaSystemPrompt('nia');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).not.toContain('memory');
     });
 
     it('instructs the model to call report_status for a status claim rather than stating it directly (BUILD_PLAN 2.5)', async () => {
-      const blocks = await buildPersonaSystemPrompt('theo');
+      const blocks = await buildPersonaSystemPrompt('nia');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain('report_status');

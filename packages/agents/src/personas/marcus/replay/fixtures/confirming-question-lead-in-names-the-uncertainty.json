@@ -2,20 +2,20 @@
   "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
   "personaId": "marcus",
   "callSite": "confirmingQuestion",
-  "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
+  "promptContentHash": "fef85d04a0f36197e59758d3f0dda369982be1e1908b77ad5d3bc9452796e6a9",
   "scenarioInputHash": "0fec6e944138c859289103d53790b370963fecc2b57f81e50b5347676364053f",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T17:35:26.977Z",
+  "recordedAt": "2026-08-15T06:04:45.630Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 148,
+  "outputTokensRaw": 104,
   "result": {
     "ok": true,
-    "questionLeadIn": "\"Could probably be more robust at some point\" doesn't tell me what's actually failing or when this needs to happen — no specific incident, ticket, or deadline attached.",
+    "questionLeadIn": "No specific failure or timeline here, just a general sense the pipeline could be sturdier — not sure yet if that's a concrete ask or just a passing observation.",
     "usage": {
       "inputTokens": 103,
-      "outputTokens": 148,
-      "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 5855
+      "outputTokens": 104,
+      "cacheCreationInputTokens": 5856,
+      "cacheReadInputTokens": 0
     }
   }
 }

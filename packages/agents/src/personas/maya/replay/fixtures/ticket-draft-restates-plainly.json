@@ -2,19 +2,19 @@
   "scenarioId": "ticket-draft-restates-plainly",
   "personaId": "maya",
   "callSite": "ticketDraft",
-  "promptContentHash": "ec7e40731acc4f48e4ead4ff140a4cf3db7c1e593e92aefd0af772e09b934e41",
+  "promptContentHash": "41f010c3002de1b7bbfb0c917c98f00e296f217a4da89c492d8050398aa590c8",
   "scenarioInputHash": "1bd31f3f27dfa216c71e55e4a0e22c997a90db3cb1b093b83039cc8a06d2bf48",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T16:56:12.109Z",
+  "recordedAt": "2026-08-15T06:03:30.946Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 90,
+  "outputTokensRaw": 102,
   "result": {
     "ok": true,
     "title": "Mobile nav overlaps search bar under 375px",
-    "body": "On screens narrower than 375px, the mobile nav overlaps the search bar. Needs a layout fix for that breakpoint.",
+    "body": "On screens narrower than 375px, the mobile nav overlaps the search bar. Needs a layout fix so the two don't collide at that width.",
     "usage": {
       "inputTokens": 27,
-      "outputTokens": 90,
+      "outputTokens": 102,
       "cacheCreationInputTokens": 4918,
       "cacheReadInputTokens": 0
     }

@@ -1,0 +1,22 @@
+{
+  "scenarioId": "ticket-draft-restates-plainly",
+  "personaId": "theo",
+  "callSite": "ticketDraft",
+  "promptContentHash": "7a1f131d733d6e4b6a498437fea00b6b67d5662875541a9482de07154a80e7f8",
+  "scenarioInputHash": "7ac3158af5c621b1feff9e5284ff48017ac4aab9ad235bb6a648396f8f548a02",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T06:08:27.298Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 66,
+  "result": {
+    "ok": true,
+    "title": "Citation checker hangs on large PDFs",
+    "body": "The citation checker script times out on large PDFs — it just hangs with no error message. Currently have to manually kill the process and retry.",
+    "usage": {
+      "inputTokens": 41,
+      "outputTokens": 66,
+      "cacheCreationInputTokens": 4493,
+      "cacheReadInputTokens": 0
+    }
+  }
+}
