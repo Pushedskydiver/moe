@@ -112,11 +112,16 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply explicitly declines to make the block/no-block call herself',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          // Requires either a negated first-person claim ("not my call"/"not mine") or
-          // attribution to a specific named teammate — a bare "is [anything] call" (the prior
-          // version of this regex) matched "it is my call" identically to "is Sarah's call,"
-          // false-passing a reply that claims the call as her own.
-          return /\b(isn'?t|is not|not)\s+(my call|mine( to (call|decide))?|for me to (decide|call))\b|\bwhoever owns that (decision|call)\b|\b(sarah|alex|marcus|riley|dom|nia|maya|theo)'?s\s+(call|decision|to decide)\b/i.test(
+          // Deliberately narrow to the negated-first-person forms ("not my call"/"not mine")
+          // plus "whoever owns that call" — two prior, broader versions of this regex (a bare
+          // "is [anything] call", then a named-teammate allowlist with no anchor requiring a
+          // declining context) each independently false-passed a reply that plainly claims the
+          // call as her own. The real recorded transcript ("...not mine, but they should have
+          // the repro steps...") is fully covered by the negated-first-person form alone, so the
+          // extra alternatives were never load-bearing — removed rather than re-anchored, since
+          // every attempt to re-anchor this specific class of "attributed to someone else" check
+          // kept reopening the same shape of gap a round later.
+          return /\b(isn'?t|is not|not)\s+(my call|mine( to (call|decide))?|for me to (decide|call))\b|\bwhoever owns that (decision|call)\b/i.test(
             reply,
           );
         },
@@ -183,17 +188,20 @@ export const scenarios: readonly ReplayScenario[] = [
           "reply's own language does not repeat or endorse blame framed at Riley personally",
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          // Sentence-scoped with a question-mark/questioning-language negation — the reply can
-          // legitimately quote the user's own blame-laden phrase back to question it ("'Riley
-          // messed up again' — has this come up before... or is that just how it reads today?")
-          // without endorsing it; a bare substring match can't distinguish quoting from asserting.
-          // A bare "?" is too broad — a run-on sentence that repeats the blame and tacks on an
-          // unrelated trailing question would slip through. Requires actual questioning content
-          // in the same sentence, not just a question mark anywhere in it.
+          // Sentence-scoped with a questioning-language negation — the reply can legitimately
+          // quote the user's own blame-laden phrase back to question it ("'Riley messed up
+          // again' — has this come up before... or is that just how it reads today?") without
+          // endorsing it; a bare substring match can't distinguish quoting from asserting.
+          // Deliberately narrow to the two phrases the real transcript actually needs ("come up
+          // before", "is that (just) how") — two broader attempts each independently
+          // false-passed a genuine blame statement: a bare "?" matched any trailing question
+          // mark regardless of content, and a follow-up fix's own "worth knowing"/unanchored
+          // "or is" alternatives matched unrelated on-topic vocabulary ("the validator is...").
+          // Removed rather than re-patched, since neither was load-bearing for the real case.
           const blamesPersonally = hasSentenceScopedMatch(
             reply,
             /\briley('?s)? (messed up|mistake|got (it|this) wrong|screwed up|fault)\b/,
-            /come up before|is that (just )?how|worth knowing|or is\b/,
+            /come up before|is that (just )?how/,
           );
           return reply.length > 0 && !blamesPersonally;
         },
