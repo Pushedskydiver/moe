@@ -2,20 +2,20 @@
   "scenarioId": "ticket-draft-restates-plainly",
   "personaId": "dom",
   "callSite": "ticketDraft",
-  "promptContentHash": "1fd0bd1a85a2998f824b0b1e2fecc9c62bac1540d0d9d42f826938fc27de51d8",
+  "promptContentHash": "9b74c25a8119e046b1d365a23b77fa8701062fef47f6659f65487e7c7f66a6b7",
   "scenarioInputHash": "52211c60f96104f80d923a879ce5035e5c15b4d36e256f3c563b65ac021622f0",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T02:56:13.635Z",
+  "recordedAt": "2026-08-15T03:17:41.382Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 66,
+  "outputTokensRaw": 75,
   "result": {
     "ok": true,
     "title": "Approve button sometimes does nothing on click",
-    "body": "On the review page, clicking the approve button sometimes results in no action and no error. Refreshing the page and trying again resolves it.",
+    "body": "On the review page, clicking the approve button sometimes has no effect — no error is shown, it just doesn't respond. Requires a page refresh before trying again.",
     "usage": {
       "inputTokens": 43,
-      "outputTokens": 66,
-      "cacheCreationInputTokens": 5560,
+      "outputTokens": 75,
+      "cacheCreationInputTokens": 5592,
       "cacheReadInputTokens": 0
     }
   }
