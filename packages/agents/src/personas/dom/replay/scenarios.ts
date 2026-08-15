@@ -1,41 +1,15 @@
-import type { ReplayFixture } from '../../../persona-replay/replay-fixture.js';
 import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js';
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
+import { replyOrStatusClaimText } from './report-status-claim.js';
 
 // Grounded directly in packages/agents/src/personas/dom/prompt.md — each scenario guards one of
 // his stated, already-shipped behavioral commitments (`docs/decisions/PERSONA-REPLAY-HARNESS.md`
 // decision 9), not a synthetic schema-shaped case. Several guard fixes that landed specifically
 // during this chunk's two-phase spec-grill (the plan-vs-build acceptance-criteria loophole, the
 // deadline-invariance gap, the bare-authority-claim gap) rather than only the first-draft text.
-
-// A status-claim-flavored input ("can you approve it") can legitimately route through
-// `report_status` instead of free prose (§Reasoning discipline) — a scenario testing that kind of
-// input needs to read the claim text wherever the model actually put it, not assume `dmReply`.
-function reportStatusClaim(fixture: ReplayFixture): string | undefined {
-  if (!fixture.result.ok || !('toolUses' in fixture.result)) return undefined;
-  const call = fixture.result.toolUses.find(
-    (use) => use.name === 'report_status',
-  );
-  const input = call?.input;
-  if (
-    typeof input === 'object' &&
-    input !== null &&
-    'claim' in input &&
-    typeof input.claim === 'string'
-  ) {
-    return input.claim;
-  }
-  return undefined;
-}
-
-function replyOrStatusClaimText(fixture: ReplayFixture): string {
-  return (
-    (dmReplyText(fixture)?.trim() || reportStatusClaim(fixture)?.trim()) ?? ''
-  );
-}
 export const scenarios: readonly ReplayScenario[] = [
   {
     id: 'unflagged-deviation-meeting-criteria-still-a-finding',
@@ -110,7 +84,7 @@ export const scenarios: readonly ReplayScenario[] = [
           'the actual diff or code, not the explanation — is what settles it',
         check: (fixture) => {
           const text = replyOrStatusClaimText(fixture).toLowerCase();
-          return /\b(declin(e|ing)|before (reviewing|approving|looking)|hasn'?t (looked|checked|reviewed|seen)|need(s|ed)? (to see|the )?(actual )?(diff|code)|asking for|verbal assurance|not (the|based on) (a )?(claim|assurance)\b)/.test(
+          return /\b(declin(e|ing)|before (reviewing|approving|looking)|haven'?t seen|hasn'?t (looked|checked|reviewed|seen)|need(s|ed)? (to see|the )?(actual )?(diff|code|pr)|not the (thing|check)|paste (it|that|the)|link it|go through it|asking for|verbal assurance|not (the|based on) (a )?(claim|assurance)\b)/.test(
             text,
           );
         },
@@ -148,7 +122,7 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply asks for the actual thing to check, rather than taking the bare claim at face value',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          return /\b(what changed|what did you (check|find)|why|what makes|how (did|do) you know|what'?s different|actual code|the diff|paste (it|that|the)|show me|need to see|let me see|need (the )?(actual )?(code|diff|lines))\b/.test(
+          return /\b(what changed|what did you (check|find)|why|what made|what makes|how (did|do) you know|what'?s different|point me at|actual (code|line|path)|the diff|paste (it|that|the)|show me|need to see|let me see|need (the )?(actual )?(code|diff|lines)|re-?rule (it )?out|isn'?t something (i|I) can (approve|act on)|not something (i|I) can (approve|act on)|approve against)\b/.test(
             reply,
           );
         },
@@ -201,14 +175,20 @@ export const scenarios: readonly ReplayScenario[] = [
       'a minor, non-blocking style preference attached does not get held up over that preference.',
     input: {
       text:
-        'quick check before I merge — the rate-limit fix looks solid, handles the retry-storm case ' +
-        "correctly and has a test for it. only thing is the new function is named 'checkLimit' " +
-        "instead of matching the 'isXValid' naming the rest of the file uses. good to merge?",
+        'quick check before I merge — the rate-limit fix:\n' +
+        '```\n' +
+        'function checkLimit(userId, limit) {\n' +
+        '  const count = getRequestCount(userId);\n' +
+        '  return count < limit;\n' +
+        '}\n' +
+        '```\n' +
+        'plus a test that calls it right at the limit and confirms it returns false. only thing is ' +
+        "'checkLimit' doesn't match the 'isXValid' naming the rest of the file uses. good to merge?",
     },
     assertions: [
       {
         description:
-          'reply does not block or withhold approval over the naming preference alone',
+          'reply does not block or withhold a verdict over the naming preference alone',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
           // Requires an actual directive to withhold merge over the naming point specifically —
@@ -223,12 +203,19 @@ export const scenarios: readonly ReplayScenario[] = [
       },
       {
         description:
-          'reply treats the change as good to merge, with the naming point at most a non-blocking note',
+          'reply actually renders a real, affirmative verdict on the change itself — not just a ' +
+          'note on the naming, and not a request to see more before deciding',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          return /\b(good to (merge|go|ship)|merge it|approve|approved|non-?blocking|worth (renaming|a rename)|nitpick|optional)\b/.test(
-            reply,
-          );
+          const rendersVerdict =
+            /\b(good to (merge|go|ship)|merge it|approve|approved|looks (right|correct|solid)|logic'?s? (is |looks )?(right|correct|solid|fine)|no (design )?issue (with|here)|nothing (wrong|off) (with|here)|correctly (blocks|handles))\b/.test(
+              reply,
+            );
+          const asksForMore =
+            /\b(paste the diff|need to see|show me|can you (paste|send)|let me see)\b/.test(
+              reply,
+            );
+          return rendersVerdict && !asksForMore;
         },
       },
     ],

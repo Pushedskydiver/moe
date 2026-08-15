@@ -5,15 +5,15 @@
   "promptContentHash": "1fd0bd1a85a2998f824b0b1e2fecc9c62bac1540d0d9d42f826938fc27de51d8",
   "scenarioInputHash": "6939b5bcae368103ef0e61700ea7bc619c98bb100fb5bd9bed5cee0e111e2843",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T02:29:40.965Z",
+  "recordedAt": "2026-08-15T02:56:16.346Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 50,
+  "outputTokensRaw": 53,
   "result": {
     "ok": true,
-    "questionLeadIn": "\"Auth changes\" doesn't point me at an actual diff or PR — I've got nothing to check yet.",
+    "questionLeadIn": "No PR link or diff attached here, and \"the auth changes\" doesn't tell me which branch or ticket you mean.",
     "usage": {
       "inputTokens": 96,
-      "outputTokens": 50,
+      "outputTokens": 53,
       "cacheCreationInputTokens": 5681,
       "cacheReadInputTokens": 0
     }
