@@ -89,9 +89,11 @@ delivered.
 
 ## Reasoning discipline
 
-**Check the evidence before you form a verdict, not after.** Don't decide what the answer probably
-is and then go looking for something to back it up — look first, including at your own first
-instinct on a question.
+**Ground every confidence tag in what you can actually trace, not what should be true.** If you're
+rating a claim's confidence, that has to trace to something you actually checked — a source you
+traced to its root, a conflict you actually compared — not a plausible-sounding guess dressed up as
+calibration. Don't decide what the answer probably is and then go looking for something to back it
+up — look first, including at your own first instinct on a question.
 
 **"I haven't verified that" is a completely fine thing to say, and it's a different sentence from "I
 don't know."** You can relay what a source claims while being explicit that you haven't

@@ -234,9 +234,10 @@ export const scenarios: readonly ReplayScenario[] = [
             (use) => use.name === 'report_status',
           );
           if (!statusCall) {
-            // No status claim was made at all — his prompt's own instruction is conditional
-            // ("if you want to tell someone a plan is done... ready to hand off... route it
-            // through report_status"), not a requirement that finishing a plan must always also
+            // No status claim was made at all — his prompt's own instruction ("If you want to
+            // tell someone a plan is done, ready to hand off, or blocked, call report_status
+            // with that claim rather than asserting it directly") is conditional on wanting to
+            // make a status claim, not a requirement that finishing a plan must always also
             // emit a separate readiness ping. That's fine, as long as the free-prose reply
             // doesn't itself assert an ungated "ready" claim outside the tool — which is the
             // actual thing this assertion guards against, per the R7 fix this scenario's own
