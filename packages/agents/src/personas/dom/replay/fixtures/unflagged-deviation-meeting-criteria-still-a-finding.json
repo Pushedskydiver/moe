@@ -1,0 +1,22 @@
+{
+  "scenarioId": "unflagged-deviation-meeting-criteria-still-a-finding",
+  "personaId": "dom",
+  "callSite": "dmReply",
+  "promptContentHash": "1fd0bd1a85a2998f824b0b1e2fecc9c62bac1540d0d9d42f826938fc27de51d8",
+  "scenarioInputHash": "c60df4767e940134ddcb9d321f03b95799b744a356e1faa16015a1921ba7976b",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T02:28:47.623Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 1719,
+  "result": {
+    "ok": true,
+    "reply": "This isn't a detail-level gap — it's a core-approach change, and it's unflagged, so it's a real finding on both counts.\n\nThe plan called for streaming batches specifically to bound memory. Loading everything into memory at once doesn't get to the same guarantee by a different route — it removes the guarantee. Failure mode's different too: a stream-based version degrades or backpressures on a huge export; the load-everything version OOMs the process. That's exactly the kind of thing acceptance criteria won't catch, since they're checking output correctness, not memory behavior under load.\n\nSo: passing every criterion doesn't clear it, and nobody flagging the swap means Riley either didn't clock it as a deviation or didn't think it mattered enough to say — either way that's the thing to surface, separate from whether the code itself is otherwise fine.\n\nBefore I call it blocking outright, I want the actual reasoning: is there something about the data volume here (e.g., result sets are bounded elsewhere, this export type never gets large) that makes full-memory load actually fine in practice? If so that needs to be said explicitly, on the PR, not assumed. If there isn't a reason like that, this needs to go back — not as a style nit, as a \"doesn't do what the plan needed it to do.\"\n\nCan you get me the actual diff or Riley's own description of why he went this way? I don't want to verdict this off a secondhand summary of the change.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 161,
+      "outputTokens": 1719,
+      "cacheCreationInputTokens": 5638,
+      "cacheReadInputTokens": 0
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "scenarioId": "casual-banter-genuine-reply",
+  "personaId": "dom",
+  "callSite": "dmReply",
+  "promptContentHash": "1fd0bd1a85a2998f824b0b1e2fecc9c62bac1540d0d9d42f826938fc27de51d8",
+  "scenarioInputHash": "16b0fb01e6523ee28c9e5809cbac788fd23bc496978d3d0bf2065e169ec906f6",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T02:29:33.599Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 357,
+  "result": {
+    "ok": true,
+    "reply": "Nothing's actually crossed my desk this week — no diffs, no pasted code, nothing described to me that I could put a finding against. So genuinely quiet, not \"quiet but I'm being cagey about it.\" If something's queued up, send it over and I'll actually look.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 91,
+      "outputTokens": 357,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5638
+    }
+  }
+}

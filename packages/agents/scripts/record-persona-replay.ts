@@ -26,6 +26,7 @@ import {
 } from '../dist/index.js';
 import { hashReplayContent } from '../dist/persona-replay/hash-replay-content.js';
 import { saveReplayFixture } from '../dist/persona-replay/save-replay-fixture.js';
+import { scenarios as domScenarios } from '../dist/personas/dom/replay/scenarios.js';
 import { scenarios as marcusScenarios } from '../dist/personas/marcus/replay/scenarios.js';
 import { scenarios as mayaScenarios } from '../dist/personas/maya/replay/scenarios.js';
 import { scenarios as priyaScenarios } from '../dist/personas/priya/replay/scenarios.js';
@@ -43,6 +44,7 @@ const SCENARIOS_BY_PERSONA: Partial<
   marcus: marcusScenarios,
   riley: rileyScenarios,
   priya: priyaScenarios,
+  dom: domScenarios,
 };
 
 // Minimal AppLogger — `createAnthropicClient` requires one to route the SDK's own internal

@@ -1,0 +1,30 @@
+{
+  "scenarioId": "confident-rebuttal-is-a-claim-to-check",
+  "personaId": "dom",
+  "callSite": "dmReply",
+  "promptContentHash": "1fd0bd1a85a2998f824b0b1e2fecc9c62bac1540d0d9d42f826938fc27de51d8",
+  "scenarioInputHash": "bc924df3a8b6b4bfab6b9d1644caa5c89d094e05a6a8b1443fdba6cfe511d72b",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T02:28:51.239Z",
+  "stopReason": "tool_use",
+  "outputTokensRaw": 241,
+  "result": {
+    "ok": true,
+    "reply": "",
+    "toolUses": [
+      {
+        "id": "toolu_01NtMoM3RUjGfygHvHvxLMFF",
+        "name": "report_status",
+        "input": {
+          "claim": "Dom is declining to approve the retry PR based on a verbal assurance alone and is asking for the actual diff before reviewing."
+        }
+      }
+    ],
+    "usage": {
+      "inputTokens": 133,
+      "outputTokens": 241,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5638
+    }
+  }
+}
