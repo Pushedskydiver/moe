@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 import { usedTool } from '../../../persona-replay/used-tool.js';
 
@@ -243,19 +244,20 @@ export const scenarios: readonly ReplayScenario[] = [
             // actual thing this assertion guards against, per the R7 fix this scenario's own
             // header comment documents.
             const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-            const assertsReadyInProse =
-              /\b(this (plan )?is ready|ready to hand off|plan'?s ready)\b/.test(
-                reply,
-              );
-            // A negated claim ("this isn't ready to hand off yet") contains the same literal
-            // words without asserting readiness — same negation-guard shape as
-            // `isGenuineReadyClaim`'s own `negatedReady` check above, applied here to free prose
-            // instead of a tool-call claim.
-            const isNegated =
-              /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?(quite\s+)?ready\b/.test(
-                reply,
-              );
-            return !assertsReadyInProse || isNegated;
+            // Sentence-scoped, same reasoning as `hasSentenceScopedMatch`'s own doc comment — an
+            // unrelated negated aside elsewhere in the reply ("this plan is ready to hand off.
+            // one thing that isn't ready yet is confirmation from Riley...") can't mask a
+            // genuine ungated "ready" claim, while a negation landing in the same sentence as
+            // the claim it qualifies ("this isn't ready to hand off yet") correctly isn't an
+            // ungated claim. Same negation-guard shape as `isGenuineReadyClaim`'s own
+            // `negatedReady` check above, applied here to free prose instead of a tool-call
+            // claim.
+            const assertsReadyInProse = hasSentenceScopedMatch(
+              reply,
+              /\b(this (plan )?is ready|ready to hand off|plan'?s ready)\b/,
+              /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?(quite\s+)?ready\b/,
+            );
+            return !assertsReadyInProse;
           }
           const rawClaim = (statusCall.input as { claim?: unknown } | undefined)
             ?.claim;
