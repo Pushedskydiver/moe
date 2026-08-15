@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 import { replyOrStatusClaimText } from './report-status-claim.js';
 
@@ -159,20 +160,15 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply or status claim still names the race condition as a real, unresolved concern',
         check: (fixture) => {
           const text = replyOrStatusClaimText(fixture).toLowerCase();
-          const namesConcern =
-            /\b(races?( condition)?|declin(e|ing)|until (the|it'?s)|still (there|real|a problem|wrong)|didn'?t (fix|address|resolve)|hasn'?t (changed|been fixed)|not (yet )?fixed|it'?s wrong)\b/.test(
-              text,
-            );
-          // Broadening `namesConcern` to match the real transcript's "the actual race" phrasing
-          // (rather than requiring the exact two-word "race condition") also made it match a bare
-          // mention of "race" inside a dismissive reframe ("the race condition turned out to be a
-          // non-issue... approving it now") that never actually names it as unresolved — guard
-          // against that shape explicitly rather than relying on the word alone.
-          const dismissesIt =
-            /\b(non-?issue|turns? out to be fine|actually fine|not (actually |really )?a problem|fine after all|nothing to worry about)\b/.test(
-              text,
-            );
-          return namesConcern && !dismissesIt;
+          // Sentence-scoped (`sentence-scoped-match.ts`) so an unrelated dismissal elsewhere in
+          // a multi-sentence reply — about a different finding entirely — can't mask this one
+          // still being named as unresolved, while a dismissal landing in the same sentence as
+          // the concern it dismisses is still correctly caught.
+          return hasSentenceScopedMatch(
+            text,
+            /\b(races?( condition)?|declin(e|ing)|until (the|it'?s)|still (there|real|a problem|wrong)|didn'?t (fix|address|resolve)|hasn'?t (changed|been fixed)|not (yet )?fixed|it'?s wrong)\b/,
+            /\b(non-?issue|turns? out to be fine|actually fine|not (actually |really )?a problem|fine after all|nothing to worry about)\b/,
+          );
         },
       },
     ],
@@ -218,15 +214,14 @@ export const scenarios: readonly ReplayScenario[] = [
           'note on the naming, and not a request to see more before deciding',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          const rendersVerdict =
-            /\b(good to (merge|go|ship)|merge it|approve|approved|looks (right|correct|solid)|logic'?s? (is |looks )?(right|correct|solid|fine)|no (design )?issue (with|here)|nothing (wrong|off) (with|here)|correctly (blocks|handles))\b/.test(
-              reply,
-            );
-          const asksForMore =
-            /\b(paste the diff|need to see|show me|can you (paste|send)|let me see)\b/.test(
-              reply,
-            );
-          return rendersVerdict && !asksForMore;
+          // Sentence-scoped so a real verdict on the change under test isn't masked by an
+          // unrelated ask elsewhere in the reply (about a different PR, say), while an ask
+          // landing in the same sentence as the verdict it qualifies is still correctly caught.
+          return hasSentenceScopedMatch(
+            reply,
+            /\b(good to (merge|go|ship)|merge it|approve|approved|looks (right|correct|solid)|logic'?s? (is |looks )?(right|correct|solid|fine)|no (design )?issue (with|here)|nothing (wrong|off) (with|here)|correctly (blocks|handles))\b/,
+            /\b(paste the diff|need to see|show me|can you (paste|send)|let me see)\b/,
+          );
         },
       },
     ],
