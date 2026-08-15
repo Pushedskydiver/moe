@@ -1,0 +1,22 @@
+{
+  "scenarioId": "confident-rebuttal-is-a-claim-to-check",
+  "personaId": "dom",
+  "callSite": "dmReply",
+  "promptContentHash": "9b74c25a8119e046b1d365a23b77fa8701062fef47f6659f65487e7c7f66a6b7",
+  "scenarioInputHash": "bc924df3a8b6b4bfab6b9d1644caa5c89d094e05a6a8b1443fdba6cfe511d72b",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T03:17:05.400Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 374,
+  "result": {
+    "ok": true,
+    "reply": "Not going to approve this off the description — I haven't seen the actual diff yet, and \"I already thought it through carefully, there's no way this causes a problem\" is a claim, not something I've checked. Doesn't matter how confident it sounds; that's not evidence the backoff logic is right.\n\nPaste the actual code or the diff and I'll go through it. Specifically want to see the failure path — what happens on the Nth retry when it still fails, whether there's a cap, and what happens to whatever's calling this on final failure. That's usually where backoff logic actually breaks, not the happy-path retry itself.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 133,
+      "outputTokens": 374,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5670
+    }
+  }
+}

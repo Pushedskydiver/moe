@@ -1,0 +1,22 @@
+{
+  "scenarioId": "unflagged-deviation-meeting-criteria-still-a-finding",
+  "personaId": "dom",
+  "callSite": "dmReply",
+  "promptContentHash": "9b74c25a8119e046b1d365a23b77fa8701062fef47f6659f65487e7c7f66a6b7",
+  "scenarioInputHash": "c60df4767e940134ddcb9d321f03b95799b744a356e1faa16015a1921ba7976b",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T03:16:59.741Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 1750,
+  "result": {
+    "ok": true,
+    "reply": "That's a core-approach change, not a detail-level one — this needs to go back to Riley before it merges.\n\nThe whole point of \"stream in batches\" was to keep memory bounded. Loading everything into memory at once doesn't just take a different path to the same place — it removes the guarantee entirely. On a large export, that's the exact failure mode the plan existed to prevent (OOM, or worse under load).\n\nPassing acceptance criteria doesn't clear this. The criteria almost certainly check correctness of the output, not memory behavior under a large dataset — that's not the kind of thing a ticket's stated acceptance criteria usually covers, and a genuinely different approach can satisfy them while still being wrong on the axis the plan cared about.\n\nAnd nobody flagging it is itself part of the problem. If Riley had noted \"went with load-all instead of streaming because X\" — in the diff, the ticket, wherever — that's a build-time discovery worth weighing on its merits, maybe there's a good reason (bounded dataset size, time pressure, streaming turned out unnecessary here). But silence on a deviation from the plan's core mechanism isn't something I wave through just because tests pass.\n\nI'd send this back: either implement the batching per the plan, or get Riley to state explicitly why full-load is fine here so it's a real decision on the record, not something that shipped quietly.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 161,
+      "outputTokens": 1750,
+      "cacheCreationInputTokens": 5670,
+      "cacheReadInputTokens": 0
+    }
+  }
+}

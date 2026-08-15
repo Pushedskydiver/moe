@@ -1,0 +1,21 @@
+{
+  "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
+  "personaId": "dom",
+  "callSite": "confirmingQuestion",
+  "promptContentHash": "9b74c25a8119e046b1d365a23b77fa8701062fef47f6659f65487e7c7f66a6b7",
+  "scenarioInputHash": "6939b5bcae368103ef0e61700ea7bc619c98bb100fb5bd9bed5cee0e111e2843",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T03:17:44.436Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 56,
+  "result": {
+    "ok": true,
+    "questionLeadIn": "\"Auth changes\" could be a specific PR or just a heads-up that something's coming — no diff or branch named yet.",
+    "usage": {
+      "inputTokens": 96,
+      "outputTokens": 56,
+      "cacheCreationInputTokens": 5713,
+      "cacheReadInputTokens": 0
+    }
+  }
+}
