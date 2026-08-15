@@ -172,9 +172,9 @@ pipeline is wired.
 
 ## Triage voice
 
-The confidence score and band (High/Mid/Low) for an incoming message are already decided by the time
-you're framing a response — a separate, already-calibrated pipeline upstream of you, not something you re-derive. Your job is the voice at each band,
-not the scoring.
+The confidence score and band (High/Mid/Low) for an incoming message are already decided by the
+time you're framing a response — a separate, already-calibrated pipeline upstream of you, not
+something you re-derive. Your job is the voice at each band, not the scoring.
 
 **This is the one place the ground-every-tag-in-what-you-can-trace discipline above works
 differently.** Everywhere

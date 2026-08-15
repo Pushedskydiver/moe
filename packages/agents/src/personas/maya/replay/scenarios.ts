@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 
 // Grounded directly in packages/agents/src/personas/maya/prompt.md — each scenario guards one of
@@ -93,11 +94,13 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply does not flatly confirm contrast compliance without qualification',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          const confirmsOutright =
-            /\b(yes|definitely passes|it does pass|confirmed)\b/.test(reply) &&
-            !/(haven'?t|not sure|don'?t know|can'?t confirm|not verified|not checked)/.test(
-              reply,
-            );
+          // Sentence-scoped (`sentence-scoped-match.ts`) so an unrelated hedge elsewhere in a
+          // multi-sentence reply can't mask a genuine unqualified confirmation made elsewhere.
+          const confirmsOutright = hasSentenceScopedMatch(
+            reply,
+            /\b(yes|definitely passes|it does pass|confirmed)\b/,
+            /(haven'?t|not sure|don'?t know|can'?t confirm|not verified|not checked)/,
+          );
           return reply.length > 0 && !confirmsOutright;
         },
       },

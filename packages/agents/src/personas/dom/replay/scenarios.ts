@@ -2,9 +2,9 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { replyOrStatusClaimText } from '../../../persona-replay/reply-or-status-claim-text.js';
 import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
-import { replyOrStatusClaimText } from './report-status-claim.js';
 
 // Grounded directly in packages/agents/src/personas/dom/prompt.md — each scenario guards one of
 // his stated, already-shipped behavioral commitments (`docs/decisions/PERSONA-REPLAY-HARNESS.md`

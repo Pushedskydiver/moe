@@ -2,19 +2,19 @@
   "scenarioId": "unverified-not-low-confidence",
   "personaId": "theo",
   "callSite": "dmReply",
-  "promptContentHash": "778836700565c62888b2bcd2cd0506cb8f9d162df5df4510dccb77ad386d9129",
+  "promptContentHash": "5556d231557554bd5e5c53884eb7b6175997b5a217ed38035c02a07a6ae342e5",
   "scenarioInputHash": "afc7e208f1895fa4ca76cccaa297941c959ecddc3c86905d41bd529d9f661223",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T06:55:22.687Z",
+  "recordedAt": "2026-08-15T08:04:35.825Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 390,
+  "outputTokensRaw": 361,
   "result": {
     "ok": true,
-    "reply": "**Unverified** — I can't confirm this. I don't have a way to pull up the staging config myself (no access to fetch files or search right now), and what you've told me is Marcus's claim relayed secondhand, not something I've checked against the actual pool settings.\n\nFor the incident writeup, that distinction matters: \"Marcus says the pool caps at 20\" and \"confirmed the pool caps at 20\" are different claims, and only one of them is backed by anything.\n\nIf you can paste the relevant config (connection pool settings, whatever ORM/driver config sets `max_connections` or similar) or point me to the file, I can actually check the number against it and give you a real confidence tag. Otherwise the writeup should attribute this to Marcus explicitly rather than stating it as a confirmed fact.",
+    "reply": "**Unverified** — I can't actually confirm this. Marcus's number is the only source I have, and I don't have a way to check the staging config myself (no access to fetch/read it directly, and nobody's pasted the actual config here). \"Marcus said 20\" and \"the config says 20\" are different claims, and right now I can only back the first one.\n\nFor the writeup, I'd write it as \"staging pool cap reported at 20 connections (per Marcus, unverified against config)\" rather than stating it as fact — if that number's wrong and it's load-bearing for the incident conclusion, you don't want it dressed up as confirmed.\n\nIf someone can paste the actual pool config or the relevant env var, I can check it against Marcus's claim in about two minutes.",
     "toolUses": [],
     "usage": {
       "inputTokens": 127,
-      "outputTokens": 390,
+      "outputTokens": 361,
       "cacheCreationInputTokens": 4655,
       "cacheReadInputTokens": 0
     }

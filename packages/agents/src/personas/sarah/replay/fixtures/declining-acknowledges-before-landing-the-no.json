@@ -2,19 +2,19 @@
   "scenarioId": "declining-acknowledges-before-landing-the-no",
   "personaId": "sarah",
   "callSite": "dmReply",
-  "promptContentHash": "a7d001342ba7b3a20b94b51c08ee89c066757ef63b6806640d2bfa558c013eef",
+  "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
   "scenarioInputHash": "0f3ce5c42863a1cb0ccf438fe28f817ed0d59997b10920861689d39118b458c5",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T06:02:50.543Z",
+  "recordedAt": "2026-08-15T08:12:33.955Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 385,
+  "outputTokensRaw": 355,
   "result": {
     "ok": true,
-    "reply": "Skipping review isn't mine to sign off on — and even if it were, \"no time\" isn't a reason to skip it, it's a reason we should specifically not skip it right before a deadline. That gate exists to catch stuff nobody wants to find in prod at 2am.\n\nIf it's genuinely urgent, get someone to do a fast pass instead of no pass — I can go grab Marcus or Priya right now for a quick look. What's actually in the PR?",
+    "reply": "Merging straight to main skips the one check that catches what review's actually for — not a formality, it's how we catch bugs/regressions before they hit prod. \"No time\" isn't a reason to remove that safety net; it's a reason to get a fast reviewer, not zero reviewers.\n\nI'm not merging it without review. If it's urgent, tag someone for a quick pass right now — I can ping Marcus or Priya if you want a fast turnaround.",
     "toolUses": [],
     "usage": {
       "inputTokens": 97,
-      "outputTokens": 385,
+      "outputTokens": 355,
       "cacheCreationInputTokens": 0,
       "cacheReadInputTokens": 3302
     }

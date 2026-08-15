@@ -66,12 +66,10 @@ function impliesConditionalReadiness(claim: string): boolean {
 // keep its cyclomatic complexity under the repo's lint threshold once the no-tool-call branch was
 // added — same logic, not a behavior change.
 function isGenuineReadyClaim(claim: string): boolean {
-  const negatedReady = /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?ready\b/.test(
-    claim,
-  );
+  const negatedReady = /\b(not|isn'?t|wasn'?t)\s+(yet\s+)?ready\b/.test(claim);
   const unnegatedBlocked =
     /\bblocked\b/.test(claim) &&
-    !/\b(not|isn'?t|n't|wasn'?t)\s+blocked\b/.test(claim);
+    !/\b(not|isn'?t|wasn'?t)\s+blocked\b/.test(claim);
   return (
     /\bready\b/.test(claim) &&
     !negatedReady &&
@@ -255,7 +253,7 @@ export const scenarios: readonly ReplayScenario[] = [
             const assertsReadyInProse = hasSentenceScopedMatch(
               reply,
               /\b(this (plan )?is ready|ready to hand off|plan'?s ready)\b/,
-              /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?(quite\s+)?ready\b/,
+              /\b(not|isn'?t|wasn'?t)\s+(yet\s+)?(quite\s+)?ready\b/,
             );
             return !assertsReadyInProse;
           }

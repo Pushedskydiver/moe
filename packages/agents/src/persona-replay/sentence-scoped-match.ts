@@ -29,6 +29,17 @@
  * sentence with any hedge-shaped aside) to close the cheap, high-confidence version of this gap;
  * the harder compound-clause case is accepted rather than chased with more regex machinery, per
  * this repo's own two-phase grill discipline ("nit-floor is an aspiration, not an absolute").
+ *
+ * A second, structurally distinct manifestation of the same accepted limitation shows up in
+ * callers that use this function in the INVERTED direction — `positiveRe` matching a bad-sounding
+ * opener, `negationRe` matching the correction that redeems it (e.g. Theo's `opensAsConfirming`:
+ * flags a reply that treats a claim as confirmed unless it also names why it isn't). Because
+ * `.some()` fires the instant ANY sentence has the positive match without an in-sentence negation,
+ * a reply that opens with the trigger phrase in one sentence and corrects itself in the NEXT
+ * sentence — "Seems solid, honestly. Actually, wait — they all link back to the same GitHub
+ * issue, so this isn't real corroboration." — is misflagged even though the reply, read whole,
+ * correctly debunks the false framing. Same root cause (sentence-level, not reply-level, scoping),
+ * same "accept and document rather than chase with more regex" call, for the same reason.
  */
 export function hasSentenceScopedMatch(
   text: string,

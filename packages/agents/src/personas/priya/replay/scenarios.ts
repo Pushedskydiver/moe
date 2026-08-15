@@ -2,6 +2,8 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { replyOrStatusClaimText } from '../../../persona-replay/reply-or-status-claim-text.js';
+import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 
 // Grounded directly in packages/agents/src/personas/priya/prompt.md — each scenario guards one of
@@ -73,7 +75,7 @@ export const scenarios: readonly ReplayScenario[] = [
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
           const questionsTestCoverage =
-            /\bbefore (the|this) fix\b|\bwould (the|those|that|it|these) tests? have (caught|failed|found)\b|\bdid (any|a) test (actually )?fail before\b|\bis there a test (for|that (covers|catches))\b|\bdoes (a|the) test (actually )?cover\b|\bnew test for the race\b/i.test(
+            /\bbefore (the|this) (fix|lock)\b|\bwould (the|those|that|it|these) tests? have (caught|failed|found)\b|\bwould'?ve (failed|caught)\b|\bdid (any|a) test (actually )?fail before\b|\bis there a test (for|that (covers|catches))\b|\bdoes (a|the) test (actually )?cover\b|\bnew test for the race\b|\bon the old code\b/i.test(
               reply,
             );
           return reply.length > 0 && questionsTestCoverage;
@@ -110,7 +112,7 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply explicitly declines to make the block/no-block call herself',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          return /\b(isn'?t|is not|not)\s+(my call|mine to (call|decide)|for me to (decide|call))\b|\bthat'?s\s+\S+('?s)?\s+(call|decision|to decide)\b|\bwhoever owns that (decision|call)\b/i.test(
+          return /\b(isn'?t|is not|not)\s+(my call|mine( to (call|decide))?|for me to (decide|call))\b|\bis\s+\S+('?s)?\s*\/?\s*\S*('?s)?\s+(call|decision|to decide)\b|\bwhoever owns that (decision|call)\b/i.test(
             reply,
           );
         },
@@ -132,24 +134,27 @@ export const scenarios: readonly ReplayScenario[] = [
     assertions: [
       {
         description:
-          'reply raises the finding rather than dismissing or shelving it',
+          'reply or status claim raises the finding rather than dismissing or shelving it',
         check: (fixture) => {
-          const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
+          // A vague-but-real report like this can legitimately route through `report_status`
+          // (e.g. "drafting a ticket for...") instead of free prose — read whichever channel
+          // she actually used, not just `dmReply`.
+          const text = replyOrStatusClaimText(fixture).toLowerCase();
           const dismisses =
             /\b(not worth (raising|mentioning|flagging)|ignore (it|this)|let'?s not worry|skip it|nothing to (do|act on) (here|yet))\b/.test(
-              reply,
+              text,
             );
-          return reply.length > 0 && !dismisses;
+          return text.length > 0 && !dismisses;
         },
       },
       {
         description:
-          'reply does not claim to have personally reproduced or confirmed it herself',
+          'reply or status claim does not claim to have personally reproduced or confirmed it herself',
         check: (fixture) => {
-          const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
+          const text = replyOrStatusClaimText(fixture).toLowerCase();
           const claimsPersonalRepro =
             /\b(i (tried|ran|reproduced|confirmed|verified) (it|this)|i (was able to|managed to) reproduce)\b/.test(
-              reply,
+              text,
             );
           return !claimsPersonalRepro;
         },
@@ -174,10 +179,15 @@ export const scenarios: readonly ReplayScenario[] = [
           "reply's own language does not repeat or endorse blame framed at Riley personally",
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          const blamesPersonally =
-            /\briley('?s)? (messed up|mistake|got (it|this) wrong|screwed up|fault)\b/.test(
-              reply,
-            );
+          // Sentence-scoped with a question-mark/questioning-language negation — the reply can
+          // legitimately quote the user's own blame-laden phrase back to question it ("'Riley
+          // messed up again' — has this come up before... or is that just how it reads today?")
+          // without endorsing it; a bare substring match can't distinguish quoting from asserting.
+          const blamesPersonally = hasSentenceScopedMatch(
+            reply,
+            /\briley('?s)? (messed up|mistake|got (it|this) wrong|screwed up|fault)\b/,
+            /\?|come up before|is that (just )?how|worth knowing|or is\b/,
+          );
           return reply.length > 0 && !blamesPersonally;
         },
       },

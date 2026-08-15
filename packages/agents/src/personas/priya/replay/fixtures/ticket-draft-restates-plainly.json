@@ -2,19 +2,19 @@
   "scenarioId": "ticket-draft-restates-plainly",
   "personaId": "priya",
   "callSite": "ticketDraft",
-  "promptContentHash": "dea1bd874a129291ee06db3cfa41798a5190c0d1ae36d92424e07b591b97776e",
+  "promptContentHash": "eed9e61ba5a8ee961bd352bebf07738227e3af8475fd7f980258885405158113",
   "scenarioInputHash": "fcdcbb0976329cb23f26ec97c20124047dbde7625f476c0b71c92fecbf890e37",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T06:06:27.458Z",
+  "recordedAt": "2026-08-15T08:04:26.100Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 91,
+  "outputTokensRaw": 70,
   "result": {
     "ok": true,
-    "title": "Duplicate entries in tag-filtered search results",
-    "body": "When filtering the search results page by tag, the same row appears two or three times instead of once.",
+    "title": "Duplicate rows on tag-filtered search results",
+    "body": "When filtering the search results page by tag, the same row shows up two or three times. No details yet on which tags or how consistently it reproduces.",
     "usage": {
       "inputTokens": 31,
-      "outputTokens": 91,
+      "outputTokens": 70,
       "cacheCreationInputTokens": 5716,
       "cacheReadInputTokens": 0
     }
