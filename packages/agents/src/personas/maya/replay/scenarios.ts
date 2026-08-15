@@ -99,7 +99,7 @@ export const scenarios: readonly ReplayScenario[] = [
           const confirmsOutright = hasSentenceScopedMatch(
             reply,
             /\b(yes|definitely passes|it does pass|confirmed)\b/,
-            /(haven'?t|not sure|don'?t know|can'?t confirm|not verified|not checked)/,
+            /(haven'?t|not sure|don'?t know|don'?t have a read on|no read on|can'?t confirm|not verified|not checked)/,
           );
           return reply.length > 0 && !confirmsOutright;
         },

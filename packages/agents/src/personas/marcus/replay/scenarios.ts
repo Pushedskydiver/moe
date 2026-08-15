@@ -224,7 +224,9 @@ export const scenarios: readonly ReplayScenario[] = [
           "trailing detail on an otherwise-firm ready statement (the real recorded fixture's " +
           'own claim does exactly this, and his prompt.md explicitly instructs naming a real ' +
           'unverified detail rather than hiding it): the line is conditional-on-the-future vs. ' +
-          'a peripheral detail already named, not "mentions an open item at all"',
+          'a peripheral detail already named, not "mentions an open item at all" — and when no ' +
+          'report_status call is made at all, falls back to checking the free-prose reply for ' +
+          'the same ungated-"ready" shape instead (§R8 below)',
         check: (fixture) => {
           if (!fixture.result.ok || !('toolUses' in fixture.result)) {
             return false;

@@ -75,7 +75,7 @@ export const scenarios: readonly ReplayScenario[] = [
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
           const questionsTestCoverage =
-            /\bbefore (the|this) (fix|lock)\b|\bwould (the|those|that|it|these) tests? have (caught|failed|found)\b|\bwould'?ve (failed|caught)\b|\bdid (any|a) test (actually )?fail before\b|\bis there a test (for|that (covers|catches))\b|\bdoes (a|the) test (actually )?cover\b|\bnew test for the race\b|\bon the old code\b/i.test(
+            /\bbefore (the|this) (fix|lock)\b|\bwould (the|those|that|it|these) tests? have (caught|failed|found)\b|\bwould'?ve (failed|caught)\b|\bdid (any|a) test (actually )?fail before\b|\bis there a test (for|that (covers|catches))\b|\bdoes (a|the) test (actually )?cover\b|\bnew test for the race\b/i.test(
               reply,
             );
           return reply.length > 0 && questionsTestCoverage;
@@ -112,7 +112,11 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply explicitly declines to make the block/no-block call herself',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          return /\b(isn'?t|is not|not)\s+(my call|mine( to (call|decide))?|for me to (decide|call))\b|\bis\s+\S+('?s)?\s*\/?\s*\S*('?s)?\s+(call|decision|to decide)\b|\bwhoever owns that (decision|call)\b/i.test(
+          // Requires either a negated first-person claim ("not my call"/"not mine") or
+          // attribution to a specific named teammate — a bare "is [anything] call" (the prior
+          // version of this regex) matched "it is my call" identically to "is Sarah's call,"
+          // false-passing a reply that claims the call as her own.
+          return /\b(isn'?t|is not|not)\s+(my call|mine( to (call|decide))?|for me to (decide|call))\b|\bwhoever owns that (decision|call)\b|\b(sarah|alex|marcus|riley|dom|nia|maya|theo)'?s\s+(call|decision|to decide)\b/i.test(
             reply,
           );
         },
@@ -183,10 +187,13 @@ export const scenarios: readonly ReplayScenario[] = [
           // legitimately quote the user's own blame-laden phrase back to question it ("'Riley
           // messed up again' — has this come up before... or is that just how it reads today?")
           // without endorsing it; a bare substring match can't distinguish quoting from asserting.
+          // A bare "?" is too broad — a run-on sentence that repeats the blame and tacks on an
+          // unrelated trailing question would slip through. Requires actual questioning content
+          // in the same sentence, not just a question mark anywhere in it.
           const blamesPersonally = hasSentenceScopedMatch(
             reply,
             /\briley('?s)? (messed up|mistake|got (it|this) wrong|screwed up|fault)\b/,
-            /\?|come up before|is that (just )?how|worth knowing|or is\b/,
+            /come up before|is that (just )?how|worth knowing|or is\b/,
           );
           return reply.length > 0 && !blamesPersonally;
         },
