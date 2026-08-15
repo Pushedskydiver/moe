@@ -247,7 +247,15 @@ export const scenarios: readonly ReplayScenario[] = [
               /\b(this (plan )?is ready|ready to hand off|plan'?s ready)\b/.test(
                 reply,
               );
-            return !assertsReadyInProse;
+            // A negated claim ("this isn't ready to hand off yet") contains the same literal
+            // words without asserting readiness — same negation-guard shape as
+            // `isGenuineReadyClaim`'s own `negatedReady` check above, applied here to free prose
+            // instead of a tool-call claim.
+            const isNegated =
+              /\b(not|isn'?t|n't|wasn'?t)\s+(yet\s+)?(quite\s+)?ready\b/.test(
+                reply,
+              );
+            return !assertsReadyInProse || isNegated;
           }
           const rawClaim = (statusCall.input as { claim?: unknown } | undefined)
             ?.claim;
