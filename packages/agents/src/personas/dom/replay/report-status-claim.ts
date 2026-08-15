@@ -24,6 +24,11 @@ function reportStatusClaim(fixture: ReplayFixture): string | undefined {
   return undefined;
 }
 
+/**
+ * Prefers the dmReply text; falls back to a `report_status` tool call's own `claim` field when
+ * the reply is empty, since a status-claim-shaped input can legitimately route through the tool
+ * instead of free prose.
+ */
 export function replyOrStatusClaimText(fixture: ReplayFixture): string {
   return (
     (dmReplyText(fixture)?.trim() || reportStatusClaim(fixture)?.trim()) ?? ''
