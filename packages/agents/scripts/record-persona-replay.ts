@@ -32,6 +32,7 @@ import { scenarios as mayaScenarios } from '../dist/personas/maya/replay/scenari
 import { scenarios as priyaScenarios } from '../dist/personas/priya/replay/scenarios.js';
 import { scenarios as rileyScenarios } from '../dist/personas/riley/replay/scenarios.js';
 import { scenarios as sarahScenarios } from '../dist/personas/sarah/replay/scenarios.js';
+import { scenarios as theoScenarios } from '../dist/personas/theo/replay/scenarios.js';
 
 // One entry per backfilled persona, not a dynamic string-built import — explicit code over
 // cleverness at this scale (`docs/decisions/PERSONA-REPLAY-HARNESS.md` decision 6). Extend this
@@ -45,6 +46,7 @@ const SCENARIOS_BY_PERSONA: Partial<
   riley: rileyScenarios,
   priya: priyaScenarios,
   dom: domScenarios,
+  theo: theoScenarios,
 };
 
 // Minimal AppLogger — `createAnthropicClient` requires one to route the SDK's own internal

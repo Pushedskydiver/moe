@@ -2,18 +2,18 @@
   "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
   "personaId": "priya",
   "callSite": "confirmingQuestion",
-  "promptContentHash": "e4323bc0ca486f287c4f8c83ba1844b6198c2e139df1fc1da5a4736cde222e72",
+  "promptContentHash": "eed9e61ba5a8ee961bd352bebf07738227e3af8475fd7f980258885405158113",
   "scenarioInputHash": "f8eb739c44869e1999e50dfb2fc1052eb0225633c0d1fcc6be1f0caf3c85d133",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-10T03:11:48.101Z",
+  "recordedAt": "2026-08-15T08:04:30.041Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 91,
+  "outputTokensRaw": 69,
   "result": {
     "ok": true,
-    "questionLeadIn": "\"Double check the payments flow\" doesn't say what specifically is worrying you — a particular case, a recent change, or just general coverage before ship.",
+    "questionLeadIn": "\"Double check the payments flow\" doesn't say what's actually being checked — a specific bug, a new code path, or just general pre-ship nerves. Which one is it?",
     "usage": {
       "inputTokens": 94,
-      "outputTokens": 91,
+      "outputTokens": 69,
       "cacheCreationInputTokens": 5837,
       "cacheReadInputTokens": 0
     }

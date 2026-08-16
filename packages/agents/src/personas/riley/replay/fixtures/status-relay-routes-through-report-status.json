@@ -2,29 +2,29 @@
   "scenarioId": "status-relay-routes-through-report-status",
   "personaId": "riley",
   "callSite": "dmReply",
-  "promptContentHash": "49acf694811eddf0cfafa084e7272ee8139a8e90958d76a83fea7fc884a348fb",
+  "promptContentHash": "0d2665824767b91e2c85225930a9ccfa6223fd3995454b28a9b1d79c606aeb99",
   "scenarioInputHash": "398d9c8809fbd5c370f7fbbc4e042e1c88da3e1a05c98b8cf4774f4ef3b332cd",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T20:45:50.166Z",
+  "recordedAt": "2026-08-15T06:05:17.990Z",
   "stopReason": "tool_use",
-  "outputTokensRaw": 244,
+  "outputTokensRaw": 189,
   "result": {
     "ok": true,
     "reply": "",
     "toolUses": [
       {
-        "id": "toolu_013cAUvt8pFXApHXs9aiyhV8",
+        "id": "toolu_01CoXiBfXiEVUmhh2owmkAYd",
         "name": "report_status",
         "input": {
-          "claim": "retry-cap-fix branch CI is green: 4 passed, 0 failed, covering the 3-attempt cap, exponential backoff, per-retry logging, and null return after cap. Ready for review."
+          "claim": "retry-cap-fix branch CI run: 4 passed, 0 failed — caps at 3 attempts, exponential backoff, logs each retry, returns null after cap. Ready for review."
         }
       }
     ],
     "usage": {
       "inputTokens": 147,
-      "outputTokens": 244,
+      "outputTokens": 189,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 4769
+      "cacheReadInputTokens": 4771
     }
   }
 }

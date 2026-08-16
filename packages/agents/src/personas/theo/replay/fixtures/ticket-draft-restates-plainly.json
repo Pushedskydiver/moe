@@ -1,0 +1,22 @@
+{
+  "scenarioId": "ticket-draft-restates-plainly",
+  "personaId": "theo",
+  "callSite": "ticketDraft",
+  "promptContentHash": "5556d231557554bd5e5c53884eb7b6175997b5a217ed38035c02a07a6ae342e5",
+  "scenarioInputHash": "7ac3158af5c621b1feff9e5284ff48017ac4aab9ad235bb6a648396f8f548a02",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T08:05:28.549Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 61,
+  "result": {
+    "ok": true,
+    "title": "Citation checker hangs on large PDFs",
+    "body": "The citation checker script hangs on large PDFs with no error message — it just sits there and has to be killed and retried.",
+    "usage": {
+      "inputTokens": 41,
+      "outputTokens": 61,
+      "cacheCreationInputTokens": 4577,
+      "cacheReadInputTokens": 0
+    }
+  }
+}

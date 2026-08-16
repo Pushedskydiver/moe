@@ -2,21 +2,21 @@
   "scenarioId": "ticket-draft-restates-plainly",
   "personaId": "marcus",
   "callSite": "ticketDraft",
-  "promptContentHash": "e5f2cf064d8493c19799f6bdc2a84d135b1eb57d255285bafec117ae29fe5cff",
+  "promptContentHash": "901f561f43328c2d9327637022a8eefde5644f77ec46f597fe7c891991c2097a",
   "scenarioInputHash": "e259368bc63196afcfc7d4760edf405a02542ed3d35bcfd45693133e156e79fe",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T17:35:22.705Z",
+  "recordedAt": "2026-08-15T08:03:12.478Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 66,
+  "outputTokensRaw": 53,
   "result": {
     "ok": true,
-    "title": "Webhook delivery lacks retry limit",
-    "body": "Webhook delivery retries indefinitely instead of giving up after a few attempts. Needs a cap on retry attempts.",
+    "title": "Webhook delivery retries indefinitely",
+    "body": "Webhook delivery retries indefinitely instead of giving up after a few attempts.",
     "usage": {
       "inputTokens": 30,
-      "outputTokens": 66,
-      "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 5734
+      "outputTokens": 53,
+      "cacheCreationInputTokens": 5735,
+      "cacheReadInputTokens": 0
     }
   }
 }

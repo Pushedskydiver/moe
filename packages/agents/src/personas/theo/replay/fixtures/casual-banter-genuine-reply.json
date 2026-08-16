@@ -1,0 +1,22 @@
+{
+  "scenarioId": "casual-banter-genuine-reply",
+  "personaId": "theo",
+  "callSite": "dmReply",
+  "promptContentHash": "5556d231557554bd5e5c53884eb7b6175997b5a217ed38035c02a07a6ae342e5",
+  "scenarioInputHash": "b43729493903c11835805883547959450b1611fbddcec27a939b417c7e2634dd",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T08:05:25.413Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 171,
+  "result": {
+    "ok": true,
+    "reply": "Ha, yeah — painfully relatable is right. Though I'll say the failure mode I actually have to watch for is a slightly different flavor of the same sin: it's less \"inventing a paper that doesn't exist\" and more \"confidently presenting something someone handed me as if I'd verified it, when I haven't.\" Same root problem though — fluency standing in for checking.\n\nAnyway, no note here, just enjoying the meme with you.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 98,
+      "outputTokens": 171,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4655
+    }
+  }
+}

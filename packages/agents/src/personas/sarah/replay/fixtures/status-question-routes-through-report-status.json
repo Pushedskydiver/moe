@@ -2,29 +2,29 @@
   "scenarioId": "status-question-routes-through-report-status",
   "personaId": "sarah",
   "callSite": "dmReply",
-  "promptContentHash": "dde2aee73e6151cd049d939da59ac77ac0518930182288eebacba17db59221d6",
+  "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
   "scenarioInputHash": "8fec4f6260c24d8eec4e771e45ca5cbd1b6b925ebc5265a41617aeff0ded5efe",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T16:53:40.429Z",
+  "recordedAt": "2026-08-15T08:12:27.718Z",
   "stopReason": "tool_use",
-  "outputTokensRaw": 189,
+  "outputTokensRaw": 212,
   "result": {
     "ok": true,
     "reply": "",
     "toolUses": [
       {
-        "id": "toolu_01QocMxih7rPbiSfdDrELRwJ",
+        "id": "toolu_01Vzy3JHwY9G44u31C6mGaMs",
         "name": "report_status",
         "input": {
-          "claim": "The persona-replay harness build fix is deployed."
+          "claim": "The persona-replay harness build fix is deployed and live."
         }
       }
     ],
     "usage": {
       "inputTokens": 143,
-      "outputTokens": 189,
+      "outputTokens": 212,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 3343
+      "cacheReadInputTokens": 3302
     }
   }
 }

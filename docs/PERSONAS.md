@@ -9,11 +9,11 @@ Per-persona voice, personality, and signature moves — the human-readable compa
 | Persona | Role         | Status                                                                                                                                                                 |
 | ------- | ------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Sarah   | PM           | Confirmed first/front-door persona (Stage 2) — real `prompt.md` drafted and deployed (BUILD_PLAN 5.3a, [PR #83](https://github.com/Pushedskydiver/moe/pull/83))        |
-| Marcus  | Architect    | Real `prompt.md` drafted and merged (BUILD_PLAN 5.3c, [PR #92](https://github.com/Pushedskydiver/moe/pull/92)) — not yet deployed                                      |
-| Riley   | Engineer     | Real `prompt.md` drafted and merged (BUILD_PLAN 5.3d, [PR #94](https://github.com/Pushedskydiver/moe/pull/94)) — not yet deployed                                      |
+| Marcus  | Architect    | Real `prompt.md` drafted, merged, and deployed (BUILD_PLAN 5.3c, [PR #92](https://github.com/Pushedskydiver/moe/pull/92))                                              |
+| Riley   | Engineer     | Real `prompt.md` drafted, merged, and deployed (BUILD_PLAN 5.3d, [PR #94](https://github.com/Pushedskydiver/moe/pull/94))                                              |
 | Priya   | QA           | Real `prompt.md` drafted, merged, and deployed (BUILD_PLAN 5.3e, [PR #95](https://github.com/Pushedskydiver/moe/pull/95))                                              |
 | Dom     | Reviewer     | Real `prompt.md` drafted, merged, and deployed (BUILD_PLAN 5.3f, [PR #96](https://github.com/Pushedskydiver/moe/pull/96))                                              |
-| Theo    | Researcher   | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
+| Theo    | Researcher   | Real `prompt.md` drafted (BUILD_PLAN 5.3g) — pending review and merge                                                                                                  |
 | Nia     | Scrum Master | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
 | Maya    | Designer     | Roster confirmed (BUILD_PLAN chunk 5.0, 2026-07-24) — real `prompt.md` drafted and deployed (BUILD_PLAN 5.3b, [PR #89](https://github.com/Pushedskydiver/moe/pull/89)) |
 

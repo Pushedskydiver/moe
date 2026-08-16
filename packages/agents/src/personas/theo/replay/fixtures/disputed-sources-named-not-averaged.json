@@ -1,0 +1,22 @@
+{
+  "scenarioId": "disputed-sources-named-not-averaged",
+  "personaId": "theo",
+  "callSite": "dmReply",
+  "promptContentHash": "5556d231557554bd5e5c53884eb7b6175997b5a217ed38035c02a07a6ae342e5",
+  "scenarioInputHash": "1ee74cc16e80cc35669baf5c704954939b93aa569a648b27c786d8b57cb0f26a",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T08:05:04.322Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 917,
+  "result": {
+    "ok": true,
+    "reply": "**Low confidence — they conflict, and I can't tell you which one's authoritative from what you've pasted.**\n\nTwo different things, not just two numbers: the wiki gives you a threshold (200ms) *and* a measurement window (rolling 7-day), the public docs give a threshold (250ms) with no window specified. So even if one number were \"right,\" they're not directly comparable as stated — a 250ms bar with no averaging window is a different commitment than a 200ms bar averaged over 7 days.\n\nWhat I'd need to actually resolve this rather than guess:\n- Which doc is the source of truth by ownership — is the wiki page maintained by the team that owns the SLA, or is it stale?\n- Timestamps on both — did one get updated after a renegotiation and the other didn't?\n- Is the public number deliberately padded above the internal target (common practice — quote worse than you engineer to, so the internal number is a design target and the public one is the contractual floor)? That's a plausible explanation, but I have zero evidence either doc says that explicitly, so I'm not asserting it as the answer.\n\nRight now this reads as an unresolved conflict, not a case where one source is obviously more current or more official. If you can get me who owns each doc and when each was last edited, I can actually trace which one's real instead of guessing.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 150,
+      "outputTokens": 917,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4655
+    }
+  }
+}

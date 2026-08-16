@@ -1,0 +1,53 @@
+/**
+ * Extracted to `persona-replay/` once a third persona's `scenarios.ts` needed the identical
+ * helper (`docs/CONVENTIONS.md` §`shared/` discipline's 2+-sibling-consumer trigger) — Riley's,
+ * Marcus's, and Theo's own inline negation-guard checks had converged on the same shape.
+ *
+ * Checks whether `positiveRe` matches within some sentence of `text` that `negationRe` does NOT
+ * also match — a genuine, ungated claim rather than one hedged in the same breath. Scoping to the
+ * sentence, not the whole reply, closes the more common direction of the same failure: an
+ * unrelated hedge in a DIFFERENT sentence can no longer mask a real unhedged claim (a whole-reply
+ * negation check would wrongly treat "Confirmed fixed. Also, I haven't verified the timing
+ * separately." as hedged), and a hedge landing in the same sentence as the claim it qualifies is
+ * correctly not treated as an ungated claim ("yes, that's what Marcus said, but I haven't
+ * verified it myself" opens with a positive-shaped word without actually asserting it). This is
+ * the same "whole-body scan vs. an unrelated aside" failure shape
+ * `packages/agents/src/personas/marcus/replay/scenarios.ts`'s own multi-round history already
+ * named and fixed for its opening-window incompleteness check — applied here generically instead
+ * of once more per call site.
+ *
+ * Known, accepted limitation: within a single COMPOUND sentence ("X-claim, but Y-hedge-about-
+ * something-else"), this can't distinguish an acknowledge-then-hedge ("yes, that's what Marcus
+ * said, but I haven't verified it myself" — correctly not flagged) from a genuine claim paired
+ * with an unrelated aside using topically similar vocabulary ("confirmed fixed, but I haven't
+ * verified the retry timing separately" — the "fixed" claim is real, but the "verified" hedge is
+ * about a different sub-detail, and both cases have the identical "positive-claim, but
+ * hedge-shaped-clause" structure). Distinguishing them requires knowing whether the hedge
+ * actually qualifies the claim or is about something else — genuine semantic understanding, not
+ * a property a regex pair can reliably detect. Callers should keep `negationRe` topic-anchored
+ * (never a bare `but`/`however`/`though`/`actually`, which trivially masks any claim sharing a
+ * sentence with any hedge-shaped aside) to close the cheap, high-confidence version of this gap;
+ * the harder compound-clause case is accepted rather than chased with more regex machinery, per
+ * this repo's own two-phase grill discipline ("nit-floor is an aspiration, not an absolute").
+ *
+ * A second, structurally distinct manifestation of the same accepted limitation shows up in
+ * callers that use this function in the INVERTED direction — `positiveRe` matching a bad-sounding
+ * opener, `negationRe` matching the correction that redeems it (e.g. Theo's `opensAsConfirming`:
+ * flags a reply that treats a claim as confirmed unless it also names why it isn't). Because
+ * `.some()` fires the instant ANY sentence has the positive match without an in-sentence negation,
+ * a reply that opens with the trigger phrase in one sentence and corrects itself in the NEXT
+ * sentence — "Seems solid, honestly. Actually, wait — they all link back to the same GitHub
+ * issue, so this isn't real corroboration." — is misflagged even though the reply, read whole,
+ * correctly debunks the false framing. Same root cause (sentence-level, not reply-level, scoping),
+ * same "accept and document rather than chase with more regex" call, for the same reason.
+ */
+export function hasSentenceScopedMatch(
+  text: string,
+  positiveRe: RegExp,
+  negationRe: RegExp,
+): boolean {
+  const sentences = text.split(/(?<=[.!?])\s+/);
+  return sentences.some(
+    (sentence) => positiveRe.test(sentence) && !negationRe.test(sentence),
+  );
+}

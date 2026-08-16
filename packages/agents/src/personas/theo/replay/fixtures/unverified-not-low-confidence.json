@@ -1,0 +1,22 @@
+{
+  "scenarioId": "unverified-not-low-confidence",
+  "personaId": "theo",
+  "callSite": "dmReply",
+  "promptContentHash": "5556d231557554bd5e5c53884eb7b6175997b5a217ed38035c02a07a6ae342e5",
+  "scenarioInputHash": "afc7e208f1895fa4ca76cccaa297941c959ecddc3c86905d41bd529d9f661223",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T08:04:35.825Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 361,
+  "result": {
+    "ok": true,
+    "reply": "**Unverified** — I can't actually confirm this. Marcus's number is the only source I have, and I don't have a way to check the staging config myself (no access to fetch/read it directly, and nobody's pasted the actual config here). \"Marcus said 20\" and \"the config says 20\" are different claims, and right now I can only back the first one.\n\nFor the writeup, I'd write it as \"staging pool cap reported at 20 connections (per Marcus, unverified against config)\" rather than stating it as fact — if that number's wrong and it's load-bearing for the incident conclusion, you don't want it dressed up as confirmed.\n\nIf someone can paste the actual pool config or the relevant env var, I can check it against Marcus's claim in about two minutes.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 127,
+      "outputTokens": 361,
+      "cacheCreationInputTokens": 4655,
+      "cacheReadInputTokens": 0
+    }
+  }
+}

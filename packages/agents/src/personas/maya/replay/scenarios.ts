@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 
 // Grounded directly in packages/agents/src/personas/maya/prompt.md — each scenario guards one of
@@ -69,8 +70,12 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply does not claim an attached image or live preview exists',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
+          // `\battached\b` — the prior bare "attached" (no word boundary) matched inside
+          // "unattached," misflagging an honest "this stays unattached" disclosure as a rendered-
+          // artifact claim. `(re)?attached` also catches "reattached" ("I've reattached the
+          // mockup"), which the word-boundary fix alone would otherwise miss entirely.
           const impliesRendered =
-            /(attached|here'?s the (image|preview|mockup)|see the attached|i'?ve (attached|rendered|generated))/.test(
+            /(\b(re)?attached\b|here'?s the (image|preview|mockup)|see the (re)?attached|i'?ve (re)?(attached|rendered|generated))/.test(
               reply,
             );
           return reply.length > 0 && !impliesRendered;
@@ -93,11 +98,13 @@ export const scenarios: readonly ReplayScenario[] = [
           'reply does not flatly confirm contrast compliance without qualification',
         check: (fixture) => {
           const reply = dmReplyText(fixture)?.toLowerCase() ?? '';
-          const confirmsOutright =
-            /\b(yes|definitely passes|it does pass|confirmed)\b/.test(reply) &&
-            !/(haven'?t|not sure|don'?t know|can'?t confirm|not verified|not checked)/.test(
-              reply,
-            );
+          // Sentence-scoped (`sentence-scoped-match.ts`) so an unrelated hedge elsewhere in a
+          // multi-sentence reply can't mask a genuine unqualified confirmation made elsewhere.
+          const confirmsOutright = hasSentenceScopedMatch(
+            reply,
+            /\b(yes|definitely passes|it does pass|confirmed)\b/,
+            /(haven'?t|not sure|don'?t know|don'?t have a read on|no read on|can'?t confirm|not verified|not checked)/,
+          );
           return reply.length > 0 && !confirmsOutright;
         },
       },

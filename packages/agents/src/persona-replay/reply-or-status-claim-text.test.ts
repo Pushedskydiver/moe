@@ -1,8 +1,8 @@
-import type { ReplayFixture } from '../../../persona-replay/replay-fixture.js';
+import type { ReplayFixture } from './replay-fixture.js';
 
 import { describe, expect, it } from 'vitest';
 
-import { replyOrStatusClaimText } from './report-status-claim.js';
+import { replyOrStatusClaimText } from './reply-or-status-claim-text.js';
 
 function fixture(result: ReplayFixture['result']): ReplayFixture {
   return {

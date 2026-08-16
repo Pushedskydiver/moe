@@ -2,21 +2,21 @@
   "scenarioId": "ticket-draft-restates-plainly",
   "personaId": "sarah",
   "callSite": "ticketDraft",
-  "promptContentHash": "dde2aee73e6151cd049d939da59ac77ac0518930182288eebacba17db59221d6",
+  "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
   "scenarioInputHash": "e94943549b04d601da87bebec50e2000c9b54a905022387d9af5a2d982eaaea5",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-09T16:53:55.013Z",
+  "recordedAt": "2026-08-15T08:12:36.792Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 47,
+  "outputTokensRaw": 51,
   "result": {
     "ok": true,
     "title": "Export button 500s on empty date range",
-    "body": "The /export button on the reports page throws a 500 error when the date range is empty.",
+    "body": "On the reports page, clicking /export throws a 500 error when the date range field is left empty.",
     "usage": {
       "inputTokens": 27,
-      "outputTokens": 47,
-      "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 3265
+      "outputTokens": 51,
+      "cacheCreationInputTokens": 3224,
+      "cacheReadInputTokens": 0
     }
   }
 }

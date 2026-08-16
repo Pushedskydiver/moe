@@ -1,0 +1,22 @@
+{
+  "scenarioId": "independent-corroboration-traced-to-root",
+  "personaId": "theo",
+  "callSite": "dmReply",
+  "promptContentHash": "5556d231557554bd5e5c53884eb7b6175997b5a217ed38035c02a07a6ae342e5",
+  "scenarioInputHash": "3972b89c2c3170d0533db67eed09d42e03fe908df676e0eb94508953817dacd1",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-15T08:04:50.211Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 1009,
+  "result": {
+    "ok": true,
+    "reply": "**Low confidence, and honestly it might be lower than that once you look closer.**\n\nGood catch spotting the shared source — that's the whole ballgame here. Three blog posts citing #4521 isn't three confirmations, it's one report wearing three hats. The blogs add no independent evidence; they're just distribution, not verification.\n\nTwo things I'd want before calling this \"solid\":\n\n1. **What #4521 actually says.** Is it a confirmed repro with a maintainer response, or an open report someone filed and nobody's triaged? Those are very different levels of evidence, and I can't tell which from \"three blogs link to it\" — I don't have a way to pull up the issue myself right now, so I haven't seen the content, just the fact that it's the common root.\n2. **Whether anyone's reproduced it independently** — a second, unrelated report of the same symptom (different repo, different user, different context) would actually add confidence. Three restatements of the same one don't.\n\nSo right now: this is a single unverified report until someone reads #4521 itself and checks whether it's substantiated (repro steps, maintainer ack, fix landed, etc.) — not three-source-confirmed like it looked at first glance.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 136,
+      "outputTokens": 1009,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4655
+    }
+  }
+}
