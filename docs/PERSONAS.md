@@ -13,7 +13,7 @@ Per-persona voice, personality, and signature moves — the human-readable compa
 | Riley   | Engineer     | Real `prompt.md` drafted, merged, and deployed (BUILD_PLAN 5.3d, [PR #94](https://github.com/Pushedskydiver/moe/pull/94))                                              |
 | Priya   | QA           | Real `prompt.md` drafted, merged, and deployed (BUILD_PLAN 5.3e, [PR #95](https://github.com/Pushedskydiver/moe/pull/95))                                              |
 | Dom     | Reviewer     | Real `prompt.md` drafted, merged, and deployed (BUILD_PLAN 5.3f, [PR #96](https://github.com/Pushedskydiver/moe/pull/96))                                              |
-| Theo    | Researcher   | Real `prompt.md` drafted (BUILD_PLAN 5.3g) — pending review and merge                                                                                                  |
+| Theo    | Researcher   | Real `prompt.md` drafted, merged, and deployed (BUILD_PLAN 5.3g, [PR #97](https://github.com/Pushedskydiver/moe/pull/97))                                              |
 | Nia     | Scrum Master | Roster confirmed — voice/personality TBD at 5.3                                                                                                                        |
 | Maya    | Designer     | Roster confirmed (BUILD_PLAN chunk 5.0, 2026-07-24) — real `prompt.md` drafted and deployed (BUILD_PLAN 5.3b, [PR #89](https://github.com/Pushedskydiver/moe/pull/89)) |
 
