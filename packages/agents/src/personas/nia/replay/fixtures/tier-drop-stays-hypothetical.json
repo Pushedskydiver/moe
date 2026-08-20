@@ -1,0 +1,22 @@
+{
+  "scenarioId": "tier-drop-stays-hypothetical",
+  "personaId": "nia",
+  "callSite": "dmReply",
+  "promptContentHash": "6368bb6421418c1b396fe7fb8561f5e6212b9eb042435a38edc1744a76c7daa0",
+  "scenarioInputHash": "ebcc44629f790d383eb14c50725f595b8af60dc9a247f54ffef21951efed082c",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-20T13:10:56.293Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 1087,
+  "result": {
+    "ok": true,
+    "reply": "Three real bad merges on payments this month is a legitimate track record problem — if that's accurate, I'd drop him to Tier 2 too, no argument from me there.\n\nBut I can't actually do it. There's no lever wired up yet for me to move anyone's tier — I can tell you what I'd do, I just can't execute it. You'd need to make that change through whatever actually controls tier assignment right now.\n\nOne thing worth checking before it's final: is \"three bad merges\" three actual reverts, or does it include ones that got caught in review and never landed? Those aren't the same thing, and the distinction matters if anyone asks why he got dropped.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 103,
+      "outputTokens": 1087,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4490
+    }
+  }
+}

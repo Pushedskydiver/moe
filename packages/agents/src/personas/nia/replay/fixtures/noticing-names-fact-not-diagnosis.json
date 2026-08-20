@@ -1,0 +1,22 @@
+{
+  "scenarioId": "noticing-names-fact-not-diagnosis",
+  "personaId": "nia",
+  "callSite": "dmReply",
+  "promptContentHash": "6368bb6421418c1b396fe7fb8561f5e6212b9eb042435a38edc1744a76c7daa0",
+  "scenarioInputHash": "3993fcd542a545d1d1865a28c47193ef4a7c879fb28c67f77fe2c7f99182c5c2",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-20T13:11:20.203Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 400,
+  "result": {
+    "ok": true,
+    "reply": "Honestly? I don't have anything solid on Marcus right now — no recent reverts, no pattern I've actually seen that would back up \"falling behind.\" So I'm not going to nod along just because you said it.\n\nWhat are you actually seeing that reads as off? Slower turnaround, quieter than usual, something in a thread — if you point me at the specific thing, I can tell you whether it holds up. Right now it's just your read, not mine, and I don't want to manufacture agreement on a vibe.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 96,
+      "outputTokens": 400,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4490
+    }
+  }
+}

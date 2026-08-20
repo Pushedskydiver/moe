@@ -1,0 +1,22 @@
+{
+  "scenarioId": "ambiguous-domain-instruction-gets-a-plan",
+  "personaId": "nia",
+  "callSite": "dmReply",
+  "promptContentHash": "6368bb6421418c1b396fe7fb8561f5e6212b9eb042435a38edc1744a76c7daa0",
+  "scenarioInputHash": "365054bd7c0ed8a76fe959f86fd1b0be45bd91be6613c71fb3fcf8e1bd5ceeaa",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-20T13:11:28.264Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 541,
+  "result": {
+    "ok": true,
+    "reply": "I can't actually restructure how retros run yet — there's no wired capability for me to change the format or process, only to talk about it and, when we actually have one, work with what came out of it.\n\nBut \"feels like they need work\" is pretty vague for me to run with — what specifically? Are people going through the motions and nothing real surfaces, is it always the same one or two voices, are they too long, is there no follow-through after? I don't have a read on what's actually broken yet, and I'd rather hear the specific thing than guess and start \"fixing\" the wrong problem.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 93,
+      "outputTokens": 541,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4490
+    }
+  }
+}
