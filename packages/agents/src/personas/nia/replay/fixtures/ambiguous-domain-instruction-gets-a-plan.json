@@ -1,0 +1,22 @@
+{
+  "scenarioId": "ambiguous-domain-instruction-gets-a-plan",
+  "personaId": "nia",
+  "callSite": "dmReply",
+  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
+  "scenarioInputHash": "365054bd7c0ed8a76fe959f86fd1b0be45bd91be6613c71fb3fcf8e1bd5ceeaa",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-20T13:45:36.154Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 583,
+  "result": {
+    "ok": true,
+    "reply": "Before I do anything — what specifically feels off? \"Need work\" could mean a bunch of different things: nobody's saying anything real in them, they go the same way every time, the takeaways don't lead to action, timing's bad, whatever. I don't want to guess and then \"fix\" the wrong thing.\n\nAlso worth being straight about where I actually am: I don't have a way to run a retro yet — no tool that lets me facilitate one, capture rounds, or post a synthesis. So whatever we land on, it's a plan we talk through, not something I can go execute today.\n\nIf you can give me a concrete example — a retro that went flat, or a pattern you've noticed over a few of them — I can give you a real read instead of a guess dressed up as one.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 93,
+      "outputTokens": 583,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4589
+    }
+  }
+}

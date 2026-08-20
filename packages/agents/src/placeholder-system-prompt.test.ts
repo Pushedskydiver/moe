@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   buildPersonaSystemPrompt,
@@ -41,32 +41,57 @@ describe('buildPersonaSystemPrompt', () => {
     expect(blocks[0]?.cache_control).toEqual({ type: 'ephemeral' });
   });
 
-  describe('when the persona has no prompt.md yet (placeholder fallback)', () => {
+  // Mocked rather than pointed at a real undrafted persona (BUILD_PLAN 5.3h) — the full 8-name
+  // roster now has a real prompt.md each, so there is no persona left whose actual on-disk state
+  // exercises this path. Mocking `readFile`'s own ENOENT makes this case permanent instead of
+  // depending on some future persona staying perpetually undrafted — same fix applied to
+  // `fetch-persona-prompt-content.test.ts`.
+  describe('when the persona has no prompt.md yet (mocked ENOENT, placeholder fallback)', () => {
+    let buildWithMockedFs: typeof buildPersonaSystemPrompt;
+
+    beforeEach(async () => {
+      vi.resetModules();
+      vi.doMock('node:fs/promises', () => ({
+        readFile: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('no such file'), { code: 'ENOENT' }),
+          ),
+      }));
+      ({ buildPersonaSystemPrompt: buildWithMockedFs } =
+        await import('./placeholder-system-prompt.js'));
+    });
+
+    afterEach(() => {
+      vi.doUnmock('node:fs/promises');
+      vi.resetModules();
+    });
+
     it('names the given persona, capitalized, as its identity in this context', async () => {
-      const blocks = await buildPersonaSystemPrompt('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const text = blocks[0]?.text ?? '';
 
-      expect(text.toLowerCase()).toContain('nia');
-      expect(text).toContain('Nia');
+      expect(text.toLowerCase()).toContain('sarah');
+      expect(text).toContain('Sarah');
     });
 
     it('produces a different prompt per persona, not a shared hardcoded name', async () => {
-      const nia = await buildPersonaSystemPrompt('nia');
-      const dom = await buildPersonaSystemPrompt('dom');
+      const sarah = await buildWithMockedFs('sarah');
+      const maya = await buildWithMockedFs('maya');
 
-      expect(nia[0]?.text).not.toEqual(dom[0]?.text);
-      expect(dom[0]?.text).toContain('Dom');
+      expect(sarah[0]?.text).not.toEqual(maya[0]?.text);
+      expect(maya[0]?.text).toContain('Maya');
     });
 
     it("tells the model not to correct someone who uses its name — doesn't deny the persona identity", async () => {
-      const blocks = await buildPersonaSystemPrompt('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain('no need to correct');
     });
 
     it('does not claim a defined personality or voice — that stays Stage 5', async () => {
-      const blocks = await buildPersonaSystemPrompt('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain("don't have a defined personality or voice");
@@ -75,14 +100,14 @@ describe('buildPersonaSystemPrompt', () => {
     });
 
     it('does not claim to have or lack memory of past conversations — that depends on what history the caller forwards, not a static claim in the prompt', async () => {
-      const blocks = await buildPersonaSystemPrompt('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).not.toContain('memory');
     });
 
     it('instructs the model to call report_status for a status claim rather than stating it directly (BUILD_PLAN 2.5)', async () => {
-      const blocks = await buildPersonaSystemPrompt('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain('report_status');

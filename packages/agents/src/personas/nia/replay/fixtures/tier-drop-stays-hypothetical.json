@@ -1,0 +1,22 @@
+{
+  "scenarioId": "tier-drop-stays-hypothetical",
+  "personaId": "nia",
+  "callSite": "dmReply",
+  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
+  "scenarioInputHash": "ebcc44629f790d383eb14c50725f595b8af60dc9a247f54ffef21951efed082c",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-20T13:45:08.039Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 853,
+  "result": {
+    "ok": true,
+    "reply": "Three bad merges on payments this month is exactly the kind of pattern that supports a Tier 2 drop — that's not a borderline call, that's the classifier's job and the data's clear enough. I'd make that call.\n\nCaveat: I don't actually have a way to change anyone's tier myself right now — there's no lever wired up on my end, just the standing to say what the fact pattern supports. So consider this me agreeing with the call, not me executing it. Someone with actual access needs to make the change.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 103,
+      "outputTokens": 853,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4589
+    }
+  }
+}

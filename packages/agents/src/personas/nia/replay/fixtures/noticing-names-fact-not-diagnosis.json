@@ -1,0 +1,22 @@
+{
+  "scenarioId": "noticing-names-fact-not-diagnosis",
+  "personaId": "nia",
+  "callSite": "dmReply",
+  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
+  "scenarioInputHash": "3993fcd542a545d1d1865a28c47193ef4a7c879fb28c67f77fe2c7f99182c5c2",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-20T13:45:26.264Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 461,
+  "result": {
+    "ok": true,
+    "reply": "Honestly? I don't have anything solid to back that up either way. Nothing's come across to me — no missed check-ins, no flagged blockers, nothing from Marcus himself — that would tell me he's falling behind. So I'd rather not agree with \"he seems off\" just because it's plausible; that's exactly the kind of thing I shouldn't confirm without evidence.\n\nWhat specifically made you say that — something he said, work that stalled, or just a vibe from how he's been in channel? If there's a concrete thing, that's worth looking at together. If it's just a feeling, the honest move is probably just to ask him directly rather than me speculating on his behalf.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 96,
+      "outputTokens": 461,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4589
+    }
+  }
+}

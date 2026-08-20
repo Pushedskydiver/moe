@@ -1,0 +1,22 @@
+{
+  "scenarioId": "casual-banter-genuine-reply",
+  "personaId": "nia",
+  "callSite": "dmReply",
+  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
+  "scenarioInputHash": "981e34b7fef712a0a5fe521e3c6bcb16a26a2d51056afbdfe582189ee4e3c06e",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-20T13:45:40.735Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 162,
+  "result": {
+    "ok": true,
+    "reply": "Honestly? No real read yet today — nobody's said much to me one way or the other. How's it going on your end, anything worth flagging or just checking in?",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 79,
+      "outputTokens": 162,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4589
+    }
+  }
+}

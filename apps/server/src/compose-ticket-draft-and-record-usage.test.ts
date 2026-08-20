@@ -1,6 +1,6 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { resolvePersonaModel } from '@moe/agents';
 
@@ -99,19 +99,41 @@ describe('composeTicketDraftAndRecordUsage', () => {
     );
   });
 
-  it('sends only the draft task instructions (unchanged from before this chunk) for a persona without a prompt.md yet', async () => {
-    const deps = withMessagesWrapper(makeDeps({ personaId: 'nia' }));
-
-    await composeTicketDraftAndRecordUsage(deps as never, {
-      text: 'anything',
-      now: new Date('2026-07-29T09:00:00.000Z'),
-      failureLogMessage: 'failed to compose ticket draft',
+  // Mocked rather than pointed at a real undrafted persona (BUILD_PLAN 5.3h) — the full 8-name
+  // roster now has a real prompt.md each, so there is no persona left whose actual on-disk state
+  // exercises this path. Mocking `readFile`'s own ENOENT makes this case permanent instead of
+  // depending on some future persona staying perpetually undrafted — same fix applied to
+  // `fetch-persona-prompt-content.test.ts`/`placeholder-system-prompt.test.ts` in `@moe/agents`.
+  describe('a persona with no prompt.md yet (mocked ENOENT, not a real on-disk gap)', () => {
+    afterEach(() => {
+      vi.doUnmock('node:fs/promises');
+      vi.resetModules();
     });
 
-    const call = deps.anthropicClient.messages.parse.mock.calls[0]?.[0] as {
-      system: ReadonlyArray<{ readonly text: string }>;
-    };
-    expect(call.system).toHaveLength(1);
+    it('sends only the draft task instructions (unchanged from before this chunk)', async () => {
+      vi.resetModules();
+      vi.doMock('node:fs/promises', () => ({
+        readFile: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('no such file'), { code: 'ENOENT' }),
+          ),
+      }));
+      const { composeTicketDraftAndRecordUsage: composeWithMockedFs } =
+        await import('./compose-ticket-draft-and-record-usage.js');
+      const deps = withMessagesWrapper(makeDeps());
+
+      await composeWithMockedFs(deps as never, {
+        text: 'anything',
+        now: new Date('2026-07-29T09:00:00.000Z'),
+        failureLogMessage: 'failed to compose ticket draft',
+      });
+
+      const call = deps.anthropicClient.messages.parse.mock.calls[0]?.[0] as {
+        system: ReadonlyArray<{ readonly text: string }>;
+      };
+      expect(call.system).toHaveLength(1);
+    });
   });
 
   it('returns undefined and logs under the caller-supplied failureLogMessage, without recording usage, on a composition failure', async () => {

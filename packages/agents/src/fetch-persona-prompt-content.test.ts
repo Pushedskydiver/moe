@@ -14,18 +14,50 @@ describe('fetchPersonaPromptContent', () => {
     expect(content).toBe(content?.trim());
   });
 
-  it('returns undefined for a persona with no prompt.md directory yet', async () => {
-    const content = await fetchPersonaPromptContent('nia');
+  // Mocked rather than pointed at a real undrafted persona (BUILD_PLAN 5.3h) — the full 8-name
+  // roster now has a real prompt.md each, so there is no persona left whose actual on-disk state
+  // exercises this path. Mocking `readFile`'s own ENOENT makes this case permanent instead of
+  // depending on some future persona staying perpetually undrafted.
+  describe('a persona with no prompt.md yet (mocked ENOENT, not a real on-disk gap)', () => {
+    afterEach(() => {
+      vi.doUnmock('node:fs/promises');
+      vi.resetModules();
+    });
 
-    expect(content).toBeUndefined();
-  });
+    it('returns undefined', async () => {
+      vi.resetModules();
+      vi.doMock('node:fs/promises', () => ({
+        readFile: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('no such file'), { code: 'ENOENT' }),
+          ),
+      }));
+      const { fetchPersonaPromptContent: fetchWithMockedFs } =
+        await import('./fetch-persona-prompt-content.js');
 
-  it('does not warn for the expected ENOENT case (a persona with no prompt.md yet)', async () => {
-    const logger = makeLogger();
+      const content = await fetchWithMockedFs('sarah');
 
-    await fetchPersonaPromptContent('nia', logger);
+      expect(content).toBeUndefined();
+    });
 
-    expect(logger.warn).not.toHaveBeenCalled();
+    it('does not warn for the expected ENOENT case', async () => {
+      vi.resetModules();
+      vi.doMock('node:fs/promises', () => ({
+        readFile: vi
+          .fn()
+          .mockRejectedValue(
+            Object.assign(new Error('no such file'), { code: 'ENOENT' }),
+          ),
+      }));
+      const { fetchPersonaPromptContent: fetchWithMockedFs } =
+        await import('./fetch-persona-prompt-content.js');
+      const logger = makeLogger();
+
+      await fetchWithMockedFs('sarah', logger);
+
+      expect(logger.warn).not.toHaveBeenCalled();
+    });
   });
 
   describe('a non-ENOENT read failure (a real infra regression, not an unwritten persona)', () => {
