@@ -132,7 +132,7 @@ export const scenarios: readonly ReplayScenario[] = [
           const assertsVerdict = hasSentenceScopedMatch(
             reply,
             /\b(yeah,? he'?s|he'?s definitely|he is falling behind|he'?s (struggling|behind))\b/,
-            /(don'?t have|no|haven'?t (noticed|seen)|not sure|can'?t say)/,
+            /\b(don'?t have|no idea|no read|haven'?t (noticed|seen)|not sure|can'?t say)\b/,
           );
           return reply.length > 0 && !assertsVerdict;
         },

@@ -68,30 +68,30 @@ describe('buildPersonaSystemPrompt', () => {
     });
 
     it('names the given persona, capitalized, as its identity in this context', async () => {
-      const blocks = await buildWithMockedFs('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const text = blocks[0]?.text ?? '';
 
-      expect(text.toLowerCase()).toContain('nia');
-      expect(text).toContain('Nia');
+      expect(text.toLowerCase()).toContain('sarah');
+      expect(text).toContain('Sarah');
     });
 
     it('produces a different prompt per persona, not a shared hardcoded name', async () => {
-      const nia = await buildWithMockedFs('nia');
-      const dom = await buildWithMockedFs('dom');
+      const sarah = await buildWithMockedFs('sarah');
+      const maya = await buildWithMockedFs('maya');
 
-      expect(nia[0]?.text).not.toEqual(dom[0]?.text);
-      expect(dom[0]?.text).toContain('Dom');
+      expect(sarah[0]?.text).not.toEqual(maya[0]?.text);
+      expect(maya[0]?.text).toContain('Maya');
     });
 
     it("tells the model not to correct someone who uses its name — doesn't deny the persona identity", async () => {
-      const blocks = await buildWithMockedFs('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain('no need to correct');
     });
 
     it('does not claim a defined personality or voice — that stays Stage 5', async () => {
-      const blocks = await buildWithMockedFs('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain("don't have a defined personality or voice");
@@ -100,14 +100,14 @@ describe('buildPersonaSystemPrompt', () => {
     });
 
     it('does not claim to have or lack memory of past conversations — that depends on what history the caller forwards, not a static claim in the prompt', async () => {
-      const blocks = await buildWithMockedFs('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).not.toContain('memory');
     });
 
     it('instructs the model to call report_status for a status claim rather than stating it directly (BUILD_PLAN 2.5)', async () => {
-      const blocks = await buildWithMockedFs('nia');
+      const blocks = await buildWithMockedFs('sarah');
       const lower = (blocks[0]?.text ?? '').toLowerCase();
 
       expect(lower).toContain('report_status');

@@ -2,19 +2,19 @@
   "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
   "personaId": "nia",
   "callSite": "confirmingQuestion",
-  "promptContentHash": "6368bb6421418c1b396fe7fb8561f5e6212b9eb042435a38edc1744a76c7daa0",
+  "promptContentHash": "8b7a19285122ee3602429a0441322e1b8be10b27ebfeaf0648450ffdab13b92e",
   "scenarioInputHash": "8f599ae9c554530bc0f9dd5318bccf9edc48ddb9ba0115a9dd594ab0e9bfb9e9",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-20T13:11:43.116Z",
+  "recordedAt": "2026-08-20T13:29:53.296Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 64,
+  "outputTokensRaw": 63,
   "result": {
     "ok": true,
-    "questionLeadIn": "That's pretty open-ended — no specific person or timeframe attached, so I can't tell if this is a nudge for something concrete or just a general thought out loud.",
+    "questionLeadIn": "This reads like a general nudge more than a specific ask — no name, no timeframe, no particular concern attached, just a sense that a check-in is due at some point.",
     "usage": {
       "inputTokens": 97,
-      "outputTokens": 64,
-      "cacheCreationInputTokens": 4533,
+      "outputTokens": 63,
+      "cacheCreationInputTokens": 4621,
       "cacheReadInputTokens": 0
     }
   }
