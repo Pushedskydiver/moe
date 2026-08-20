@@ -2,20 +2,20 @@
   "scenarioId": "ticket-draft-restates-plainly",
   "personaId": "nia",
   "callSite": "ticketDraft",
-  "promptContentHash": "8b7a19285122ee3602429a0441322e1b8be10b27ebfeaf0648450ffdab13b92e",
+  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
   "scenarioInputHash": "b93b157f5afd5b74f71c231f7cb2f180d71765f9a839905ef7f9d97ba564e564",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-20T13:29:49.343Z",
+  "recordedAt": "2026-08-20T13:45:44.592Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 58,
+  "outputTokensRaw": 90,
   "result": {
     "ok": true,
-    "title": "Duplicate retro-thread reminder DM",
+    "title": "Retro-thread reminder DM duplicated",
     "body": "The retro-thread reminder DM went out twice to the same channel this morning, five minutes apart.",
     "usage": {
       "inputTokens": 34,
-      "outputTokens": 58,
-      "cacheCreationInputTokens": 4500,
+      "outputTokens": 90,
+      "cacheCreationInputTokens": 4511,
       "cacheReadInputTokens": 0
     }
   }

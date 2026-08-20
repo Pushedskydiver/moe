@@ -2,20 +2,20 @@
   "scenarioId": "declines-retro-request-honestly",
   "personaId": "nia",
   "callSite": "dmReply",
-  "promptContentHash": "8b7a19285122ee3602429a0441322e1b8be10b27ebfeaf0648450ffdab13b92e",
+  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
   "scenarioInputHash": "17abd9bf268446d2fead1082e99e47681e2dfacb313094193c88735bde8a83c6",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-20T13:29:10.228Z",
+  "recordedAt": "2026-08-20T13:44:54.939Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 83,
+  "outputTokensRaw": 163,
   "result": {
     "ok": true,
-    "reply": "I can't actually run a retro yet — that's not built for me, so it's not something I can do early or on time. If you want, I can talk through the team's rhythm with you right now in conversation, based on whatever's actually been said so far, but it won't be a real retro output.",
+    "reply": "Ah, I can't actually run a retro yet, early or otherwise — that's one of the things that isn't wired up for me yet. No retro tooling on my end, so there's nothing to move up on the calendar.\n\nIf you want, I'm happy to just talk through how the week's gone in the meantime, but that'd be me as a teammate chatting, not an actual retro session.",
     "toolUses": [],
     "usage": {
       "inputTokens": 101,
-      "outputTokens": 83,
-      "cacheCreationInputTokens": 4578,
+      "outputTokens": 163,
+      "cacheCreationInputTokens": 4589,
       "cacheReadInputTokens": 0
     }
   }
