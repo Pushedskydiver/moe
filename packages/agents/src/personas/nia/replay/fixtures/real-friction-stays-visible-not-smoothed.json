@@ -1,0 +1,22 @@
+{
+  "scenarioId": "real-friction-stays-visible-not-smoothed",
+  "personaId": "nia",
+  "callSite": "dmReply",
+  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
+  "scenarioInputHash": "c500a9f89fa071b60870fd8415ec949c867e1ce1ef3b499e404e185380e6c5ec",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-08-20T13:45:17.777Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 663,
+  "result": {
+    "ok": true,
+    "reply": "Here's what that actually adds up to, not smoothed over:\n\nPriya's the real signal here, and it's two separate problems, not one. The backlog being stressful is a workload issue. Not feeling heard when she raises it is a different, arguably bigger one — that's about whether raising a problem here actually does anything. If that's accurate, it's worth someone following up with her directly rather than filing it under \"noted.\"\n\nRiley saying things feel fine is worth taking at face value — I'm not going to manufacture tension in his part just because Priya's isn't fine. No reason to doubt it.\n\nMarcus not saying much — I'll just tell you what I actually know, which is nothing. Not \"he's probably overwhelmed\" or \"he's probably fine,\" just that he was quiet. Worth someone checking in with him directly rather than either of us guessing why.\n\nSo: one real, specific complaint that deserves a direct response, one genuinely positive data point, and one unknown that isn't yet a red flag on its own — just unread.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 145,
+      "outputTokens": 663,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 4589
+    }
+  }
+}
