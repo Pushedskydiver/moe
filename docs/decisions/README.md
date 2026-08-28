@@ -28,6 +28,7 @@ Decision docs live at `docs/decisions/*.md` (ALLCAPS + flat, matching the top-le
 | `REVIEW-GATE-DISCRETION.md`     | Narrow `copilot-surrogate`'s discretionary trigger to mandatory; decline a gate-checker subagent for now                                 |
 | `STAGE-1-CLASSIFIER.md`         | Stage-1 classifier scoring method (bundled structured-output call, no log-probs/prefill) + High/Mid/Low thresholds; eval-backed          |
 | `BOARD-AND-CAPACITY-MODEL.md`   | Board home (moe's own DB, GitHub issues as mirror); classes of service (Standard/Expedite); WIP limits (Brief 3/Plan 2/Build 2/Review 2) |
+| `PERSONA-REPLAY-HARNESS.md`     | Two-part replay harness: a manual real-API recording script + a network-free per-persona test; content-hash drift fails by name          |
 | `TOOL-ALLOWLIST-GRID.md`        | Per-persona tool grid; CLI-vs-MCP default (direct SDK, MCP only as fallback); Riley's sandbox has no network; Tier 3 reviewer answer     |
 
 Other significant decisions already made this early (the package graph settled at chunk 0.3; the Messages-API-vs-Agent-SDK model-client choice) are documented in their original locations — `docs/CONVENTIONS.md` §Architecture Enforcement and `docs/VISION.md` §11, respectively — and aren't duplicated here. Backfilling them is optional, not required by this convention.
