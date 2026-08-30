@@ -158,7 +158,9 @@ export async function evaluateCostAndRhythmGuard(
     // "skipping", not "deferring" — BUILD_PLAN 3.9. This function defers nothing: it returns, and
     // the caller stops. The ambient callers now write a `review_queue` row off the back of this
     // reason, but that is a durable record for the 3.5 sweep digest, not a scheduled retry —
-    // genuine deferral is 3.9's own step (2), gated on chunk 7.2a or 6.1a-i building a timer.
+    // genuine deferral is 3.9's own step (2), still unbuilt. BUILD_PLAN 6.1a-i's pull loop now has
+    // a real recurring timer, but nothing wires this deferred-post behavior through it; 7.2a's
+    // ceremony scheduler is the other still-open path either could re-enter through.
     // The old wording claimed a pickup that no code performs, and it is why a real production
     // drop read as working-as-intended in the logs.
     deps.logger.info(`skipping ${actionDescription} — outside core hours`, {

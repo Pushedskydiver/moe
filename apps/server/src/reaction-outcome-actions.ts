@@ -8,6 +8,12 @@ import type {
   ResolveConfirmingQuestionAndLogResult,
 } from '@moe/core';
 
+import {
+  classifyClassOfService,
+  INCIDENTS_CHANNEL_ID,
+  PROJECT_KEY,
+} from '@moe/core';
+
 import { checkCostCapAndAlert } from './check-cost-cap.js';
 import { composeTicketDraftAndRecordUsage } from './compose-ticket-draft-and-record-usage.js';
 import { postAndPersistDraft } from './handle-ambient-channel-message.js';
@@ -56,22 +62,11 @@ type ReactionOutcomeDeps = Omit<
   }) => Promise<ResolveConfirmingQuestionAndLogResult>;
 };
 
-// VISION §3.4's single-project scope ("Single-project today (chief-clancy)", `project-key.ts`'s
-// own TSDoc) — not an open parameter this chunk needed to resolve.
-const PROJECT_KEY = 'chief-clancy';
-
 // VISION §5.4's trust-erosion rule keeps severity assignment off the LLM layer, same reasoning
 // that already keeps `composeTicketDraft` from producing one — Alex confirmed via
 // `AskUserQuestion`: every auto-drafted ticket gets this fixed placeholder until a real triage
 // signal exists (Stage 4+ GitHub/board integration, or a human editing it after creation).
 const DEFAULT_SEVERITY = 'Medium';
-
-// docs/decisions/BOARD-AND-CAPACITY-MODEL.md's Decision 3: classOfService is deliberately not
-// derived from severity (a different Kanban concept), so it needs its own placeholder — every
-// auto-drafted ticket gets 'Standard' until a real Expedite-detection signal exists (an
-// #moe-incidents-sourced message, or a real, non-placeholder 'Critical' severity), same
-// hardcoded-until-real-signal shape as `DEFAULT_SEVERITY` above.
-const DEFAULT_CLASS_OF_SERVICE = 'Standard';
 
 /**
  * The ✅/📦 outcomes share everything except the resulting board status — factored out rather than
@@ -98,7 +93,16 @@ async function commitAsTicket(
       projectKey: PROJECT_KEY,
       status,
       severity: DEFAULT_SEVERITY,
-      classOfService: DEFAULT_CLASS_OF_SERVICE,
+      // BUILD_PLAN 6.1a-i's Expedite-assignment fix — docs/decisions/BOARD-AND-CAPACITY-
+      // MODEL.md's Decision 2 ("Expedite = anything from #moe-incidents... or severity:
+      // 'Critical'"), computed deterministically from the draft's own source channel (still off
+      // the LLM layer, per the same VISION §5.4 rule DEFAULT_SEVERITY's own comment cites). The
+      // severity-based half of the rule is correct but currently unreachable in practice, since
+      // DEFAULT_SEVERITY above is itself a still-unbuilt placeholder.
+      classOfService: classifyClassOfService(
+        { channelId: draft.channelId, severity: DEFAULT_SEVERITY },
+        INCIDENTS_CHANNEL_ID,
+      ),
     },
   });
   if (!result.ok) {
