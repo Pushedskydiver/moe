@@ -239,11 +239,13 @@ export function main(
   // query — verified against node-postgres's own docs: its sockets aren't unref'd, so an open
   // pool keeps the event loop alive same as a listening server) keeps the event loop alive on its
   // own, so a bare `exit(1)` (which only sets process.exitCode, deliberately not
-  // force-terminating — see the comment above) would never actually take effect while either is
-  // still open. Closing both is what lets the process really exit, so an unrecoverable Slack
-  // failure actually restarts under Fly's supervisor instead of sitting "healthy" per /health
-  // forever. Verified live for the HTTP-server half: without closing it, a Docker container with
-  // an invalid app token kept running indefinitely despite exit(1) firing.
+  // force-terminating — see the comment above) would never actually take effect while any of them
+  // is still open — BUILD_PLAN 6.1a-i's pull loop (an un-`unref`'d `setInterval`) is a third such
+  // mechanism, alongside the server and the pool. Closing/stopping all three is what lets the
+  // process really exit, so an unrecoverable Slack failure actually restarts under Fly's
+  // supervisor instead of sitting "healthy" per /health forever. Verified live for the
+  // HTTP-server half: without closing it, a Docker container with an invalid app token kept
+  // running indefinitely despite exit(1) firing.
   const exitAndCloseServer = (code: number): void => {
     pullLoop.stop();
     server.close();

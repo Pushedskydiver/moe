@@ -3,8 +3,10 @@ import type { PersonaId } from '../persona-roster.js';
 
 /**
  * BUILD_PLAN 6.1a-i's persona→stage eligibility mapping — which board statuses a persona's own
- * pull loop may claim from (`board-status.ts`'s own doc comment / VISION §3.3: "Sarah triages,
- * Marcus plans, Riley builds (with Priya), Dom reviews (with Priya), merge").
+ * pull loop may claim from (`board-status.ts`'s own doc comment, quoted verbatim: "Sarah triages,
+ * Marcus plans, Riley builds (with Priya), Dom reviews (with Priya), merge" — VISION §3.3 states
+ * the same lifecycle with `→` between clauses rather than commas, not a verbatim match to this
+ * exact wording, though the substance is identical).
  *
  * **Priya's `[]` here is interim, not final.** VISION §3.3 and `board-status.ts`'s own doc
  * comment both describe her eventual steady-state role as joining Riley on Build and Dom on

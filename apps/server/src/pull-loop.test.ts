@@ -1,15 +1,45 @@
 import type { Logger } from './logger.js';
-import type { PullLoopDeps } from './pull-loop.js';
+import type { PullLoopDeps, StartPullLoopDeps } from './pull-loop.js';
+import type * as CoreModule from '@moe/core';
 import type {
   ClaimResult,
   createBankHolidaysCache,
+  Database,
   Ticket,
   TicketListResult,
 } from '@moe/core';
+import type { Kysely } from 'kysely';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { runPullLoopTick, schedulePullLoopTicks } from './pull-loop.js';
+import { PROJECT_KEY } from '@moe/core';
+
+import {
+  runPullLoopTick,
+  schedulePullLoopTicks,
+  startPullLoop,
+} from './pull-loop.js';
+
+// `startPullLoop`'s own DI-wiring composition root (`buildPullLoopDeps`, not directly exported)
+// closes over the real `@moe/core` repository functions — mocking them here is the only way to
+// unit-test that wiring without a real `Kysely` query builder (DA review, BUILD_PLAN 6.1a-i:
+// `startPullLoop` had zero direct test coverage, since `main.test.ts` mocks this whole module
+// away and the tests above only ever exercise the `PullLoopDeps`-level primitives).
+const coreMocks = vi.hoisted(() => ({
+  listClaimableTickets: vi.fn(),
+  claimTicket: vi.fn(),
+  releaseTicket: vi.fn(),
+}));
+
+vi.mock('@moe/core', async (importOriginal) => {
+  const actual = await importOriginal<typeof CoreModule>();
+  return {
+    ...actual,
+    listClaimableTickets: coreMocks.listClaimableTickets,
+    claimTicket: coreMocks.claimTicket,
+    releaseTicket: coreMocks.releaseTicket,
+  };
+});
 
 // Same `ReturnType<typeof X>` idiom `pull-loop.ts` itself (and `handle-inbound-message.ts`'s own
 // `BankHolidaysCache` alias) uses — `Cached` is deliberately not re-exported from `@moe/core`.
@@ -321,5 +351,88 @@ describe('schedulePullLoopTicks', () => {
     loop.stop();
     await vi.advanceTimersByTimeAsync(5000);
     expect(deps.ticketStore.listClaimable).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('startPullLoop', () => {
+  beforeEach(() => {
+    vi.useFakeTimers();
+    vi.setSystemTime(WITHIN_CORE_HOURS);
+    coreMocks.listClaimableTickets
+      .mockReset()
+      .mockResolvedValue({ ok: true, tickets: [] });
+    coreMocks.claimTicket.mockReset();
+    coreMocks.releaseTicket.mockReset();
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  function makeStartDeps(
+    overrides: Partial<StartPullLoopDeps> = {},
+  ): StartPullLoopDeps {
+    return {
+      personaId: 'sarah',
+      db: {} as Kysely<Database>, // opaque — listClaimableTickets/claimTicket/releaseTicket are mocked
+      logger: makeLogger(),
+      bankHolidaysCache: withinCoreHoursCache(),
+      workStep: vi.fn().mockResolvedValue(undefined),
+      ...overrides,
+    };
+  }
+
+  it('wires listClaimable to the real listClaimableTickets, with the right db/projectKey/statuses', async () => {
+    const deps = makeStartDeps();
+    const loop = startPullLoop(deps, 1000);
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(coreMocks.listClaimableTickets).toHaveBeenCalledWith(deps.db, {
+      projectKey: PROJECT_KEY,
+      statuses: ['Brief'],
+    });
+    loop.stop();
+  });
+
+  it('wires claim/release to the real claimTicket/releaseTicket, with the right db/id/personaId', async () => {
+    const ticket = {
+      id: '00000000-0000-0000-0000-000000000001',
+      projectKey: 'chief-clancy',
+      title: 'A ticket',
+      status: 'Brief',
+      severity: 'Medium',
+      classOfService: 'Standard',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    } satisfies Ticket;
+    coreMocks.listClaimableTickets.mockResolvedValue({
+      ok: true,
+      tickets: [ticket],
+    } satisfies TicketListResult);
+    coreMocks.claimTicket.mockResolvedValue({
+      ok: true,
+      claim: { id: ticket.id, claimedBy: 'sarah', version: 1 },
+    } satisfies ClaimResult);
+    coreMocks.releaseTicket.mockResolvedValue({
+      ok: true,
+      claim: { id: ticket.id, claimedBy: null, version: 2 },
+    } satisfies ClaimResult);
+    const deps = makeStartDeps();
+    const loop = startPullLoop(deps, 1000);
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(coreMocks.claimTicket).toHaveBeenCalledWith(
+      deps.db,
+      ticket.id,
+      'sarah',
+    );
+    expect(coreMocks.releaseTicket).toHaveBeenCalledWith(
+      deps.db,
+      ticket.id,
+      'sarah',
+    );
+    loop.stop();
   });
 });

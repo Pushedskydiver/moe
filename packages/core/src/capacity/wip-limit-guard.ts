@@ -24,8 +24,9 @@ export type WipLimitDecision = {
  * behavior (`docs/decisions/BOARD-AND-CAPACITY-MODEL.md` Decision 2, "jumps ahead of Standard
  * work within its board status") is a different concern this function doesn't address.
  * BUILD_PLAN 6.1a-i's own `findNextClaimableTicket` (`./find-next-claimable-ticket.js`) now
- * covers that gap, picking the next candidate among an already-fetched, already-WIP-filtered set
- * — a separate function from this cap guard, not a replacement for it.
+ * covers that gap, picking the next candidate among an already-fetched, already-*eligible* set
+ * (unclaimed, in-status — **not** WIP-filtered, since this guard still has no call site) — a
+ * separate function from this cap guard, not a replacement for it.
  */
 export function evaluateWipLimit(
   status: BoardStatus,

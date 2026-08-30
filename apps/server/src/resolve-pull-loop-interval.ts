@@ -1,6 +1,8 @@
 const DEFAULT_PULL_LOOP_INTERVAL_MS = 60_000;
-// setInterval(fn, 0) busy-loops — unlike resolve-port.ts's PORT=0 (a genuinely valid "OS-assigned
-// port" value that function deliberately preserves), an interval below this has no valid meaning.
+// Node clamps any setInterval delay below 1ms to a ~1ms floor rather than firing synchronously,
+// so this isn't a true busy-loop risk — but a sub-1000ms poll interval still has no valid meaning
+// for this use case, unlike resolve-port.ts's PORT=0 (a genuinely valid "OS-assigned port" value
+// that function deliberately preserves).
 const MIN_PULL_LOOP_INTERVAL_MS = 1_000;
 
 /**
