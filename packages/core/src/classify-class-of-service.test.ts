@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
+import { INCIDENTS_CHANNEL_ID } from './channel-scoping/incidents-channel-id.js';
 import { classifyClassOfService } from './classify-class-of-service.js';
 
 describe('classifyClassOfService', () => {
@@ -42,7 +43,7 @@ describe('classifyClassOfService', () => {
   it('defaults the incidents channel id to INCIDENTS_CHANNEL_ID', () => {
     expect(
       classifyClassOfService({
-        channelId: 'C0B9AS89QSH',
+        channelId: INCIDENTS_CHANNEL_ID,
         severity: 'Low',
       }),
     ).toBe('Expedite');
