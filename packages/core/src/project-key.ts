@@ -9,3 +9,6 @@ export const projectKeySchema = z
   .refine(isNotBlank, 'projectKey must not be blank');
 
 export type ProjectKey = z.infer<typeof projectKeySchema>;
+
+/** VISION §3.4's single-project scope — not an open parameter, so a bare constant rather than config. */
+export const PROJECT_KEY: ProjectKey = 'chief-clancy';

@@ -9,6 +9,7 @@ import type {
 import { describe, expect, it, vi } from 'vitest';
 
 import { resolvePersonaModel } from '@moe/agents';
+import { INCIDENTS_CHANNEL_ID } from '@moe/core';
 
 import {
   commitTicketDraft,
@@ -318,6 +319,23 @@ describe('commitTicketDraft (✅)', () => {
       'committed ticket draft',
       expect.objectContaining({ draftId: draft.id, status: 'Brief' }),
     );
+  });
+
+  it('commits as Expedite when the draft came from #moe-incidents (BUILD_PLAN 6.1a-i)', async () => {
+    const deps = makeDeps();
+    const draft = makeDraft({ channelId: INCIDENTS_CHANNEL_ID });
+
+    await commitTicketDraft(deps, draft);
+
+    expect(deps.commitDraftAsTicket).toHaveBeenCalledWith({
+      draftId: draft.id,
+      ticket: {
+        projectKey: 'chief-clancy',
+        status: 'Brief',
+        severity: 'Medium',
+        classOfService: 'Expedite',
+      },
+    });
   });
 
   // The stale-title regression this test used to pin (the claim's own post-claim title, not the

@@ -4,7 +4,9 @@ export type { BoardStatus } from './board-status.js';
 export { classOfServiceSchema } from './class-of-service.js';
 export type { ClassOfService } from './class-of-service.js';
 
-export { projectKeySchema } from './project-key.js';
+export { classifyClassOfService } from './classify-class-of-service.js';
+
+export { PROJECT_KEY, projectKeySchema } from './project-key.js';
 export type { ProjectKey } from './project-key.js';
 
 export { classifyRiskTier } from './risk-tier.js';
@@ -98,6 +100,7 @@ export type {
 export {
   createTicket,
   getTicketById,
+  listClaimableTickets,
   listTickets,
   updateTicket,
 } from './ticket-lifecycle/tickets-repository.js';
@@ -109,6 +112,8 @@ export type {
   TicketRepositoryError,
   TicketResult,
 } from './ticket-lifecycle/tickets-repository.js';
+
+export { PERSONA_CLAIMABLE_STAGES } from './ticket-lifecycle/persona-stage-eligibility.js';
 
 export { createBankHolidaysCache } from './core-hours/bank-holidays-cache.js';
 export type { FetchBankHolidaysError } from './core-hours/bank-holidays-client.js';
@@ -129,6 +134,7 @@ export {
   AMBIENT_INTAKE_PERSONA_ID,
   isAmbientIntakeListener,
 } from './channel-scoping/is-ambient-intake-listener.js';
+export { INCIDENTS_CHANNEL_ID } from './channel-scoping/incidents-channel-id.js';
 export { isSurfaceInScope } from './channel-scoping/is-surface-in-scope.js';
 
 export type { ConfidenceBand } from './confidence-band.js';
@@ -270,6 +276,7 @@ export type {
 } from './capacity/wip-limit-guard.js';
 export { DEFAULT_WIP_LIMITS } from './capacity/wip-limits-config.js';
 export type { WipLimitsConfig } from './capacity/wip-limits-config.js';
+export { findNextClaimableTicket } from './capacity/find-next-claimable-ticket.js';
 
 export { generateBackupFileName } from './backup/backup-file-name.js';
 export { buildDockerRunCommand } from './backup/docker-run-command.js';

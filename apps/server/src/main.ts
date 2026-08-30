@@ -1,8 +1,9 @@
 import type { Logger } from './logger.js';
 import type { StartSlackListenerFn } from './start-slack-listener.js';
 import type { CostCapConfig, PersonaConfig } from '@moe/agents';
-import type { ChannelScopeConfig } from '@moe/core';
+import type { ChannelScopeConfig, Database } from '@moe/core';
 import type { GithubConfig } from '@moe/github';
+import type { Kysely } from 'kysely';
 import type { Server } from 'node:http';
 
 import { createServer } from 'node:http';
@@ -13,12 +14,19 @@ import {
   parseCostCapConfig,
   parsePersonaConfig,
 } from '@moe/agents';
-import { createDb, createPool, parseDatabaseConfig } from '@moe/core';
+import {
+  createBankHolidaysCache,
+  createDb,
+  createPool,
+  parseDatabaseConfig,
+} from '@moe/core';
 import { parseGithubConfig, validateGithubCredentials } from '@moe/github';
 
 import { createHealthHandler } from './health-handler.js';
 import { createLogger } from './logger.js';
+import { startPullLoop } from './pull-loop.js';
 import { resolvePort } from './resolve-port.js';
+import { resolvePullLoopIntervalMs } from './resolve-pull-loop-interval.js';
 import { startSlackListener } from './start-slack-listener.js';
 
 // PersonaConfig's/AnthropicConfig's/DatabaseConfig's/GithubConfig's own camelCase field names
@@ -44,6 +52,33 @@ function startServer(
     logger.info('server started', { personaId: config.id, port });
   });
   return server;
+}
+
+// BUILD_PLAN 6.1a-i's per-persona poll scheduler — a no-op work step for this chunk (real
+// per-stage handlers land at 6.1b/6.1c). A second, independent bank-holidays cache instance:
+// `start-slack-listener.ts` already constructs its own for the ambient/DM guard chain, and
+// reusing it here would mean widening that already-shipped, tested plumbing rather than adding
+// one more low-footprint 24h-TTL cache — still "construct once per process, don't recreate per
+// call", just two callers instead of one. Extracted purely to keep `main` under eslint's
+// `max-lines-per-function`, same reasoning as `startServer`/`validateGithubAndLog` above.
+function startPersonaPullLoop(opts: {
+  readonly config: PersonaConfig;
+  readonly db: Kysely<Database>;
+  readonly logger: Logger;
+  readonly env: Readonly<Record<string, string | undefined>>;
+}): { readonly stop: () => void } {
+  return startPullLoop(
+    {
+      personaId: opts.config.id,
+      db: opts.db,
+      logger: opts.logger,
+      bankHolidaysCache: createBankHolidaysCache(),
+      workStep: async () => {
+        // Stub — 6.1a-i's own scope is claim/release mechanics, not real per-stage work.
+      },
+    },
+    resolvePullLoopIntervalMs(opts.env),
+  );
 }
 
 type BootConfig = {
@@ -154,22 +189,24 @@ function validateGithubAndLog(
 }
 
 /**
- * Boot sequence for BUILD_PLAN 2.2/2.3/2.4a/2.4b/3.3/4.1: load + validate persona, Anthropic,
+ * Boot sequence for BUILD_PLAN 2.2/2.3/2.4a/2.4b/3.3/4.1/6.1a-i: load + validate persona, Anthropic,
  * database, cost-cap, channel-scope, and GitHub config from env, start the health-check HTTP
  * server, open the shared Postgres pool (migrations are a separate manual pre-deploy step —
- * `pnpm --filter @moe/core migrate` — this boot sequence never runs them), connect to Slack over
- * Socket Mode. Both surfaces run VISION §5.2's intake cascade: a DM is classified and, on a High
- * or Mid band, answered with a ticket draft or a confirming question — otherwise it falls through to
- * a full LLM-generated reply in the placeholder voice, thread-scoped per `resolve-thread-key.ts`
- * (BUILD_PLAN 3.7 — see `run-dm-intake-cascade.ts`). An ambient channel/group message runs the same
- * cascade but never gets a chat reply, and stays silent on a Low band or any guard block
- * (BUILD_PLAN 3.3/3.4a-i — see `handle-ambient-channel-message.ts`). A Slack connection failure only exits the
- * process when it's unrecoverable per isUnrecoverableStartError (permanent misconfiguration — the
- * SDK's own auto-reconnect already handles transient failures); see start-slack-listener.ts. The
- * GitHub App credential check (`validateGithubAndLog`, BUILD_PLAN 4.1's boot-time key-validation
- * guard) runs the same way — fire-and-forget, exiting on an unrecoverable failure rather than
- * blocking startup. Returns `undefined` on invalid config after logging (redacted) and exiting,
- * so a caller never mistakes a failed boot for a running server.
+ * `pnpm --filter @moe/core migrate` — this boot sequence never runs them), start the per-persona
+ * pull loop (`startPullLoop`, BUILD_PLAN 6.1a-i — a no-op work step until 6.1b/6.1c land real
+ * per-stage handlers), connect to Slack over Socket Mode. Both surfaces run VISION §5.2's intake
+ * cascade: a DM is classified and, on a High or Mid band, answered with a ticket draft or a
+ * confirming question — otherwise it falls through to a full LLM-generated reply in the
+ * placeholder voice, thread-scoped per `resolve-thread-key.ts` (BUILD_PLAN 3.7 — see
+ * `run-dm-intake-cascade.ts`). An ambient channel/group message runs the same cascade but never
+ * gets a chat reply, and stays silent on a Low band or any guard block (BUILD_PLAN 3.3/3.4a-i —
+ * see `handle-ambient-channel-message.ts`). A Slack connection failure only exits the process
+ * when it's unrecoverable per isUnrecoverableStartError (permanent misconfiguration — the SDK's
+ * own auto-reconnect already handles transient failures); see start-slack-listener.ts. The GitHub
+ * App credential check (`validateGithubAndLog`, BUILD_PLAN 4.1's boot-time key-validation guard)
+ * runs the same way — fire-and-forget, exiting on an unrecoverable failure rather than blocking
+ * startup. Returns `undefined` on invalid config after logging (redacted) and exiting, so a
+ * caller never mistakes a failed boot for a running server.
  */
 export function main(
   env: Readonly<Record<string, string | undefined>> = process.env,
@@ -192,16 +229,25 @@ export function main(
 
   const server = startServer(config.persona, logger, resolvePort(env));
   const db = createDb(createPool(config.databaseConnectionString));
+  const pullLoop = startPersonaPullLoop({
+    config: config.persona,
+    db,
+    logger,
+    env,
+  });
   // A listening HTTP server (and, equally, an open pg.Pool with any client that's ever run a
   // query — verified against node-postgres's own docs: its sockets aren't unref'd, so an open
   // pool keeps the event loop alive same as a listening server) keeps the event loop alive on its
   // own, so a bare `exit(1)` (which only sets process.exitCode, deliberately not
-  // force-terminating — see the comment above) would never actually take effect while either is
-  // still open. Closing both is what lets the process really exit, so an unrecoverable Slack
-  // failure actually restarts under Fly's supervisor instead of sitting "healthy" per /health
-  // forever. Verified live for the HTTP-server half: without closing it, a Docker container with
-  // an invalid app token kept running indefinitely despite exit(1) firing.
+  // force-terminating — see the comment above) would never actually take effect while any of them
+  // is still open — BUILD_PLAN 6.1a-i's pull loop (an un-`unref`'d `setInterval`) is a third such
+  // mechanism, alongside the server and the pool. Closing/stopping all three is what lets the
+  // process really exit, so an unrecoverable Slack failure actually restarts under Fly's
+  // supervisor instead of sitting "healthy" per /health forever. Verified live for the
+  // HTTP-server half: without closing it, a Docker container with an invalid app token kept
+  // running indefinitely despite exit(1) firing.
   const exitAndCloseServer = (code: number): void => {
+    pullLoop.stop();
     server.close();
     db.destroy().catch((error: unknown) => {
       logger.error('failed to close database pool', {

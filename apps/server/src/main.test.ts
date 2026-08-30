@@ -1,3 +1,4 @@
+import type * as PullLoopModule from './pull-loop.js';
 import type * as GithubModule from '@moe/github';
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -6,6 +7,10 @@ import { main } from './main.js';
 
 const mocks = vi.hoisted(() => ({
   validateGithubCredentials: vi.fn(),
+  // Default returns a real-shaped `{stop}` so every pre-existing test below that reaches
+  // `exitAndCloseServer`'s new `pullLoop.stop()` call doesn't throw on `undefined` — only the
+  // pull-loop-specific test overrides this per-test.
+  startPullLoop: vi.fn().mockReturnValue({ stop: vi.fn() }),
 }));
 
 vi.mock('@moe/github', async (importOriginal) => {
@@ -14,6 +19,11 @@ vi.mock('@moe/github', async (importOriginal) => {
     ...actual,
     validateGithubCredentials: mocks.validateGithubCredentials,
   };
+});
+
+vi.mock('./pull-loop.js', async (importOriginal) => {
+  const actual = await importOriginal<typeof PullLoopModule>();
+  return { ...actual, startPullLoop: mocks.startPullLoop };
 });
 
 const VALID_ENV = {
@@ -39,6 +49,7 @@ describe('main', () => {
   beforeEach(() => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     mocks.validateGithubCredentials.mockReset().mockResolvedValue({ ok: true });
+    mocks.startPullLoop.mockReset().mockReturnValue({ stop: vi.fn() });
   });
 
   afterEach(() => {
@@ -326,5 +337,38 @@ describe('main', () => {
     passedExit(1);
 
     await vi.waitFor(() => expect(destroySpy).toHaveBeenCalledTimes(1));
+  });
+
+  it('starts the pull loop with the parsed persona id/db/logger (BUILD_PLAN 6.1a-i), and its exit callback stops the pull loop before closing the database pool', async () => {
+    const stop = vi.fn();
+    mocks.startPullLoop.mockReturnValue({ stop });
+    const startSlack = vi.fn();
+    const exit = vi.fn();
+
+    main(VALID_ENV, exit, startSlack);
+
+    expect(mocks.startPullLoop).toHaveBeenCalledTimes(1);
+    const [pullLoopDeps] = mocks.startPullLoop.mock.calls[0] as [
+      { personaId: string; db: unknown; logger: unknown },
+      number,
+    ];
+    expect(pullLoopDeps.personaId).toBe('sarah');
+    expect(pullLoopDeps.db).toBeDefined();
+    expect(pullLoopDeps.logger).toBeDefined();
+
+    const [deps, , passedExit] = startSlack.mock.calls[0] as [
+      { db: { destroy: () => Promise<void> } },
+      unknown,
+      (code: number) => void,
+    ];
+    const destroySpy = vi.spyOn(deps.db, 'destroy');
+
+    passedExit(1);
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    await vi.waitFor(() => expect(destroySpy).toHaveBeenCalledTimes(1));
+    expect(stop.mock.invocationCallOrder[0]).toBeLessThan(
+      destroySpy.mock.invocationCallOrder[0] ?? Infinity,
+    );
   });
 });

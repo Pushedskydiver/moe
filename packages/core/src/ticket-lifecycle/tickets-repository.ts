@@ -1,3 +1,4 @@
+import type { BoardStatus } from '../board-status.js';
 import type { Database } from '../schema.js';
 import type { Ticket } from '../ticket.js';
 import type { Kysely } from 'kysely';
@@ -108,6 +109,46 @@ export async function listTickets(
       ? base.where('projectKey', '=', filters.projectKey)
       : base;
     const rows = await scoped.execute();
+
+    const parsedRows = rows.map((row) => parseTicketRow(row));
+    const failure = parsedRows.find((parsed) => isFailedTicketResult(parsed));
+    if (failure) return failure;
+
+    return {
+      ok: true,
+      tickets: parsedRows
+        .filter((parsed) => isOkTicketResult(parsed))
+        .map((parsed) => parsed.ticket),
+    };
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
+ * BUILD_PLAN 6.1a-i's pull-loop candidate set: unclaimed tickets in `projectKey` whose `status`
+ * is one of `statuses` — the persona's own `PERSONA_CLAIMABLE_STAGES` eligibility. No ordering
+ * here (`findNextClaimableTicket`'s job, not this repository function's) and no Kysely `in()`
+ * call at all on an empty `statuses` — there's no precedent anywhere in this codebase for how
+ * Kysely 0.29 handles an empty array there, so this is guarded explicitly rather than trusted.
+ */
+export async function listClaimableTickets(
+  db: Kysely<Database>,
+  filters: {
+    readonly projectKey: string;
+    readonly statuses: readonly BoardStatus[];
+  },
+): Promise<TicketListResult> {
+  if (filters.statuses.length === 0) return { ok: true, tickets: [] };
+
+  try {
+    const rows = await db
+      .selectFrom('tickets')
+      .selectAll()
+      .where('projectKey', '=', filters.projectKey)
+      .where('status', 'in', filters.statuses)
+      .where('claimedBy', 'is', null)
+      .execute();
 
     const parsedRows = rows.map((row) => parseTicketRow(row));
     const failure = parsedRows.find((parsed) => isFailedTicketResult(parsed));

@@ -130,8 +130,10 @@ async function logStaleQuestionsAsSilent(
 // within a 15-minute cooldown window.
 //
 // The 3.9/3.10/3.11 labels say "not drafted"/"not asked"/"not classified" rather than anything like
-// "deferred": no timer picks these up (genuine deferral is 3.9's own still-unbuilt step (2), gated
-// on 7.2a or 6.1a-i), so a label promising a later pickup would restate in the digest exactly the
+// "deferred": nothing picks these up for a later retry (genuine deferral is 3.9's own
+// still-unbuilt step (2) — BUILD_PLAN 6.1a-i's pull loop now has a real recurring timer, but
+// nothing wires this deferred-post behavior through it; 7.2a's ceremony scheduler is the other
+// still-open path), so a label promising a later pickup would restate in the digest exactly the
 // false promise 3.9 was filed to remove. They are listed **first deliberately**, not alphabetically
 // or by age: `formatSweepMessage` derives its section order from this object's own key order
 // (`Object.keys`).

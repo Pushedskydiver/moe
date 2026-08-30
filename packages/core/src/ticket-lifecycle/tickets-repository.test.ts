@@ -7,12 +7,14 @@ import { fileURLToPath } from 'node:url';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
+import { claimTicket } from './claim.js';
 import { createDb } from './db.js';
 import { runMigrations } from './migrate.js';
 import { getTestPool, resetDatabase } from './test-db.js';
 import {
   createTicket,
   getTicketById,
+  listClaimableTickets,
   listTickets,
   updateTicket,
 } from './tickets-repository.js';
@@ -144,5 +146,85 @@ describe('tickets repository', () => {
       },
     );
     expect(result).toEqual({ ok: true, ticket: null });
+  });
+
+  describe('listClaimableTickets', () => {
+    it('returns unclaimed tickets whose status is in the given list', async () => {
+      const created = await createTicket(db, {
+        ...newTicketInput(),
+        status: 'Brief',
+      });
+      if (!created.ok) throw new Error('setup failed');
+
+      const result = await listClaimableTickets(db, {
+        projectKey: 'chief-clancy',
+        statuses: ['Brief'],
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.tickets.map((ticket) => ticket.id)).toEqual([
+        created.ticket.id,
+      ]);
+    });
+
+    it('excludes tickets that are already claimed', async () => {
+      const created = await createTicket(db, {
+        ...newTicketInput(),
+        status: 'Brief',
+      });
+      if (!created.ok) throw new Error('setup failed');
+      await claimTicket(db, created.ticket.id, 'sarah');
+
+      const result = await listClaimableTickets(db, {
+        projectKey: 'chief-clancy',
+        statuses: ['Brief'],
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.tickets).toHaveLength(0);
+    });
+
+    it('excludes tickets outside the given statuses', async () => {
+      await createTicket(db, { ...newTicketInput(), status: 'Plan' });
+
+      const result = await listClaimableTickets(db, {
+        projectKey: 'chief-clancy',
+        statuses: ['Brief'],
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.tickets).toHaveLength(0);
+    });
+
+    it('excludes tickets from a different projectKey', async () => {
+      await createTicket(db, {
+        ...newTicketInput(),
+        status: 'Brief',
+        projectKey: 'other-project',
+      });
+
+      const result = await listClaimableTickets(db, {
+        projectKey: 'chief-clancy',
+        statuses: ['Brief'],
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.tickets).toHaveLength(0);
+    });
+
+    it('returns an empty list without erroring when statuses is empty', async () => {
+      await createTicket(db, { ...newTicketInput(), status: 'Brief' });
+
+      const result = await listClaimableTickets(db, {
+        projectKey: 'chief-clancy',
+        statuses: [],
+      });
+
+      expect(result).toEqual({ ok: true, tickets: [] });
+    });
   });
 });
