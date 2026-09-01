@@ -15,18 +15,19 @@ export type WipLimitDecision = {
  * `classifyRiskTier`, not `evaluateOperatingRhythm`'s async/cache-consulting shape: nothing yet
  * produces a live per-status count (BUILD_PLAN 6.1a-i's pull loop fetches per-*stage* claim
  * candidates via `listClaimableTickets`, not a full per-status tally across the board), so this
- * function takes an already-known `currentCount` rather than querying the database itself. **No
- * call site yet** — BUILD_PLAN 6.1a-ii ("Stage transitions + WIP gate") is where a real pull-time
- * check wires this in, same "ship the primitive ahead of its call site" shape
- * `composeExternalPostBody` (chunk 4.4a) had before 4.4b wired it in.
+ * function takes an already-known `currentCount` rather than querying the database itself. Wired
+ * in at BUILD_PLAN 6.1a-ii ("Stage transitions + WIP gate") — `../ticket-lifecycle/transition.js`'s
+ * `transitionTicketStatus` is the real pull-time check that calls this, same "ship the primitive
+ * ahead of its call site" shape `composeExternalPostBody` (chunk 4.4a) had before 4.4b wired it in.
  *
  * Deliberately scoped to the WIP *cap* only — `classOfService`'s Expedite queue-*ordering*
  * behavior (`docs/decisions/BOARD-AND-CAPACITY-MODEL.md` Decision 2, "jumps ahead of Standard
  * work within its board status") is a different concern this function doesn't address.
  * BUILD_PLAN 6.1a-i's own `findNextClaimableTicket` (`./find-next-claimable-ticket.js`) now
  * covers that gap, picking the next candidate among an already-fetched, already-*eligible* set
- * (unclaimed, in-status — **not** WIP-filtered, since this guard still has no call site) — a
- * separate function from this cap guard, not a replacement for it.
+ * (unclaimed, in-status — **not** WIP-filtered; this guard is checked separately, against the
+ * *destination* status, inside `transitionTicketStatus`) — a separate function from this cap
+ * guard, not a replacement for it.
  */
 export function evaluateWipLimit(
   status: BoardStatus,

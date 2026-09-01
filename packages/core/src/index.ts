@@ -112,6 +112,11 @@ export type {
   TicketRepositoryError,
   TicketResult,
 } from './ticket-lifecycle/tickets-repository.js';
+export { transitionTicketStatus } from './ticket-lifecycle/transition.js';
+export type {
+  TransitionError,
+  TransitionResult,
+} from './ticket-lifecycle/transition.js';
 
 export { PERSONA_CLAIMABLE_STAGES } from './ticket-lifecycle/persona-stage-eligibility.js';
 

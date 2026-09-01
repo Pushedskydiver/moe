@@ -12,6 +12,7 @@ import { createDb } from './db.js';
 import { runMigrations } from './migrate.js';
 import { getTestPool, resetDatabase } from './test-db.js';
 import {
+  countTicketsByStatus,
   createTicket,
   getTicketById,
   listClaimableTickets,
@@ -225,6 +226,38 @@ describe('tickets repository', () => {
       });
 
       expect(result).toEqual({ ok: true, tickets: [] });
+    });
+  });
+
+  describe('countTicketsByStatus', () => {
+    it('returns 0 when no tickets match the project/status', async () => {
+      const result = await countTicketsByStatus(db, {
+        projectKey: 'chief-clancy',
+        status: 'Plan',
+      });
+
+      expect(result).toEqual({ ok: true, count: 0 });
+    });
+
+    it('counts tickets scoped to projectKey and status, excluding others', async () => {
+      await createTicket(db, { ...newTicketInput(), status: 'Plan' });
+      await createTicket(db, { ...newTicketInput(), status: 'Plan' });
+      await createTicket(db, { ...newTicketInput(), status: 'Build' });
+      await createTicket(db, {
+        ...newTicketInput(),
+        status: 'Plan',
+        projectKey: 'other-project',
+      });
+
+      const result = await countTicketsByStatus(db, {
+        projectKey: 'chief-clancy',
+        status: 'Plan',
+      });
+
+      expect(result.ok).toBe(true);
+      if (!result.ok) return;
+      expect(result.count).toBe(2);
+      expect(typeof result.count).toBe('number');
     });
   });
 });
