@@ -65,9 +65,10 @@ export type PullLoopTickResult = {
 // Runs `workStep`, then always releases the claim regardless of whether it threw — a `.then`
 // conversion to an always-resolved outcome, not `try/finally` with a mutable flag, since
 // `functional/no-let: 'error'` has no production-code carve-out (`eslint.config.ts`). A failed
-// `release` is logged as an orphaned-claim residual risk (accepted — clearing a stuck claim is
-// explicitly BUILD_PLAN 6.1a-ii's "what happens on failure mid-stage" state machine, not this
-// chunk's) but does not change the returned outcome, which reflects `workStep` alone.
+// `release` is logged as an orphaned-claim residual risk (accepted — BUILD_PLAN 6.1a-ii scoped
+// itself to the transition function + WIP gate only; clearing a claim stuck by a failed release
+// call is deferred to BUILD_PLAN 6.6's stale-claim recovery handler, not built yet) but does not
+// change the returned outcome, which reflects `workStep` alone.
 async function workAndRelease(
   deps: PullLoopDeps,
   ticket: Ticket,
