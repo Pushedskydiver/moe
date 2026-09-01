@@ -10,7 +10,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createDb } from '../ticket-lifecycle/db.js';
 import { runMigrations } from '../ticket-lifecycle/migrate.js';
 import { getTestPool, resetDatabase } from '../ticket-lifecycle/test-db.js';
-import { upsertGithubIssueTriageEntry } from './github-issue-triage-repository.js';
+import { createTicket } from '../ticket-lifecycle/tickets-repository.js';
+import {
+  findNextUnconvertedGithubIssueTriageEntry,
+  upsertGithubIssueTriageEntry,
+} from './github-issue-triage-repository.js';
 
 const migrationsDir = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -186,5 +190,114 @@ describe('github issue triage repository', () => {
       ok: false,
       error: { kind: 'unknown', cause: expect.anything() as unknown },
     });
+  });
+});
+
+describe('findNextUnconvertedGithubIssueTriageEntry', () => {
+  let pool: Pool;
+  let db: Kysely<Database>;
+
+  beforeEach(async () => {
+    pool = getTestPool();
+    await runMigrations(pool, migrationsDir);
+    db = createDb(pool);
+  });
+
+  afterEach(async () => {
+    await db.destroy();
+    const cleanupPool = getTestPool();
+    await resetDatabase(cleanupPool);
+    await cleanupPool.end();
+  });
+
+  async function seedTriageEntry(
+    overrides: Partial<{
+      readonly issueNumber: number;
+      readonly state: 'open' | 'closed';
+      readonly polledAt: Date;
+    }> = {},
+  ) {
+    const result = await upsertGithubIssueTriageEntry(db, {
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+      issueNumber: overrides.issueNumber ?? 477,
+      title: `Issue ${overrides.issueNumber ?? 477}`,
+      url: `https://github.com/Pushedskydiver/chief-clancy/issues/${overrides.issueNumber ?? 477}`,
+      state: overrides.state ?? 'open',
+      githubUpdatedAt: new Date('2026-07-20T12:00:00.000Z'),
+      polledAt: overrides.polledAt ?? new Date('2026-07-21T09:00:00.000Z'),
+    });
+    if (!result.ok) throw new Error('failed to seed triage entry');
+    return result.entry;
+  }
+
+  async function seedResolvedLink(issueNumber: number) {
+    const created = await createTicket(db, {
+      projectKey: 'chief-clancy',
+      title: `Ticket for issue ${issueNumber}`,
+      status: 'Brief',
+      severity: 'Medium',
+      classOfService: 'Standard',
+    });
+    if (!created.ok) throw new Error('failed to seed ticket');
+    await pool.query(
+      `INSERT INTO ticket_github_issue_links
+         (ticket_id, repo_owner, repo_name, issue_number, issue_url, resolved_at, created_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+      [
+        created.ticket.id,
+        'Pushedskydiver',
+        'chief-clancy',
+        issueNumber,
+        `https://github.com/Pushedskydiver/chief-clancy/issues/${issueNumber}`,
+        new Date(),
+      ],
+    );
+    return created.ticket;
+  }
+
+  it('returns entry:null when the triage queue is empty', async () => {
+    const result = await findNextUnconvertedGithubIssueTriageEntry(db);
+    expect(result).toEqual({ ok: true, entry: null });
+  });
+
+  it('returns the one open, unconverted entry', async () => {
+    const seeded = await seedTriageEntry({ issueNumber: 477 });
+
+    const result = await findNextUnconvertedGithubIssueTriageEntry(db);
+
+    expect(result).toEqual({ ok: true, entry: seeded });
+  });
+
+  it('skips a closed entry', async () => {
+    await seedTriageEntry({ issueNumber: 477, state: 'closed' });
+
+    const result = await findNextUnconvertedGithubIssueTriageEntry(db);
+
+    expect(result).toEqual({ ok: true, entry: null });
+  });
+
+  it('skips an entry that already has a resolved ticket link', async () => {
+    await seedTriageEntry({ issueNumber: 477 });
+    await seedResolvedLink(477);
+
+    const result = await findNextUnconvertedGithubIssueTriageEntry(db);
+
+    expect(result).toEqual({ ok: true, entry: null });
+  });
+
+  it('returns the oldest-first-seen entry when multiple are eligible', async () => {
+    await seedTriageEntry({
+      issueNumber: 486,
+      polledAt: new Date('2026-07-22T09:00:00.000Z'),
+    });
+    const older = await seedTriageEntry({
+      issueNumber: 477,
+      polledAt: new Date('2026-07-20T09:00:00.000Z'),
+    });
+
+    const result = await findNextUnconvertedGithubIssueTriageEntry(db);
+
+    expect(result).toEqual({ ok: true, entry: older });
   });
 });

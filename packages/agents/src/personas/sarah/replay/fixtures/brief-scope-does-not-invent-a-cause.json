@@ -1,0 +1,27 @@
+{
+  "scenarioId": "brief-scope-does-not-invent-a-cause",
+  "personaId": "sarah",
+  "callSite": "brief",
+  "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
+  "scenarioInputHash": "e94943549b04d601da87bebec50e2000c9b54a905022387d9af5a2d982eaaea5",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-09-01T22:52:05.697Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 249,
+  "result": {
+    "ok": true,
+    "summary": "The export button on the reports page returns a 500 error when no date range is set — needs to handle that input case instead of erroring.",
+    "scope": [
+      "Reproduce the 500 with an empty date range on the reports export endpoint",
+      "Add validation/handling for missing or empty date range input",
+      "Return a proper response (error message or sensible default) instead of a server error",
+      "Add test coverage for the empty date range case"
+    ],
+    "usage": {
+      "inputTokens": 27,
+      "outputTokens": 249,
+      "cacheCreationInputTokens": 3336,
+      "cacheReadInputTokens": 0
+    }
+  }
+}

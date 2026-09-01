@@ -69,3 +69,10 @@ export type {
 } from './evaluate-situational-appropriateness.js';
 export { evaluateSituationalAppropriateness } from './evaluate-situational-appropriateness.js';
 export { resolvePersonaModel } from './resolve-persona-model.js';
+export type {
+  Brief,
+  ComposeBriefParams,
+  ComposeBriefResult,
+  ComposeBriefUsage,
+} from './compose-brief.js';
+export { composeBrief } from './compose-brief.js';

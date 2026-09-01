@@ -27,6 +27,6 @@ export async function resetDatabase(pool: Pool): Promise<void> {
     // undroppable, so this whole statement silently failed and every test in this suite went red
     // on the very next run. Both tables just need to appear somewhere in the same statement; no
     // `CASCADE` needed once that's true.
-    'DROP TABLE IF EXISTS ticket_github_issue_links, tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state, github_issue_triage',
+    'DROP TABLE IF EXISTS ticket_github_issue_links, ticket_briefs, tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state, github_issue_triage',
   );
 }

@@ -276,6 +276,23 @@ type TicketGithubIssueLinksTable = {
   readonly createdAt: Date;
 };
 
+/**
+ * Kysely's compile-time shape for `ticket_briefs` (`./intake/ticket-brief.ts`'s DB-backed
+ * counterpart, BUILD_PLAN 6.1b) — `ticketId` is the `PRIMARY KEY` (a ticket has at most one
+ * brief), a `REFERENCES tickets (id)` foreign key, same 1:1-link shape as
+ * `TicketGithubIssueLinksTable` above. No claim-then-resolve two-phase dance, unlike that table —
+ * a row here is only ever inserted after `postMessage` has already returned a real Slack `ts`, so
+ * there's no ambiguous-external-write window to protect against with a pre-claim (see
+ * `ticket-brief.ts`'s own TSDoc for the full reasoning, including the accepted residual risk of a
+ * process crash between the Slack post and this INSERT).
+ */
+type TicketBriefsTable = {
+  readonly ticketId: string;
+  readonly channelId: string;
+  readonly messageTs: string;
+  readonly createdAt: Date;
+};
+
 export type Database = {
   readonly tickets: TicketsTable;
   readonly conversationTurns: ConversationTurnsTable;
@@ -287,4 +304,5 @@ export type Database = {
   readonly sweepState: SweepStateTable;
   readonly githubIssueTriage: GithubIssueTriageTable;
   readonly ticketGithubIssueLinks: TicketGithubIssueLinksTable;
+  readonly ticketBriefs: TicketBriefsTable;
 };

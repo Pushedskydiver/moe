@@ -1,6 +1,7 @@
 import type { ReplayFixture } from './replay-fixture.js';
 
-type ReplayCallSite = 'dmReply' | 'ticketDraft' | 'confirmingQuestion';
+type ReplayCallSite =
+  'dmReply' | 'ticketDraft' | 'confirmingQuestion' | 'brief';
 
 type ReplayScenarioInput = {
   readonly text: string;

@@ -10,6 +10,14 @@ export type NewTicketGithubIssueLinkClaim = {
   readonly repoName: string;
 };
 
+export type NewResolvedTicketGithubIssueLink = {
+  readonly ticketId: string;
+  readonly repoOwner: string;
+  readonly repoName: string;
+  readonly issueNumber: number;
+  readonly issueUrl: string;
+};
+
 export type ResolvedTicketGithubIssue = {
   readonly issueNumber: number;
   readonly issueUrl: string;
@@ -128,6 +136,47 @@ export async function claimTicketForIssueCreation(
       .executeTakeFirst();
 
     if (!row) return { ok: false, error: { kind: 'already-claimed' } };
+    return parseLinkRow(row);
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
+
+/**
+ * BUILD_PLAN 6.1b's own inbound direction — inserts an **already-resolved** link row directly
+ * (`resolvedAt` set immediately), rather than the two-phase `claimTicketForIssueCreation`/
+ * `resolveTicketGithubIssueLink` claim dance above. There's no ambiguous external call to protect
+ * against here: the GitHub issue already exists (a `github_issue_triage` entry, discovered by
+ * chunk 4.2's polling) before the ticket does, unlike the outbound direction those two functions
+ * serve, where `issues.create` itself is the ambiguous external call sitting between claim and
+ * resolve. The existing `ticket_github_issue_links_issue_idx` unique index (migration `0015`,
+ * `WHERE issue_number IS NOT NULL`) is what stops two tickets from ever mapping to the same
+ * triage entry — this function relies on that constraint rather than re-deriving its own.
+ */
+export async function linkTicketToExistingGithubIssue(
+  db: Kysely<Database>,
+  input: NewResolvedTicketGithubIssueLink,
+): Promise<TicketGithubIssueLinkResult> {
+  const candidate = {
+    ticketId: input.ticketId,
+    repoOwner: input.repoOwner,
+    repoName: input.repoName,
+    issueNumber: input.issueNumber,
+    issueUrl: input.issueUrl,
+    resolvedAt: new Date(),
+    createdAt: new Date(),
+  };
+
+  const validated = parseLinkRow(candidate);
+  if (!validated.ok) return validated;
+
+  try {
+    const row = await db
+      .insertInto('ticketGithubIssueLinks')
+      .values(candidate)
+      .returningAll()
+      .executeTakeFirstOrThrow();
+
     return parseLinkRow(row);
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };

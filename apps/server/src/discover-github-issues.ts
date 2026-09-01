@@ -78,9 +78,11 @@ async function upsertIssues(
  * `AskUserQuestion`: a CLI script, `scripts/discover-github-issues.ts`'s own thin real-infra
  * wrapper around this function — same no-scheduled-job-infrastructure precedent
  * `review-queue-sweep.ts`'s own TSDoc gives). Lists every open issue in `deps.repo` and upserts
- * each into the `github_issue_triage` table (BUILD_PLAN 6.1b's future consumer). A listing
- * failure logs and returns without writing anything — there's nothing partial to salvage from a
- * single failed list call, unlike the per-issue upsert loop below it.
+ * each into the `github_issue_triage` table — BUILD_PLAN 6.1b's `convert-next-triage-entry.ts` is
+ * this table's real consumer, converting the oldest still-unconverted entry into a board ticket
+ * once per pull-loop tick. A listing failure logs and returns without writing anything — there's
+ * nothing partial to salvage from a single failed list call, unlike the per-issue upsert loop
+ * below it.
  */
 export async function discoverGithubIssues(
   deps: DiscoverGithubIssuesDeps,

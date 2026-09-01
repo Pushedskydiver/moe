@@ -45,6 +45,16 @@ export type PullLoopDeps = {
     readonly release: (id: string, claimedBy: string) => Promise<ClaimResult>;
   };
   readonly workStep: PullLoopWorkStep;
+  // BUILD_PLAN 6.1b's generic pre-tick hook — called once per in-hours tick, before
+  // `listClaimable`, for a persona-specific proactive action that isn't itself claiming/working a
+  // ticket (Sarah's own triage-queue-to-ticket conversion, `convert-next-triage-entry.ts`). A
+  // required field, no-op for personas with nothing to do — same precedent `workStep` itself
+  // already set. Generic here rather than a Sarah-specific wrapper around `runPullLoopTick`, so
+  // `PullLoopImpl`'s own `setInterval`/overlap-skip machinery (below) never needs persona-specific
+  // branching. Must never throw — same "fire it, it handles its own errors" contract
+  // `sendCostAlerts` already uses in `check-cost-cap.ts` — since nothing here catches a rejection
+  // from it.
+  readonly preTickStep: (now: Date) => Promise<void>;
 };
 
 export type PullLoopTickOutcome =
@@ -132,6 +142,8 @@ export async function runPullLoopTick(
     return { outcome: 'outside-core-hours' };
   }
 
+  await deps.preTickStep(now);
+
   const listed = await deps.ticketStore.listClaimable(claimableStages);
   if (!listed.ok) {
     deps.logger.error('pull loop failed to list claimable tickets', {
@@ -168,6 +180,7 @@ export type StartPullLoopDeps = {
   readonly logger: Logger;
   readonly bankHolidaysCache: BankHolidaysCache;
   readonly workStep: PullLoopWorkStep;
+  readonly preTickStep: (now: Date) => Promise<void>;
 };
 
 function buildPullLoopDeps(deps: StartPullLoopDeps): PullLoopDeps {
@@ -185,6 +198,7 @@ function buildPullLoopDeps(deps: StartPullLoopDeps): PullLoopDeps {
       release: (id, claimedBy) => releaseTicket(deps.db, id, claimedBy),
     },
     workStep: deps.workStep,
+    preTickStep: deps.preTickStep,
   };
 }
 

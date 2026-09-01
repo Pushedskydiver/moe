@@ -93,6 +93,7 @@ function makeDeps(overrides: Partial<PullLoopDeps> = {}): PullLoopDeps {
       }),
     },
     workStep: vi.fn().mockResolvedValue(undefined),
+    preTickStep: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -112,6 +113,14 @@ describe('runPullLoopTick', () => {
     expect(deps.ticketStore.listClaimable).not.toHaveBeenCalled();
   });
 
+  it('does not call preTickStep for a stage-less persona (BUILD_PLAN 6.1b)', async () => {
+    const deps = makeDeps({ personaId: 'theo' });
+
+    await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(deps.preTickStep).not.toHaveBeenCalled();
+  });
+
   it('returns outside-core-hours without calling listClaimable', async () => {
     const deps = makeDeps();
 
@@ -119,6 +128,37 @@ describe('runPullLoopTick', () => {
 
     expect(result).toEqual({ outcome: 'outside-core-hours' });
     expect(deps.ticketStore.listClaimable).not.toHaveBeenCalled();
+  });
+
+  it('does not call preTickStep outside core hours (BUILD_PLAN 6.1b)', async () => {
+    const deps = makeDeps();
+
+    await runPullLoopTick(deps, OUTSIDE_CORE_HOURS);
+
+    expect(deps.preTickStep).not.toHaveBeenCalled();
+  });
+
+  it('calls preTickStep exactly once per in-hours tick, with now, before listClaimable (BUILD_PLAN 6.1b)', async () => {
+    const order: string[] = [];
+    const deps = makeDeps({
+      preTickStep: vi.fn().mockImplementation(async () => {
+        order.push('preTickStep');
+      }),
+      ticketStore: {
+        listClaimable: vi.fn().mockImplementation(async () => {
+          order.push('listClaimable');
+          return { ok: true, tickets: [] };
+        }),
+        claim: vi.fn(),
+        release: vi.fn(),
+      },
+    });
+
+    await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(deps.preTickStep).toHaveBeenCalledTimes(1);
+    expect(deps.preTickStep).toHaveBeenCalledWith(WITHIN_CORE_HOURS);
+    expect(order).toEqual(['preTickStep', 'listClaimable']);
   });
 
   it('returns no-claimable-ticket when listClaimable resolves empty', async () => {
@@ -378,6 +418,7 @@ describe('startPullLoop', () => {
       logger: makeLogger(),
       bankHolidaysCache: withinCoreHoursCache(),
       workStep: vi.fn().mockResolvedValue(undefined),
+      preTickStep: vi.fn().mockResolvedValue(undefined),
       ...overrides,
     };
   }

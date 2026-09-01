@@ -14,6 +14,7 @@ import { createTicket } from '../ticket-lifecycle/tickets-repository.js';
 import {
   claimTicketForIssueCreation,
   getTicketGithubIssueLink,
+  linkTicketToExistingGithubIssue,
   listResolvedTicketGithubIssueLinks,
   listStuckPendingTicketGithubIssueLinks,
   listTicketsWithoutGithubIssueLink,
@@ -353,5 +354,72 @@ describe('ticket github issue link repository', () => {
 
     expect(firstClaim.ok).toBe(true);
     expect(secondClaim.ok).toBe(true);
+  });
+});
+
+describe('linkTicketToExistingGithubIssue', () => {
+  let pool: Pool;
+  let db: Kysely<Database>;
+
+  beforeEach(async () => {
+    pool = getTestPool();
+    await runMigrations(pool, migrationsDir);
+    db = createDb(pool);
+  });
+
+  afterEach(async () => {
+    await db.destroy();
+    const cleanupPool = getTestPool();
+    await resetDatabase(cleanupPool);
+    await cleanupPool.end();
+  });
+
+  it('inserts an already-resolved link in one step (BUILD_PLAN 6.1b)', async () => {
+    const ticket = await seedTicket(db);
+
+    const result = await linkTicketToExistingGithubIssue(db, {
+      ticketId: ticket.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+      issueNumber: 477,
+      issueUrl: 'https://github.com/Pushedskydiver/chief-clancy/issues/477',
+    });
+
+    expect(result.ok).toBe(true);
+    if (!result.ok) return;
+    expect(result.link).toEqual({
+      ticketId: ticket.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+      issueNumber: 477,
+      issueUrl: 'https://github.com/Pushedskydiver/chief-clancy/issues/477',
+      resolvedAt: expect.any(Date) as Date,
+      createdAt: expect.any(Date) as Date,
+    });
+  });
+
+  it('rejects a second ticket linked to the same issue via the existing unique index (BUILD_PLAN 6.1b)', async () => {
+    const first = await seedTicket(db);
+    const second = await seedTicket(db);
+    await linkTicketToExistingGithubIssue(db, {
+      ticketId: first.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+      issueNumber: 477,
+      issueUrl: 'https://github.com/Pushedskydiver/chief-clancy/issues/477',
+    });
+
+    const result = await linkTicketToExistingGithubIssue(db, {
+      ticketId: second.id,
+      repoOwner: 'Pushedskydiver',
+      repoName: 'chief-clancy',
+      issueNumber: 477,
+      issueUrl: 'https://github.com/Pushedskydiver/chief-clancy/issues/477',
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      error: { kind: 'unknown', cause: expect.anything() as unknown },
+    });
   });
 });

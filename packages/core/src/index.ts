@@ -236,8 +236,12 @@ export type {
 } from './intake/resolve-confirming-question-and-log.js';
 
 export type { GithubIssueTriageEntry } from './intake/github-issue-triage-entry.js';
-export { upsertGithubIssueTriageEntry } from './intake/github-issue-triage-repository.js';
+export {
+  findNextUnconvertedGithubIssueTriageEntry,
+  upsertGithubIssueTriageEntry,
+} from './intake/github-issue-triage-repository.js';
 export type {
+  GithubIssueTriageEntryOrNullResult,
   GithubIssueTriageEntryResult,
   GithubIssueTriageRepositoryError,
   NewGithubIssueTriageEntry,
@@ -247,6 +251,7 @@ export type { TicketGithubIssueLink } from './intake/ticket-github-issue-link.js
 export {
   claimTicketForIssueCreation,
   getTicketGithubIssueLink,
+  linkTicketToExistingGithubIssue,
   listResolvedTicketGithubIssueLinks,
   listStuckPendingTicketGithubIssueLinks,
   listTicketsWithoutGithubIssueLink,
@@ -254,6 +259,7 @@ export {
   resolveTicketGithubIssueLink,
 } from './intake/ticket-github-issue-link-repository.js';
 export type {
+  NewResolvedTicketGithubIssueLink,
   NewTicketGithubIssueLinkClaim,
   ReleaseResult,
   ResolvedTicketGithubIssue,
@@ -268,6 +274,26 @@ export type {
   TicketsWithoutGithubIssueLinkResult,
   TicketWithoutGithubIssueLink,
 } from './intake/ticket-github-issue-link-repository.js';
+
+export type { TicketBrief } from './intake/ticket-brief.js';
+export {
+  createTicketBrief,
+  getTicketBrief,
+} from './intake/ticket-briefs-repository.js';
+export type {
+  NewTicketBrief,
+  TicketBriefOrNullResult,
+  TicketBriefRepositoryError,
+  TicketBriefResult,
+} from './intake/ticket-briefs-repository.js';
+
+export { createTicketFromTriageEntry } from './intake/create-ticket-from-triage-entry.js';
+export type {
+  CreateTicketFromTriageEntryError,
+  CreateTicketFromTriageEntryResult,
+} from './intake/create-ticket-from-triage-entry.js';
+
+export { TEAM_CHANNEL_ID } from './channel-scoping/team-channel-id.js';
 
 export type { AppLogger } from './app-logger.js';
 
