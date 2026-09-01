@@ -12,13 +12,16 @@ export type WipLimitDecision = {
 
 /**
  * BUILD_PLAN 4.5's WIP-limit guard — pure and synchronous, like `../risk-tier.js`'s
- * `classifyRiskTier`, not `evaluateOperatingRhythm`'s async/cache-consulting shape: nothing yet
- * produces a live per-status count (BUILD_PLAN 6.1a-i's pull loop fetches per-*stage* claim
- * candidates via `listClaimableTickets`, not a full per-status tally across the board), so this
- * function takes an already-known `currentCount` rather than querying the database itself. Wired
- * in at BUILD_PLAN 6.1a-ii ("Stage transitions + WIP gate") — `../ticket-lifecycle/transition.js`'s
- * `transitionTicketStatus` is the real pull-time check that calls this, same "ship the primitive
- * ahead of its call site" shape `composeExternalPostBody` (chunk 4.4a) had before 4.4b wired it in.
+ * `classifyRiskTier`, not `evaluateOperatingRhythm`'s async/cache-consulting shape: this function
+ * takes an already-known `currentCount` rather than querying the database itself, so it stays a
+ * simple decision-from-inputs the same way every other `evaluate*` function in this codebase does
+ * (`docs/CONVENTIONS.md`'s verb-vocabulary entry). Wired in at BUILD_PLAN 6.1a-ii ("Stage
+ * transitions + WIP gate") — `../ticket-lifecycle/transition.js`'s `transitionTicketStatus` is the
+ * real pull-time check that calls this, passing a live count from its own `countTicketsByStatus`
+ * (`../ticket-lifecycle/tickets-repository.js`; nothing produced that count before this chunk —
+ * BUILD_PLAN 6.1a-i's pull loop only ever fetched per-*stage* claim candidates via
+ * `listClaimableTickets`, not a full per-status tally), same "ship the primitive ahead of its call
+ * site" shape `composeExternalPostBody` (chunk 4.4a) had before 4.4b wired it in.
  *
  * Deliberately scoped to the WIP *cap* only — `classOfService`'s Expedite queue-*ordering*
  * behavior (`docs/decisions/BOARD-AND-CAPACITY-MODEL.md` Decision 2, "jumps ahead of Standard

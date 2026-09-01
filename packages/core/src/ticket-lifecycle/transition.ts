@@ -41,11 +41,12 @@ export type TransitionResult =
  *   concurrent transitions into the same `toStatus` could both read a count under the cap and
  *   both succeed, briefly exceeding it by one.
  * - `./tickets-repository.js`'s `updateTicket` has no CAS protection of its own (`id`-only WHERE).
- *   Its one caller, `apps/server/scripts/reconcile-github-issues.ts`'s `reconcileClosedIssue`,
- *   force-cancels tickets already in `Build`/`Review` with no version/status re-check — a
- *   concurrent transition commit racing that script's stale read could be silently discarded, with
- *   no error or log anywhere. Narrow (Alex-manually-triggered script), documented rather than
- *   fixed for the same reason as the WIP-count race above.
+ *   Its one caller is `apps/server/scripts/reconcile-github-issues.ts`'s DI wiring, driven by
+ *   `apps/server/src/reconcile-github-issues.ts`'s `reconcileClosedIssue`, which force-cancels
+ *   tickets already in `Build`/`Review` with no version/status re-check — a concurrent transition
+ *   commit racing that script's stale read could be silently discarded, with no error or log
+ *   anywhere. Narrow (Alex-manually-triggered script), documented rather than fixed for the same
+ *   reason as the WIP-count race above.
  */
 export async function transitionTicketStatus(
   db: Kysely<Database>,

@@ -173,11 +173,13 @@ export type TicketCountResult =
 /**
  * Counts tickets in `projectKey` currently sitting in `status`, regardless of claim state —
  * the opposite filter from `listClaimableTickets` (which answers "what's claimable," not "what's
- * in-stage"). Backs `transitionTicketStatus`'s WIP-gate check
- * (`docs/decisions/BOARD-AND-CAPACITY-MODEL.md` Decision 4: "tickets simultaneously held in that
- * stage"). Postgres returns `COUNT(*)` as a bigint-typed string, not a JS number — the same
- * gotcha `schema.ts`'s `PersonaCostDailyTable` comment documents for other bigint columns —
- * so the row's `count` is converted explicitly rather than trusted as already numeric.
+ * in-stage"). Backs `transitionTicketStatus`'s WIP-gate check against
+ * `docs/decisions/BOARD-AND-CAPACITY-MODEL.md` Decision 4's Brief 3/Plan 2/Build 2/Review 2 caps
+ * (the "tickets simultaneously held in that stage" framing is `./wip-limits-config.js`'s own
+ * TSDoc, not a quote from the ADR itself). Postgres returns `COUNT(*)` as a bigint-typed string,
+ * not a JS number — the same gotcha `schema.ts`'s `PersonaCostDailyTable` comment documents for
+ * other bigint columns — so the row's `count` is converted explicitly rather than trusted as
+ * already numeric.
  */
 export async function countTicketsByStatus(
   db: Kysely<Database>,
