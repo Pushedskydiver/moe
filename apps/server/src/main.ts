@@ -83,7 +83,7 @@ function startPersonaPullLoop(opts: {
     costCapConfig: opts.costCapConfig,
     github: opts.github,
   });
-  const { workStep, preTickStep } = resolvePullLoopBehaviors(
+  const { workStep, preTickStep, needsWork } = resolvePullLoopBehaviors(
     opts.config.id,
     behaviorDeps,
   );
@@ -96,6 +96,7 @@ function startPersonaPullLoop(opts: {
       bankHolidaysCache: createBankHolidaysCache(),
       workStep,
       preTickStep,
+      needsWork,
     },
     resolvePullLoopIntervalMs(opts.env),
   );

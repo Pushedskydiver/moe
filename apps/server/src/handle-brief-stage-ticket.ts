@@ -1,6 +1,6 @@
 import type { CapStore } from './check-cost-cap.js';
 import type { Logger } from './logger.js';
-import type { PullLoopWorkStep } from './pull-loop.js';
+import type { PullLoopNeedsWorkCheck, PullLoopWorkStep } from './pull-loop.js';
 import type { recordUsageLogged } from './record-usage-logged.js';
 import type {
   Brief,
@@ -224,4 +224,38 @@ export function createBriefStageWorkStep(
   deps: BriefStageDeps,
 ): PullLoopWorkStep {
   return (ticket) => handleBriefStageTicket(deps, ticket);
+}
+
+/**
+ * BUILD_PLAN 6.1b starvation fix's `needsWork` factory — a `pull-loop.ts`-shaped
+ * `(ticket) => Promise<boolean>`, built the same way `createBriefStageWorkStep` above is, alongside
+ * it in this file rather than in `create-sarah-pull-loop-behavior-deps.ts` (that file only ever
+ * builds the `PullLoopBehaviorDeps` store/client bag; every actual behavior function is a factory
+ * called from `resolvePullLoopBehaviors` — spec-grill R1's M1).
+ *
+ * "Still needs work" means "not yet briefed" for Sarah's Brief stage — reuses the exact same
+ * `briefStore.getByTicket` call `handleBriefStageTicket`'s own idempotency check above already
+ * makes (a cheap, indexed PK lookup; no new repository function needed). This does mean the
+ * eventual winning candidate gets `getByTicket` called twice in one tick (once by the pull loop's
+ * own listing-time filter, once here by the work step's idempotency check) — a deliberate,
+ * accepted tradeoff (spec-grill R1's L1), not an oversight.
+ *
+ * Resolves `false` — this function's own resolved return value, never a rejection — on a
+ * `briefStore.getByTicket` read failure, the same house Result-pattern every repository function
+ * in this codebase already uses (`{ok:false, error}` on failure, never a throw). That means
+ * `runPullLoopTick`'s own `.catch(() => true)` fail-open wrapper around each `needsWork` call
+ * never fires for this specific check — a transient read failure here instead fails *closed*,
+ * excluding the ticket from that one tick's candidates. Deliberately not changed to reject on
+ * failure just to make that wrapper fire (spec-grill R2): `needsWork` is re-evaluated fresh every
+ * tick, unlike `createdAt`, so this is a bounded, self-healing exclusion window, not a
+ * reintroduction of the starvation bug — the ticket becomes eligible again the moment reads start
+ * succeeding again.
+ */
+export function createBriefStageNeedsWorkCheck(
+  deps: BriefStageDeps,
+): PullLoopNeedsWorkCheck {
+  return async (ticket) => {
+    const brief = await deps.briefStore.getByTicket(ticket.id);
+    return brief.ok && brief.brief === null;
+  };
 }

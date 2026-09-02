@@ -1,10 +1,13 @@
 import type { ConvertNextTriageEntryDeps } from './convert-next-triage-entry.js';
 import type { BriefStageDeps } from './handle-brief-stage-ticket.js';
-import type { PullLoopWorkStep } from './pull-loop.js';
+import type { PullLoopNeedsWorkCheck, PullLoopWorkStep } from './pull-loop.js';
 import type { PersonaId } from '@moe/agents';
 
 import { createConvertNextTriageEntryPreTickStep } from './convert-next-triage-entry.js';
-import { createBriefStageWorkStep } from './handle-brief-stage-ticket.js';
+import {
+  createBriefStageNeedsWorkCheck,
+  createBriefStageWorkStep,
+} from './handle-brief-stage-ticket.js';
 
 // `BriefStageDeps`'s fields plus a `triageStore` closure — the same closure-DI treatment as
 // `BriefStageDeps.briefStore`/`.issueLinkStore` already get, rather than threading a raw `db`
@@ -19,6 +22,10 @@ export type PullLoopBehaviorDeps = BriefStageDeps & {
 export type PullLoopBehaviors = {
   readonly workStep: PullLoopWorkStep;
   readonly preTickStep: (now: Date) => Promise<void>;
+  // BUILD_PLAN 6.1b starvation fix — mirrors `PullLoopDeps.needsWork` (`pull-loop.ts`). Optional,
+  // alongside `workStep`/`preTickStep`: the non-Sarah branch below simply omits it, behaviorally
+  // identical to and type-valid alongside an explicit `undefined`.
+  readonly needsWork?: PullLoopNeedsWorkCheck;
 };
 
 /**
@@ -38,6 +45,7 @@ export function resolvePullLoopBehaviors(
     return {
       workStep: createBriefStageWorkStep(deps),
       preTickStep: createConvertNextTriageEntryPreTickStep(deps),
+      needsWork: createBriefStageNeedsWorkCheck(deps),
     };
   }
   return { workStep: async () => {}, preTickStep: async () => {} };

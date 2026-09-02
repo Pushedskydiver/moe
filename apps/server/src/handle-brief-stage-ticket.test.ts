@@ -6,7 +6,10 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { TEAM_CHANNEL_ID } from '@moe/core';
 
-import { handleBriefStageTicket } from './handle-brief-stage-ticket.js';
+import {
+  createBriefStageNeedsWorkCheck,
+  handleBriefStageTicket,
+} from './handle-brief-stage-ticket.js';
 
 function makeTicket(overrides: Partial<Ticket> = {}): Ticket {
   return {
@@ -404,5 +407,45 @@ describe('handleBriefStageTicket', () => {
 
     expect(create).toHaveBeenCalled();
     expect(deps.logger.error).toHaveBeenCalled();
+  });
+});
+
+describe('createBriefStageNeedsWorkCheck (BUILD_PLAN 6.1b starvation fix)', () => {
+  it('resolves true when the ticket has not yet been briefed', async () => {
+    const getByTicket = vi.fn().mockResolvedValue({ ok: true, brief: null });
+    const deps = makeDeps({ briefStore: { getByTicket, create: vi.fn() } });
+    const needsWork = createBriefStageNeedsWorkCheck(deps as never);
+
+    await expect(needsWork(makeTicket())).resolves.toBe(true);
+    expect(getByTicket).toHaveBeenCalledWith(
+      '00000000-0000-0000-0000-000000000001',
+    );
+  });
+
+  it('resolves false when the ticket already has a brief', async () => {
+    const getByTicket = vi.fn().mockResolvedValue({
+      ok: true,
+      brief: {
+        ticketId: '00000000-0000-0000-0000-000000000001',
+        channelId: TEAM_CHANNEL_ID,
+        messageTs: '1700000000.000100',
+        createdAt: new Date('2026-07-18T09:00:00.000Z'),
+      },
+    });
+    const deps = makeDeps({ briefStore: { getByTicket, create: vi.fn() } });
+    const needsWork = createBriefStageNeedsWorkCheck(deps as never);
+
+    await expect(needsWork(makeTicket())).resolves.toBe(false);
+  });
+
+  it("resolves false (fails closed on this function's own resolved return value, per the house Result-pattern — it never rejects) when the briefStore read fails", async () => {
+    const getByTicket = vi.fn().mockResolvedValue({
+      ok: false,
+      error: { kind: 'unknown', cause: new Error('db down') },
+    });
+    const deps = makeDeps({ briefStore: { getByTicket, create: vi.fn() } });
+    const needsWork = createBriefStageNeedsWorkCheck(deps as never);
+
+    await expect(needsWork(makeTicket())).resolves.toBe(false);
   });
 });

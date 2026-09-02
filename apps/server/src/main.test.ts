@@ -393,9 +393,14 @@ describe('main', () => {
   it("resolves sarah's real pull-loop behaviors and passes them to startPullLoop (BUILD_PLAN 6.1b)", () => {
     const workStep = vi.fn();
     const preTickStep = vi.fn();
+    const needsWork = vi.fn();
     const behaviorDeps = { marker: 'sarah-behavior-deps' };
     mocks.createSarahPullLoopBehaviorDeps.mockReturnValue(behaviorDeps);
-    mocks.resolvePullLoopBehaviors.mockReturnValue({ workStep, preTickStep });
+    mocks.resolvePullLoopBehaviors.mockReturnValue({
+      workStep,
+      preTickStep,
+      needsWork,
+    });
 
     main(VALID_ENV, vi.fn(), vi.fn());
 
@@ -425,11 +430,12 @@ describe('main', () => {
 
     expect(mocks.startPullLoop).toHaveBeenCalledTimes(1);
     const [pullLoopDeps] = mocks.startPullLoop.mock.calls[0] as [
-      { workStep: unknown; preTickStep: unknown },
+      { workStep: unknown; preTickStep: unknown; needsWork: unknown },
       number,
     ];
     expect(pullLoopDeps.workStep).toBe(workStep);
     expect(pullLoopDeps.preTickStep).toBe(preTickStep);
+    expect(pullLoopDeps.needsWork).toBe(needsWork);
   });
 
   it('resolves pull-loop behaviors for a non-sarah persona id too, from the same resolver', () => {
@@ -439,5 +445,20 @@ describe('main', () => {
       'marcus',
       expect.anything(),
     );
+  });
+
+  it("passes needsWork through as undefined when resolvePullLoopBehaviors doesn't return one (BUILD_PLAN 6.1b starvation fix — default preserves existing behavior for a persona without a needsWork concept)", () => {
+    mocks.resolvePullLoopBehaviors.mockReturnValue({
+      workStep: vi.fn(),
+      preTickStep: vi.fn(),
+    });
+
+    main({ ...VALID_ENV, MOE_PERSONA_ID: 'marcus' }, vi.fn(), vi.fn());
+
+    const [pullLoopDeps] = mocks.startPullLoop.mock.calls[0] as [
+      { needsWork: unknown },
+      number,
+    ];
+    expect(pullLoopDeps.needsWork).toBeUndefined();
   });
 });

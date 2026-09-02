@@ -29,6 +29,11 @@ type BankHolidaysCache = ReturnType<typeof createBankHolidaysCache>;
 
 export type PullLoopWorkStep = (ticket: Ticket) => Promise<void>;
 
+// BUILD_PLAN 6.1b starvation fix — named the same way `PullLoopWorkStep` already is, rather than
+// repeating this inline function type at each of its four call sites (`PullLoopDeps`,
+// `StartPullLoopDeps`, `PullLoopBehaviors`, `createBriefStageNeedsWorkCheck`'s own return type).
+export type PullLoopNeedsWorkCheck = (ticket: Ticket) => Promise<boolean>;
+
 // A pull-loop-only DI seam, not `HandlerDeps`'s own `ticketStore` — mirrors
 // `review-queue-sweep.ts`'s own `SweepDeps` precedent: this loop needs `listClaimable`/`claim`/
 // `release`, methods the live message/reaction-handling path never calls, so widening
@@ -55,6 +60,14 @@ export type PullLoopDeps = {
   // `sendCostAlerts` already uses in `check-cost-cap.ts` — since nothing here catches a rejection
   // from it.
   readonly preTickStep: (now: Date) => Promise<void>;
+  // BUILD_PLAN 6.1b starvation fix: an optional, persona-supplied readiness filter, applied to
+  // the listed candidate set right before `findNextClaimableTicket` picks one. `undefined` (the
+  // default for every persona without this concept) preserves today's exact behavior — nothing
+  // changes for a persona with no real handler of their own yet. Kept generic here rather than
+  // baking Brief-specific (`ticket_briefs`) knowledge into this shared pull-loop module — Sarah's
+  // own check (`createBriefStageNeedsWorkCheck`, `handle-brief-stage-ticket.ts`) is what actually
+  // knows what "needs work" means for her stage.
+  readonly needsWork?: PullLoopNeedsWorkCheck;
 };
 
 export type PullLoopTickOutcome =
@@ -118,6 +131,54 @@ async function workAndRelease(
   return { outcome: 'worked', ticketId: ticket.id };
 }
 
+// Extracted purely to keep the `.map()` chain's callback (below, in `filterByNeedsWork`) to the
+// codebase's own 1-2-line inline ceiling (`docs/CONVENTIONS.md` §Code Style) — logs then resolves
+// `true`, the fail-open default.
+function logAndFailOpenOnNeedsWorkRejection(
+  deps: PullLoopDeps,
+  ticket: Ticket,
+  cause: unknown,
+): true {
+  deps.logger.warn(
+    'pull loop needsWork check rejected, including ticket (fail-open)',
+    {
+      personaId: deps.personaId,
+      ticketId: ticket.id,
+      errorMessage: cause instanceof Error ? cause.message : String(cause),
+    },
+  );
+  return true;
+}
+
+// BUILD_PLAN 6.1b starvation fix: applies `deps.needsWork` (when defined) to the listed candidate
+// set, excluding any ticket it resolves `false` for before `findNextClaimableTicket` ever sees the
+// list. The set is small (WIP-bounded, ≤3 for Brief today per `docs/decisions/
+// BOARD-AND-CAPACITY-MODEL.md`), so a plain `Promise.all` + array filter is cheap enough — no need
+// for the anti-join-in-SQL alternative considered and rejected (would re-couple this generic
+// module to Brief-specific schema). Each call is individually wrapped (`logAndFailOpenOnNeedsWorkRejection`
+// above): a rejection fails *open* (the ticket stays a candidate, logged as a warning) so a
+// persona-supplied predicate can never starve `runPullLoopTick` itself — this is real
+// defense-in-depth for a hypothetical future `needsWork` that might actually reject; Sarah's own
+// shipped check never does (it resolves `{ok:false}` on a read failure per the house Result-pattern,
+// so it fails *closed* on its own terms instead — see `createBriefStageNeedsWorkCheck`'s own TSDoc).
+async function filterByNeedsWork(
+  deps: PullLoopDeps,
+  tickets: readonly Ticket[],
+): Promise<readonly Ticket[]> {
+  const needsWork = deps.needsWork;
+  if (!needsWork) return tickets;
+
+  const flags = await Promise.all(
+    tickets.map((ticket) =>
+      needsWork(ticket).catch((cause: unknown) =>
+        logAndFailOpenOnNeedsWorkRejection(deps, ticket, cause),
+      ),
+    ),
+  );
+
+  return tickets.filter((_ticket, index) => flags[index]);
+}
+
 /**
  * BUILD_PLAN 6.1a-i's pull-loop wake cycle — one poll/claim/work/release attempt, directly
  * unit-testable (no fake timers needed; `startPullLoop` below is the timer wrapper).
@@ -153,7 +214,9 @@ export async function runPullLoopTick(
     return { outcome: 'list-failed' };
   }
 
-  const next = findNextClaimableTicket(listed.tickets);
+  const candidates = await filterByNeedsWork(deps, listed.tickets);
+
+  const next = findNextClaimableTicket(candidates);
   if (!next) {
     return { outcome: 'no-claimable-ticket' };
   }
@@ -181,6 +244,12 @@ export type StartPullLoopDeps = {
   readonly bankHolidaysCache: BankHolidaysCache;
   readonly workStep: PullLoopWorkStep;
   readonly preTickStep: (now: Date) => Promise<void>;
+  // BUILD_PLAN 6.1b starvation fix — mirrors `PullLoopDeps.needsWork` above field-for-field.
+  // `StartPullLoopDeps` and `PullLoopDeps` are separate, hand-maintained types (`buildPullLoopDeps`
+  // below constructs one from the other field-by-field, not a spread), so this needs its own
+  // explicit addition — `main.ts`'s real composition root goes through this type, not
+  // `PullLoopDeps` directly (spec-grill R1's B1, the one BLOCKING finding on the original sketch).
+  readonly needsWork?: PullLoopNeedsWorkCheck;
 };
 
 function buildPullLoopDeps(deps: StartPullLoopDeps): PullLoopDeps {
@@ -199,6 +268,7 @@ function buildPullLoopDeps(deps: StartPullLoopDeps): PullLoopDeps {
     },
     workStep: deps.workStep,
     preTickStep: deps.preTickStep,
+    needsWork: deps.needsWork,
   };
 }
 
