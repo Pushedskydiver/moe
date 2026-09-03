@@ -15,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 
 import {
   buildPersonaSystemPrompt,
+  composeBrief,
   composeConfirmingQuestionLeadIn,
   composeTicketDraft,
   createAnthropicClient,
@@ -191,6 +192,17 @@ async function callForScenario(params: {
   if (scenario.callSite === 'ticketDraft') {
     return composeTicketDraft(client, {
       text: scenario.input.text,
+      model,
+      personaPromptContent: promptContent,
+    });
+  }
+  if (scenario.callSite === 'brief') {
+    // `scenario.input.text` doubles as the brief's `title` — `ReplayScenarioInput` has no
+    // separate `title`/`body` fields of its own (BUILD_PLAN 6.1b), since every scenario recorded
+    // so far only needs a title-only brief; widen `ReplayScenarioInput` if a future scenario
+    // needs a `body` too.
+    return composeBrief(client, {
+      title: scenario.input.text,
       model,
       personaPromptContent: promptContent,
     });

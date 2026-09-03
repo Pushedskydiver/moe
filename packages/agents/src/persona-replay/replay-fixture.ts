@@ -2,11 +2,11 @@ import { z } from 'zod';
 
 import { personaIdSchema } from '@moe/core';
 
-// Mirrors the three cascade functions' real `Result` shapes (`generate-reply.ts`,
-// `compose-ticket-draft.ts`, `compose-confirming-question-lead-in.ts`) closely enough to validate
-// a recorded fixture at load time, without importing those hand-written TS types directly — a
-// fixture is a JSON serialization, a different boundary with its own schema, per
-// `docs/CONVENTIONS.md` §Zod ("derive the type from the schema"). Keep in sync if any of the three
+// Mirrors the four cascade functions' real `Result` shapes (`generate-reply.ts`,
+// `compose-ticket-draft.ts`, `compose-confirming-question-lead-in.ts`, `compose-brief.ts`) closely
+// enough to validate a recorded fixture at load time, without importing those hand-written TS types
+// directly — a fixture is a JSON serialization, a different boundary with its own schema, per
+// `docs/CONVENTIONS.md` §Zod ("derive the type from the schema"). Keep in sync if any of the four
 // Result shapes changes. This mirror is genuinely a separate, hand-maintained type from the real
 // production `Result` unions, not just wording — the fixture that round-trips through JSON and
 // this schema is a validated approximation, not the literal same TypeScript type a live caller
@@ -18,10 +18,11 @@ const usageSchema = z.object({
   cacheReadInputTokens: z.number().optional(),
 });
 
-// The real union across all three cascade functions' `ok: false` branches — `anthropic-api-error`
-// is shared by all three; `no-content` is generateReply-only; `invalid-draft-output`/
+// The real union across all four cascade functions' `ok: false` branches — `anthropic-api-error`
+// is shared by all four; `no-content` is generateReply-only; `invalid-draft-output`/
 // `no-parsed-output` are composeTicketDraft's; `invalid-lead-in-output`/`no-parsed-output` are
-// composeConfirmingQuestionLeadIn's.
+// composeConfirmingQuestionLeadIn's; `invalid-brief-output`/`no-parsed-output` are
+// composeBrief's (BUILD_PLAN 6.1b).
 const errorResultSchema = z.object({
   ok: z.literal(false),
   error: z.object({
@@ -31,6 +32,7 @@ const errorResultSchema = z.object({
       'invalid-draft-output',
       'no-parsed-output',
       'invalid-lead-in-output',
+      'invalid-brief-output',
     ]),
     message: z.string(),
   }),
@@ -58,17 +60,27 @@ const confirmingQuestionOkSchema = z.object({
   usage: usageSchema,
 });
 
+// BUILD_PLAN 6.1b's `composeBrief` own `ok: true` shape — `summary`/`scope`, no `title` (the
+// ticket's own title already exists before this call runs; see `compose-brief.ts`'s TSDoc).
+const briefOkSchema = z.object({
+  ok: z.literal(true),
+  summary: z.string().min(1),
+  scope: z.array(z.string().min(1)).min(1),
+  usage: usageSchema,
+});
+
 const replayResultSchema = z.union([
   dmReplyOkSchema,
   ticketDraftOkSchema,
   confirmingQuestionOkSchema,
+  briefOkSchema,
   errorResultSchema,
 ]);
 
 const replayFixtureSchema = z.object({
   scenarioId: z.string().min(1),
   personaId: personaIdSchema,
-  callSite: z.enum(['dmReply', 'ticketDraft', 'confirmingQuestion']),
+  callSite: z.enum(['dmReply', 'ticketDraft', 'confirmingQuestion', 'brief']),
   promptContentHash: z.string().length(64),
   scenarioInputHash: z.string().length(64),
   model: z.string().min(1),

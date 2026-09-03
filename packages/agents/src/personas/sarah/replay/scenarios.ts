@@ -1,5 +1,6 @@
 import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js';
 
+import { briefSummary } from '../../../persona-replay/brief-summary.js';
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
 import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
@@ -192,6 +193,27 @@ export const scenarios: readonly ReplayScenario[] = [
         check: (fixture) => {
           const body = ticketDraftBody(fixture);
           return body !== undefined && !/\bcaused by\b/i.test(body);
+        },
+      },
+    ],
+  },
+  {
+    id: 'brief-scope-does-not-invent-a-cause',
+    callSite: 'brief',
+    description:
+      'Brief-stage composition (§Triage voice, VISION §1.3) restates the ticket title plainly ' +
+      'without inventing a cause the title never stated — same evidence-before-verdict discipline ' +
+      "as the ticket-draft scenario above, applied to the brief's summary/scope instead.",
+    input: {
+      text: 'the /export button on the reports page throws a 500 error when the date range is empty',
+    },
+    assertions: [
+      {
+        description:
+          'brief summary does not claim a cause the title never stated',
+        check: (fixture) => {
+          const summary = briefSummary(fixture);
+          return summary !== undefined && !/\bcaused by\b/i.test(summary);
         },
       },
     ],

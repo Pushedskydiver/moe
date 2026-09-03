@@ -22,3 +22,8 @@ export type {
   GithubIssueState,
 } from './get-github-issue-state.js';
 export { getGithubIssueState } from './get-github-issue-state.js';
+export type {
+  GetGithubIssueBodyResult,
+  GithubIssueBody,
+} from './get-github-issue-body.js';
+export { getGithubIssueBody } from './get-github-issue-body.js';

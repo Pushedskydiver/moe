@@ -11,6 +11,11 @@ const mocks = vi.hoisted(() => ({
   // `exitAndCloseServer`'s new `pullLoop.stop()` call doesn't throw on `undefined` — only the
   // pull-loop-specific test overrides this per-test.
   startPullLoop: vi.fn().mockReturnValue({ stop: vi.fn() }),
+  // BUILD_PLAN 6.1b — `startPersonaPullLoop`'s own two new composition-root calls, mocked here
+  // (not just `startPullLoop`) so this file can assert the passed `workStep`/`preTickStep` come
+  // from the resolver, per persona, without constructing real Anthropic/Slack/GitHub SDK clients.
+  createSarahPullLoopBehaviorDeps: vi.fn(),
+  resolvePullLoopBehaviors: vi.fn(),
 }));
 
 vi.mock('@moe/github', async (importOriginal) => {
@@ -25,6 +30,13 @@ vi.mock('./pull-loop.js', async (importOriginal) => {
   const actual = await importOriginal<typeof PullLoopModule>();
   return { ...actual, startPullLoop: mocks.startPullLoop };
 });
+
+vi.mock('./create-sarah-pull-loop-behavior-deps.js', () => ({
+  createSarahPullLoopBehaviorDeps: mocks.createSarahPullLoopBehaviorDeps,
+}));
+vi.mock('./resolve-pull-loop-behaviors.js', () => ({
+  resolvePullLoopBehaviors: mocks.resolvePullLoopBehaviors,
+}));
 
 const VALID_ENV = {
   MOE_PERSONA_ID: 'sarah',
@@ -50,6 +62,12 @@ describe('main', () => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     mocks.validateGithubCredentials.mockReset().mockResolvedValue({ ok: true });
     mocks.startPullLoop.mockReset().mockReturnValue({ stop: vi.fn() });
+    mocks.createSarahPullLoopBehaviorDeps
+      .mockReset()
+      .mockReturnValue({ marker: 'behaviorDeps' });
+    mocks.resolvePullLoopBehaviors
+      .mockReset()
+      .mockReturnValue({ workStep: vi.fn(), preTickStep: vi.fn() });
   });
 
   afterEach(() => {
@@ -370,5 +388,77 @@ describe('main', () => {
     expect(stop.mock.invocationCallOrder[0]).toBeLessThan(
       destroySpy.mock.invocationCallOrder[0] ?? Infinity,
     );
+  });
+
+  it("resolves sarah's real pull-loop behaviors and passes them to startPullLoop (BUILD_PLAN 6.1b)", () => {
+    const workStep = vi.fn();
+    const preTickStep = vi.fn();
+    const needsWork = vi.fn();
+    const behaviorDeps = { marker: 'sarah-behavior-deps' };
+    mocks.createSarahPullLoopBehaviorDeps.mockReturnValue(behaviorDeps);
+    mocks.resolvePullLoopBehaviors.mockReturnValue({
+      workStep,
+      preTickStep,
+      needsWork,
+    });
+
+    main(VALID_ENV, vi.fn(), vi.fn());
+
+    expect(mocks.createSarahPullLoopBehaviorDeps).toHaveBeenCalledTimes(1);
+    const createCall = mocks.createSarahPullLoopBehaviorDeps.mock
+      .calls[0]?.[0] as {
+      config: { id: string };
+      anthropicApiKey: string;
+      costCapConfig: { monthlyCapUsdMicros: number; alertSlackUserId: string };
+      github: { repo: { owner: string; name: string } };
+    };
+    expect(createCall.config.id).toBe('sarah');
+    expect(createCall.anthropicApiKey).toBe('sk-ant-fake-key');
+    expect(createCall.costCapConfig).toEqual({
+      monthlyCapUsdMicros: 50_000_000,
+      alertSlackUserId: 'U0ALEX',
+    });
+    expect(createCall.github.repo).toEqual({
+      owner: 'Pushedskydiver',
+      name: 'chief-clancy',
+    });
+
+    expect(mocks.resolvePullLoopBehaviors).toHaveBeenCalledWith(
+      'sarah',
+      behaviorDeps,
+    );
+
+    expect(mocks.startPullLoop).toHaveBeenCalledTimes(1);
+    const [pullLoopDeps] = mocks.startPullLoop.mock.calls[0] as [
+      { workStep: unknown; preTickStep: unknown; needsWork: unknown },
+      number,
+    ];
+    expect(pullLoopDeps.workStep).toBe(workStep);
+    expect(pullLoopDeps.preTickStep).toBe(preTickStep);
+    expect(pullLoopDeps.needsWork).toBe(needsWork);
+  });
+
+  it('resolves pull-loop behaviors for a non-sarah persona id too, from the same resolver', () => {
+    main({ ...VALID_ENV, MOE_PERSONA_ID: 'marcus' }, vi.fn(), vi.fn());
+
+    expect(mocks.resolvePullLoopBehaviors).toHaveBeenCalledWith(
+      'marcus',
+      expect.anything(),
+    );
+  });
+
+  it("passes needsWork through as undefined when resolvePullLoopBehaviors doesn't return one (BUILD_PLAN 6.1b starvation fix — default preserves existing behavior for a persona without a needsWork concept)", () => {
+    mocks.resolvePullLoopBehaviors.mockReturnValue({
+      workStep: vi.fn(),
+      preTickStep: vi.fn(),
+    });
+
+    main({ ...VALID_ENV, MOE_PERSONA_ID: 'marcus' }, vi.fn(), vi.fn());
+
+    const [pullLoopDeps] = mocks.startPullLoop.mock.calls[0] as [
+      { needsWork: unknown },
+      number,
+    ];
+    expect(pullLoopDeps.needsWork).toBeUndefined();
   });
 });

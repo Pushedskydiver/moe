@@ -93,6 +93,7 @@ function makeDeps(overrides: Partial<PullLoopDeps> = {}): PullLoopDeps {
       }),
     },
     workStep: vi.fn().mockResolvedValue(undefined),
+    preTickStep: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -112,6 +113,14 @@ describe('runPullLoopTick', () => {
     expect(deps.ticketStore.listClaimable).not.toHaveBeenCalled();
   });
 
+  it('does not call preTickStep for a stage-less persona (BUILD_PLAN 6.1b)', async () => {
+    const deps = makeDeps({ personaId: 'theo' });
+
+    await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(deps.preTickStep).not.toHaveBeenCalled();
+  });
+
   it('returns outside-core-hours without calling listClaimable', async () => {
     const deps = makeDeps();
 
@@ -119,6 +128,37 @@ describe('runPullLoopTick', () => {
 
     expect(result).toEqual({ outcome: 'outside-core-hours' });
     expect(deps.ticketStore.listClaimable).not.toHaveBeenCalled();
+  });
+
+  it('does not call preTickStep outside core hours (BUILD_PLAN 6.1b)', async () => {
+    const deps = makeDeps();
+
+    await runPullLoopTick(deps, OUTSIDE_CORE_HOURS);
+
+    expect(deps.preTickStep).not.toHaveBeenCalled();
+  });
+
+  it('calls preTickStep exactly once per in-hours tick, with now, before listClaimable (BUILD_PLAN 6.1b)', async () => {
+    const order: string[] = [];
+    const deps = makeDeps({
+      preTickStep: vi.fn().mockImplementation(async () => {
+        order.push('preTickStep');
+      }),
+      ticketStore: {
+        listClaimable: vi.fn().mockImplementation(async () => {
+          order.push('listClaimable');
+          return { ok: true, tickets: [] };
+        }),
+        claim: vi.fn(),
+        release: vi.fn(),
+      },
+    });
+
+    await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(deps.preTickStep).toHaveBeenCalledTimes(1);
+    expect(deps.preTickStep).toHaveBeenCalledWith(WITHIN_CORE_HOURS);
+    expect(order).toEqual(['preTickStep', 'listClaimable']);
   });
 
   it('returns no-claimable-ticket when listClaimable resolves empty', async () => {
@@ -287,6 +327,222 @@ describe('runPullLoopTick', () => {
   });
 });
 
+describe('runPullLoopTick with needsWork (BUILD_PLAN 6.1b starvation fix)', () => {
+  it('does not call needsWork at all when it is undefined (default preserves existing behavior)', async () => {
+    const ticket = makeTicket({ id: '00000000-0000-0000-0000-000000000001' });
+    const deps = makeDeps({
+      ticketStore: {
+        listClaimable: vi
+          .fn()
+          .mockResolvedValue({ ok: true, tickets: [ticket] }),
+        claim: vi.fn().mockResolvedValue({
+          ok: true,
+          claim: { id: ticket.id, claimedBy: 'sarah', version: 1 },
+        }),
+        release: vi.fn().mockResolvedValue({
+          ok: true,
+          claim: { id: ticket.id, claimedBy: null, version: 2 },
+        }),
+      },
+    });
+
+    const result = await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(result).toEqual({ outcome: 'worked', ticketId: ticket.id });
+  });
+
+  it('filters out a ticket whose needsWork resolves false, keeping a ready one', async () => {
+    const staleTicket = makeTicket({
+      id: '00000000-0000-0000-0000-000000000001',
+    });
+    const readyTicket = makeTicket({
+      id: '00000000-0000-0000-0000-000000000002',
+      createdAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
+    const deps = makeDeps({
+      ticketStore: {
+        listClaimable: vi
+          .fn()
+          .mockResolvedValue({ ok: true, tickets: [staleTicket, readyTicket] }),
+        claim: vi.fn().mockResolvedValue({
+          ok: true,
+          claim: { id: readyTicket.id, claimedBy: 'sarah', version: 1 },
+        }),
+        release: vi.fn().mockResolvedValue({
+          ok: true,
+          claim: { id: readyTicket.id, claimedBy: null, version: 2 },
+        }),
+      },
+      needsWork: vi
+        .fn()
+        .mockImplementation(async (t: Ticket) => t.id !== staleTicket.id),
+    });
+
+    const result = await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(result).toEqual({ outcome: 'worked', ticketId: readyTicket.id });
+    expect(deps.ticketStore.claim).toHaveBeenCalledWith(
+      readyTicket.id,
+      'sarah',
+    );
+  });
+
+  it('picks correctly among a mix when needsWork excludes only some candidates', async () => {
+    const expedite = makeTicket({
+      id: '00000000-0000-0000-0000-000000000001',
+      classOfService: 'Expedite',
+    });
+    const standardOlder = makeTicket({
+      id: '00000000-0000-0000-0000-000000000002',
+      classOfService: 'Standard',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const standardNewer = makeTicket({
+      id: '00000000-0000-0000-0000-000000000003',
+      classOfService: 'Standard',
+      createdAt: new Date('2026-01-02T00:00:00.000Z'),
+    });
+    const deps = makeDeps({
+      ticketStore: {
+        listClaimable: vi.fn().mockResolvedValue({
+          ok: true,
+          tickets: [expedite, standardOlder, standardNewer],
+        }),
+        claim: vi.fn().mockResolvedValue({
+          ok: true,
+          claim: { id: standardNewer.id, claimedBy: 'sarah', version: 1 },
+        }),
+        release: vi.fn().mockResolvedValue({
+          ok: true,
+          claim: { id: standardNewer.id, claimedBy: null, version: 2 },
+        }),
+      },
+      // Excludes both the Expedite ticket and the older Standard one — only the newer Standard
+      // ticket "needs work," confirming the filter runs before findNextClaimableTicket's own
+      // class-of-service/createdAt ordering, not instead of it.
+      needsWork: vi
+        .fn()
+        .mockImplementation(async (t: Ticket) => t.id === standardNewer.id),
+    });
+
+    const result = await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(result).toEqual({ outcome: 'worked', ticketId: standardNewer.id });
+  });
+
+  it('falls through to no-claimable-ticket when needsWork filters out every candidate', async () => {
+    const ticket = makeTicket({ id: '00000000-0000-0000-0000-000000000001' });
+    const claim = vi.fn();
+    const deps = makeDeps({
+      ticketStore: {
+        listClaimable: vi
+          .fn()
+          .mockResolvedValue({ ok: true, tickets: [ticket] }),
+        claim,
+        release: vi.fn(),
+      },
+      needsWork: vi.fn().mockResolvedValue(false),
+    });
+
+    const result = await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(result).toEqual({ outcome: 'no-claimable-ticket' });
+    expect(claim).not.toHaveBeenCalled();
+  });
+
+  it('fails open (includes the ticket) when needsWork rejects, logging a warning', async () => {
+    const ticket = makeTicket({ id: '00000000-0000-0000-0000-000000000001' });
+    const deps = makeDeps({
+      ticketStore: {
+        listClaimable: vi
+          .fn()
+          .mockResolvedValue({ ok: true, tickets: [ticket] }),
+        claim: vi.fn().mockResolvedValue({
+          ok: true,
+          claim: { id: ticket.id, claimedBy: 'sarah', version: 1 },
+        }),
+        release: vi.fn().mockResolvedValue({
+          ok: true,
+          claim: { id: ticket.id, claimedBy: null, version: 2 },
+        }),
+      },
+      needsWork: vi.fn().mockRejectedValue(new Error('boom')),
+    });
+
+    const result = await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+
+    expect(result).toEqual({ outcome: 'worked', ticketId: ticket.id });
+    expect(deps.logger.warn).toHaveBeenCalledWith(
+      expect.stringContaining('needsWork'),
+      expect.objectContaining({ ticketId: ticket.id }),
+    );
+  });
+
+  it('regression: with two tickets in Brief where one no longer needs work, the OTHER (newer) one gets picked across multiple ticks — not starved forever by the older one', async () => {
+    const alreadyBriefed = makeTicket({
+      id: '00000000-0000-0000-0000-000000000001',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+    });
+    const newerNeedsWork = makeTicket({
+      id: '00000000-0000-0000-0000-000000000002',
+      createdAt: new Date('2026-01-05T00:00:00.000Z'),
+    });
+    // Simulates ticket_briefs state: alreadyBriefed starts already-briefed; the work step
+    // "briefs" whatever it's given, same as handleBriefStageTicket persisting a pointer.
+    const briefedIds = new Set<string>([alreadyBriefed.id]);
+    const claim = vi
+      .fn()
+      .mockImplementation(async (id: string, claimedBy: string) => ({
+        ok: true,
+        claim: { id, claimedBy, version: 1 },
+      }));
+    const release = vi
+      .fn()
+      .mockImplementation(async (id: string, _claimedBy: string) => ({
+        ok: true,
+        claim: { id, claimedBy: null, version: 2 },
+      }));
+    const deps = makeDeps({
+      ticketStore: {
+        listClaimable: vi.fn().mockResolvedValue({
+          ok: true,
+          tickets: [alreadyBriefed, newerNeedsWork],
+        }),
+        claim,
+        release,
+      },
+      needsWork: vi
+        .fn()
+        .mockImplementation(async (t: Ticket) => !briefedIds.has(t.id)),
+      workStep: vi.fn().mockImplementation(async (t: Ticket) => {
+        briefedIds.add(t.id);
+      }),
+    });
+
+    // Five sequential ticks — recursive, not a loop or `.reduce()` (`docs/CONVENTIONS.md`'s Code
+    // Style section bans the latter outright; `discover-github-issues.ts`'s own `upsertIssues` is
+    // the established precedent for sequential-by-design async work over a short, fixed list). The
+    // ticks must run in order, not in parallel: each depends on `briefedIds` mutated by the
+    // previous tick's `workStep`.
+    async function runTicks(
+      remaining: number,
+      claimed: readonly string[],
+    ): Promise<readonly string[]> {
+      if (remaining === 0) return claimed;
+      const result = await runPullLoopTick(deps, WITHIN_CORE_HOURS);
+      const next =
+        result.ticketId === undefined ? claimed : [...claimed, result.ticketId];
+      return runTicks(remaining - 1, next);
+    }
+    const claimedIds = await runTicks(5, []);
+
+    // The newer ticket must actually get claimed — the pre-fix bug meant it never would.
+    expect(claimedIds).toContain(newerNeedsWork.id);
+    // The already-briefed ticket must never be claimed again — it's filtered before claiming.
+    expect(claimedIds).not.toContain(alreadyBriefed.id);
+  });
+});
+
 describe('schedulePullLoopTicks', () => {
   beforeEach(() => {
     // Fixes `new Date()` inside each tick to a known within-core-hours instant — `runPullLoopTick`
@@ -378,6 +634,7 @@ describe('startPullLoop', () => {
       logger: makeLogger(),
       bankHolidaysCache: withinCoreHoursCache(),
       workStep: vi.fn().mockResolvedValue(undefined),
+      preTickStep: vi.fn().mockResolvedValue(undefined),
       ...overrides,
     };
   }
@@ -433,6 +690,35 @@ describe('startPullLoop', () => {
       ticket.id,
       'sarah',
     );
+    loop.stop();
+  });
+
+  it("wires needsWork through StartPullLoopDeps/buildPullLoopDeps to the real PullLoopDeps runPullLoopTick ticks against (BUILD_PLAN 6.1b starvation fix, spec-grill R1's B1)", async () => {
+    const ticket = {
+      id: '00000000-0000-0000-0000-000000000001',
+      projectKey: 'chief-clancy',
+      title: 'A ticket',
+      status: 'Brief',
+      severity: 'Medium',
+      classOfService: 'Standard',
+      createdAt: new Date('2026-01-01T00:00:00.000Z'),
+      updatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    } satisfies Ticket;
+    coreMocks.listClaimableTickets.mockResolvedValue({
+      ok: true,
+      tickets: [ticket],
+    } satisfies TicketListResult);
+    const needsWork = vi.fn().mockResolvedValue(false);
+    const deps = makeStartDeps({ needsWork });
+    const loop = startPullLoop(deps, 1000);
+
+    await vi.advanceTimersByTimeAsync(1000);
+
+    expect(needsWork).toHaveBeenCalledWith(ticket);
+    // needsWork resolved false, so the filtered candidate must never reach claimTicket — proves
+    // needsWork actually reaches the real PullLoopDeps runPullLoopTick uses, not just a directly
+    // constructed PullLoopDeps in the tests above.
+    expect(coreMocks.claimTicket).not.toHaveBeenCalled();
     loop.stop();
   });
 });

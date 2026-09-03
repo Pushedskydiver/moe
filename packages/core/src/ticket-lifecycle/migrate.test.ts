@@ -56,6 +56,7 @@ describe('runMigrations', () => {
         '0022_widen_review_queue_outcome_reason_guard_chain.sql',
         '0023_review_queue_classification_failure.sql',
         '0024_review_queue_repeated_sender.sql',
+        '0025_create_ticket_briefs.sql',
       ],
     });
 
@@ -87,6 +88,7 @@ describe('runMigrations', () => {
       { id: '0022_widen_review_queue_outcome_reason_guard_chain.sql' },
       { id: '0023_review_queue_classification_failure.sql' },
       { id: '0024_review_queue_repeated_sender.sql' },
+      { id: '0025_create_ticket_briefs.sql' },
     ]);
   });
 
@@ -699,5 +701,66 @@ describe('runMigrations', () => {
     );
     expect(rows).toHaveLength(1);
     expect(rows[0]?.last_swept_at.toISOString()).toBe(second.toISOString());
+  });
+
+  it('creates a ticket_briefs table that accepts a valid row referencing a real ticket (BUILD_PLAN 6.1b)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const now = new Date();
+    await pool.query(
+      `INSERT INTO tickets (id, project_key, title, status, severity, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'chief-clancy',
+        'A ticket',
+        'Brief',
+        'Medium',
+        now,
+      ],
+    );
+
+    await pool.query(
+      `INSERT INTO ticket_briefs (ticket_id, channel_id, message_ts, created_at)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'C0B88H0JUA3',
+        '1700000000.000100',
+        now,
+      ],
+    );
+
+    const { rows } = await pool.query('SELECT * FROM ticket_briefs');
+    expect(rows).toHaveLength(1);
+  });
+
+  it('rejects a second ticket_briefs row for the same ticket_id via the PRIMARY KEY (BUILD_PLAN 6.1b)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const now = new Date();
+    await pool.query(
+      `INSERT INTO tickets (id, project_key, title, status, severity, created_at, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'chief-clancy',
+        'A ticket',
+        'Brief',
+        'Medium',
+        now,
+      ],
+    );
+    const insert = () =>
+      pool.query(
+        `INSERT INTO ticket_briefs (ticket_id, channel_id, message_ts, created_at)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+          'C0B88H0JUA3',
+          '1700000000.000100',
+          now,
+        ],
+      );
+    await insert();
+    await expect(insert()).rejects.toThrow();
   });
 });

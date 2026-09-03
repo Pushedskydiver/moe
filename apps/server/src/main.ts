@@ -22,10 +22,12 @@ import {
 } from '@moe/core';
 import { parseGithubConfig, validateGithubCredentials } from '@moe/github';
 
+import { createSarahPullLoopBehaviorDeps } from './create-sarah-pull-loop-behavior-deps.js';
 import { createHealthHandler } from './health-handler.js';
 import { createLogger } from './logger.js';
 import { startPullLoop } from './pull-loop.js';
 import { resolvePort } from './resolve-port.js';
+import { resolvePullLoopBehaviors } from './resolve-pull-loop-behaviors.js';
 import { resolvePullLoopIntervalMs } from './resolve-pull-loop-interval.js';
 import { startSlackListener } from './start-slack-listener.js';
 
@@ -54,28 +56,47 @@ function startServer(
   return server;
 }
 
-// BUILD_PLAN 6.1a-i's per-persona poll scheduler — a no-op work step for this chunk (real
-// per-stage handlers land at 6.1b/6.1c). A second, independent bank-holidays cache instance:
-// `start-slack-listener.ts` already constructs its own for the ambient/DM guard chain, and
-// reusing it here would mean widening that already-shipped, tested plumbing rather than adding
-// one more low-footprint 24h-TTL cache — still "construct once per process, don't recreate per
-// call", just two callers instead of one. Extracted purely to keep `main` under eslint's
-// `max-lines-per-function`, same reasoning as `startServer`/`validateGithubAndLog` above.
+// BUILD_PLAN 6.1a-i's per-persona poll scheduler — BUILD_PLAN 6.1b gives it real behavior for the
+// first time: `createSarahPullLoopBehaviorDeps` builds Sarah's own SDK clients/store closures
+// over the shared `db`, and `resolvePullLoopBehaviors` picks the real `workStep`/`preTickStep`
+// for `opts.config.id` (a no-op pair for every persona but Sarah until 6.1c lands a second real
+// entry). A second, independent bank-holidays cache instance: `start-slack-listener.ts` already
+// constructs its own for the ambient/DM guard chain, and reusing it here would mean widening that
+// already-shipped, tested plumbing rather than adding one more low-footprint 24h-TTL cache —
+// still "construct once per process, don't recreate per call", just two callers instead of one.
+// Extracted purely to keep `main` under eslint's `max-lines-per-function`, same reasoning as
+// `startServer`/`validateGithubAndLog` above.
 function startPersonaPullLoop(opts: {
   readonly config: PersonaConfig;
   readonly db: Kysely<Database>;
   readonly logger: Logger;
   readonly env: Readonly<Record<string, string | undefined>>;
+  readonly anthropicApiKey: string;
+  readonly costCapConfig: CostCapConfig;
+  readonly github: GithubConfig;
 }): { readonly stop: () => void } {
+  const behaviorDeps = createSarahPullLoopBehaviorDeps({
+    config: opts.config,
+    db: opts.db,
+    logger: opts.logger,
+    anthropicApiKey: opts.anthropicApiKey,
+    costCapConfig: opts.costCapConfig,
+    github: opts.github,
+  });
+  const { workStep, preTickStep, needsWork } = resolvePullLoopBehaviors(
+    opts.config.id,
+    behaviorDeps,
+  );
+
   return startPullLoop(
     {
       personaId: opts.config.id,
       db: opts.db,
       logger: opts.logger,
       bankHolidaysCache: createBankHolidaysCache(),
-      workStep: async () => {
-        // Stub — 6.1a-i's own scope is claim/release mechanics, not real per-stage work.
-      },
+      workStep,
+      preTickStep,
+      needsWork,
     },
     resolvePullLoopIntervalMs(opts.env),
   );
@@ -188,13 +209,47 @@ function validateGithubAndLog(
     });
 }
 
+// A listening HTTP server (and, equally, an open pg.Pool with any client that's ever run a
+// query — verified against node-postgres's own docs: its sockets aren't unref'd, so an open pool
+// keeps the event loop alive same as a listening server) keeps the event loop alive on its own,
+// so a bare `exit(1)` (which only sets `process.exitCode`, deliberately not force-terminating —
+// see `main`'s own `exit` default below) would never actually take effect while any of them is
+// still open — BUILD_PLAN 6.1a-i's pull loop (an un-`unref`'d `setInterval`) is a third such
+// mechanism, alongside the server and the pool. Closing/stopping all three is what lets the
+// process really exit, so an unrecoverable Slack failure actually restarts under Fly's supervisor
+// instead of sitting "healthy" per /health forever. Verified live for the HTTP-server half:
+// without closing it, a Docker container with an invalid app token kept running indefinitely
+// despite exit(1) firing. Extracted purely to keep `main` under eslint's `max-lines-per-function`,
+// same reasoning `startServer`/`validateGithubAndLog` above already document for their own
+// extractions.
+function buildExitAndCloseServer(opts: {
+  readonly pullLoop: { readonly stop: () => void };
+  readonly server: Server;
+  readonly db: Kysely<Database>;
+  readonly logger: Logger;
+  readonly exit: (code: number) => void;
+}): (code: number) => void {
+  return (code: number): void => {
+    opts.pullLoop.stop();
+    opts.server.close();
+    opts.db.destroy().catch((error: unknown) => {
+      opts.logger.error('failed to close database pool', {
+        errorMessage: error instanceof Error ? error.message : String(error),
+      });
+    });
+    opts.exit(code);
+  };
+}
+
 /**
- * Boot sequence for BUILD_PLAN 2.2/2.3/2.4a/2.4b/3.3/4.1/6.1a-i: load + validate persona, Anthropic,
- * database, cost-cap, channel-scope, and GitHub config from env, start the health-check HTTP
- * server, open the shared Postgres pool (migrations are a separate manual pre-deploy step —
- * `pnpm --filter @moe/core migrate` — this boot sequence never runs them), start the per-persona
- * pull loop (`startPullLoop`, BUILD_PLAN 6.1a-i — a no-op work step until 6.1b/6.1c land real
- * per-stage handlers), connect to Slack over Socket Mode. Both surfaces run VISION §5.2's intake
+ * Boot sequence for BUILD_PLAN 2.2/2.3/2.4a/2.4b/3.3/4.1/6.1a-i/6.1b: load + validate persona,
+ * Anthropic, database, cost-cap, channel-scope, and GitHub config from env, start the
+ * health-check HTTP server, open the shared Postgres pool (migrations are a separate manual
+ * pre-deploy step — `pnpm --filter @moe/core migrate` — this boot sequence never runs them),
+ * start the per-persona pull loop (`startPullLoop`, BUILD_PLAN 6.1a-i — real behavior as of 6.1b
+ * for Sarah's `Brief`-stage handler and triage-queue conversion, `resolvePullLoopBehaviors`; a
+ * no-op pair for every other persona until 6.1c lands a second real entry), connect to Slack over
+ * Socket Mode. Both surfaces run VISION §5.2's intake
  * cascade: a DM is classified and, on a High or Mid band, answered with a ticket draft or a
  * confirming question — otherwise it falls through to a full LLM-generated reply in the
  * placeholder voice, thread-scoped per `resolve-thread-key.ts` (BUILD_PLAN 3.7 — see
@@ -234,28 +289,17 @@ export function main(
     db,
     logger,
     env,
+    anthropicApiKey: config.anthropicApiKey,
+    costCapConfig: config.costCap,
+    github: config.github,
   });
-  // A listening HTTP server (and, equally, an open pg.Pool with any client that's ever run a
-  // query — verified against node-postgres's own docs: its sockets aren't unref'd, so an open
-  // pool keeps the event loop alive same as a listening server) keeps the event loop alive on its
-  // own, so a bare `exit(1)` (which only sets process.exitCode, deliberately not
-  // force-terminating — see the comment above) would never actually take effect while any of them
-  // is still open — BUILD_PLAN 6.1a-i's pull loop (an un-`unref`'d `setInterval`) is a third such
-  // mechanism, alongside the server and the pool. Closing/stopping all three is what lets the
-  // process really exit, so an unrecoverable Slack failure actually restarts under Fly's
-  // supervisor instead of sitting "healthy" per /health forever. Verified live for the
-  // HTTP-server half: without closing it, a Docker container with an invalid app token kept
-  // running indefinitely despite exit(1) firing.
-  const exitAndCloseServer = (code: number): void => {
-    pullLoop.stop();
-    server.close();
-    db.destroy().catch((error: unknown) => {
-      logger.error('failed to close database pool', {
-        errorMessage: error instanceof Error ? error.message : String(error),
-      });
-    });
-    exit(code);
-  };
+  const exitAndCloseServer = buildExitAndCloseServer({
+    pullLoop,
+    server,
+    db,
+    logger,
+    exit,
+  });
   server.on('error', (error) => {
     logger.error('server error', { errorMessage: error.message });
     exitAndCloseServer(1);

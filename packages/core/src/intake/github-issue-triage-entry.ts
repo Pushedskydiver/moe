@@ -13,8 +13,9 @@ const nonBlankStringSchema = z
  * title/state/`githubUpdatedAt` is reflected instead of accumulating a stale duplicate.
  * Deliberately minimal (a pointer, not the full issue body) — Alex confirmed this shape via
  * `AskUserQuestion` over storing the complete body up front, since a persona acting on a triage
- * entry later (BUILD_PLAN 6.1b) fetches the current body fresh from GitHub rather than risking a
- * stale cached copy. `(repoOwner, repoName, issueNumber)` is a natural composite primary key, not
+ * entry (BUILD_PLAN 6.1b's `handle-brief-stage-ticket.ts`, via `getGithubIssueBody`,
+ * `@moe/github`) fetches the current body fresh from GitHub rather than risking a stale cached
+ * copy. `(repoOwner, repoName, issueNumber)` is a natural composite primary key, not
  * a surrogate `id` — same no-surrogate-`id`, no-history reasoning as `sweep-state.ts`'s own
  * `personaId`-keyed table, since a given issue has exactly one current tracked state, never a
  * row-per-poll history. `githubUpdatedAt` is the issue's own `updated_at` from GitHub's API (the
