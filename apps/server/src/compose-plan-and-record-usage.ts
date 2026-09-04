@@ -25,10 +25,14 @@ const FAILURE_LOG_MESSAGE = 'failed to compose plan';
  * BUILD_PLAN 6.1c's own plan-composition-plus-cost-accounting wrapper — mirrors
  * `compose-brief-and-record-usage.ts`'s `composeBriefAndRecordUsage` exactly: resolves the
  * persona's own model (`resolvePersonaModel`) and voice (`fetchPersonaPromptContent`), calls
- * `composePlan`, and records usage on success (`recordUsageLogged`, `sonnetCostUsdMicros`). Unlike
- * that sibling, this has exactly one real caller (`handle-plan-stage-ticket.ts`), so the failure
- * log message is a fixed constant here rather than a caller-supplied parameter — there's no second
- * wording to reconcile.
+ * `composePlan`, and records usage on success (`recordUsageLogged`, `sonnetCostUsdMicros`). Same as
+ * that sibling (not "unlike" it — `compose-brief-and-record-usage.ts` also has exactly one real
+ * caller and a fixed failure-log constant), this has exactly one real caller
+ * (`handle-plan-stage-ticket.ts`), so the failure log message is a fixed constant here too, unlike
+ * `compose-ticket-draft-and-record-usage.ts`'s own `composeTicketDraftAndRecordUsage`, which
+ * genuinely does take a caller-supplied `failureLogMessage` because it has two real callers
+ * (`handle-ambient-channel-message.ts`, `reaction-outcome-actions.ts`) that historically used
+ * different wording — there's no second wording to reconcile here either way.
  */
 export async function composePlanAndRecordUsage(
   deps: ComposePlanAndRecordUsageDeps,

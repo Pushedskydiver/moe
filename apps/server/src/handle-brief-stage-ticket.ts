@@ -231,7 +231,7 @@ export function createBriefStageWorkStep(
 /**
  * BUILD_PLAN 6.1b starvation fix's `needsWork` factory — a `pull-loop.ts`-shaped
  * `(ticket) => Promise<boolean>`, built the same way `createBriefStageWorkStep` above is, alongside
- * it in this file rather than in `create-sarah-pull-loop-behavior-deps.ts` (that file only ever
+ * it in this file rather than in `create-pull-loop-behavior-deps.ts` (that file only ever
  * builds the `PullLoopBehaviorDeps` store/client bag; every actual behavior function is a factory
  * called from `resolvePullLoopBehaviors` — spec-grill R1's M1).
  *

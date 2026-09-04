@@ -74,8 +74,8 @@ const briefOkSchema = z.object({
 // BUILD_PLAN 6.1c's `composePlan` own `ok: true` shape — `approach`/`confidence`/
 // `alternativesConsidered`/`openQuestions`, no `title` (same reasoning as `briefOkSchema` above).
 // Unlike `briefOkSchema`'s `scope`, the two arrays here allow `.length === 0` (no outer `.min(1)`)
-// — see `compose-plan.ts`'s own TSDoc for why an always-non-empty array would be wrong for a
-// trivial ticket.
+// — see `compose-plan.ts`'s `PLAN_SYSTEM_PROMPT` for why an always-non-empty array would be wrong
+// for a trivial ticket (a short or empty list is fine when nothing is genuinely open).
 const planOkSchema = z.object({
   ok: z.literal(true),
   approach: z.string().min(1),

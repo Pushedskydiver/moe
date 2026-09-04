@@ -27,14 +27,17 @@ export async function resetDatabase(pool: Pool): Promise<void> {
     // undroppable, so this whole statement silently failed and every test in this suite went red
     // on the very next run. Both tables just need to appear somewhere in the same statement; no
     // `CASCADE` needed once that's true.
-    // `ticket_plans` (BUILD_PLAN 6.1c) references `tickets` via foreign key, same reasoning as
-    // `ticket_github_issue_links`/`ticket_briefs` above — every `beforeEach` re-runs migrations
-    // inside one transaction, and `schema_migrations` is itself in this drop list, so a new table
-    // left off this list survives a reset while migration history doesn't: the next test's
-    // `beforeEach` then hits `CREATE TABLE ticket_plans` against a table that already exists,
-    // rolling back the whole migration transaction and surfacing as a confusing, unrelated-looking
-    // "relation tickets does not exist" failure in some other test file entirely (BUILD_PLAN.md's
-    // own chunk-3.4c narrative names this exact recurring gap class).
+    // `ticket_plans` (BUILD_PLAN 6.1c) references `tickets` via foreign key — the exact same
+    // mechanism as `ticket_github_issue_links` above, not a different one: omitting a dependent
+    // table from this list doesn't let it "survive" while its neighbors drop — Postgres DDL is
+    // transactional per-statement, so leaving `ticket_plans` off would make the *whole* multi-table
+    // `DROP TABLE` statement fail (a dangling FK reference on `tickets`), and nothing in the
+    // statement drops, `schema_migrations` included (verified directly against a real Postgres
+    // instance, same as the `ticket_github_issue_links` case above). That failure then propagates
+    // out of `resetDatabase` into whatever `afterEach` called it, and every test after that point
+    // runs against a database `resetDatabase` never actually reset (BUILD_PLAN.md's own chunk-3.4c
+    // narrative names this exact recurring "new table left off this hardcoded list" gap class in
+    // general terms, without itself describing the specific atomic-failure mechanism above).
     'DROP TABLE IF EXISTS ticket_github_issue_links, ticket_briefs, ticket_plans, tickets, schema_migrations, conversation_turns, persona_cost_daily, persona_cost_alerts, pending_ticket_drafts, review_queue, pending_confirming_questions, sweep_state, github_issue_triage',
   );
 }
