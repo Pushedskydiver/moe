@@ -10,11 +10,13 @@ import {
   claimAlertThreshold,
   createTicketBrief,
   createTicketFromTriageEntry,
+  createTicketPlan,
   findNextUnconvertedGithubIssueTriageEntry,
   getAlertState,
   getPersonaCostForMonth,
   getTicketBrief,
   getTicketGithubIssueLink,
+  getTicketPlan,
   recordUsage,
 } from '@moe/core';
 import { createGithubClient } from '@moe/github';
@@ -31,18 +33,21 @@ const TRIAGE_TICKET_DEFAULTS = {
 } as const;
 
 /**
- * BUILD_PLAN 6.1b's own composition root for Sarah's pull-loop behaviors — constructs the
- * Anthropic/Slack/Octokit(GitHub) clients via the existing single builders (`createAnthropicClient`,
- * `createWebClient`, `createGithubClient` — reused, not reimplemented) *and* binds every closure
- * (`briefStore`, `issueLinkStore`, `triageStore`, the cost-cap stores) over one shared `db`
- * handle, producing a single `PullLoopBehaviorDeps` value that satisfies both
- * `createBriefStageWorkStep` and `createConvertNextTriageEntryPreTickStep`. Takes on a bit more
- * than `start-slack-listener.ts`'s own `createStores` does — that precedent only binds store
- * closures over `db`, leaving SDK-client construction to its own caller (`startSlackListener`) —
- * since `startPersonaPullLoop` (`main.ts`) has no other natural place to split that work the way
- * `startSlackListener` does.
+ * BUILD_PLAN 6.1b's own composition root for pull-loop behaviors — renamed at 6.1c (was
+ * `createSarahPullLoopBehaviorDeps`) once Marcus became a second real handler: this is no longer
+ * Sarah-specific, it's the shared composition root for any persona with a real pull-loop handler.
+ * Constructs the Anthropic/Slack/Octokit(GitHub) clients via the existing single builders
+ * (`createAnthropicClient`, `createWebClient`, `createGithubClient` — reused, not reimplemented)
+ * *and* binds every closure (`briefStore`, `planStore`, `issueLinkStore`, `triageStore`, the
+ * cost-cap stores) over one shared `db` handle, producing a single `PullLoopBehaviorDeps` value
+ * that satisfies every real behavior factory (`createBriefStageWorkStep`,
+ * `createConvertNextTriageEntryPreTickStep`, `createPlanStageWorkStep`, and both `needsWork`
+ * checks). Takes on a bit more than `start-slack-listener.ts`'s own `createStores` does — that
+ * precedent only binds store closures over `db`, leaving SDK-client construction to its own caller
+ * (`startSlackListener`) — since `startPersonaPullLoop` (`main.ts`) has no other natural place to
+ * split that work the way `startSlackListener` does.
  */
-export function createSarahPullLoopBehaviorDeps(opts: {
+export function createPullLoopBehaviorDeps(opts: {
   readonly config: PersonaConfig;
   readonly db: Kysely<Database>;
   readonly logger: Logger;
@@ -76,6 +81,11 @@ export function createSarahPullLoopBehaviorDeps(opts: {
       getByTicket: (ticketId: string) => getTicketBrief(db, ticketId),
       create: (input: Parameters<typeof createTicketBrief>[1]) =>
         createTicketBrief(db, input),
+    },
+    planStore: {
+      getByTicket: (ticketId: string) => getTicketPlan(db, ticketId),
+      create: (input: Parameters<typeof createTicketPlan>[1]) =>
+        createTicketPlan(db, input),
     },
     issueLinkStore: {
       getByTicket: (ticketId: string) => getTicketGithubIssueLink(db, ticketId),

@@ -11,10 +11,11 @@ const mocks = vi.hoisted(() => ({
   // `exitAndCloseServer`'s new `pullLoop.stop()` call doesn't throw on `undefined` — only the
   // pull-loop-specific test overrides this per-test.
   startPullLoop: vi.fn().mockReturnValue({ stop: vi.fn() }),
-  // BUILD_PLAN 6.1b — `startPersonaPullLoop`'s own two new composition-root calls, mocked here
-  // (not just `startPullLoop`) so this file can assert the passed `workStep`/`preTickStep` come
-  // from the resolver, per persona, without constructing real Anthropic/Slack/GitHub SDK clients.
-  createSarahPullLoopBehaviorDeps: vi.fn(),
+  // BUILD_PLAN 6.1b — `startPersonaPullLoop`'s own two composition-root calls, mocked here (not
+  // just `startPullLoop`) so this file can assert the passed `workStep`/`preTickStep` come from
+  // the resolver, per persona, without constructing real Anthropic/Slack/GitHub SDK clients.
+  // Renamed at 6.1c alongside the real function (was `createSarahPullLoopBehaviorDeps`).
+  createPullLoopBehaviorDeps: vi.fn(),
   resolvePullLoopBehaviors: vi.fn(),
 }));
 
@@ -31,8 +32,8 @@ vi.mock('./pull-loop.js', async (importOriginal) => {
   return { ...actual, startPullLoop: mocks.startPullLoop };
 });
 
-vi.mock('./create-sarah-pull-loop-behavior-deps.js', () => ({
-  createSarahPullLoopBehaviorDeps: mocks.createSarahPullLoopBehaviorDeps,
+vi.mock('./create-pull-loop-behavior-deps.js', () => ({
+  createPullLoopBehaviorDeps: mocks.createPullLoopBehaviorDeps,
 }));
 vi.mock('./resolve-pull-loop-behaviors.js', () => ({
   resolvePullLoopBehaviors: mocks.resolvePullLoopBehaviors,
@@ -62,7 +63,7 @@ describe('main', () => {
     logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
     mocks.validateGithubCredentials.mockReset().mockResolvedValue({ ok: true });
     mocks.startPullLoop.mockReset().mockReturnValue({ stop: vi.fn() });
-    mocks.createSarahPullLoopBehaviorDeps
+    mocks.createPullLoopBehaviorDeps
       .mockReset()
       .mockReturnValue({ marker: 'behaviorDeps' });
     mocks.resolvePullLoopBehaviors
@@ -395,7 +396,7 @@ describe('main', () => {
     const preTickStep = vi.fn();
     const needsWork = vi.fn();
     const behaviorDeps = { marker: 'sarah-behavior-deps' };
-    mocks.createSarahPullLoopBehaviorDeps.mockReturnValue(behaviorDeps);
+    mocks.createPullLoopBehaviorDeps.mockReturnValue(behaviorDeps);
     mocks.resolvePullLoopBehaviors.mockReturnValue({
       workStep,
       preTickStep,
@@ -404,9 +405,8 @@ describe('main', () => {
 
     main(VALID_ENV, vi.fn(), vi.fn());
 
-    expect(mocks.createSarahPullLoopBehaviorDeps).toHaveBeenCalledTimes(1);
-    const createCall = mocks.createSarahPullLoopBehaviorDeps.mock
-      .calls[0]?.[0] as {
+    expect(mocks.createPullLoopBehaviorDeps).toHaveBeenCalledTimes(1);
+    const createCall = mocks.createPullLoopBehaviorDeps.mock.calls[0]?.[0] as {
       config: { id: string };
       anthropicApiKey: string;
       costCapConfig: { monthlyCapUsdMicros: number; alertSlackUserId: string };

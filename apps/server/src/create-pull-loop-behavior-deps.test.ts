@@ -15,6 +15,8 @@ const mocks = vi.hoisted(() => ({
   createGithubClient: vi.fn(),
   getTicketBrief: vi.fn(),
   createTicketBrief: vi.fn(),
+  getTicketPlan: vi.fn(),
+  createTicketPlan: vi.fn(),
   getTicketGithubIssueLink: vi.fn(),
   findNextUnconvertedGithubIssueTriageEntry: vi.fn(),
   createTicketFromTriageEntry: vi.fn(),
@@ -42,6 +44,8 @@ vi.mock('@moe/core', async (importOriginal) => {
     ...actual,
     getTicketBrief: mocks.getTicketBrief,
     createTicketBrief: mocks.createTicketBrief,
+    getTicketPlan: mocks.getTicketPlan,
+    createTicketPlan: mocks.createTicketPlan,
     getTicketGithubIssueLink: mocks.getTicketGithubIssueLink,
     findNextUnconvertedGithubIssueTriageEntry:
       mocks.findNextUnconvertedGithubIssueTriageEntry,
@@ -53,8 +57,8 @@ vi.mock('@moe/core', async (importOriginal) => {
   };
 });
 
-const { createSarahPullLoopBehaviorDeps } =
-  await import('./create-sarah-pull-loop-behavior-deps.js');
+const { createPullLoopBehaviorDeps } =
+  await import('./create-pull-loop-behavior-deps.js');
 
 function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
@@ -90,11 +94,11 @@ function opts() {
   };
 }
 
-describe('createSarahPullLoopBehaviorDeps', () => {
+describe('createPullLoopBehaviorDeps (renamed from createSarahPullLoopBehaviorDeps at BUILD_PLAN 6.1c)', () => {
   it('constructs the anthropic/slack/github clients via the shared single builders', () => {
     const built = opts();
 
-    createSarahPullLoopBehaviorDeps(built);
+    createPullLoopBehaviorDeps(built);
 
     expect(mocks.createAnthropicClient).toHaveBeenCalledWith(
       built.anthropicApiKey,
@@ -113,7 +117,7 @@ describe('createSarahPullLoopBehaviorDeps', () => {
   it('carries personaId, githubRepo, and costCapConfig straight through', () => {
     const built = opts();
 
-    const deps = createSarahPullLoopBehaviorDeps(built);
+    const deps = createPullLoopBehaviorDeps(built);
 
     expect(deps.personaId).toBe('sarah');
     expect(deps.githubRepo).toEqual(GITHUB_CONFIG.repo);
@@ -129,16 +133,20 @@ describe('createSarahPullLoopBehaviorDeps', () => {
         ticketId: 'x',
         channelId: 'C1',
         messageTs: '1',
+        summary: 'x',
+        scope: ['y'],
         createdAt: new Date(),
       },
     });
-    const deps = createSarahPullLoopBehaviorDeps(built);
+    const deps = createPullLoopBehaviorDeps(built);
 
     await deps.briefStore.getByTicket('ticket-1');
     await deps.briefStore.create({
       ticketId: 'ticket-1',
       channelId: 'C1',
       messageTs: '1700000000.0001',
+      summary: 'The CLI silently drops rows over 10k.',
+      scope: ['Reproduce the truncation'],
     });
 
     expect(mocks.getTicketBrief).toHaveBeenCalledWith(built.db, 'ticket-1');
@@ -146,13 +154,44 @@ describe('createSarahPullLoopBehaviorDeps', () => {
       ticketId: 'ticket-1',
       channelId: 'C1',
       messageTs: '1700000000.0001',
+      summary: 'The CLI silently drops rows over 10k.',
+      scope: ['Reproduce the truncation'],
+    });
+  });
+
+  it('binds planStore to the real ticket-plans repository functions over the shared db', async () => {
+    const built = opts();
+    mocks.getTicketPlan.mockResolvedValue({ ok: true, plan: null });
+    mocks.createTicketPlan.mockResolvedValue({
+      ok: true,
+      plan: {
+        ticketId: 'x',
+        channelId: 'C1',
+        messageTs: '1',
+        createdAt: new Date(),
+      },
+    });
+    const deps = createPullLoopBehaviorDeps(built);
+
+    await deps.planStore.getByTicket('ticket-1');
+    await deps.planStore.create({
+      ticketId: 'ticket-1',
+      channelId: 'C1',
+      messageTs: '1700000000.0002',
+    });
+
+    expect(mocks.getTicketPlan).toHaveBeenCalledWith(built.db, 'ticket-1');
+    expect(mocks.createTicketPlan).toHaveBeenCalledWith(built.db, {
+      ticketId: 'ticket-1',
+      channelId: 'C1',
+      messageTs: '1700000000.0002',
     });
   });
 
   it('binds issueLinkStore to the real ticket-github-issue-link lookup over the shared db', async () => {
     const built = opts();
     mocks.getTicketGithubIssueLink.mockResolvedValue({ ok: true, link: null });
-    const deps = createSarahPullLoopBehaviorDeps(built);
+    const deps = createPullLoopBehaviorDeps(built);
 
     await deps.issueLinkStore.getByTicket('ticket-1');
 
@@ -169,7 +208,7 @@ describe('createSarahPullLoopBehaviorDeps', () => {
       entry: null,
     });
     mocks.createTicketFromTriageEntry.mockResolvedValue({ ok: true });
-    const deps = createSarahPullLoopBehaviorDeps(built);
+    const deps = createPullLoopBehaviorDeps(built);
     const entry = {
       repoOwner: 'Pushedskydiver',
       repoName: 'chief-clancy',
@@ -210,7 +249,7 @@ describe('createSarahPullLoopBehaviorDeps', () => {
     mocks.getAlertState.mockResolvedValue({ ok: true, alert: null });
     mocks.claimAlertThreshold.mockResolvedValue({ ok: true });
     mocks.recordUsage.mockResolvedValue({ ok: true });
-    const deps = createSarahPullLoopBehaviorDeps(built);
+    const deps = createPullLoopBehaviorDeps(built);
 
     await deps.capStore.getMonthlyCost({
       personaId: 'sarah',

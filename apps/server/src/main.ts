@@ -22,7 +22,7 @@ import {
 } from '@moe/core';
 import { parseGithubConfig, validateGithubCredentials } from '@moe/github';
 
-import { createSarahPullLoopBehaviorDeps } from './create-sarah-pull-loop-behavior-deps.js';
+import { createPullLoopBehaviorDeps } from './create-pull-loop-behavior-deps.js';
 import { createHealthHandler } from './health-handler.js';
 import { createLogger } from './logger.js';
 import { startPullLoop } from './pull-loop.js';
@@ -56,15 +56,17 @@ function startServer(
   return server;
 }
 
-// BUILD_PLAN 6.1a-i's per-persona poll scheduler — BUILD_PLAN 6.1b gives it real behavior for the
-// first time: `createSarahPullLoopBehaviorDeps` builds Sarah's own SDK clients/store closures
-// over the shared `db`, and `resolvePullLoopBehaviors` picks the real `workStep`/`preTickStep`
-// for `opts.config.id` (a no-op pair for every persona but Sarah until 6.1c lands a second real
-// entry). A second, independent bank-holidays cache instance: `start-slack-listener.ts` already
-// constructs its own for the ambient/DM guard chain, and reusing it here would mean widening that
-// already-shipped, tested plumbing rather than adding one more low-footprint 24h-TTL cache —
-// still "construct once per process, don't recreate per call", just two callers instead of one.
-// Extracted purely to keep `main` under eslint's `max-lines-per-function`, same reasoning as
+// BUILD_PLAN 6.1a-i's per-persona poll scheduler — BUILD_PLAN 6.1b gave it real behavior for the
+// first time, and 6.1c extends it to a second persona: `createPullLoopBehaviorDeps` (renamed from
+// `createSarahPullLoopBehaviorDeps` — it no longer constructs an unused Sarah-shaped bag for
+// every other persona; it now constructs a real shared bag serving both Sarah and Marcus) builds
+// the SDK clients/store closures over the shared `db`, and `resolvePullLoopBehaviors` picks the
+// real `workStep`/`preTickStep`/`needsWork` for `opts.config.id` (still a no-op pair for the other
+// six personas). A second, independent bank-holidays cache instance: `start-slack-listener.ts`
+// already constructs its own for the ambient/DM guard chain, and reusing it here would mean
+// widening that already-shipped, tested plumbing rather than adding one more low-footprint 24h-TTL
+// cache — still "construct once per process, don't recreate per call", just two callers instead of
+// one. Extracted purely to keep `main` under eslint's `max-lines-per-function`, same reasoning as
 // `startServer`/`validateGithubAndLog` above.
 function startPersonaPullLoop(opts: {
   readonly config: PersonaConfig;
@@ -75,7 +77,7 @@ function startPersonaPullLoop(opts: {
   readonly costCapConfig: CostCapConfig;
   readonly github: GithubConfig;
 }): { readonly stop: () => void } {
-  const behaviorDeps = createSarahPullLoopBehaviorDeps({
+  const behaviorDeps = createPullLoopBehaviorDeps({
     config: opts.config,
     db: opts.db,
     logger: opts.logger,
@@ -242,14 +244,14 @@ function buildExitAndCloseServer(opts: {
 }
 
 /**
- * Boot sequence for BUILD_PLAN 2.2/2.3/2.4a/2.4b/3.3/4.1/6.1a-i/6.1b: load + validate persona,
- * Anthropic, database, cost-cap, channel-scope, and GitHub config from env, start the
+ * Boot sequence for BUILD_PLAN 2.2/2.3/2.4a/2.4b/3.3/4.1/6.1a-i/6.1b/6.1c: load + validate
+ * persona, Anthropic, database, cost-cap, channel-scope, and GitHub config from env, start the
  * health-check HTTP server, open the shared Postgres pool (migrations are a separate manual
  * pre-deploy step — `pnpm --filter @moe/core migrate` — this boot sequence never runs them),
  * start the per-persona pull loop (`startPullLoop`, BUILD_PLAN 6.1a-i — real behavior as of 6.1b
- * for Sarah's `Brief`-stage handler and triage-queue conversion, `resolvePullLoopBehaviors`; a
- * no-op pair for every other persona until 6.1c lands a second real entry), connect to Slack over
- * Socket Mode. Both surfaces run VISION §5.2's intake
+ * for Sarah's `Brief`-stage handler and triage-queue conversion, and as of 6.1c for Marcus's
+ * `Plan`-stage handler too, `resolvePullLoopBehaviors`; still a no-op pair for the other six
+ * personas), connect to Slack over Socket Mode. Both surfaces run VISION §5.2's intake
  * cascade: a DM is classified and, on a High or Mid band, answered with a ticket draft or a
  * confirming question — otherwise it falls through to a full LLM-generated reply in the
  * placeholder voice, thread-scoped per `resolve-thread-key.ts` (BUILD_PLAN 3.7 — see
