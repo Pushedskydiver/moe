@@ -5,16 +5,16 @@
   "promptContentHash": "901f561f43328c2d9327637022a8eefde5644f77ec46f597fe7c891991c2097a",
   "scenarioInputHash": "a3836bab329a4f9f4517e8b99478a6d4a6b82e5f35f79e4364a5c7eb685d2494",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T08:02:33.161Z",
+  "recordedAt": "2026-09-04T21:33:02.908Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 1342,
+  "outputTokensRaw": 1433,
   "result": {
     "ok": true,
-    "reply": "Plan wasn't overspecified. Deviation looks like drift.\n\nExponential backoff wasn't picked for cleverness — it was picked because of a named failure mode: shared, rate-limited endpoint, fixed-interval retry risks a 429 storm. That's a real, citable risk, not ceremony. Overspecification would be pinning down things that don't affect the outcome — exact multiplier, exact jitter formula, which backoff library. Choosing backoff strategy itself, given that stated risk, is core to the approach, not a detail underneath it.\n\nFixed-interval retry against a shared rate-limited endpoint doesn't remove that risk — it's the exact scenario the plan called out. If Riley had a reason (existing retry helper only does fixed-interval, the endpoint's actual rate limit tolerates it, whatever), that's a legitimate thing to raise — but \"no explanation given\" is the part that's actually concerning, not the plan's specificity. Silently swapping the retry strategy on a rate-limited dependency without flagging it is worth Dom catching in review regardless of whether fixed-interval happens to work out fine in practice.\n\nTo be clear on scope: I'm going off what you've described — fixed-interval, no explanation — not the actual diff. If there's a reason in the code or a comment I haven't seen, that could change my read. But as it stands, this isn't a case of the plan overreaching.",
+    "reply": "Plan wasn't overspecified. Exponential backoff wasn't a style preference — it was tied to a specific, concrete risk: a shared endpoint that rate-limits, where fixed-interval retry after a failure means every client retrying on the same clock converges into a 429 storm. That's exactly the kind of thing worth naming explicitly in a plan, because getting it wrong doesn't just affect this feature, it affects every other consumer of that endpoint too. If I'd just said \"add retry logic\" and let Riley pick the interval strategy, that'd be under-specifying a load-bearing constraint, not appropriately trusting the builder with a detail.\n\nSo on what's in front of me: fixed-interval retry against a rate-limited endpoint is a different behavior, not an equivalent implementation of the same idea — and it shipped with no explanation for the deviation. That's the part that reads wrong to me. If Riley had a reason — endpoint doesn't actually enforce a hard rate limit, fixed interval with jitter already added, something in testing that made backoff not worth it — that changes the read entirely, but \"no explanation given\" isn't that.\n\nI'd flag it, but I'm not the one who adjudicates it — that's Dom's call in review, and he should ask Riley directly what happened before ruling on it. What I'd want him to check specifically: does the actual retry code have jitter or backoff-equivalent behavior that isn't obvious from a description of \"fixed interval,\" and if not, was there a reason the rate-limit risk doesn't apply here that I didn't have visibility into when I wrote the plan.",
     "toolUses": [],
     "usage": {
       "inputTokens": 177,
-      "outputTokens": 1342,
+      "outputTokens": 1433,
       "cacheCreationInputTokens": 0,
       "cacheReadInputTokens": 5813
     }

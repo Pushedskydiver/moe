@@ -18,11 +18,12 @@ const usageSchema = z.object({
   cacheReadInputTokens: z.number().optional(),
 });
 
-// The real union across all four cascade functions' `ok: false` branches — `anthropic-api-error`
-// is shared by all four; `no-content` is generateReply-only; `invalid-draft-output`/
+// The real union across all five cascade functions' `ok: false` branches — `anthropic-api-error`
+// is shared by all five; `no-content` is generateReply-only; `invalid-draft-output`/
 // `no-parsed-output` are composeTicketDraft's; `invalid-lead-in-output`/`no-parsed-output` are
 // composeConfirmingQuestionLeadIn's; `invalid-brief-output`/`no-parsed-output` are
-// composeBrief's (BUILD_PLAN 6.1b).
+// composeBrief's (BUILD_PLAN 6.1b); `invalid-plan-output`/`no-parsed-output` are composePlan's
+// (BUILD_PLAN 6.1c).
 const errorResultSchema = z.object({
   ok: z.literal(false),
   error: z.object({
@@ -33,6 +34,7 @@ const errorResultSchema = z.object({
       'no-parsed-output',
       'invalid-lead-in-output',
       'invalid-brief-output',
+      'invalid-plan-output',
     ]),
     message: z.string(),
   }),
@@ -69,18 +71,39 @@ const briefOkSchema = z.object({
   usage: usageSchema,
 });
 
+// BUILD_PLAN 6.1c's `composePlan` own `ok: true` shape — `approach`/`confidence`/
+// `alternativesConsidered`/`openQuestions`, no `title` (same reasoning as `briefOkSchema` above).
+// Unlike `briefOkSchema`'s `scope`, the two arrays here allow `.length === 0` (no outer `.min(1)`)
+// — see `compose-plan.ts`'s own TSDoc for why an always-non-empty array would be wrong for a
+// trivial ticket.
+const planOkSchema = z.object({
+  ok: z.literal(true),
+  approach: z.string().min(1),
+  confidence: z.string().min(1),
+  alternativesConsidered: z.array(z.string().min(1)),
+  openQuestions: z.array(z.string().min(1)),
+  usage: usageSchema,
+});
+
 const replayResultSchema = z.union([
   dmReplyOkSchema,
   ticketDraftOkSchema,
   confirmingQuestionOkSchema,
   briefOkSchema,
+  planOkSchema,
   errorResultSchema,
 ]);
 
 const replayFixtureSchema = z.object({
   scenarioId: z.string().min(1),
   personaId: personaIdSchema,
-  callSite: z.enum(['dmReply', 'ticketDraft', 'confirmingQuestion', 'brief']),
+  callSite: z.enum([
+    'dmReply',
+    'ticketDraft',
+    'confirmingQuestion',
+    'brief',
+    'plan',
+  ]),
   promptContentHash: z.string().length(64),
   scenarioInputHash: z.string().length(64),
   model: z.string().min(1),

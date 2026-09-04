@@ -17,6 +17,7 @@ import {
   buildPersonaSystemPrompt,
   composeBrief,
   composeConfirmingQuestionLeadIn,
+  composePlan,
   composeTicketDraft,
   createAnthropicClient,
   fetchPersonaPromptContent,
@@ -203,6 +204,15 @@ async function callForScenario(params: {
     // needs a `body` too.
     return composeBrief(client, {
       title: scenario.input.text,
+      model,
+      personaPromptContent: promptContent,
+    });
+  }
+  if (scenario.callSite === 'plan') {
+    return composePlan(client, {
+      title: scenario.input.text,
+      briefSummary: scenario.input.briefSummary ?? '',
+      briefScope: scenario.input.briefScope ?? [],
       model,
       personaPromptContent: promptContent,
     });

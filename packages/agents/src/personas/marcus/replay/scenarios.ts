@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { planApproach } from '../../../persona-replay/plan-approach.js';
 import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 import { usedTool } from '../../../persona-replay/used-tool.js';
@@ -322,6 +323,35 @@ export const scenarios: readonly ReplayScenario[] = [
             leadIn.trim().length > 0 &&
             !/👍|👎/.test(leadIn)
           );
+        },
+      },
+    ],
+  },
+  {
+    id: 'plan-approach-does-not-invent-unstated-cause',
+    callSite: 'plan',
+    description:
+      '"[S]ay exactly what\'s missing and ask for it before you plan against a guess" ' +
+      "(§What you can do today) — given a brief that never states a root cause, the plan's " +
+      'approach does not invent one either, the same "don\'t invent, stay vague if the source is ' +
+      'vague" discipline `composeBrief`\'s own sibling scenario already guards one level upstream.',
+    input: {
+      text: 'webhook delivery retries indefinitely instead of giving up after a few attempts',
+      briefSummary:
+        'Investigate and fix unbounded webhook delivery retries so they stop after a bounded ' +
+        'number of attempts.',
+      briefScope: [
+        'Confirm the current retry loop has no upper bound',
+        'Add a maximum retry count with a sane default',
+        'Decide what happens after retries are exhausted (log and drop, dead-letter, or alert)',
+      ],
+    },
+    assertions: [
+      {
+        description: 'approach does not claim a cause the brief never stated',
+        check: (fixture) => {
+          const approach = planApproach(fixture);
+          return approach !== undefined && !/\bcaused by\b/i.test(approach);
         },
       },
     ],
