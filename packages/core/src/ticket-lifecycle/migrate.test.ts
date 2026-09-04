@@ -57,6 +57,8 @@ describe('runMigrations', () => {
         '0023_review_queue_classification_failure.sql',
         '0024_review_queue_repeated_sender.sql',
         '0025_create_ticket_briefs.sql',
+        '0026_widen_ticket_briefs_with_content.sql',
+        '0027_create_ticket_plans.sql',
       ],
     });
 
@@ -89,6 +91,8 @@ describe('runMigrations', () => {
       { id: '0023_review_queue_classification_failure.sql' },
       { id: '0024_review_queue_repeated_sender.sql' },
       { id: '0025_create_ticket_briefs.sql' },
+      { id: '0026_widen_ticket_briefs_with_content.sql' },
+      { id: '0027_create_ticket_plans.sql' },
     ]);
   });
 

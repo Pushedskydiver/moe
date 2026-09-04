@@ -177,4 +177,21 @@ export default defineConfig(
       '@typescript-eslint/require-await': 'off',
     },
   },
+
+  // ── Package-entry barrel overrides ──────────────────────────────
+  // BUILD_PLAN 6.1c: `packages/core/src/index.ts` crossed 300 counted lines the moment this
+  // chunk's Plan-side exports landed (a flat, ever-growing list of `export {...} from`/
+  // `export type {...} from` re-export statements, one small block per chunk since chunk 0.3 —
+  // `docs/CONVENTIONS.md` §Barrels' "Package entry" row). `max-lines` exists to bound cognitive
+  // complexity in logic-bearing code; a package-entry barrel has none — it is, structurally,
+  // exactly the same "flat, non-complexity-bearing listing" shape test files already get this same
+  // exemption for (see the Test file overrides block above), just for a different reason (breadth
+  // of re-exports vs. breadth of assertions). Scoped narrowly to `src/index.ts` files only, not
+  // every file in a package, so an actual logic-bearing module still gets the real 300-line signal.
+  {
+    files: ['packages/*/src/index.ts', 'apps/*/src/index.ts'],
+    rules: {
+      'max-lines': 'off',
+    },
+  },
 );

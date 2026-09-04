@@ -1,0 +1,3 @@
+ALTER TABLE ticket_briefs
+  ADD COLUMN summary TEXT NOT NULL DEFAULT '',
+  ADD COLUMN scope JSONB NOT NULL DEFAULT '[]'::jsonb;

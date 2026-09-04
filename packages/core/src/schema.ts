@@ -1,4 +1,4 @@
-import type { Generated } from 'kysely';
+import type { Generated, JSONColumnType } from 'kysely';
 
 /**
  * Kysely's compile-time table shape. camelCase here matches the app-facing `Ticket` type — the
@@ -285,8 +285,40 @@ type TicketGithubIssueLinksTable = {
  * there's no ambiguous-external-write window to protect against with a pre-claim (see
  * `ticket-brief.ts`'s own TSDoc for the full reasoning, including the accepted residual risk of a
  * process crash between the Slack post and this INSERT).
+ *
+ * `summary`/`scope` (BUILD_PLAN 6.1c, migration `0026_widen_ticket_briefs_with_content.sql`) widen
+ * this from a pointer-only table to a genuine content record — 6.1c's Plan-stage handler needs to
+ * read a Brief's content back to ground a plan. `scope` is `JSONColumnType<readonly string[]>` —
+ * the first column in this schema to use Kysely's `JSONColumnType`, establishing the pattern here
+ * rather than following an existing house convention (none exists yet). Its defaults
+ * (`JSONColumnType<SelectType, InsertType = string, UpdateType = string>`, confirmed against
+ * `kysely/dist/util/column-type.d.ts`) already give exactly the shape needed with no extra
+ * generics to spell out: select as the real `readonly string[]` `pg` hands back after its own
+ * auto-parse of the `jsonb` column, insert/update as `string` — which is what *type-enforces* the
+ * `JSON.stringify` requirement `createTicketBrief` (`ticket-briefs-repository.ts`) documents at
+ * its own insert call site (the real `pg` driver serializes a raw JS array as a Postgres array
+ * literal, not JSON, so a `jsonb` column needs the value already stringified before it reaches
+ * `.values()`).
  */
 type TicketBriefsTable = {
+  readonly ticketId: string;
+  readonly channelId: string;
+  readonly messageTs: string;
+  readonly summary: string;
+  readonly scope: JSONColumnType<readonly string[]>;
+  readonly createdAt: Date;
+};
+
+/**
+ * Kysely's compile-time shape for `ticket_plans` (`./intake/ticket-plan.ts`'s DB-backed
+ * counterpart, BUILD_PLAN 6.1c) — `ticketId` is the `PRIMARY KEY` (a ticket has at most one plan),
+ * a `REFERENCES tickets (id)` foreign key, same 1:1-link shape as `TicketBriefsTable` above.
+ * Deliberately pointer-only, unlike `TicketBriefsTable` post-widening — nothing downstream of a
+ * Plan reads its content back yet (Plan is the last stage 6.1c touches); widen this table the same
+ * way `TicketBriefsTable` was widened if a future chunk needs to read a persisted Plan's content
+ * back.
+ */
+type TicketPlansTable = {
   readonly ticketId: string;
   readonly channelId: string;
   readonly messageTs: string;
@@ -305,4 +337,5 @@ export type Database = {
   readonly githubIssueTriage: GithubIssueTriageTable;
   readonly ticketGithubIssueLinks: TicketGithubIssueLinksTable;
   readonly ticketBriefs: TicketBriefsTable;
+  readonly ticketPlans: TicketPlansTable;
 };

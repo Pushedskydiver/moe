@@ -148,6 +148,8 @@ async function postBriefAndPersistPointer(
     ticketId: ticket.id,
     channelId: TEAM_CHANNEL_ID,
     messageTs: posted.ts,
+    summary: composed.summary,
+    scope: composed.scope,
   });
   if (!created.ok) {
     deps.logger.error('failed to persist brief pointer after posting', {
