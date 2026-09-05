@@ -153,6 +153,8 @@ function makeDeps(
           ticketId: '00000000-0000-0000-0000-000000000001',
           channelId: TEAM_CHANNEL_ID,
           messageTs: '1700000000.000200',
+          summary: 'The CLI silently drops rows over 10k on export.',
+          scope: ['Reproduce the truncation', 'Fix the export pagination'],
           createdAt: new Date('2026-07-18T09:00:00.000Z'),
         },
       }),
@@ -327,6 +329,8 @@ describe('handleBriefStageTicket', () => {
         ticketId: '00000000-0000-0000-0000-000000000001',
         channelId: TEAM_CHANNEL_ID,
         messageTs: '1700000000.000200',
+        summary: 'The CLI silently drops rows over 10k on export.',
+        scope: ['Reproduce the truncation', 'Fix the export pagination'],
         createdAt: new Date('2026-07-18T09:00:00.000Z'),
       },
     });
@@ -348,6 +352,8 @@ describe('handleBriefStageTicket', () => {
       ticketId: '00000000-0000-0000-0000-000000000001',
       channelId: TEAM_CHANNEL_ID,
       messageTs: '1700000000.000200',
+      summary: 'The CLI silently drops rows over 10k on export.',
+      scope: ['Reproduce the truncation', 'Fix the export pagination'],
     });
   });
 

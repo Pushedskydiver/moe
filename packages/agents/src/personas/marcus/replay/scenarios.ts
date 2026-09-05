@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { planApproach } from '../../../persona-replay/plan-approach.js';
 import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 import { usedTool } from '../../../persona-replay/used-tool.js';
@@ -20,8 +21,18 @@ import { usedTool } from '../../../persona-replay/used-tool.js';
 // incompleteness-shaped phrase fights against Marcus's own prompt.md, which explicitly instructs
 // him to name a real unverified detail *within* an otherwise-complete plan ("Time-box a real
 // unknown instead of designing around a guess... say so plainly and name it as unverified") — the
-// real recorded fixture does exactly this ("I haven't actually read either implementation...
-// Worth a 30-second look... not a blocker"). No amount of per-phrase topic-anchoring closes that:
+// recorded fixture does exactly this, naming a specific thing he hasn't verified (what he has and
+// hasn't read/confirmed) as a peripheral, non-blocking aside rather than a reason to stall. Stated
+// qualitatively rather than as an exact quote — this scenario's own fixture has already been
+// re-recorded multiple times across unrelated fixes elsewhere in this prompt (R8 below, and again
+// at BUILD_PLAN 6.1c when Marcus's 8th scenario was added — this tool's recording script has no
+// per-scenario filter, so adding any new scenario for a persona re-records every existing one for
+// that persona too), and the model's exact wording is non-deterministic even for identical input —
+// an exact quote here would go stale on the next re-record the same way it already has twice
+// (distinct from `docs/REVIEW-PATTERNS.md`'s "Recorded-transcript drift," which is about a fixture
+// silently outliving a prompt change; this is about *prose describing* a fixture's content
+// outliving a re-record the staleness gate correctly required and nothing was actually wrong with).
+// No amount of per-phrase topic-anchoring closes that:
 // the discriminating signal was never "does the text ever mention uncertainty," it's "does the
 // reply *open* with a stall instead of a plan" (the real stalling transcript's first sentence is
 // "Not enough here to plan against yet"; the real plan's first sentence commits to an approach) —
@@ -191,7 +202,7 @@ export const scenarios: readonly ReplayScenario[] = [
     callSite: 'dmReply',
     description:
       '"Name it as an open question and proceed when the plan\'s core approach holds either way" ' +
-      '(§Planning philosophy) — given enough concrete grounding that only a genuinely detail-' +
+      '(§Reasoning discipline) — given enough concrete grounding that only a genuinely detail-' +
       'level choice is open, proceeds with a real plan rather than stalling on it.',
     input: {
       text:
@@ -221,9 +232,12 @@ export const scenarios: readonly ReplayScenario[] = [
           'prompt.md: "done, ready to hand off, or blocked"), and not made conditional on a ' +
           'future event ("ready once confirmed... before this is final" is not actually ready) ' +
           '— deliberately does NOT fail on a claim that merely *names* an open item as a ' +
-          "trailing detail on an otherwise-firm ready statement (the real recorded fixture's " +
-          'own claim does exactly this, and his prompt.md explicitly instructs naming a real ' +
-          'unverified detail rather than hiding it): the line is conditional-on-the-future vs. ' +
+          'trailing detail on an otherwise-firm ready statement, a shape a previously-recorded ' +
+          'version of this fixture exhibited (his prompt.md explicitly instructs naming a real ' +
+          'unverified detail rather than hiding it, so a genuine claim can take this shape even ' +
+          "though the currently-committed fixture's own claim happens to be a plain unconditional " +
+          'ready statement instead — both pass, and neither shape is asserted as the only valid ' +
+          'one): the line is conditional-on-the-future vs. ' +
           'a peripheral detail already named, not "mentions an open item at all" — and when no ' +
           'report_status call is made at all, falls back to checking the free-prose reply for ' +
           'the same ungated-"ready" shape instead (§R8 below)',
@@ -322,6 +336,35 @@ export const scenarios: readonly ReplayScenario[] = [
             leadIn.trim().length > 0 &&
             !/👍|👎/.test(leadIn)
           );
+        },
+      },
+    ],
+  },
+  {
+    id: 'plan-approach-does-not-invent-unstated-cause',
+    callSite: 'plan',
+    description:
+      '"[S]ay exactly what\'s missing and ask for it before you plan against a guess" ' +
+      "(§What you can do today) — given a brief that never states a root cause, the plan's " +
+      'approach does not invent one either, the same "don\'t invent, stay vague if the source is ' +
+      'vague" discipline `composeBrief`\'s own sibling scenario already guards one level upstream.',
+    input: {
+      text: 'webhook delivery retries indefinitely instead of giving up after a few attempts',
+      briefSummary:
+        'Investigate and fix unbounded webhook delivery retries so they stop after a bounded ' +
+        'number of attempts.',
+      briefScope: [
+        'Confirm the current retry loop has no upper bound',
+        'Add a maximum retry count with a sane default',
+        'Decide what happens after retries are exhausted (log and drop, dead-letter, or alert)',
+      ],
+    },
+    assertions: [
+      {
+        description: 'approach does not claim a cause the brief never stated',
+        check: (fixture) => {
+          const approach = planApproach(fixture);
+          return approach !== undefined && !/\bcaused by\b/i.test(approach);
         },
       },
     ],

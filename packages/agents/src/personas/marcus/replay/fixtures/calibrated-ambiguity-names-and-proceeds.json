@@ -5,16 +5,24 @@
   "promptContentHash": "901f561f43328c2d9327637022a8eefde5644f77ec46f597fe7c891991c2097a",
   "scenarioInputHash": "b5d3dbcfccb8925d845bbece304fe1903380da7edaa4618b3b499d3e004bdabf",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T08:03:10.317Z",
-  "stopReason": "end_turn",
-  "outputTokensRaw": 2903,
+  "recordedAt": "2026-09-04T21:33:43.329Z",
+  "stopReason": "tool_use",
+  "outputTokensRaw": 3432,
   "result": {
     "ok": true,
-    "reply": "Pick: **retryWithBackoff** (packages/core), not simpleRetry.\n\nReasoning: this is a general integrations-service concern, not anything GitHub-specific. simpleRetry lives in packages/github — I haven't read its implementation, so I can't rule out it's generic and just happens to sit in that folder, but the name and location suggest it may carry GitHub-specific assumptions (error shapes, rate-limit handling). Reaching into a package scoped to a different integration for an unrelated webhook path is the kind of coupling I'd rather not introduce without a reason, and there isn't one here. core's helper is the boring, correct default.\n\nPlan:\n\n1. Wrap the outbound POST in retryWithBackoff.\n2. Retry trigger: 5xx response or timeout/connection error only. Explicitly not on 4xx — customer endpoint rejecting the payload isn't something a retry fixes, and the ticket doesn't ask for that.\n3. Max 3 retries, then stop.\n4. Use retryWithBackoff's existing default backoff timing rather than tuning it — nothing in the ticket calls for specific delays, and inventing a schedule without a reason is exactly the over-engineering I'd flag if I did it myself.\n5. On exhaustion: log and drop, no dead-letter. Log should carry enough to actually debug later — endpoint URL, customer/webhook id, final status code or error, and attempt count. \"Log it\" alone is vague enough that it's worth being explicit about the payload so Riley isn't guessing.\n\nTwo things I haven't verified and want named rather than assumed:\n\n- **Is there already a timeout configured on this POST call?** \"Retry on timeout\" only means something if a timeout actually fires instead of the request hanging indefinitely. If there isn't one set today, that needs adding first (a plain reasonable default, e.g. 10s) — this fix depends on it and I haven't checked the current client config.\n- **What does the service already use for failure logging?** I don't have visibility into its logging conventions. Reuse whatever's already standard there rather than inventing a new log shape for this one path.\n\nOne non-blocking note, not a scope addition: retrying on 5xx means a customer endpoint that actually succeeded server-side but lost the response could see a duplicate delivery. Standard tradeoff for webhook retries and nothing here suggests it's actually a problem for this ticket — flagging it so it's a known tradeoff, not proposing idempotency keys or anything to solve it now.\n\nThat's the whole shape — small change, doesn't need more ceremony than this.",
-    "toolUses": [],
+    "reply": "Quick read: this is small — Tier-0/1, fixed retry count, no dead-lettering, no new infra. Plan should be short, not a design doc.\n\n**Helper choice: `retryWithBackoff` (packages/core), not `simpleRetry` (packages/github).**\n\nReason: `packages/github` reads as scoped to GitHub-integration code specifically. The integrations service here is delivering to arbitrary customer endpoints — nothing GitHub-specific about it. Pulling `simpleRetry` in would mean a general webhook path depending on a GitHub-scoped package for unrelated functionality. Wrong dependency direction, even though the ticket's right that it'd work mechanically. `retryWithBackoff` lives in the shared package, which is where a cross-cutting retry belongs.\n\nCaveat, named plainly: I haven't seen either helper's actual signature/implementation. I'm assuming `retryWithBackoff` supports (a) a max-attempts param and (b) a way to scope which failures are retryable (so we only retry on 5xx/timeout, not everything). If it turns out to be hardcoded to retry on any thrown error, that's worth a second look before Riley builds against it — small thing, but worth Riley confirming at pickup rather than discovering mid-build.\n\n**Behavior:**\n\n1. Wrap the outbound webhook POST in `retryWithBackoff`.\n2. Retry only on: HTTP 5xx response, or request timeout. Everything else (4xx, connection refused, DNS failure, etc.) is non-retryable — log immediately and drop, don't spend retry budget on it. Ticket only specifies 5xx/timeout as retry triggers, so I'm treating that scope as intentional rather than an oversight — flagging it since it's not explicitly called out, but it doesn't change the approach either way.\n3. Max attempts: reading \"retry up to 3 times\" as 3 retry attempts after the initial send (4 total attempts). That's the more natural reading of the phrasing, but it's cheap to get wrong in the other direction (3 total attempts = 2 retries) — worth a one-line confirm from whoever picks this up, not a blocker.\n4. Backoff timing: use whatever `retryWithBackoff`'s default is unless there's a stated reason to override — no indication in the ticket that timing matters here.\n5. On exhaustion: log with enough context to debug later — target endpoint, final failure reason (status code or timeout), attempt count — then drop. No queue, no dead letter, nothing further, per the ticket.\n\nThat's the whole shape. Nothing here is Tier-2-adjacent enough to warrant weighing alternative architectures beyond the helper pick above.",
+    "toolUses": [
+      {
+        "id": "toolu_018caSobe7wtY2pMcDHde6g1",
+        "name": "report_status",
+        "input": {
+          "claim": "The plan for the webhook retry ticket is ready to hand off to Riley."
+        }
+      }
+    ],
     "usage": {
       "inputTokens": 205,
-      "outputTokens": 2903,
+      "outputTokens": 3432,
       "cacheCreationInputTokens": 0,
       "cacheReadInputTokens": 5813
     }

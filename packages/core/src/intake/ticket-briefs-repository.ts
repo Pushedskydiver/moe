@@ -6,7 +6,7 @@ import { ticketBriefSchema } from './ticket-brief.js';
 
 export type NewTicketBrief = Pick<
   TicketBrief,
-  'ticketId' | 'channelId' | 'messageTs'
+  'ticketId' | 'channelId' | 'messageTs' | 'summary' | 'scope'
 >;
 
 export type TicketBriefRepositoryError =
@@ -38,6 +38,22 @@ function parseBriefRow(row: unknown): TicketBriefResult {
  * own `PRIMARY KEY`, so a second insert for the same ticket fails on the DB constraint rather than
  * silently overwriting — the idempotency guard itself is `getTicketBrief`, called first by
  * `handleBriefStageTicket` before this is ever reached in the normal path.
+ *
+ * **Two different shapes of the same logical row, not one** (BUILD_PLAN 6.1c, folding spec-grill's
+ * write-side serialization finding): `candidate` — the object `parseBriefRow` validates against
+ * `ticketBriefSchema` before any DB call — keeps `scope` as a real array, since that's the shape
+ * the schema's `scope: z.array(z.string())` expects. The object actually passed to `.values(...)`
+ * needs `scope` stringified instead: the real `pg` driver serializes a raw JS array as a Postgres
+ * array literal (`{"a","b"}`), not JSON (`["a","b"]`) — `Array.isArray` is checked before the
+ * generic-object branch in `pg`'s own value-preparation code — so a `jsonb` column needs the value
+ * already `JSON.stringify`'d before it reaches `.values()`, matching Kysely's own documented
+ * default for `JSONColumnType` (insert/update as a stringified JSON string; only the *read* side
+ * auto-parses). `schema.ts`'s `TicketBriefsTable.scope: JSONColumnType<readonly string[]>`
+ * type-enforces this: `Insertable<TicketBriefsTable>` derives `scope: string`, so passing
+ * `candidate.scope` (a real array) to `.values()` directly would fail to compile, not just fail at
+ * runtime. No equivalent handling needed on read (`getTicketBrief` below) — `pg` already
+ * auto-`JSON.parse`s a `json`/`jsonb` column back into a real array/object, so `ticketBriefSchema`
+ * validates a real read correctly as-is.
  */
 export async function createTicketBrief(
   db: Kysely<Database>,
@@ -47,6 +63,8 @@ export async function createTicketBrief(
     ticketId: input.ticketId,
     channelId: input.channelId,
     messageTs: input.messageTs,
+    summary: input.summary,
+    scope: input.scope, // real array — this is what parseBriefRow validates
     createdAt: new Date(),
   };
 
@@ -56,11 +74,11 @@ export async function createTicketBrief(
   try {
     const row = await db
       .insertInto('ticketBriefs')
-      .values(candidate)
+      .values({ ...candidate, scope: JSON.stringify(candidate.scope) }) // stringified only here
       .returningAll()
       .executeTakeFirstOrThrow();
 
-    return parseBriefRow(row);
+    return parseBriefRow(row); // pg already auto-parses jsonb back to a real array on read
   } catch (cause) {
     return { ok: false, error: { kind: 'unknown', cause } };
   }

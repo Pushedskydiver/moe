@@ -287,6 +287,18 @@ export type {
   TicketBriefResult,
 } from './intake/ticket-briefs-repository.js';
 
+export type { TicketPlan } from './intake/ticket-plan.js';
+export {
+  createTicketPlan,
+  getTicketPlan,
+} from './intake/ticket-plans-repository.js';
+export type {
+  NewTicketPlan,
+  TicketPlanOrNullResult,
+  TicketPlanRepositoryError,
+  TicketPlanResult,
+} from './intake/ticket-plans-repository.js';
+
 export { createTicketFromTriageEntry } from './intake/create-ticket-from-triage-entry.js';
 export type {
   CreateTicketFromTriageEntryError,

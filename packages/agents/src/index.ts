@@ -76,3 +76,10 @@ export type {
   ComposeBriefUsage,
 } from './compose-brief.js';
 export { composeBrief } from './compose-brief.js';
+export type {
+  ComposePlanParams,
+  ComposePlanResult,
+  ComposePlanUsage,
+  Plan,
+} from './compose-plan.js';
+export { composePlan } from './compose-plan.js';

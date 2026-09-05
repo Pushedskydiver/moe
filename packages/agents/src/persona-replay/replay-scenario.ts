@@ -1,7 +1,7 @@
 import type { ReplayFixture } from './replay-fixture.js';
 
 type ReplayCallSite =
-  'dmReply' | 'ticketDraft' | 'confirmingQuestion' | 'brief';
+  'dmReply' | 'ticketDraft' | 'confirmingQuestion' | 'brief' | 'plan';
 
 type ReplayScenarioInput = {
   readonly text: string;
@@ -11,6 +11,14 @@ type ReplayScenarioInput = {
   }>;
   readonly confidence?: number;
   readonly reasoning?: string;
+  // BUILD_PLAN 6.1c — a `'plan'`-callSite scenario's already-composed Brief content (`text`
+  // doubles as the ticket's own `title`, same "one field genuinely double-duties" precedent
+  // `composeBrief`'s own `body`-less scenarios already established for `text`). Same
+  // lightweight-optional-widening precedent Brief's own `body`-less "widen if a future scenario
+  // needs it" comment set — widen further if a future scenario needs something these two fields
+  // don't cover.
+  readonly briefSummary?: string;
+  readonly briefScope?: readonly string[];
 };
 
 type ReplayAssertion = {
