@@ -10,8 +10,10 @@ const nonBlankStringSchema = z
 /**
  * BUILD_PLAN 6.1b's own brief-artifact record — a Slack message in `#moe-team`
  * (`channel-scoping/team-channel-id.ts`'s `TEAM_CHANNEL_ID`) that carries Sarah's composed brief
- * for a ticket, persisted so a later chunk (6.1d, out of scope here) can find the message and
- * drive the reaction-triggered `Brief`→`Plan` transition. `ticketId` is the natural primary key
+ * for a ticket, persisted so a reaction handler can find the message and drive the
+ * reaction-triggered `Brief`→`Plan` transition — real as of BUILD_PLAN 6.1d's
+ * `getTicketBriefByMessage` (`ticket-briefs-repository.ts`), not just a future hook. `ticketId`
+ * is the natural primary key
  * (a ticket has at most one brief), same 1:1 reasoning `ticket-github-issue-link.ts`'s own
  * `ticketId`-keyed table uses for its own natural key.
  *
