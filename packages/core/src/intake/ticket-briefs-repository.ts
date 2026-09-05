@@ -106,3 +106,28 @@ export async function getTicketBrief(
     return { ok: false, error: { kind: 'unknown', cause } };
   }
 }
+
+/**
+ * Reverse lookup by the Slack message a brief was posted as — BUILD_PLAN 6.1d's own reason for
+ * migration `0028`'s `UNIQUE (channel_id, message_ts)` constraint. `dispatchBriefApproval`
+ * (`apps/server`) uses this to find the ticket a 👍 reaction on a Brief message belongs to, mirroring
+ * `getTicketBrief`'s exact shape with a different WHERE clause.
+ */
+export async function getTicketBriefByMessage(
+  db: Kysely<Database>,
+  scope: { readonly channelId: string; readonly messageTs: string },
+): Promise<TicketBriefOrNullResult> {
+  try {
+    const row = await db
+      .selectFrom('ticketBriefs')
+      .selectAll()
+      .where('channelId', '=', scope.channelId)
+      .where('messageTs', '=', scope.messageTs)
+      .executeTakeFirst();
+    if (!row) return { ok: true, brief: null };
+    const parsed = parseBriefRow(row);
+    return parsed.ok ? { ok: true, brief: parsed.brief } : parsed;
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}

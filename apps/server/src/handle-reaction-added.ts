@@ -4,6 +4,7 @@ import type {
   ReactionOutcome,
 } from '@moe/slack';
 
+import { ALEX_SLACK_USER_ID, PROJECT_KEY } from '@moe/core';
 import {
   classifyConfirmingQuestionOutcome,
   classifyReactionOutcome,
@@ -79,11 +80,21 @@ async function dispatchDraftOutcome(
 // `resolveConfirmingQuestionAndLog`, the claim-then-act fallback fix's shared transactional
 // primitive). Either way, each outcome runs its own atomic claim as its race-safe backstop, same
 // relationship this resolved-check has to `commitDraftAsTicket`'s own claim above.
+//
+// BUILD_PLAN 6.1d widened this from `Promise<void>` to `Promise<boolean>`: `thumbsup` is now
+// ambiguous between a Mid-band confirming-question "yes" and a Brief-approval reaction (both share
+// the emoji — `docs/GLOSSARY.md`'s "Confirming question (Mid-band)" entry has the full
+// disambiguation reasoning), so `handleReactionAdded` needs to know whether this function actually
+// found a confirming question before deciding whether to try the Brief lookup as a fallback.
+// `true` means "this message was definitively a confirming question" (found, regardless of whether
+// it was already resolved, and regardless of a lookup error — none of those cases should also try
+// the Brief lookup); `false` means "no confirming-question row exists for this message at all,"
+// the only case where falling through to `dispatchBriefApproval` is safe/correct.
 async function dispatchConfirmingQuestionOutcome(
   deps: ReactionOutcomeDeps,
   reaction: InboundReaction,
   outcome: ConfirmingQuestionOutcome,
-): Promise<void> {
+): Promise<boolean> {
   const found = await deps.confirmingQuestionStore.getByMessage({
     personaId: deps.personaId,
     channelId: reaction.channelId,
@@ -93,16 +104,16 @@ async function dispatchConfirmingQuestionOutcome(
     deps.logger.error('failed to look up pending confirming question', {
       errorMessage: repositoryErrorMessage(found.error),
     });
-    return;
+    return true; // a real error, not "not a confirming question" — don't also try Brief
   }
-  if (found.question === null) return;
+  if (found.question === null) return false; // genuinely not a confirming question
 
   if (found.question.resolvedAt !== null) {
     deps.logger.info(
       'ignoring reaction on an already-resolved confirming question',
       { personaId: deps.personaId, questionId: found.question.id, outcome },
     );
-    return;
+    return true; // definitively a confirming question, just already resolved
   }
 
   if (outcome === 'yes') {
@@ -110,6 +121,112 @@ async function dispatchConfirmingQuestionOutcome(
   } else {
     await logConfirmingQuestionAsNo(deps, found.question);
   }
+  return true;
+}
+
+// The non-ok half of `ApproveBriefResult` (`approve-brief-via-reaction.ts`), derived the same
+// `Parameters<>`/`ReturnType<>` way `ReactionOutcomeDeps` itself is, rather than importing the
+// named type directly — this file already leans on that derivation idiom for every dep-shaped
+// type it needs.
+type BriefApprovalFailure = Extract<
+  Awaited<ReturnType<ReactionOutcomeDeps['approveBriefAndTransitionToPlan']>>,
+  { readonly ok: false }
+>['error'];
+
+// Extracted from `dispatchBriefApproval` purely to stay under eslint's `max-lines-per-function`
+// (`docs/CONVENTIONS.md` §Code Style) — every non-`ok` outcome's own logging decision, branched by
+// `ApproveBriefResult`'s error kind.
+function logBriefApprovalFailure(
+  deps: ReactionOutcomeDeps,
+  ticketId: string,
+  error: BriefApprovalFailure,
+): void {
+  if (error.kind === 'unavailable') {
+    // Ticket already moved on (double-fire / already-approved) — transitionTicketStatus's own
+    // fromStatus CAS didn't match. Not an error.
+    deps.logger.info(
+      'ignoring brief-approval reaction — ticket already transitioned',
+      { ticketId },
+    );
+    return;
+  }
+  if (error.kind === 'claim-failed') {
+    // Branch on the preserved claimError kind, same split `runPullLoopTick`'s own claim-failure
+    // handling uses — 'unavailable' is the expected multi-persona race-loss outcome (up to 8
+    // processes may all be members of #moe-team and all receive the same reaction event); anything
+    // else (validation-failed/unknown) is a real problem and must not be silently downgraded to
+    // routine race noise.
+    if (error.claimError.kind === 'unavailable') {
+      deps.logger.info(
+        'ignoring brief-approval reaction — another process already claimed this ticket',
+        { ticketId },
+      );
+    } else {
+      deps.logger.error(
+        'failed to claim ticket for reaction-triggered brief approval',
+        { ticketId, errorKind: error.claimError.kind },
+      );
+    }
+    return;
+  }
+  if (error.kind === 'wip-limit-blocked') {
+    // Confirmed with Alex: silent no-op, fail closed. Logged for observability only.
+    deps.logger.info(
+      'brief-approval reaction blocked by plan wip limit, ticket stays in brief',
+      { ticketId },
+    );
+    return;
+  }
+  deps.logger.error(
+    'unexpected error transitioning brief to plan via reaction',
+    {
+      ticketId,
+      errorKind: error.kind,
+    },
+  );
+}
+
+// BUILD_PLAN 6.1d's own 👍-on-a-Brief dispatch — reached only when `dispatchConfirmingQuestionOutcome`
+// above has just returned `false` for a `thumbsup` reaction (genuinely no confirming question at
+// this message), so `thumbsup`'s pre-existing meaning is never shadowed: this is purely a fallback
+// for the *other* thing `thumbsup` can now mean (VISION §6.3: "👍 on a brief = approval").
+// Same lookup → null-check shape as `dispatchDraftOutcome`/`dispatchConfirmingQuestionOutcome`
+// above, over `ticket_briefs` instead. The identity check runs first and needs no DB round trip at
+// all — `docs/GLOSSARY.md`'s "Confirming question (Mid-band)" entry has the full disambiguation
+// reasoning for why `thumbsup` is content-scoped (by reactor identity, not just by message) rather
+// than a second reaction short-name.
+async function dispatchBriefApproval(
+  deps: ReactionOutcomeDeps,
+  reaction: InboundReaction,
+): Promise<void> {
+  if (reaction.userId !== ALEX_SLACK_USER_ID) return; // not Alex — no DB lookup needed at all
+
+  const found = await deps.briefStore.getByMessage({
+    channelId: reaction.channelId,
+    messageTs: reaction.messageTs,
+  });
+  if (!found.ok) {
+    deps.logger.error('failed to look up ticket brief', {
+      errorMessage: repositoryErrorMessage(found.error),
+    });
+    return;
+  }
+  if (found.brief === null) return; // some other thumbsup, not on a brief message
+
+  const result = await deps.approveBriefAndTransitionToPlan({
+    ticketId: found.brief.ticketId,
+    projectKey: PROJECT_KEY,
+    claimedBy: deps.personaId,
+  });
+
+  if (result.ok) {
+    deps.logger.info(
+      'brief approved via reaction, ticket transitioned to plan',
+      { ticketId: found.brief.ticketId },
+    );
+    return;
+  }
+  logBriefApprovalFailure(deps, found.brief.ticketId, result.error);
 }
 
 /**
@@ -120,6 +237,13 @@ async function dispatchConfirmingQuestionOutcome(
  * (Mid-band confirming-question answers) — deliberately disjoint short-names (verified at 3.4b-i
  * against Slack's own event docs) so no message-type lookup collision needs resolving here; a
  * reaction outside both is ignored without any repository lookup at all.
+ *
+ * BUILD_PLAN 6.1d adds a third fallthrough: `thumbsup` is now *also* claimed by Brief approval
+ * (VISION §6.3), reusing the emoji rather than adding a new one (`docs/GLOSSARY.md`'s "Confirming
+ * question (Mid-band)" entry has the full reasoning). Gated specifically on `outcome === 'yes'` —
+ * only `thumbsup` collides with Brief approval; `thumbsdown` has no Brief equivalent and must never
+ * fall through — and only once `dispatchConfirmingQuestionOutcome` has confirmed this message
+ * genuinely isn't a confirming question (`matchedConfirmingQuestion === false`).
  */
 export async function handleReactionAdded(
   deps: ReactionOutcomeDeps,
@@ -135,7 +259,14 @@ export async function handleReactionAdded(
     reaction.reactionName,
   );
   if (questionOutcome !== undefined) {
-    await dispatchConfirmingQuestionOutcome(deps, reaction, questionOutcome);
+    const matchedConfirmingQuestion = await dispatchConfirmingQuestionOutcome(
+      deps,
+      reaction,
+      questionOutcome,
+    );
+    if (!matchedConfirmingQuestion && questionOutcome === 'yes') {
+      await dispatchBriefApproval(deps, reaction);
+    }
   }
 }
 

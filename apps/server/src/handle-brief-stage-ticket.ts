@@ -162,8 +162,9 @@ async function postBriefAndPersistPointer(
 
 /**
  * BUILD_PLAN 6.1b's Brief-stage work step — composes an LLM brief for a ticket claimed out of
- * `Brief`, posts it to `#moe-team`, and persists a pointer so a later chunk (6.1d, out of scope
- * here) can find the message and drive the reaction-triggered `Brief`→`Plan` transition.
+ * `Brief`, posts it to `#moe-team`, and persists a pointer so a reaction handler can find the
+ * message and drive the reaction-triggered `Brief`→`Plan` transition — real as of BUILD_PLAN
+ * 6.1d's `dispatchBriefApproval` (`handle-reaction-added.ts`), not just a future hook.
  *
  * **Idempotency-first, as the hard requirement it is** (§ "The hard constraint that shapes the
  * whole design"): the pull loop reclaims/reprocesses whatever's unclaimed in `Brief` every tick,

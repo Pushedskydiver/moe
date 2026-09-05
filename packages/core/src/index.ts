@@ -279,6 +279,7 @@ export type { TicketBrief } from './intake/ticket-brief.js';
 export {
   createTicketBrief,
   getTicketBrief,
+  getTicketBriefByMessage,
 } from './intake/ticket-briefs-repository.js';
 export type {
   NewTicketBrief,
@@ -306,6 +307,7 @@ export type {
 } from './intake/create-ticket-from-triage-entry.js';
 
 export { TEAM_CHANNEL_ID } from './channel-scoping/team-channel-id.js';
+export { ALEX_SLACK_USER_ID } from './channel-scoping/alex-slack-user-id.js';
 
 export type { AppLogger } from './app-logger.js';
 

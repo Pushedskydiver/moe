@@ -7,6 +7,7 @@ import { createAnthropicClient } from '@moe/agents';
 import {
   appendTurn,
   claimAlertThreshold,
+  claimTicket,
   createBankHolidaysCache,
   createPendingConfirmingQuestion,
   createPendingTicketDraft,
@@ -18,13 +19,16 @@ import {
   getPendingTicketDraftByMessage,
   getPersonaCostForMonth,
   getRecentTurns,
+  getTicketBriefByMessage,
   markPendingConfirmingQuestionPosted,
   markPendingTicketDraftPosted,
   recordUsage,
   releasePendingConfirmingQuestionClaim,
   releasePendingTicketDraftClaim,
+  releaseTicket,
   resolveConfirmingQuestionAndLog,
   resolvePendingConfirmingQuestion,
+  transitionTicketStatus,
   updatePendingTicketDraftContent,
 } from '@moe/core';
 import {
@@ -36,6 +40,7 @@ import {
   isUnrecoverableStartError,
 } from '@moe/slack';
 
+import { approveBriefAndTransitionToPlan } from './approve-brief-via-reaction.js';
 import { createInboundMessageHandler } from './handle-inbound-message.js';
 import { createReactionHandler } from './handle-reaction-added.js';
 import { createSenderTriggerCache } from './sender-trigger-cache.js';
@@ -82,6 +87,41 @@ function createDraftStore(db: Kysely<Database>) {
     ) => markPendingTicketDraftPosted(db, id, messageTs),
     releaseClaim: (id: Parameters<typeof releasePendingTicketDraftClaim>[1]) =>
       releasePendingTicketDraftClaim(db, id),
+  };
+}
+
+// BUILD_PLAN 6.1d — mirrors `createDraftStore`/`createConfirmingQuestionStore`'s own one-method
+// shape above.
+function createBriefStore(db: Kysely<Database>) {
+  return {
+    getByMessage: (scope: Parameters<typeof getTicketBriefByMessage>[1]) =>
+      getTicketBriefByMessage(db, scope),
+  };
+}
+
+// BUILD_PLAN 6.1d's own reaction-outcome-only primitives, extracted purely to keep `createStores`
+// under eslint's `max-lines-per-function` — bound here (not `HandlerDeps`) since
+// `approveBriefAndTransitionToPlan` (wired in `wireAndStartListener` below) is
+// `createReactionHandler`'s only caller. Kept as three separate closures, not one composed
+// function, so `approveBriefAndTransitionToPlan`'s own `ApproveBriefDeps` stays generic
+// (claim/transition/release, no Brief/Plan-specific knowledge) — the `fromStatus: 'Brief'`/
+// `toStatus: 'Plan'` specificity lives entirely here, in the composition root.
+function createBriefApprovalPrimitives(db: Kysely<Database>) {
+  return {
+    claimTicketForApproval: (id: string, claimedBy: string) =>
+      claimTicket(db, id, claimedBy),
+    transitionBriefToPlan: (input: {
+      readonly id: string;
+      readonly projectKey: string;
+      readonly claimedBy: string;
+    }) =>
+      transitionTicketStatus(db, {
+        ...input,
+        fromStatus: 'Brief',
+        toStatus: 'Plan',
+      }),
+    releaseTicketAfterApproval: (id: string, claimedBy: string) =>
+      releaseTicket(db, id, claimedBy),
   };
 }
 
@@ -139,6 +179,7 @@ function createStores(db: Kysely<Database>) {
         createReviewQueueEntry(db, input),
     },
     confirmingQuestionStore: createConfirmingQuestionStore(db),
+    briefStore: createBriefStore(db),
     // The claim-then-act fallback fix's own composed primitives — each atomically claims a row
     // and performs its downstream write in one transaction, closing the failure-recovery gap
     // `draftStore.resolve`+`ticketStore.create`/`confirmingQuestionStore.resolve`+
@@ -152,6 +193,7 @@ function createStores(db: Kysely<Database>) {
     resolveConfirmingQuestionAndLog: (
       input: Parameters<typeof resolveConfirmingQuestionAndLog>[1],
     ) => resolveConfirmingQuestionAndLog(db, input),
+    ...createBriefApprovalPrimitives(db),
   };
 }
 
@@ -173,6 +215,43 @@ type ListenerContext = {
   readonly logger: Logger;
   readonly exit: (code: number) => void;
 } & ReturnType<typeof createStores>;
+
+// Extracted from `wireAndStartListener` purely to stay under eslint's `max-lines-per-function` —
+// binds `createReactionHandler`'s deps, including BUILD_PLAN 6.1d's own
+// `approveBriefAndTransitionToPlan` closure (composing the three `createBriefApprovalPrimitives`
+// closures above with `ctx.logger`, per `ApproveBriefDeps`'s own shape).
+function buildReactionHandler(
+  ctx: ListenerContext,
+): ReturnType<typeof createReactionHandler> {
+  return createReactionHandler({
+    anthropicClient: ctx.anthropicClient,
+    slackClient: ctx.webClient,
+    logger: ctx.logger,
+    ticketStore: ctx.ticketStore,
+    draftStore: ctx.draftStore,
+    costStore: ctx.costStore,
+    capStore: ctx.capStore,
+    costCapConfig: ctx.costCapConfig,
+    personaId: ctx.config.id,
+    confirmingQuestionStore: ctx.confirmingQuestionStore,
+    reviewQueueStore: ctx.reviewQueueStore,
+    briefStore: ctx.briefStore,
+    commitDraftAsTicket: ctx.commitDraftAsTicket,
+    resolveConfirmingQuestionAndLog: ctx.resolveConfirmingQuestionAndLog,
+    approveBriefAndTransitionToPlan: (
+      input: Parameters<typeof approveBriefAndTransitionToPlan>[1],
+    ) =>
+      approveBriefAndTransitionToPlan(
+        {
+          claimTicket: ctx.claimTicketForApproval,
+          transitionTicket: ctx.transitionBriefToPlan,
+          releaseTicket: ctx.releaseTicketAfterApproval,
+          logger: ctx.logger,
+        },
+        input,
+      ),
+  });
+}
 
 // Extracted from `startSlackListener` purely to stay under eslint's `max-lines-per-function`
 // (`docs/CONVENTIONS.md` §Code Style) — constructs the reply/reaction-outcome handlers and the
@@ -197,21 +276,7 @@ function wireAndStartListener(ctx: ListenerContext): void {
       reviewQueueStore: ctx.reviewQueueStore,
       confirmingQuestionStore: ctx.confirmingQuestionStore,
     }),
-    onReactionAdded: createReactionHandler({
-      anthropicClient: ctx.anthropicClient,
-      slackClient: ctx.webClient,
-      logger: ctx.logger,
-      ticketStore: ctx.ticketStore,
-      draftStore: ctx.draftStore,
-      costStore: ctx.costStore,
-      capStore: ctx.capStore,
-      costCapConfig: ctx.costCapConfig,
-      personaId: ctx.config.id,
-      confirmingQuestionStore: ctx.confirmingQuestionStore,
-      reviewQueueStore: ctx.reviewQueueStore,
-      commitDraftAsTicket: ctx.commitDraftAsTicket,
-      resolveConfirmingQuestionAndLog: ctx.resolveConfirmingQuestionAndLog,
-    }),
+    onReactionAdded: buildReactionHandler(ctx),
     botUserId: ctx.botUserId,
     logger: ctx.logger,
     seenEventCache: ctx.seenEventCache,

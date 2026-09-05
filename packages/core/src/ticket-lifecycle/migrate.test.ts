@@ -59,6 +59,7 @@ describe('runMigrations', () => {
         '0025_create_ticket_briefs.sql',
         '0026_widen_ticket_briefs_with_content.sql',
         '0027_create_ticket_plans.sql',
+        '0028_add_ticket_briefs_message_unique.sql',
       ],
     });
 
@@ -93,6 +94,7 @@ describe('runMigrations', () => {
       { id: '0025_create_ticket_briefs.sql' },
       { id: '0026_widen_ticket_briefs_with_content.sql' },
       { id: '0027_create_ticket_plans.sql' },
+      { id: '0028_add_ticket_briefs_message_unique.sql' },
     ]);
   });
 
@@ -766,5 +768,42 @@ describe('runMigrations', () => {
       );
     await insert();
     await expect(insert()).rejects.toThrow();
+  });
+
+  it('rejects a second ticket_briefs row for the same (channel_id, message_ts) pair belonging to a different ticket, via the new UNIQUE constraint (BUILD_PLAN 6.1d)', async () => {
+    await runMigrations(pool, migrationsDir);
+    const now = new Date();
+    const createTicket = (id: string) =>
+      pool.query(
+        `INSERT INTO tickets (id, project_key, title, status, severity, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $6)`,
+        [id, 'chief-clancy', 'A ticket', 'Brief', 'Medium', now],
+      );
+    await createTicket('3fa85f64-5717-4562-b3fc-2c963f66afa6');
+    await createTicket('4fa85f64-5717-4562-b3fc-2c963f66afa7');
+
+    await pool.query(
+      `INSERT INTO ticket_briefs (ticket_id, channel_id, message_ts, created_at)
+       VALUES ($1, $2, $3, $4)`,
+      [
+        '3fa85f64-5717-4562-b3fc-2c963f66afa6',
+        'C0B88H0JUA3',
+        '1700000000.000100',
+        now,
+      ],
+    );
+
+    await expect(
+      pool.query(
+        `INSERT INTO ticket_briefs (ticket_id, channel_id, message_ts, created_at)
+         VALUES ($1, $2, $3, $4)`,
+        [
+          '4fa85f64-5717-4562-b3fc-2c963f66afa7',
+          'C0B88H0JUA3',
+          '1700000000.000100',
+          now,
+        ],
+      ),
+    ).rejects.toThrow();
   });
 });
