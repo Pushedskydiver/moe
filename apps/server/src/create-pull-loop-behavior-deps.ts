@@ -47,7 +47,7 @@ const PULL_LOOP_ANTHROPIC_TIMEOUT_MS = 120_000;
 // once the timeout override above pushed the inline call over the ceiling — same "extract for
 // clarity/to satisfy the lint threshold" precedent `handle-brief-stage-ticket.ts`'s own
 // `resolveIssueBody`/`postBriefAndPersistPointer` already use, not a behavior change.
-function buildPullLoopAnthropicClient(
+function createPullLoopAnthropicClient(
   apiKey: string,
   logger: Logger,
 ): ReturnType<typeof createAnthropicClient> {
@@ -82,7 +82,7 @@ export function createPullLoopBehaviorDeps(opts: {
   return {
     personaId: config.id,
     logger,
-    anthropicClient: buildPullLoopAnthropicClient(anthropicApiKey, logger),
+    anthropicClient: createPullLoopAnthropicClient(anthropicApiKey, logger),
     slackClient: createWebClient(config.slackBotToken, logger),
     githubClient: createGithubClient(github, logger),
     githubRepo: github.repo,
