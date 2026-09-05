@@ -32,6 +32,28 @@ const TRIAGE_TICKET_DEFAULTS = {
   classOfService: 'Standard',
 } as const;
 
+// BUILD_PLAN 6.1c's own live-fleet check found this empirically, reproducibly (3/3 ticks): a real
+// Plan-stage `composePlan` call, richer than Brief's (a 4-field structured judgment call, 4096
+// `max_tokens`), genuinely didn't complete within `createAnthropicClient`'s 20s default — the
+// exact same failure mode that function's own TSDoc already documents having hit once before, for
+// a different reason (`record-persona-replay.ts`'s own manual recording script). That default is
+// tuned for VISION §6.4's live-chat-reply latency target; a pull-loop work step is never a live
+// chat reply a human is waiting on synchronously — it already tolerates a 60s-default tick
+// interval, so there's no reason to inherit the aggressive chat-turn timeout here. Same value the
+// recording script already independently settled on for the identical "not a live reply" reason.
+const PULL_LOOP_ANTHROPIC_TIMEOUT_MS = 120_000;
+
+// Extracted purely to keep `createPullLoopBehaviorDeps` under eslint's `max-lines-per-function`
+// once the timeout override above pushed the inline call over the ceiling — same "extract for
+// clarity/to satisfy the lint threshold" precedent `handle-brief-stage-ticket.ts`'s own
+// `resolveIssueBody`/`postBriefAndPersistPointer` already use, not a behavior change.
+function buildPullLoopAnthropicClient(
+  apiKey: string,
+  logger: Logger,
+): ReturnType<typeof createAnthropicClient> {
+  return createAnthropicClient(apiKey, logger, PULL_LOOP_ANTHROPIC_TIMEOUT_MS);
+}
+
 /**
  * BUILD_PLAN 6.1b's own composition root for pull-loop behaviors — renamed at 6.1c (was
  * `createSarahPullLoopBehaviorDeps`) once Marcus became a second real handler: this is no longer
@@ -60,7 +82,7 @@ export function createPullLoopBehaviorDeps(opts: {
   return {
     personaId: config.id,
     logger,
-    anthropicClient: createAnthropicClient(anthropicApiKey, logger),
+    anthropicClient: buildPullLoopAnthropicClient(anthropicApiKey, logger),
     slackClient: createWebClient(config.slackBotToken, logger),
     githubClient: createGithubClient(github, logger),
     githubRepo: github.repo,

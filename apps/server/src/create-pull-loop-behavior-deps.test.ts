@@ -103,6 +103,7 @@ describe('createPullLoopBehaviorDeps (renamed from createSarahPullLoopBehaviorDe
     expect(mocks.createAnthropicClient).toHaveBeenCalledWith(
       built.anthropicApiKey,
       built.logger,
+      120_000,
     );
     expect(mocks.createWebClient).toHaveBeenCalledWith(
       built.config.slackBotToken,
