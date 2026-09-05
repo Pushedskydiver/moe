@@ -202,7 +202,7 @@ export const scenarios: readonly ReplayScenario[] = [
     callSite: 'dmReply',
     description:
       '"Name it as an open question and proceed when the plan\'s core approach holds either way" ' +
-      '(§Planning philosophy) — given enough concrete grounding that only a genuinely detail-' +
+      '(§Reasoning discipline) — given enough concrete grounding that only a genuinely detail-' +
       'level choice is open, proceeds with a real plan rather than stalling on it.',
     input: {
       text:
