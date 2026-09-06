@@ -1,3 +1,4 @@
+import type { ApproveBriefResult } from './approve-brief-via-reaction.js';
 import type { HandlerDeps } from './handle-inbound-message.js';
 import type { composeTicketDraft } from '@moe/agents';
 import type {
@@ -6,6 +7,7 @@ import type {
   PendingConfirmingQuestion,
   PendingTicketDraft,
   ResolveConfirmingQuestionAndLogResult,
+  TicketBriefOrNullResult,
 } from '@moe/core';
 
 import {
@@ -32,7 +34,9 @@ type ComposeDraftClient = Parameters<typeof composeTicketDraft>[0];
 // through `HandlerDeps`, since they're a reaction-outcome-only concern the message-handling path
 // (`handle-inbound-message.ts`'s own separate `HandlerDeps`-typed construction in
 // `start-slack-listener.ts`) never needs; adding them to `HandlerDeps` would force that unrelated
-// path to also supply them.
+// path to also supply them. `briefStore`/`approveBriefAndTransitionToPlan` added at BUILD_PLAN
+// 6.1d for the same reaction-outcome-only reason — `dispatchBriefApproval`
+// (`handle-reaction-added.ts`) is the only caller.
 type ReactionOutcomeDeps = Omit<
   Pick<
     HandlerDeps,
@@ -60,6 +64,17 @@ type ReactionOutcomeDeps = Omit<
     readonly personaId: string;
     readonly outcomeReason: 'mid-no' | 'mid-silence';
   }) => Promise<ResolveConfirmingQuestionAndLogResult>;
+  readonly briefStore: {
+    readonly getByMessage: (scope: {
+      readonly channelId: string;
+      readonly messageTs: string;
+    }) => Promise<TicketBriefOrNullResult>;
+  };
+  readonly approveBriefAndTransitionToPlan: (input: {
+    readonly ticketId: string;
+    readonly projectKey: string;
+    readonly claimedBy: string;
+  }) => Promise<ApproveBriefResult>;
 };
 
 // VISION §5.4's trust-erosion rule keeps severity assignment off the LLM layer, same reasoning

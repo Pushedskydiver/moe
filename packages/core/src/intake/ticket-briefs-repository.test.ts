@@ -14,6 +14,7 @@ import { createTicket } from '../ticket-lifecycle/tickets-repository.js';
 import {
   createTicketBrief,
   getTicketBrief,
+  getTicketBriefByMessage,
 } from './ticket-briefs-repository.js';
 
 const migrationsDir = join(
@@ -128,5 +129,89 @@ describe('ticket briefs repository', () => {
 
     const { rows } = await pool.query('SELECT * FROM ticket_briefs');
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe('getTicketBriefByMessage', () => {
+  let pool: Pool;
+  let db: Kysely<Database>;
+
+  beforeEach(async () => {
+    pool = getTestPool();
+    await runMigrations(pool, migrationsDir);
+    db = createDb(pool);
+  });
+
+  afterEach(async () => {
+    await db.destroy();
+    const cleanupPool = getTestPool();
+    await resetDatabase(cleanupPool);
+    await cleanupPool.end();
+  });
+
+  it('returns ok:true with brief:null when no brief exists for that (channelId, messageTs)', async () => {
+    const result = await getTicketBriefByMessage(db, {
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000100',
+    });
+
+    expect(result).toEqual({ ok: true, brief: null });
+  });
+
+  it('finds the brief posted at the given (channelId, messageTs)', async () => {
+    const ticket = await seedTicket(db);
+    const created = await createTicketBrief(db, {
+      ticketId: ticket.id,
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000100',
+      summary: 'The CLI silently drops rows over 10k on export.',
+      scope: ['Reproduce the truncation'],
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const found = await getTicketBriefByMessage(db, {
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000100',
+    });
+
+    expect(found).toEqual({ ok: true, brief: created.brief });
+  });
+
+  it('does not return a second, unrelated ticket brief posted at a different (channelId, messageTs)', async () => {
+    const ticketOne = await seedTicket(db);
+    const secondTicket = await createTicket(db, {
+      projectKey: 'chief-clancy',
+      title: 'A second, unrelated ticket',
+      status: 'Brief',
+      severity: 'Medium',
+      classOfService: 'Standard',
+    });
+    if (!secondTicket.ok) throw new Error('failed to seed second ticket');
+
+    await createTicketBrief(db, {
+      ticketId: ticketOne.id,
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000100',
+      summary: 'First brief',
+      scope: ['x'],
+    });
+    await createTicketBrief(db, {
+      ticketId: secondTicket.ticket.id,
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000200',
+      summary: 'Second brief',
+      scope: ['y'],
+    });
+
+    const found = await getTicketBriefByMessage(db, {
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000200',
+    });
+
+    expect(found.ok).toBe(true);
+    if (!found.ok) return;
+    expect(found.brief?.ticketId).toBe(secondTicket.ticket.id);
+    expect(found.brief?.summary).toBe('Second brief');
   });
 });

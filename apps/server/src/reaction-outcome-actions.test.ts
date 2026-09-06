@@ -248,6 +248,30 @@ function makeCapStore(overrides: Partial<CapStore> = {}): CapStore {
   };
 }
 
+// BUILD_PLAN 6.1d widened `ReactionOutcomeDeps` with `briefStore`/`approveBriefAndTransitionToPlan`
+// — neither is exercised by any function this file tests (those live in
+// `handle-reaction-added.test.ts` instead), so these are plain never-asserted-on stand-ins purely
+// to satisfy the type.
+function makeBriefStore() {
+  return { getByMessage: vi.fn().mockResolvedValue({ ok: true, brief: null }) };
+}
+
+function makeApproveBriefAndTransitionToPlan() {
+  return vi.fn().mockResolvedValue({
+    ok: true,
+    ticket: {
+      id: '4fa85f64-5717-4562-b3fc-2c963f66afa7',
+      projectKey: 'chief-clancy',
+      title: 'CLI hangs on large repos',
+      status: 'Plan',
+      severity: 'Medium',
+      classOfService: 'Standard',
+      createdAt: new Date('2026-07-18T09:00:00.000Z'),
+      updatedAt: new Date('2026-07-18T09:00:00.000Z'),
+    },
+  });
+}
+
 function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
@@ -265,6 +289,10 @@ function makeDeps(
     readonly commitDraftAsTicket: ReturnType<typeof makeCommitDraftAsTicket>;
     readonly resolveConfirmingQuestionAndLog: ReturnType<
       typeof makeResolveConfirmingQuestionAndLog
+    >;
+    readonly briefStore: ReturnType<typeof makeBriefStore>;
+    readonly approveBriefAndTransitionToPlan: ReturnType<
+      typeof makeApproveBriefAndTransitionToPlan
     >;
   }> = {},
 ) {
@@ -295,6 +323,8 @@ function makeDeps(
     reviewQueueStore: makeReviewQueueStore(),
     commitDraftAsTicket: makeCommitDraftAsTicket(),
     resolveConfirmingQuestionAndLog: makeResolveConfirmingQuestionAndLog(),
+    briefStore: makeBriefStore(),
+    approveBriefAndTransitionToPlan: makeApproveBriefAndTransitionToPlan(),
     ...overrides,
   };
 }
