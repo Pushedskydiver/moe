@@ -41,9 +41,10 @@ Always run `pnpm format` after regenerating — the raw script output isn't byte
 
 1. Read the brief / pick up the next chunk from `BUILD_PLAN.md`.
 2. Build it as vertical slices — tracer-bullet TDD (`docs/CONVENTIONS.md` §Testing Standards): one test, implement, next test, refactor, lint.
-3. Run the full quality suite locally before pushing (`CLAUDE.md` §Commands).
-4. Review gate: DA (subagent) → self-review → fix everything → push → open PR.
-5. Alex reviews and merges. After confirming the merge, sync `main` and delete the local branch (`docs/GIT.md` §Rules).
+3. **Check the chunk's own `BUILD_PLAN.md` box and add a `Built <date>...` narrative paragraph as part of this same PR, not a follow-up** — confirmed precedent (6.1c's own PR #103) ships this in the feature PR itself; a chunk merging with its box still unchecked is a gap to fix, not the norm. A `Deployed <date>...` paragraph appended on top is the one piece that's genuinely a separate, later, direct-to-main commit — only after Alex's explicit deploy authorization, per `docs/GIT.md` §Deploy Flow.
+4. Run the full quality suite locally before pushing (`CLAUDE.md` §Commands).
+5. Review gate: DA (subagent) → self-review → fix everything → push → open PR.
+6. Alex reviews and merges. After confirming the merge, sync `main` and delete the local branch (`docs/GIT.md` §Rules).
 
 ---
 
