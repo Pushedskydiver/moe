@@ -10,9 +10,10 @@ const nonBlankStringSchema = z
 /**
  * BUILD_PLAN 6.1c's own plan-artifact pointer — a Slack message in `#moe-team`
  * (`channel-scoping/team-channel-id.ts`'s `TEAM_CHANNEL_ID`) that carries Marcus's composed plan
- * for a ticket, persisted so a later chunk (which one is unresolved — see BUILD_PLAN.md's own 6.1d
- * scope note) can find the message and drive a reaction-triggered `Plan`→`Build` transition.
- * `ticketId` is the natural primary key (a ticket has at most one plan), same 1:1 reasoning
+ * for a ticket, persisted so a reaction handler can find the message and drive a reaction-triggered
+ * `Plan`→`Build` transition — real as of BUILD_PLAN 6.1e (`ticket-plans-repository.ts`'s
+ * `getTicketPlanByMessage`, `apps/server`'s `dispatchPlanApproval`). `ticketId` is the natural
+ * primary key (a ticket has at most one plan), same 1:1 reasoning
  * `ticket-brief.ts`'s own `ticketId`-keyed table uses for its own natural key.
  *
  * Deliberately pointer-only, mirroring `ticket-brief.ts`'s *original* (pre-6.1c-widening) shape —

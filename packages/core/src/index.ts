@@ -292,6 +292,7 @@ export type { TicketPlan } from './intake/ticket-plan.js';
 export {
   createTicketPlan,
   getTicketPlan,
+  getTicketPlanByMessage,
 } from './intake/ticket-plans-repository.js';
 export type {
   NewTicketPlan,

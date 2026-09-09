@@ -195,11 +195,22 @@ function logBriefApprovalFailure(
 // all — `docs/GLOSSARY.md`'s "Confirming question (Mid-band)" entry has the full disambiguation
 // reasoning for why `thumbsup` is content-scoped (by reactor identity, not just by message) rather
 // than a second reaction short-name.
+// BUILD_PLAN 6.1e widened this from `Promise<void>` to `Promise<boolean>`, reusing exactly the
+// contract `dispatchConfirmingQuestionOutcome` established at 6.1d: `thumbsup` is now ambiguous a
+// third way (confirming-question "yes" / Brief approval / Plan approval — `docs/GLOSSARY.md`'s
+// "Confirming question (Mid-band)" entry has the full disambiguation reasoning), so
+// `handleReactionAdded` needs to know whether this function definitively matched a Brief before
+// deciding whether to try the Plan lookup as a further fallback. `true` means "this message was
+// definitively a Brief" (found, regardless of the transition/claim/WIP outcome, and regardless of a
+// lookup error — none of those cases should also try Plan); `false` means "no Brief row exists for
+// this message at all" (including the identity short-circuit, which never reached the DB and so
+// determined nothing), the only case where falling through to `dispatchPlanApproval` is
+// safe/correct.
 async function dispatchBriefApproval(
   deps: ReactionOutcomeDeps,
   reaction: InboundReaction,
-): Promise<void> {
-  if (reaction.userId !== ALEX_SLACK_USER_ID) return; // not Alex — no DB lookup needed at all
+): Promise<boolean> {
+  if (reaction.userId !== ALEX_SLACK_USER_ID) return false; // not Alex — no DB lookup needed at all
 
   const found = await deps.briefStore.getByMessage({
     channelId: reaction.channelId,
@@ -209,9 +220,9 @@ async function dispatchBriefApproval(
     deps.logger.error('failed to look up ticket brief', {
       errorMessage: repositoryErrorMessage(found.error),
     });
-    return;
+    return true; // a real error, not "not a brief" — don't also try Plan
   }
-  if (found.brief === null) return; // some other thumbsup, not on a brief message
+  if (found.brief === null) return false; // genuinely not a brief, try Plan next
 
   const result = await deps.approveBriefAndTransitionToPlan({
     ticketId: found.brief.ticketId,
@@ -224,9 +235,102 @@ async function dispatchBriefApproval(
       'brief approved via reaction, ticket transitioned to plan',
       { ticketId: found.brief.ticketId },
     );
-    return;
+    return true;
   }
   logBriefApprovalFailure(deps, found.brief.ticketId, result.error);
+  return true;
+}
+
+// The non-ok half of `ApprovePlanResult` (`approve-plan-via-reaction.ts`), derived the same way
+// `BriefApprovalFailure` above is.
+type PlanApprovalFailure = Extract<
+  Awaited<ReturnType<ReactionOutcomeDeps['approvePlanAndTransitionToBuild']>>,
+  { readonly ok: false }
+>['error'];
+
+// Mirrors `logBriefApprovalFailure` exactly (same error-kind branches, same log levels), with
+// Plan/Build-specific message text.
+function logPlanApprovalFailure(
+  deps: ReactionOutcomeDeps,
+  ticketId: string,
+  error: PlanApprovalFailure,
+): void {
+  if (error.kind === 'unavailable') {
+    deps.logger.info(
+      'ignoring plan-approval reaction — ticket already transitioned',
+      { ticketId },
+    );
+    return;
+  }
+  if (error.kind === 'claim-failed') {
+    if (error.claimError.kind === 'unavailable') {
+      deps.logger.info(
+        'ignoring plan-approval reaction — another process already claimed this ticket',
+        { ticketId },
+      );
+    } else {
+      deps.logger.error(
+        'failed to claim ticket for reaction-triggered plan approval',
+        { ticketId, errorKind: error.claimError.kind },
+      );
+    }
+    return;
+  }
+  if (error.kind === 'wip-limit-blocked') {
+    // Confirmed with Alex: silent no-op, fail closed. Logged for observability only.
+    deps.logger.info(
+      'plan-approval reaction blocked by build wip limit, ticket stays in plan',
+      { ticketId },
+    );
+    return;
+  }
+  deps.logger.error(
+    'unexpected error transitioning plan to build via reaction',
+    {
+      ticketId,
+      errorKind: error.kind,
+    },
+  );
+}
+
+// BUILD_PLAN 6.1e's own 👍-on-a-Plan dispatch — the third and, per this chunk's own plan doc, final
+// link in the fallthrough chain: reached only once `dispatchConfirmingQuestionOutcome` has returned
+// `false` (genuinely not a confirming question) AND `dispatchBriefApproval` has also returned
+// `false` (genuinely not a Brief either). `Promise<void>`, not `Promise<boolean>` — nothing
+// currently follows it, so there's no further dispatcher that would need to know whether this one
+// matched.
+async function dispatchPlanApproval(
+  deps: ReactionOutcomeDeps,
+  reaction: InboundReaction,
+): Promise<void> {
+  if (reaction.userId !== ALEX_SLACK_USER_ID) return; // not Alex — no DB lookup needed at all
+
+  const found = await deps.planStore.getByMessage({
+    channelId: reaction.channelId,
+    messageTs: reaction.messageTs,
+  });
+  if (!found.ok) {
+    deps.logger.error('failed to look up ticket plan', {
+      errorMessage: repositoryErrorMessage(found.error),
+    });
+    return;
+  }
+  if (found.plan === null) return; // some other thumbsup, not on a plan message
+
+  const result = await deps.approvePlanAndTransitionToBuild({
+    ticketId: found.plan.ticketId,
+    projectKey: PROJECT_KEY,
+    claimedBy: deps.personaId,
+  });
+
+  if (result.ok) {
+    deps.logger.info(
+      'plan approved via reaction, ticket transitioned to build',
+      { ticketId: found.plan.ticketId },
+    );
+    return;
+  }
+  logPlanApprovalFailure(deps, found.plan.ticketId, result.error);
 }
 
 /**
@@ -244,6 +348,14 @@ async function dispatchBriefApproval(
  * only `thumbsup` collides with Brief approval; `thumbsdown` has no Brief equivalent and must never
  * fall through — and only once `dispatchConfirmingQuestionOutcome` has confirmed this message
  * genuinely isn't a confirming question (`matchedConfirmingQuestion === false`).
+ *
+ * BUILD_PLAN 6.1e extends the chain with a fourth and, per that chunk's own plan doc, final link:
+ * once `dispatchBriefApproval` has also confirmed this message genuinely isn't a Brief
+ * (`matchedBrief === false`), `dispatchPlanApproval` gets the same chance against `ticket_plans`.
+ * Same boolean-fallthrough contract, same `thumbsup`-only gating — Plan→Build is the last
+ * forward-approval reaction-triggered stage transition in the lifecycle (Build→Review is driven by
+ * a PR open, Review→Done by the merge executor — neither is a reaction), so this link is not
+ * generalized into a list-driven dispatch (this chunk's own plan doc has the full reasoning).
  */
 export async function handleReactionAdded(
   deps: ReactionOutcomeDeps,
@@ -265,7 +377,10 @@ export async function handleReactionAdded(
       questionOutcome,
     );
     if (!matchedConfirmingQuestion && questionOutcome === 'yes') {
-      await dispatchBriefApproval(deps, reaction);
+      const matchedBrief = await dispatchBriefApproval(deps, reaction);
+      if (!matchedBrief) {
+        await dispatchPlanApproval(deps, reaction);
+      }
     }
   }
 }

@@ -173,8 +173,8 @@ async function postPlanAndPersistPointer(
 /**
  * BUILD_PLAN 6.1c's Plan-stage work step — composes an LLM plan for a ticket claimed out of
  * `Plan`, grounded in its already-composed Brief, posts it to `#moe-team`, and persists a pointer
- * so a later chunk can find the message and drive a reaction-triggered `Plan`→`Build` transition
- * (out of scope here — see this chunk's own plan doc's scope note).
+ * so a reaction handler can find the message and drive a reaction-triggered `Plan`→`Build`
+ * transition — real as of BUILD_PLAN 6.1e (`dispatchPlanApproval`, `handle-reaction-added.ts`).
  *
  * **Idempotency-first, same hard requirement as Brief's own handler:** checks `planStore.getByTicket`
  * FIRST, before any brief lookup, LLM call, cost-cap read, or Slack call — a pointer already

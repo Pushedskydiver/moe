@@ -1,4 +1,5 @@
 import type { ApproveBriefResult } from './approve-brief-via-reaction.js';
+import type { ApprovePlanResult } from './approve-plan-via-reaction.js';
 import type { HandlerDeps } from './handle-inbound-message.js';
 import type {
   CommitTicketDraftResult,
@@ -7,6 +8,8 @@ import type {
   ResolveConfirmingQuestionAndLogResult,
   TicketBrief,
   TicketBriefOrNullResult,
+  TicketPlan,
+  TicketPlanOrNullResult,
 } from '@moe/core';
 import type { InboundReaction } from '@moe/slack';
 
@@ -30,6 +33,12 @@ type BriefStore = {
     readonly channelId: string;
     readonly messageTs: string;
   }) => Promise<TicketBriefOrNullResult>;
+};
+type PlanStore = {
+  readonly getByMessage: (scope: {
+    readonly channelId: string;
+    readonly messageTs: string;
+  }) => Promise<TicketPlanOrNullResult>;
 };
 
 function makeDraft(
@@ -71,6 +80,16 @@ function makeBrief(overrides: Partial<TicketBrief> = {}): TicketBrief {
     summary: 'The CLI silently drops rows over 10k on export.',
     scope: ['Reproduce the truncation', 'Fix the export pagination'],
     createdAt: new Date('2026-09-01T09:00:00.000Z'),
+    ...overrides,
+  };
+}
+
+function makePlan(overrides: Partial<TicketPlan> = {}): TicketPlan {
+  return {
+    ticketId: '9fa85f64-5717-4562-b3fc-2c963f66afac',
+    channelId: 'C0B88H0JUA3',
+    messageTs: '1700000400.000100',
+    createdAt: new Date('2026-09-06T09:00:00.000Z'),
     ...overrides,
   };
 }
@@ -230,6 +249,15 @@ function makeBriefStore(overrides: Partial<BriefStore> = {}): BriefStore {
   };
 }
 
+function makePlanStore(overrides: Partial<PlanStore> = {}): PlanStore {
+  return {
+    getByMessage: vi
+      .fn<PlanStore['getByMessage']>()
+      .mockResolvedValue({ ok: true, plan: makePlan() }),
+    ...overrides,
+  };
+}
+
 function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
@@ -294,6 +322,24 @@ function makeApproveBriefAndTransitionToPlan(result?: ApproveBriefResult) {
   );
 }
 
+function makeApprovePlanAndTransitionToBuild(result?: ApprovePlanResult) {
+  return vi.fn().mockResolvedValue(
+    result ?? {
+      ok: true,
+      ticket: {
+        id: makePlan().ticketId,
+        projectKey: 'chief-clancy',
+        title: 'The login page returns a 500 on submit',
+        status: 'Build',
+        severity: 'Medium',
+        classOfService: 'Standard',
+        createdAt: new Date('2026-09-01T09:00:00.000Z'),
+        updatedAt: new Date('2026-09-06T09:00:00.000Z'),
+      },
+    },
+  );
+}
+
 function makeDeps(
   overrides: Partial<{
     readonly ticketStore: TicketStore;
@@ -310,6 +356,10 @@ function makeDeps(
     >;
     readonly approveBriefAndTransitionToPlan: ReturnType<
       typeof makeApproveBriefAndTransitionToPlan
+    >;
+    readonly planStore: PlanStore;
+    readonly approvePlanAndTransitionToBuild: ReturnType<
+      typeof makeApprovePlanAndTransitionToBuild
     >;
   }> = {},
 ) {
@@ -346,6 +396,8 @@ function makeDeps(
     commitDraftAsTicket: makeCommitDraftAsTicket(),
     resolveConfirmingQuestionAndLog: makeResolveConfirmingQuestionAndLog(),
     approveBriefAndTransitionToPlan: makeApproveBriefAndTransitionToPlan(),
+    planStore: makePlanStore(),
+    approvePlanAndTransitionToBuild: makeApprovePlanAndTransitionToBuild(),
     ...overrides,
   };
 }
@@ -794,6 +846,313 @@ describe('handleReactionAdded — brief-approval dispatch (BUILD_PLAN 6.1d)', ()
       'unexpected error transitioning brief to plan via reaction',
       { ticketId: makeBrief().ticketId, errorKind: 'validation-failed' },
     );
+  });
+});
+
+// BUILD_PLAN 6.1e's own 👍-on-a-Plan dispatch — reached only once `dispatchConfirmingQuestionOutcome`
+// has confirmed a `thumbsup` reaction's message genuinely isn't a confirming question, AND
+// `dispatchBriefApproval` has confirmed it genuinely isn't a Brief either.
+describe('handleReactionAdded — plan-approval dispatch (BUILD_PLAN 6.1e)', () => {
+  function makeDepsWithNoMatchingConfirmingQuestionOrBrief(
+    overrides: Parameters<typeof makeDeps>[0] = {},
+  ) {
+    return makeDeps({
+      confirmingQuestionStore: makeConfirmingQuestionStore({
+        getByMessage: vi
+          .fn<ConfirmingQuestionStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, question: null }),
+      }),
+      briefStore: makeBriefStore({
+        getByMessage: vi
+          .fn<BriefStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, brief: null }),
+      }),
+      ...overrides,
+    });
+  }
+
+  it('does not look up a ticket plan at all for a non-Alex reactor', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief();
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: 'U_SOME_OTHER_HUMAN' }),
+    );
+
+    expect(deps.planStore.getByMessage).not.toHaveBeenCalled();
+    expect(deps.approvePlanAndTransitionToBuild).not.toHaveBeenCalled();
+  });
+
+  it('takes no action when Alex reacts but the message is not a plan', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief({
+      planStore: makePlanStore({
+        getByMessage: vi
+          .fn<PlanStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, plan: null }),
+      }),
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.planStore.getByMessage).toHaveBeenCalledWith({
+      channelId: 'C123',
+      messageTs: '1700000000.000100',
+    });
+    expect(deps.approvePlanAndTransitionToBuild).not.toHaveBeenCalled();
+  });
+
+  it('a thumbsdown never reaches plan approval, even when no confirming question or brief matches — proving the questionOutcome === "yes" gate', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief();
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({
+        reactionName: 'thumbsdown',
+        userId: ALEX_SLACK_USER_ID,
+      }),
+    );
+
+    expect(deps.planStore.getByMessage).not.toHaveBeenCalled();
+    expect(deps.approvePlanAndTransitionToBuild).not.toHaveBeenCalled();
+  });
+
+  it('calls approvePlanAndTransitionToBuild with the ticketId/projectKey/claimedBy when Alex reacts 👍 to a real plan message', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief();
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({
+        reactionName: 'thumbsup',
+        userId: ALEX_SLACK_USER_ID,
+        channelId: 'C0B88H0JUA3',
+        messageTs: '1700000400.000100',
+      }),
+    );
+
+    expect(deps.planStore.getByMessage).toHaveBeenCalledWith({
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000400.000100',
+    });
+    expect(deps.approvePlanAndTransitionToBuild).toHaveBeenCalledWith({
+      ticketId: makePlan().ticketId,
+      projectKey: 'chief-clancy',
+      claimedBy: 'sarah',
+    });
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'plan approved via reaction, ticket transitioned to build',
+      { ticketId: makePlan().ticketId },
+    );
+  });
+
+  it('logs an error, without throwing, when the ticket-plan lookup fails', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief({
+      planStore: makePlanStore({
+        getByMessage: vi.fn<PlanStore['getByMessage']>().mockResolvedValue({
+          ok: false,
+          error: { kind: 'unknown', cause: new Error('connection reset') },
+        }),
+      }),
+    });
+
+    await expect(
+      handleReactionAdded(
+        deps,
+        makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+      ),
+    ).resolves.toBeUndefined();
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to look up ticket plan',
+      { errorMessage: 'Error: connection reset' },
+    );
+    expect(deps.approvePlanAndTransitionToBuild).not.toHaveBeenCalled();
+  });
+
+  it('logs info (not error) when the transition is ignored because the ticket already moved on', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief({
+      approvePlanAndTransitionToBuild: makeApprovePlanAndTransitionToBuild({
+        ok: false,
+        error: { kind: 'unavailable' },
+      }),
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'ignoring plan-approval reaction — ticket already transitioned',
+      { ticketId: makePlan().ticketId },
+    );
+    expect(deps.logger.error).not.toHaveBeenCalled();
+  });
+
+  it('logs info (not error) when the claim is lost to another persona process racing the same reaction event', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief({
+      approvePlanAndTransitionToBuild: makeApprovePlanAndTransitionToBuild({
+        ok: false,
+        error: {
+          kind: 'claim-failed',
+          claimError: { kind: 'unavailable' },
+        },
+      }),
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'ignoring plan-approval reaction — another process already claimed this ticket',
+      { ticketId: makePlan().ticketId },
+    );
+    expect(deps.logger.error).not.toHaveBeenCalled();
+  });
+
+  it('logs an error when the claim fails for a real (non-race) reason', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief({
+      approvePlanAndTransitionToBuild: makeApprovePlanAndTransitionToBuild({
+        ok: false,
+        error: {
+          kind: 'claim-failed',
+          claimError: { kind: 'unknown', cause: new Error('connection reset') },
+        },
+      }),
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to claim ticket for reaction-triggered plan approval',
+      { ticketId: makePlan().ticketId, errorKind: 'unknown' },
+    );
+  });
+
+  it("logs info (not error) — silent fail-closed, per Alex's confirmed scope decision — when Build is at its WIP limit", async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief({
+      approvePlanAndTransitionToBuild: makeApprovePlanAndTransitionToBuild({
+        ok: false,
+        error: { kind: 'wip-limit-blocked', reason: 'at-limit' },
+      }),
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'plan-approval reaction blocked by build wip limit, ticket stays in plan',
+      { ticketId: makePlan().ticketId },
+    );
+    expect(deps.logger.error).not.toHaveBeenCalled();
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+  });
+
+  it('logs an error for any other/unexpected transition failure kind', async () => {
+    const deps = makeDepsWithNoMatchingConfirmingQuestionOrBrief({
+      approvePlanAndTransitionToBuild: makeApprovePlanAndTransitionToBuild({
+        ok: false,
+        error: { kind: 'validation-failed', issues: 'bad row' },
+      }),
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'unexpected error transitioning plan to build via reaction',
+      { ticketId: makePlan().ticketId, errorKind: 'validation-failed' },
+    );
+  });
+});
+
+// BUILD_PLAN 6.1e's own new surface area — the three-way `thumbsup` collision (confirming-question
+// "yes" / Brief approval / Plan approval) itself, not any one dispatcher in isolation. Each test
+// here pins a cross-boundary interaction the per-dispatcher describe blocks above can't: whether an
+// earlier link's `true` return actually short-circuits the chain, and whether a non-Alex reactor is
+// kept out of every DB lookup beyond the one that runs unconditionally for any user.
+describe('handleReactionAdded — three-way thumbsup chain (BUILD_PLAN 6.1e)', () => {
+  it("a thumbsup matching a real Brief never also looks up or approves a Plan (dispatchBriefApproval's true return short-circuits the chain)", async () => {
+    const deps = makeDeps({
+      confirmingQuestionStore: makeConfirmingQuestionStore({
+        getByMessage: vi
+          .fn<ConfirmingQuestionStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, question: null }),
+      }),
+      // briefStore keeps its default — a real, matching brief (makeBrief()).
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.approveBriefAndTransitionToPlan).toHaveBeenCalled();
+    expect(deps.planStore.getByMessage).not.toHaveBeenCalled();
+    expect(deps.approvePlanAndTransitionToBuild).not.toHaveBeenCalled();
+  });
+
+  it('a thumbsup matching neither a confirming question nor a Brief, but matching a Plan, reaches dispatchPlanApproval and calls approvePlanAndTransitionToBuild', async () => {
+    const deps = makeDeps({
+      confirmingQuestionStore: makeConfirmingQuestionStore({
+        getByMessage: vi
+          .fn<ConfirmingQuestionStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, question: null }),
+      }),
+      briefStore: makeBriefStore({
+        getByMessage: vi
+          .fn<BriefStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, brief: null }),
+      }),
+      // planStore keeps its default — a real, matching plan (makePlan()).
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.confirmingQuestionStore.getByMessage).toHaveBeenCalled();
+    expect(deps.briefStore.getByMessage).toHaveBeenCalled();
+    expect(deps.approvePlanAndTransitionToBuild).toHaveBeenCalledWith({
+      ticketId: makePlan().ticketId,
+      projectKey: 'chief-clancy',
+      claimedBy: 'sarah',
+    });
+  });
+
+  it('a thumbsup from a non-Alex reactor on a message matching none of the three never triggers any DB lookup beyond the confirming-question one', async () => {
+    const deps = makeDeps({
+      confirmingQuestionStore: makeConfirmingQuestionStore({
+        getByMessage: vi
+          .fn<ConfirmingQuestionStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, question: null }),
+      }),
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: 'thumbsup', userId: 'U_SOME_OTHER_HUMAN' }),
+    );
+
+    // The only lookup that runs unconditionally for any user, for any thumbsup reaction.
+    expect(deps.confirmingQuestionStore.getByMessage).toHaveBeenCalled();
+    // Both approval dispatchers gate on ALEX_SLACK_USER_ID before ever touching the DB.
+    expect(deps.briefStore.getByMessage).not.toHaveBeenCalled();
+    expect(deps.planStore.getByMessage).not.toHaveBeenCalled();
+    expect(deps.approveBriefAndTransitionToPlan).not.toHaveBeenCalled();
+    expect(deps.approvePlanAndTransitionToBuild).not.toHaveBeenCalled();
   });
 });
 

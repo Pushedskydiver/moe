@@ -272,6 +272,30 @@ function makeApproveBriefAndTransitionToPlan() {
   });
 }
 
+// BUILD_PLAN 6.1e widened `ReactionOutcomeDeps` with `planStore`/`approvePlanAndTransitionToBuild`
+// — neither is exercised by any function this file tests (those live in
+// `handle-reaction-added.test.ts` instead), so these are plain never-asserted-on stand-ins purely
+// to satisfy the type, mirroring `makeBriefStore`/`makeApproveBriefAndTransitionToPlan` above.
+function makePlanStore() {
+  return { getByMessage: vi.fn().mockResolvedValue({ ok: true, plan: null }) };
+}
+
+function makeApprovePlanAndTransitionToBuild() {
+  return vi.fn().mockResolvedValue({
+    ok: true,
+    ticket: {
+      id: '4fa85f64-5717-4562-b3fc-2c963f66afa7',
+      projectKey: 'chief-clancy',
+      title: 'CLI hangs on large repos',
+      status: 'Build',
+      severity: 'Medium',
+      classOfService: 'Standard',
+      createdAt: new Date('2026-07-18T09:00:00.000Z'),
+      updatedAt: new Date('2026-07-18T09:00:00.000Z'),
+    },
+  });
+}
+
 function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
@@ -293,6 +317,10 @@ function makeDeps(
     readonly briefStore: ReturnType<typeof makeBriefStore>;
     readonly approveBriefAndTransitionToPlan: ReturnType<
       typeof makeApproveBriefAndTransitionToPlan
+    >;
+    readonly planStore: ReturnType<typeof makePlanStore>;
+    readonly approvePlanAndTransitionToBuild: ReturnType<
+      typeof makeApprovePlanAndTransitionToBuild
     >;
   }> = {},
 ) {
@@ -325,6 +353,8 @@ function makeDeps(
     resolveConfirmingQuestionAndLog: makeResolveConfirmingQuestionAndLog(),
     briefStore: makeBriefStore(),
     approveBriefAndTransitionToPlan: makeApproveBriefAndTransitionToPlan(),
+    planStore: makePlanStore(),
+    approvePlanAndTransitionToBuild: makeApprovePlanAndTransitionToBuild(),
     ...overrides,
   };
 }
