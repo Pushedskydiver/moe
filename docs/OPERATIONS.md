@@ -214,6 +214,15 @@ A `GET /health` body is `{"status":"ok","personaId":"<persona>"}` — the `perso
 it a per-persona signal rather than a generic liveness ping. To reach it directly,
 `fly ssh console -a moe-sarah -C "wget -qO- localhost:8080/health"`.
 
+**A handful of `"A pong wasn't received from the server before the timeout of 5000ms!"` warnings
+right after boot, before `"slack socket mode connected"` appears, is normal cold-start Socket Mode
+handshake retry — not a defect.** Confirmed at the 6.1d deploy (2026-09-09): several of the 8 apps
+logged this warning 2-5 times in the first ~10-15s after `server started`, then connected cleanly;
+`fly status`'s own health check doesn't surface it either way, since `/health` only checks the HTTP
+server, not the Socket Mode connection. Only worth investigating if `"slack socket mode connected"`
+never appears at all for a given app within a minute or so of boot — check `fly logs -a moe-<persona>`
+for that exact line before assuming a stuck reconnect loop is a real problem.
+
 ---
 
 ## Path 1 (primary): Neon point-in-time restore
