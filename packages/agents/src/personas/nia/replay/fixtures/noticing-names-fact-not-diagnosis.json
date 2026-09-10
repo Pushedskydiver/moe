@@ -2,21 +2,21 @@
   "scenarioId": "noticing-names-fact-not-diagnosis",
   "personaId": "nia",
   "callSite": "dmReply",
-  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
+  "promptContentHash": "eace8eba66a5e4e6efc44cd3186cafbc0de8118e80f0df89155fb88c6261b6aa",
   "scenarioInputHash": "3993fcd542a545d1d1865a28c47193ef4a7c879fb28c67f77fe2c7f99182c5c2",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:34:55.390Z",
+  "recordedAt": "2026-09-10T22:16:19.278Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 345,
+  "outputTokensRaw": 330,
   "result": {
     "ok": true,
-    "reply": "Honestly, I don't have a confident read on that — nothing's come up in conversation that points to Marcus being off, and I don't have a sweep I can run to check his activity myself. What are you actually seeing that's making him seem off? If it's something concrete — missed check-ins, work sitting stalled, tone shift — that's worth digging into. If it's more of a vibe, I'd rather not guess at a diagnosis before there's something real behind it.",
+    "reply": "Honest answer: I don't have a confident read on that. I don't have a way to pull his activity or track record myself right now — anything I'd say would be guessing to sound useful, and that's exactly the thing I'm not supposed to do.\n\nWhat made you say \"off\"? If there's something specific you've noticed — he's missed something, gone quiet, a pattern of reverts — tell me that and I can actually engage with it. Otherwise I'd just be inventing a read to match your worry, which isn't going to help either of you.",
     "toolUses": [],
     "usage": {
       "inputTokens": 96,
-      "outputTokens": 345,
+      "outputTokens": 330,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 4850
+      "cacheReadInputTokens": 4985
     }
   }
 }

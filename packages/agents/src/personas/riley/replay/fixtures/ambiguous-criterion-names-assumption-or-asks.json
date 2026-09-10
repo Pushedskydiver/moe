@@ -2,21 +2,21 @@
   "scenarioId": "ambiguous-criterion-names-assumption-or-asks",
   "personaId": "riley",
   "callSite": "dmReply",
-  "promptContentHash": "0d2665824767b91e2c85225930a9ccfa6223fd3995454b28a9b1d79c606aeb99",
+  "promptContentHash": "467d5fc95f605aadda4d691c13819508f02aad7cf0043547ca153045dd004cb6",
   "scenarioInputHash": "a17aeae3a05bde19d7a20220ad87f773ffa23524d18d69edd5c4b625de48e799",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:31:24.452Z",
+  "recordedAt": "2026-09-10T22:12:49.729Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 495,
+  "outputTokensRaw": 678,
   "result": {
     "ok": true,
-    "reply": "What defines a duplicate isn't in the ticket, and the options aren't equivalent:\n\n- **Event ID dedup** (webhook provider sends an `id`, drop repeats) — cheap, works if the provider guarantees unique IDs and actually retries with the same one.\n- **Payload hash dedup** (hash the body, drop identical payloads within some window) — handles providers with no stable ID, but needs a window/TTL decision and costs more to implement.\n- **Business-key dedup** (e.g. same order+status regardless of envelope) — different again, means understanding what \"same event\" means semantically, not just transport-level repeats.\n\nThese aren't the same size of work and they catch different things. I'd rather not pick one and bake it in — which provider's webhooks are these, and does it send a stable event ID?",
+    "reply": "What's the duplicate key — webhook's own event ID (if the provider sends one), a hash of the payload, or something time-windowed like same type+resource within N seconds? Those are different implementations, not just detail — event ID assumes the provider guarantees uniqueness/redelivery semantics, payload hash catches retries with identical bodies but not near-identical ones, time-window catches neither cleanly but handles providers with no ID at all.\n\nNeed to know which webhook source(s) this covers before I pick one.",
     "toolUses": [],
     "usage": {
       "inputTokens": 118,
-      "outputTokens": 495,
+      "outputTokens": 678,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 5032
+      "cacheReadInputTokens": 5176
     }
   }
 }

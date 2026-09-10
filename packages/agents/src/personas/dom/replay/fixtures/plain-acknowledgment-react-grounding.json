@@ -1,0 +1,22 @@
+{
+  "scenarioId": "plain-acknowledgment-react-grounding",
+  "personaId": "dom",
+  "callSite": "dmReply",
+  "promptContentHash": "2db81820a13cd60a012e17d7f837e49aa0788931b817137c6a66998f2a4e13a5",
+  "scenarioInputHash": "a1dc515bc826ae22b56533269ab643ee1cb7170709c4eb9059a1b07956fe2995",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-09-10T22:12:30.901Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 288,
+  "result": {
+    "ok": true,
+    "reply": "Good, that's the point of catching it early rather than after it ships. Glad it made the fix straightforward.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 97,
+      "outputTokens": 288,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 6076
+    }
+  }
+}

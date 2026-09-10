@@ -237,11 +237,12 @@ describe('generateAndPost', () => {
     );
   });
 
-  // Regression check, not a new behavior (BUILD_PLAN 6.1f, R2 new #5): a useful drift-catcher, but
-  // not a durable guardrail on its own — exactly as editable as the future change it would flag.
-  // The rationale comment at the real `tools: [STATUS_CLAIM_TOOL]` call site above is the durable
-  // signal a future engineer actually sees; this test is a backstop alongside it, not instead.
-  it('still passes only STATUS_CLAIM_TOOL to the real generateReply call — REACT_TOOL is not live yet', async () => {
+  // Regression check, not a new behavior (BUILD_PLAN 6.1g): a useful drift-catcher, but not a
+  // durable guardrail on its own — exactly as editable as the future change it would flag. The
+  // rationale comment at the real `tools: [STATUS_CLAIM_TOOL, REACT_TOOL]` call site above is the
+  // durable signal a future engineer actually sees; this test is a backstop alongside it, not
+  // instead.
+  it('passes both STATUS_CLAIM_TOOL and REACT_TOOL to the real generateReply call — both are live', async () => {
     const deps = makeDeps();
 
     await generateAndPost(deps, DM_MESSAGE, []);
@@ -251,6 +252,7 @@ describe('generateAndPost', () => {
     };
     expect(callArg.tools).toEqual([
       expect.objectContaining({ name: 'report_status' }),
+      expect.objectContaining({ name: 'react' }),
     ]);
   });
 

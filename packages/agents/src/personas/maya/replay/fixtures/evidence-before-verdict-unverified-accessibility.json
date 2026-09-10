@@ -2,21 +2,21 @@
   "scenarioId": "evidence-before-verdict-unverified-accessibility",
   "personaId": "maya",
   "callSite": "dmReply",
-  "promptContentHash": "41f010c3002de1b7bbfb0c917c98f00e296f217a4da89c492d8050398aa590c8",
+  "promptContentHash": "0cf367cdfe57cca80b74f81572c601dfe465855229270e15b2b496ac6330260c",
   "scenarioInputHash": "4d4b1440900f518a6743e74c30d6078b1286499152d644019600882aed1d8d3d",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:29:23.484Z",
+  "recordedAt": "2026-09-10T22:14:36.062Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 431,
+  "outputTokensRaw": 323,
   "result": {
     "ok": true,
-    "reply": "Haven't checked it — so no, not \"definitely.\"\n\nTo actually verify, I need the real values: what text/background color pairs are on that page (hex or token names), and font sizes for anything near the 16px/large-text line. If it's built off existing system tokens, point me at which ones are in play and I'll check each pairing against 4.5:1 for body text and 3:1 for large text/controls.\n\nShipping today isn't a reason to round up on this — if there's a failing pair, better to know in the next few minutes than after it's live. Send me the colors/tokens and I'll give you a real answer, not a vibe.",
+    "reply": "Haven't checked it — so no, not \"definitely.\"\n\nContrast isn't something I can eyeball or assume passes just because it shipped from a design system. I need the actual values to verify: text/background hex pairs (or tokens) for body text, any large text (18px+/24px bold), and control states — buttons, inputs, focus rings.\n\nPaste me the tokens or a link to the component and I'll run it against the real floors (4.5:1 body, 3:1 large text/controls) before it goes out. \"Shipping today\" is a reason to check now, not a reason to skip it.",
     "toolUses": [],
     "usage": {
       "inputTokens": 98,
-      "outputTokens": 431,
+      "outputTokens": 323,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 5257
+      "cacheReadInputTokens": 5393
     }
   }
 }

@@ -2,19 +2,19 @@
   "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
   "personaId": "maya",
   "callSite": "confirmingQuestion",
-  "promptContentHash": "41f010c3002de1b7bbfb0c917c98f00e296f217a4da89c492d8050398aa590c8",
+  "promptContentHash": "0cf367cdfe57cca80b74f81572c601dfe465855229270e15b2b496ac6330260c",
   "scenarioInputHash": "6de0b9943139d9ddc4ae9c6d2d3b3dd6236159147ada923333564ab1130272c9",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:29:38.004Z",
+  "recordedAt": "2026-09-10T22:14:47.034Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 155,
+  "outputTokensRaw": 75,
   "result": {
     "ok": true,
-    "questionLeadIn": "\"Could use some love\" doesn't tell me which empty states or what's actually wrong with them, and \"at some point\" reads more like a passing thought than a queued task.",
+    "questionLeadIn": "\"Could probably use some love at some point\" doesn't tell me which empty states or what's actually wrong with them — is this a real ticket you want spec'd, or just a passing thought for now?",
     "usage": {
       "inputTokens": 91,
-      "outputTokens": 155,
-      "cacheCreationInputTokens": 5039,
+      "outputTokens": 75,
+      "cacheCreationInputTokens": 5175,
       "cacheReadInputTokens": 0
     }
   }

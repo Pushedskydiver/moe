@@ -7,6 +7,7 @@ import {
   composeGatedReply,
   generateReply,
   parseReactInput,
+  REACT_TOOL,
   REACT_TOOL_NAME,
   resolvePersonaModel,
   sonnetCostUsdMicros,
@@ -55,14 +56,13 @@ async function postHaltReply(
 }
 
 /**
- * Not reachable in real production this chunk — `generateAndPost`'s own real `tools` array never
- * offers `REACT_TOOL`, so `generated.toolUses` can never actually carry one today. Built and
- * tested anyway (BUILD_PLAN 6.1f) so this activates the moment a future chunk adds `REACT_TOOL` to
- * that array, with no further change needed here. Returns `undefined` (not a `{ok: false}`-shaped
- * result) when there is no valid `react` call to act on — the caller's own signal to fall through
- * to the ordinary reply-composition path unchanged. Only the first `react` call is honored if the
- * model calls it more than once in a turn — same accepted-edge-case shape `compose-gated-reply.ts`
- * already documents for repeated `report_status` calls.
+ * Live in production as of BUILD_PLAN 6.1g — `generateAndPost`'s own real `tools` array includes
+ * `REACT_TOOL`, grounded in every persona's own `prompt.md` (do-not-touch, drafted with Alex).
+ * Returns `undefined` (not a `{ok: false}`-shaped result) when there is no valid `react` call to
+ * act on — the caller's own signal to fall through to the ordinary reply-composition path
+ * unchanged. Only the first `react` call is honored if the model calls it more than once in a turn
+ * — same accepted-edge-case shape `compose-gated-reply.ts` already documents for repeated
+ * `report_status` calls.
  */
 async function dispatchReactToolUse(
   deps: HandlerDeps,
@@ -177,11 +177,10 @@ export async function generateAndPost(
     history,
     system: await buildPersonaSystemPrompt(deps.personaId, deps.logger),
     model: resolvePersonaModel(deps.personaId),
-    // REACT_TOOL (react-tool.ts) is deliberately NOT included here yet — it has no grounding in
-    // any real persona's prompt.md (do-not-touch), so exposing it to live traffic would let a
-    // model reach for it based on its tool description alone. Add it here only once a follow-up
-    // chunk updates prompt.md accordingly (BUILD_PLAN 6.1f).
-    tools: [STATUS_CLAIM_TOOL],
+    // REACT_TOOL (react-tool.ts) is live here as of BUILD_PLAN 6.1g — every persona's own
+    // prompt.md now grounds it (do-not-touch, drafted with Alex), so the model has real guidance
+    // on when to reach for it rather than just its raw tool description.
+    tools: [STATUS_CLAIM_TOOL, REACT_TOOL],
   });
 
   if (!generated.ok) {

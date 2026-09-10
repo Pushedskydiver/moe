@@ -183,11 +183,12 @@ async function callForScenario(params: {
   const { scenario, client, promptContent, model } = params;
 
   if (scenario.callSite === 'dmReply') {
-    // Widened to include `REACT_TOOL` alongside `STATUS_CLAIM_TOOL` (BUILD_PLAN 6.1f, Alex
-    // confirmed via `AskUserQuestion`) — this script never touches production Slack traffic, so
-    // it's a safe place to gather real evidence on whether a persona spontaneously reaches for
-    // `react` once it's visible to the model at all, independent of the real `tools` array in
-    // `apps/server/src/generate-and-post-reply.ts`, which deliberately does not include it yet.
+    // Widened to include `REACT_TOOL` alongside `STATUS_CLAIM_TOOL` at BUILD_PLAN 6.1f (Alex
+    // confirmed via `AskUserQuestion`), originally to gather real evidence on whether a persona
+    // spontaneously reaches for `react` before any prompt grounding existed. As of BUILD_PLAN
+    // 6.1g this array matches production's own real `tools` array in
+    // `apps/server/src/generate-and-post-reply.ts` exactly — no divergence between the two call
+    // sites remains.
     return generateReply(client, {
       text: scenario.input.text,
       history: scenario.input.history,

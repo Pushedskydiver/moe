@@ -2,31 +2,29 @@
   "scenarioId": "plan-approach-does-not-invent-unstated-cause",
   "personaId": "marcus",
   "callSite": "plan",
-  "promptContentHash": "901f561f43328c2d9327637022a8eefde5644f77ec46f597fe7c891991c2097a",
+  "promptContentHash": "6609365899d151635df7996a107f4b367541f1a43037975ce9f14e522e9fe666",
   "scenarioInputHash": "ce5974428d11fa97240f3a6b6100ed60119bcf47e015f8b2e997859e2639f9d7",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:31:10.422Z",
+  "recordedAt": "2026-09-10T22:11:08.711Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 2482,
+  "outputTokensRaw": 2897,
   "result": {
     "ok": true,
-    "approach": "Treat this as three concrete pieces, matching the scope list:\n\n1) Confirm the current loop is actually unbounded. I don't have the retry code in front of me, so I can't point to the specific file/loop — that has to be checked before writing the fix, not assumed. What I'd look for: is this a custom while/recursive retry loop, or a job-queue-based retry (e.g. a queue library with its own retry semantics) that's been misconfigured (like max_retries set to -1/infinite, or a retry-on-failure re-enqueue with no counter)? The fix shape is different in each case, so this has to be pinned down first, not guessed.\n\n2) Add a bounded max retry count. Whatever the mechanism turns out to be, the concrete change is: track an attempt count per delivery attempt (either a column/field on the delivery record if this is DB-backed, or the job queue's native attempt counter if it's queue-based), and stop re-enqueueing once attempts >= max. Sane default: 5 attempts with the existing backoff schedule if one exists, or a simple exponential backoff (e.g. 1m/5m/30m/2h/6h) if there isn't one already — I haven't verified whether backoff already exists, so this may just be 'reuse what's there' rather than new work.\n\n3) Decide what happens on exhaustion. My default recommendation: mark the delivery as failed/terminal in whatever store tracks delivery status, log it with enough context to debug (webhook id, target URL, last error, attempt count), and increment a metric/counter that's already being watched or alerted on. I'd hold off on building a full dead-letter queue (storage, replay mechanism, UI) unless one already exists somewhere in the system — that's a bigger piece of infra than 'stop retrying forever' calls for, and nothing in the ticket says failed deliveries need to be replayable later. If dead-lettering infra already exists elsewhere in the codebase, reuse it instead of the log+metric approach; that's an open question, not a guess I want to bake into the plan.",
-    "confidence": "High that the right shape is: bounded counter + stop condition + terminal state + logging is the correct fix for 'retries indefinitely.' Low confidence on the exact implementation site and mechanism (custom loop vs job-queue retry config) since no code or system description was given — that has to be confirmed against the actual code, not assumed from the ticket text.",
+    "approach": "Ground rule first: I haven't seen the actual retry loop code, so step 1 of the brief — confirming it's unbounded — is a real investigation step, not something I can tick off from the ticket text alone. The ticket's premise is almost certainly right (that's why it exists), but the plan should treat it as step 1, not a given.\n\nConcrete shape:\n\n1. Find the webhook delivery retry loop and confirm there's no attempt cap (read the loop, not guess). This also tells us whether backoff already exists between attempts — if it does, keep it; if not, that's not in scope here, don't invent one.\n\n2. Add a bounded attempt counter. Track attempts per delivery, stop retrying once it hits a max. Sane default: 5 attempts. That's a config value, not a magic number buried in the loop, so it's adjustable without a redeploy-and-guess cycle later.\n\n3. Decide what happens on exhaustion. Default I'd pick: log at error level with the delivery id/target, and mark the delivery record as permanently failed if a delivery record already exists in storage. That's the smallest change that gives visibility without new infrastructure. If no such record exists today, fall back to log-only — that's a smaller finding that changes the concrete step, not the overall shape.\n\nDead-letter queue and alerting are both real options but I'm not defaulting to either — see alternatives below.",
+    "confidence": "Confident: the bounded-counter mechanism itself (add a max, stop at it) is straightforward and right-sized for a bug fix — no reason to make this more elaborate than a counter and a config value. Not confident: whether webhook deliveries are already tracked in a persistent record I can flip to 'failed' status, whether any backoff already exists in the current loop, and whether there's existing alerting infra this could hook into. All three are unverified — I'm working from the ticket description, not the code.",
     "alternativesConsidered": [
-      "Full dead-letter queue with persistent storage and a replay path — rejected for now as more infra than this ticket asks for; nothing here indicates failed webhooks need to be resurrectable later, and there's no evidence such infra already exists to extend.",
-      "Alerting/paging on exhaustion — rejected as the default; log + metric is enough to make the failure visible without assuming there's an on-call/paging setup this should hook into. Would revisit if that infra is confirmed to exist.",
-      "Just capping the backoff interval without capping attempt count — rejected, it doesn't fix the actual bug (indefinite retries), just slows them down."
+      "Dead-letter queue as the default exhaustion behavior — rejected for now. It needs a consumer and storage for the dead-letter set, which I have no evidence already exists. Worth doing if failure volume turns out to be high, but building it speculatively here is more ceremony than a first fix warrants.",
+      "Alert-on-exhaustion as the default — rejected as default. Per-failed-webhook alerting is likely to be noisy and needs integration with whatever alerting system exists, which is unconfirmed. Fine as a follow-on once volume/impact is known, not as the first move."
     ],
     "openQuestions": [
-      "Is the retry loop custom code or a job-queue library's built-in retry mechanism? Changes where the fix actually lives.",
-      "Does backoff already exist, or does that need to be added alongside the max-retry count?",
-      "Is there existing dead-letter/alerting infra elsewhere in the system that this should plug into instead of a plain log+metric?",
-      "Is 5 attempts an acceptable default, or is there an existing convention elsewhere in the codebase for retry limits that this should match?"
+      "Is there already a webhook delivery record/table this can update to a 'failed' status, or does exhaustion need to be log-only for now?",
+      "Do other retry loops in the codebase already use a standard max-attempts value or backoff pattern worth matching for consistency?",
+      "Does anything downstream (customer dashboard, support tooling) need visibility into permanently-failed deliveries, or is internal logging enough for this pass?"
     ],
     "usage": {
       "inputTokens": 130,
-      "outputTokens": 2482,
-      "cacheCreationInputTokens": 5941,
+      "outputTokens": 2897,
+      "cacheCreationInputTokens": 6088,
       "cacheReadInputTokens": 0
     }
   }

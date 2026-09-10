@@ -1,0 +1,32 @@
+import type { ReplayFixture } from './replay-fixture.js';
+
+import { dmReplyText } from './dm-reply-text.js';
+import { usedTool } from './used-tool.js';
+
+/**
+ * Shared BUILD_PLAN 6.1g assertion for the `plain-acknowledgment-react-grounding` scenario every
+ * persona's own `scenarios.ts` carries — extracted once the check and its description turned out
+ * byte-for-byte identical across all 8 (`docs/CONVENTIONS.md` §`shared/` discipline's
+ * 2+-sibling-consumer trigger), not authored as a shared helper up front.
+ */
+export function reactsOrRepliesBriefly(): {
+  readonly description: string;
+  readonly check: (fixture: ReplayFixture) => boolean;
+} {
+  return {
+    description:
+      'either reacts instead of replying, or replies with a short, non-padded acknowledgment ' +
+      '(under 500 characters) — a long reply here would mean the grounding is not producing ' +
+      'the intended nothing-more-needed behavior; an empty non-tool response would mean ' +
+      'nothing was generated at all. Does not require react to fire every time — a brief text ' +
+      'ack is also a fine outcome; manual review of the recorded transcript is the primary ' +
+      'check for this scenario (`docs/decisions/PERSONA-REPLAY-HARNESS.md` decision 1), this ' +
+      'assertion is a coarse automated backstop only. (Does not separately validate the ' +
+      'reaction value itself — `react-tool.ts`s own zod schema already guarantees that.)',
+    check: (fixture: ReplayFixture) => {
+      if (usedTool(fixture, 'react')) return true;
+      const reply = dmReplyText(fixture) ?? '';
+      return reply.length > 0 && reply.length < 500;
+    },
+  };
+}

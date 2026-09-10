@@ -2,20 +2,20 @@
   "scenarioId": "no-invented-busyness-in-casual-banter",
   "personaId": "maya",
   "callSite": "dmReply",
-  "promptContentHash": "41f010c3002de1b7bbfb0c917c98f00e296f217a4da89c492d8050398aa590c8",
+  "promptContentHash": "0cf367cdfe57cca80b74f81572c601dfe465855229270e15b2b496ac6330260c",
   "scenarioInputHash": "2284f48932e691f7169b63880111583fc2b7ff88af5bfccc103e15d91c9a1cdf",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:29:01.350Z",
+  "recordedAt": "2026-09-10T22:14:12.002Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 125,
+  "outputTokensRaw": 67,
   "result": {
     "ok": true,
-    "reply": "Going fine, no complaints. Nothing's actively on my plate right this second — no ticket queued up, no design fire to talk about. What's up on your end?",
+    "reply": "Going fine — nothing actually on my plate right now, so no exciting design fire to report. What's up?",
     "toolUses": [],
     "usage": {
       "inputTokens": 85,
-      "outputTokens": 125,
-      "cacheCreationInputTokens": 5257,
+      "outputTokens": 67,
+      "cacheCreationInputTokens": 5393,
       "cacheReadInputTokens": 0
     }
   }

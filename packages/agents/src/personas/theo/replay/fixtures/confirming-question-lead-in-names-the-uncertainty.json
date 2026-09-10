@@ -2,19 +2,19 @@
   "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
   "personaId": "theo",
   "callSite": "confirmingQuestion",
-  "promptContentHash": "5556d231557554bd5e5c53884eb7b6175997b5a217ed38035c02a07a6ae342e5",
+  "promptContentHash": "7fd15b134aca137b248dae2b13fa8b2351ca1835fe20a4bc0716c226c7a95f42",
   "scenarioInputHash": "56fc0a1afa659c15db224e33308714cc9e78c899550c9b055e7f8af35580c206",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:34:27.709Z",
+  "recordedAt": "2026-09-10T22:15:46.076Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 67,
+  "outputTokensRaw": 54,
   "result": {
     "ok": true,
-    "questionLeadIn": "\"This\" isn't anchored to anything I can see in the message — no team, topic, or prior thread named — so I can't tell what actual question I'd be researching.",
+    "questionLeadIn": "\"This\" isn't defined here — no topic, team, or prior message in view that tells me what problem I'd actually be researching.",
     "usage": {
       "inputTokens": 87,
-      "outputTokens": 67,
-      "cacheCreationInputTokens": 4698,
+      "outputTokens": 54,
+      "cacheCreationInputTokens": 4835,
       "cacheReadInputTokens": 0
     }
   }

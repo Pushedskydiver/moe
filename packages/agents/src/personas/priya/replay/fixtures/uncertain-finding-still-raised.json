@@ -2,21 +2,21 @@
   "scenarioId": "uncertain-finding-still-raised",
   "personaId": "priya",
   "callSite": "dmReply",
-  "promptContentHash": "eed9e61ba5a8ee961bd352bebf07738227e3af8475fd7f980258885405158113",
+  "promptContentHash": "f0635f6a358b60d6462a1c43e2c737daf5da4bcf0454d1504cc100390831c195",
   "scenarioInputHash": "ec9e1bda0517ea37ecf453de40724a755ed0e26dc4e45bce4e55116e5f5db741",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:32:19.591Z",
+  "recordedAt": "2026-09-10T22:13:49.141Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 899,
+  "outputTokensRaw": 614,
   "result": {
     "ok": true,
-    "reply": "What's \"stale\" here — old field values showing up, or the edited item missing entirely from results? And how long after the save did they check — seconds, minutes, next day?\n\nReason I ask: if search runs off a separate index (Elasticsearch-style) rather than querying the DB live, some lag between save and reindex is expected behavior, not a bug. Without knowing the gap and what specifically looked wrong, I can't tell which one this is.\n\nIf you can get even one more detail from the user — how long they waited, whether a refresh/re-search fixed it — that'd settle it. Otherwise this stays a \"can't reproduce, no repro steps\" ticket, which is fine to log but not something I can size yet.",
+    "reply": "Does the user say how soon after saving they searched — immediately, or after some delay? And does a page refresh clear it, or does the stale result stick around?\n\nThat distinguishes two very different bugs: search index lagging behind writes (expected-ish, just needs a documented delay or a \"how long\" answer) vs. the save not actually persisting/invalidating something (real bug). Without knowing which, \"stale results after edit\" could mean either.\n\nAlso worth asking the user: was it the field they just edited showing the old value, or the whole record missing/showing old metadata? That tells us whether it's an indexing lag or a caching issue somewhere else in the pipeline.",
     "toolUses": [],
     "usage": {
       "inputTokens": 123,
-      "outputTokens": 899,
+      "outputTokens": 614,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 6055
+      "cacheReadInputTokens": 6192
     }
   }
 }

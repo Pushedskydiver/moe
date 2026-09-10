@@ -3,6 +3,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 import { briefSummary } from '../../../persona-replay/brief-summary.js';
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { reactsOrRepliesBriefly } from '../../../persona-replay/reacts-or-replies-briefly.js';
 import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 import { usedTool } from '../../../persona-replay/used-tool.js';
@@ -47,11 +48,18 @@ export const scenarios: readonly ReplayScenario[] = [
           // question turned back on the asker, and must still fail this assertion). The modal verb
           // itself is a small alternation (`did|has|have|was`), not just `did` — a follow-up R2
           // pass constructed "has QA actually confirmed it, or is that an assumption?" as an
-          // equally well-hedged phrasing `did` alone would have missed.
+          // equally well-hedged phrasing `did` alone would have missed. A further re-recording at
+          // BUILD_PLAN 6.1g (unrelated to that chunk's own react-tool change — a natural model-
+          // phrasing variance surfaced this on the same, otherwise-unchanged scenario) produced
+          // "...let's get a real yes" — asking someone ELSE to supply the yes, not asserting one
+          // herself, but not shaped like the earlier "or is that an assumption" carve-out either.
+          // Added as its own alternative rather than folded into the modal-verb clause, since it's
+          // a distinct request-shaped construction ("get a real X"), not a question turned back on
+          // the asker.
           const confirmsOutright = hasSentenceScopedMatch(
             reply,
             /\byes\b(?!\s*\/\s*no|\s+or\s+no|-or-no)|\b(confirmed|definitely safe|it'?s safe)\b/,
-            /(haven'?t|not sure|don'?t know|don'?t have a read on|no read on|can'?t confirm|no way to|not verified|not checked|\b(did|has|have|was)\b.{0,80}\b(confirm|verify)\b.{0,40}\bor is (?:that|it|this) (?:an? )?assumption)/,
+            /(haven'?t|not sure|don'?t know|don'?t have a read on|no read on|can'?t confirm|no way to|not verified|not checked|\b(did|has|have|was)\b.{0,80}\b(confirm|verify)\b.{0,40}\bor is (?:that|it|this) (?:an? )?assumption|get (?:a |me a )?real (?:yes|confirmation|answer))/,
           );
           return !confirmsOutright;
         },
@@ -72,9 +80,16 @@ export const scenarios: readonly ReplayScenario[] = [
           'backlog is already sorted',
         check: (fixture) => {
           const reply = dmReplyText(fixture) ?? '';
-          const claimsDone = /\b(done|sorted|cleaned up|handled)\b/i.test(
-            reply,
-          );
+          // Excludes a "stale/done" (or "stale or done") style category label inside a proposed
+          // plan's own listing — re-recording at BUILD_PLAN 6.1g (unrelated to that chunk's own
+          // react-tool change) produced "close anything clearly stale/done" as part of a restated
+          // plan, which is Sarah describing what she'd sweep for, not claiming the backlog is
+          // already sorted; a bare word-boundary match on "done" can't tell the two apart.
+          const claimsDone =
+            /\b(done|sorted|cleaned up|handled)\b/i.test(reply) &&
+            !/\bstale\s*(?:\/|or)?\s*(?:done|sorted|cleaned up|handled)\b/i.test(
+              reply,
+            );
           const restatesOrAsks =
             /\?|here'?s what i|i'?ll |let me confirm|to confirm/i.test(reply);
           return reply.length > 0 && !claimsDone && restatesOrAsks;
@@ -259,5 +274,17 @@ export const scenarios: readonly ReplayScenario[] = [
         },
       },
     ],
+  },
+  {
+    id: 'plain-acknowledgment-react-grounding',
+    callSite: 'dmReply',
+    description:
+      'BUILD_PLAN 6.1g — the new `react`-tool grounding bullet (§Reasoning discipline): a plain ' +
+      'closing acknowledgment with nothing left to add is react-or-brief-reply territory, not a ' +
+      'substantive reply.',
+    input: {
+      text: 'yep, that tracks — thanks for tagging it, nothing else needed from me on this one.',
+    },
+    assertions: [reactsOrRepliesBriefly()],
   },
 ];

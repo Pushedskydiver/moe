@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { reactsOrRepliesBriefly } from '../../../persona-replay/reacts-or-replies-briefly.js';
 import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 
@@ -306,5 +307,20 @@ export const scenarios: readonly ReplayScenario[] = [
         },
       },
     ],
+  },
+  {
+    id: 'plain-acknowledgment-react-grounding',
+    callSite: 'dmReply',
+    description:
+      'BUILD_PLAN 6.1g — the new `react`-tool grounding bullet (§Reasoning discipline): a plain ' +
+      'closing acknowledgment with nothing left to add is react-or-brief-reply territory, not a ' +
+      'substantive reply. Deliberately phrased as retrospective thanks for effort already spent, ' +
+      'not a fresh "confirms what we thought" corroboration claim — his own ' +
+      '`independent-corroboration-traced-to-root` discipline above would rightly make him question ' +
+      'the latter shape instead of acknowledging it.',
+    input: {
+      text: 'thanks for digging into that source, really helped settle the debate.',
+    },
+    assertions: [reactsOrRepliesBriefly()],
   },
 ];

@@ -2,21 +2,21 @@
   "scenarioId": "calibrated-ambiguity-names-and-proceeds",
   "personaId": "marcus",
   "callSite": "dmReply",
-  "promptContentHash": "901f561f43328c2d9327637022a8eefde5644f77ec46f597fe7c891991c2097a",
+  "promptContentHash": "6609365899d151635df7996a107f4b367541f1a43037975ce9f14e522e9fe666",
   "scenarioInputHash": "b5d3dbcfccb8925d845bbece304fe1903380da7edaa4618b3b499d3e004bdabf",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:30:33.118Z",
+  "recordedAt": "2026-09-10T22:10:29.453Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 2058,
+  "outputTokensRaw": 1904,
   "result": {
     "ok": true,
-    "reply": "Plan for the webhook retry ticket:\n\n**Approach:** Wrap the outbound POST call (integrations service, customer endpoint delivery) in `retryWithBackoff` from `packages/core`, not `simpleRetry` from `packages/github`.\n\n**Why that one, given the ticket says either works:** `packages/github` reads as a GitHub-integration-specific package. Pulling a retry helper from it into the generic outbound-webhook-delivery path in the integrations service is a backwards dependency — a shared concern borrowing from a specific one. `packages/core` is where cross-cutting stuff like this belongs. That's the whole reason, and it's enough on its own; I haven't looked at either implementation's actual behavior.\n\n**Retry condition:** retry on 5xx response or timeout/network error. Explicitly do *not* retry on 4xx — ticket only asks for 5xx/timeout, and retrying a 4xx against a customer endpoint is just hammering a request that's never going to succeed.\n\n**Attempts:** 3 retries (4 total attempts) on failure. Flagging that literally so nobody argues later about off-by-one — \"retry up to 3 times\" I'm reading as 3 retries after the first attempt. If that's wrong, it's a one-line change either way, not an approach change.\n\n**On exhaustion:** log it (endpoint, customer/account id if available, last status or error, attempt count) and drop. No dead-letter queue, no requeue path — matches the ticket, don't build one preemptively.\n\n**One real unverified thing, worth checking before Riley builds this, not designing around a guess:** I don't know whether the current HTTP call throws on a 5xx response or just returns a response object with a status code — depends on the client in use (fetch vs axios vs something wrapped). That matters because `retryWithBackoff`'s retry condition presumably keys off a thrown error. If a 5xx doesn't throw today, the call site needs to throw (or otherwise signal) on 5xx/timeout before `retryWithBackoff` can act on it, and if `retryWithBackoff` doesn't take a predicate to distinguish \"retry-worthy\" errors from any other exception, that's a second thing to sort out. Neither of these changes the overall approach — they change how the wrapping is wired — so I'm not blocking on it, just naming it as the thing to confirm first.\n\nThat's it — this is a contained, single-call-site change, doesn't warrant more ceremony than that.",
+    "reply": "Picking `retryWithBackoff` (packages/core), not `simpleRetry` (packages/github).\n\nReasoning: this is a generic outbound-webhook concern in the integrations service — nothing GitHub-specific about retrying a POST to a customer endpoint. Pulling a helper out of `packages/github` for that creates a cross-domain dependency (integrations → github package) for no real reason, when `packages/core` is the place generic infra like this should live. I haven't actually read either implementation, so I can't rule out `simpleRetry` being the more generic one despite its location — but package naming is a decent proxy for intended scope, and the ticket says either works functionally, so this is a \"where does it belong\" call, not a \"which one runs\" call.\n\nOne thing worth confirming before Riley builds: whether `retryWithBackoff`'s retry predicate is configurable — i.e. can we tell it \"retry on 5xx or timeout, not on 4xx\" — or whether it retries on any thrown error by default. If it's the latter, the call site needs a thin predicate/wrapper around it so a 4xx (bad request, auth failure, etc.) doesn't get retried. Small either way, but it changes the shape of the call site slightly, so flagging it rather than assuming.\n\nPlan:\n1. At the webhook delivery call site, wrap the POST in `retryWithBackoff`, max 3 attempts.\n2. Retry condition: 5xx response or timeout/network error. Explicitly not on 4xx.\n3. On exhaustion: log with endpoint, customer/webhook id, last status or error, attempt count. Then drop — no queue, no dead-letter, matches the ticket.\n4. No new abstraction — reusing an existing helper as directed, nothing here hits a third occurrence of anything that'd justify building new.\n\nScope is small, so that's the whole plan — didn't see anything else worth ceremony here.",
     "toolUses": [],
     "usage": {
       "inputTokens": 205,
-      "outputTokens": 2058,
+      "outputTokens": 1904,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 6074
+      "cacheReadInputTokens": 6221
     }
   }
 }
