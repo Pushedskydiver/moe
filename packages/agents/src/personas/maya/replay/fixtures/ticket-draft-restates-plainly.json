@@ -5,16 +5,16 @@
   "promptContentHash": "41f010c3002de1b7bbfb0c917c98f00e296f217a4da89c492d8050398aa590c8",
   "scenarioInputHash": "1bd31f3f27dfa216c71e55e4a0e22c997a90db3cb1b093b83039cc8a06d2bf48",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T06:03:30.946Z",
+  "recordedAt": "2026-09-10T20:29:33.276Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 102,
+  "outputTokensRaw": 55,
   "result": {
     "ok": true,
     "title": "Mobile nav overlaps search bar under 375px",
-    "body": "On screens narrower than 375px, the mobile nav overlaps the search bar. Needs a layout fix so the two don't collide at that width.",
+    "body": "On screens narrower than 375px, the mobile nav overlaps the search bar.",
     "usage": {
       "inputTokens": 27,
-      "outputTokens": 102,
+      "outputTokens": 55,
       "cacheCreationInputTokens": 4918,
       "cacheReadInputTokens": 0
     }

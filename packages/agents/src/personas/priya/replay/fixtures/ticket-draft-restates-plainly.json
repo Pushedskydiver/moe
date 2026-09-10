@@ -5,16 +5,16 @@
   "promptContentHash": "eed9e61ba5a8ee961bd352bebf07738227e3af8475fd7f980258885405158113",
   "scenarioInputHash": "fcdcbb0976329cb23f26ec97c20124047dbde7625f476c0b71c92fecbf890e37",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T08:04:26.100Z",
+  "recordedAt": "2026-09-10T20:32:39.855Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 70,
+  "outputTokensRaw": 57,
   "result": {
     "ok": true,
-    "title": "Duplicate rows on tag-filtered search results",
-    "body": "When filtering the search results page by tag, the same row shows up two or three times. No details yet on which tags or how consistently it reproduces.",
+    "title": "Duplicate rows when filtering search by tag",
+    "body": "Search results page shows duplicate entries when filtering by tag — the same row appears two or three times.",
     "usage": {
       "inputTokens": 31,
-      "outputTokens": 70,
+      "outputTokens": 57,
       "cacheCreationInputTokens": 5716,
       "cacheReadInputTokens": 0
     }

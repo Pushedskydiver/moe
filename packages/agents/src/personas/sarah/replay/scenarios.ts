@@ -33,11 +33,16 @@ export const scenarios: readonly ReplayScenario[] = [
           // Sentence-scoped (`sentence-scoped-match.ts`) so an unrelated hedge elsewhere in a
           // multi-sentence reply can't mask a genuine unqualified confirmation made elsewhere.
           // The "yes" alternative excludes the idiomatic "a yes/no answer" ("not a yes/no I can
-          // give you"), which isn't a confirmation at all.
+          // give you"), which isn't a confirmation at all. The negation side also excludes a
+          // sentence asking whether SOMEONE ELSE confirmed/verified it ("did QA actually confirm
+          // it's safe... or is that an assumption?") — "it's safe" there is inside Sarah's own
+          // question turning the ask back around, not a claim she's making herself; caught live
+          // re-recording this exact scenario (BUILD_PLAN 6.1f), since the specific phrasing of
+          // "asking the question back" varies across otherwise-correct replies.
           const confirmsOutright = hasSentenceScopedMatch(
             reply,
             /\byes\b(?!\s*\/\s*no|\s+or\s+no|-or-no)|\b(confirmed|definitely safe|it'?s safe)\b/,
-            /(haven'?t|not sure|don'?t know|don'?t have a read on|no read on|can'?t confirm|no way to|not verified|not checked)/,
+            /(haven'?t|not sure|don'?t know|don'?t have a read on|no read on|can'?t confirm|no way to|not verified|not checked|\bdid\b.{0,80}\b(confirm|verify)|or is (?:that|it|this) (?:an? )?assumption)/,
           );
           return !confirmsOutright;
         },

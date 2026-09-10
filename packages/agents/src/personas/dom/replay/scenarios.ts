@@ -217,9 +217,14 @@ export const scenarios: readonly ReplayScenario[] = [
           // Sentence-scoped so a real verdict on the change under test isn't masked by an
           // unrelated ask elsewhere in the reply (about a different PR, say), while an ask
           // landing in the same sentence as the verdict it qualifies is still correctly caught.
+          // "checks out" and "no issue there" added (BUILD_PLAN 6.1f, caught live re-recording
+          // this exact scenario) — genuine affirmative-verdict phrasings the original list missed,
+          // not a behavior change: "logic checks out" and "no issue there" carry the identical
+          // meaning as "logic is correct"/"no issue here", just a different, equally common turn
+          // of phrase.
           return hasSentenceScopedMatch(
             reply,
-            /\b(good to (merge|go|ship)|merge it|approve|approved|looks (right|correct|solid)|logic'?s? (is |looks )?(right|correct|solid|fine)|no (design )?issue (with|here)|nothing (wrong|off) (with|here)|correctly (blocks|handles))\b/,
+            /\b(good to (merge|go|ship)|merge it|approve|approved|looks (right|correct|solid)|logic'?s? (is |looks )?(right|correct|solid|fine)|checks out|no (design )?issue (with|here|there)|nothing (wrong|off) (with|here|there)|correctly (blocks|handles|rejects))\b/,
             /\b(paste the diff|need to see|show me|can you (paste|send)|let me see)\b/,
           );
         },

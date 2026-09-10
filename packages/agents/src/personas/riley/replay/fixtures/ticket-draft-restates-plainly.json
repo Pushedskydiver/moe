@@ -5,16 +5,16 @@
   "promptContentHash": "0d2665824767b91e2c85225930a9ccfa6223fd3995454b28a9b1d79c606aeb99",
   "scenarioInputHash": "49612b9168eed4afee6b428bd540130d153e0db3ac125e705e6b2b0761342be2",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T06:05:22.600Z",
+  "recordedAt": "2026-09-10T20:31:38.995Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 69,
+  "outputTokensRaw": 50,
   "result": {
     "ok": true,
     "title": "CSV export cuts off after 1000 rows",
-    "body": "CSV export stops after 1000 rows instead of exporting all rows. Reported directly, not yet scoped — cause not stated.",
+    "body": "CSV export stops after 1000 rows instead of exporting all rows.",
     "usage": {
       "inputTokens": 28,
-      "outputTokens": 69,
+      "outputTokens": 50,
       "cacheCreationInputTokens": 4693,
       "cacheReadInputTokens": 0
     }
