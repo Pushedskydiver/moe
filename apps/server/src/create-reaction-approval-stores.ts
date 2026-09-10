@@ -15,8 +15,9 @@ import {
 // composition code extracts aggressively (`docs/CONVENTIONS.md` §Code Style). Every export here is
 // consumed only by `start-slack-listener.ts`'s own `createStores`/`buildReactionHandler`.
 
-// BUILD_PLAN 6.1d — mirrors `createDraftStore`/`createConfirmingQuestionStore`'s own one-method
-// shape (`start-slack-listener.ts`).
+// BUILD_PLAN 6.1d — a one-method store, same shape `createDraftStore`/`createConfirmingQuestionStore`
+// (`start-slack-listener.ts`) already use for their own `getByMessage` method specifically, just
+// without their other CRUD methods those two stores also need.
 export function createBriefStore(db: Kysely<Database>) {
   return {
     getByMessage: (scope: Parameters<typeof getTicketBriefByMessage>[1]) =>

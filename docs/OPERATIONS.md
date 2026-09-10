@@ -227,11 +227,15 @@ for that exact line before assuming a stuck reconnect loop is a real problem.
 own deployed Fly Machine for Socket Mode event delivery, if both are running at once.** Found
 during BUILD_PLAN 6.1e's own manual live-fleet check (2026-09-10): every persona's local
 `.env.local` credentials are that persona's _real_, live Slack app tokens (`docs/DEVELOPMENT.md`
-§Session handoff's own precedent — there's no separate sandboxed test app per persona). Slack
-Socket Mode splits event delivery across every currently-open WebSocket connection for the same
-app-level token, not just the newest one — so a locally-running server and that persona's already-
-deployed Fly Machine (which is always-on, per `docs/decisions/TOPOLOGY-AND-DATABASE.md`) are two
-such connections at once, and Slack has no way to know which one a manual local check cares about.
+§Session handoff's own precedent — there's no separate sandboxed test app per persona). Per
+Slack's own Socket Mode docs (`docs.slack.dev/apis/events-api/using-socket-mode`: "When multiple
+connections are active, each payload may be sent to _any_ of the connections"), event delivery
+splits across every currently-open WebSocket connection for the same app-level token, not just the
+newest one — so a locally-running server and that persona's already-deployed Fly Machine (which is
+always-on: these `fly.<persona>.toml` configs declare no `[services]` block, so Fly's
+traffic-based autostop/autostart never applies — `CLAUDE.md`'s own `--ha=false` explanation) are
+two such connections at once, and Slack has no way to know which one a manual local check cares
+about.
 A `reaction_added`/`message` event that happens to route to the _deployed_ Machine instead of the
 local process looks up its own real production database, finds nothing for a locally-seeded test
 ticket, and silently no-ops — indistinguishable, from the local process's own logs, from the event

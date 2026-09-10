@@ -1154,6 +1154,39 @@ describe('handleReactionAdded — three-way thumbsup chain (BUILD_PLAN 6.1e)', (
     expect(deps.approveBriefAndTransitionToPlan).not.toHaveBeenCalled();
     expect(deps.approvePlanAndTransitionToBuild).not.toHaveBeenCalled();
   });
+
+  // BUILD_PLAN 6.1e's own live-fleet check found that a real 👍 click in the Slack UI reports
+  // `reactionName: '+1'`, not `'thumbsup'` — every other test in this describe block (and this
+  // whole file) uses `'thumbsup'` literally, which only ever exercised the code path a real click
+  // never actually takes. This test exercises the real value end to end through the full
+  // three-way dispatch chain, not just `classifyConfirmingQuestionOutcome`'s own isolated unit
+  // tests (`classify-confirming-question-outcome.test.ts`).
+  it("a real '+1' reaction (Slack's actual short-name for 👍, not the 'thumbsup' alias) flows through the full chain to Plan-approval identically to 'thumbsup'", async () => {
+    const deps = makeDeps({
+      confirmingQuestionStore: makeConfirmingQuestionStore({
+        getByMessage: vi
+          .fn<ConfirmingQuestionStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, question: null }),
+      }),
+      briefStore: makeBriefStore({
+        getByMessage: vi
+          .fn<BriefStore['getByMessage']>()
+          .mockResolvedValue({ ok: true, brief: null }),
+      }),
+      // planStore keeps its default — a real, matching plan (makePlan()).
+    });
+
+    await handleReactionAdded(
+      deps,
+      makeReaction({ reactionName: '+1', userId: ALEX_SLACK_USER_ID }),
+    );
+
+    expect(deps.approvePlanAndTransitionToBuild).toHaveBeenCalledWith({
+      ticketId: makePlan().ticketId,
+      projectKey: 'chief-clancy',
+      claimedBy: 'sarah',
+    });
+  });
 });
 
 describe('createReactionHandler', () => {

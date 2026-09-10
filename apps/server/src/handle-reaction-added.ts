@@ -339,9 +339,16 @@ async function dispatchPlanApproval(
  * `reaction_added` listener (`createSocketModeListener`'s `onReactionAdded` opt, `@moe/slack`)
  * wired to `createReactionHandler` below. As of BUILD_PLAN 3.4b-ii, a reaction is classified
  * against *both* legends — the pre-existing 📦/🔁/✅ (High-band draft outcomes) and the new 👍/👎
- * (Mid-band confirming-question answers) — deliberately disjoint short-names (verified at 3.4b-i
- * against Slack's own event docs) so no message-type lookup collision needs resolving here; a
- * reaction outside both is ignored without any repository lookup at all.
+ * (Mid-band confirming-question answers) — deliberately disjoint short-names so no message-type
+ * lookup collision needs resolving here. **Corrected 2026-09-10 (BUILD_PLAN 6.1e's own live-fleet
+ * check):** the disjointness still holds (`white_check_mark`/`repeat`/`package` vs. `+1`/`-1`/
+ * `thumbsup`/`thumbsdown`), but it's no longer backed by the original "verified at 3.4b-i against
+ * Slack's own event docs" claim — that verification method turned out to produce a wrong answer
+ * for 👍/👎 specifically (`classify-confirming-question-outcome.ts`'s own comment has the full
+ * story). The High-band 📦/🔁/✅ trio was independently re-verified live this same session (a real
+ * `reactions.add` call for each of the three echoed back unchanged on readback, unlike `thumbsup`)
+ * and holds up; see that. A reaction outside both legends is ignored without any repository
+ * lookup at all.
  *
  * BUILD_PLAN 6.1d adds a third fallthrough: `thumbsup` is now *also* claimed by Brief approval
  * (VISION §6.3), reusing the emoji rather than adding a new one (`docs/GLOSSARY.md`'s "Confirming

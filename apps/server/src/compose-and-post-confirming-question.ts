@@ -34,9 +34,13 @@ const FIXED_TRAILER = 'React 👍 to draft it, or 👎 if not.';
 // from the High-band 📦/🔁/✅ legend so a later reaction-outcome dispatch (BUILD_PLAN 3.4b-ii) can
 // tell the two apart by reaction name alone, no message-type lookup collision to resolve.
 // `reactions.add` accepts either alias for this emoji (`thumbsup`/`+1`) and seeds the same real
-// icon either way, so the literal name used here for *seeding* the legend doesn't need to match
-// what a real click later reports — see `classify-confirming-question-outcome.ts`'s own comment
-// for BUILD_PLAN 6.1e's correction of an earlier, wrong claim about which alias that *is*.
+// icon either way — live-verified during BUILD_PLAN 6.1e's own live-fleet check, not just assumed:
+// a `reactions.add(name: "thumbsup")` call, read back via `conversations.history`, showed a single
+// reaction bucket named `"+1"` with `count: 1` — Slack recognizes both names as the same
+// underlying reaction, not two coexisting ones — so the literal name used here for *seeding* the
+// legend doesn't need to match what a real click later reports. See
+// `classify-confirming-question-outcome.ts`'s own comment for BUILD_PLAN 6.1e's correction of an
+// earlier, wrong claim about which alias a real click *reports*.
 const ANSWER_REACTION_LEGEND = ['👍', '👎'] as const;
 const REACTION_NAME_BY_LEGEND_EMOJI: Readonly<
   Record<(typeof ANSWER_REACTION_LEGEND)[number], string>
