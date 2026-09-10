@@ -310,10 +310,10 @@ export const scenarios: readonly ReplayScenario[] = [
     id: 'plain-acknowledgment-react-grounding',
     callSite: 'dmReply',
     description:
-      'BUILD_PLAN 6.1g — the new `react`-tool grounding bullet: a plain closing acknowledgment ' +
-      'with nothing left to add is react-or-brief-reply territory, not a substantive reply. ' +
-      'Phrased as retrospective thanks, not a fresh completion claim his own "you do not approve ' +
-      'something you have not seen as real text" trait would rightly question.',
+      'BUILD_PLAN 6.1g react-grounding bullet: a plain closing ack, react-or-brief-reply ' +
+      'territory. Phrased as retrospective thanks, not a completion claim his own "you don\'t ' +
+      'approve, or comment on, something you haven\'t actually seen as real text" trait would ' +
+      'rightly question.',
     input: {
       text: 'thanks for the thorough review earlier, made the fix easy to get right.',
     },
