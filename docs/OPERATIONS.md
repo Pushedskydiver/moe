@@ -223,6 +223,27 @@ server, not the Socket Mode connection. Only worth investigating if `"slack sock
 never appears at all for a given app within a minute or so of boot — check `fly logs -a moe-<persona>`
 for that exact line before assuming a stuck reconnect loop is a real problem.
 
+**A local dev server using a persona's real production credentials competes with that persona's
+own deployed Fly Machine for Socket Mode event delivery, if both are running at once.** Found
+during BUILD_PLAN 6.1e's own manual live-fleet check (2026-09-10): every persona's local
+`.env.local` credentials are that persona's _real_, live Slack app tokens (`docs/DEVELOPMENT.md`
+§Session handoff's own precedent — there's no separate sandboxed test app per persona). Slack
+Socket Mode splits event delivery across every currently-open WebSocket connection for the same
+app-level token, not just the newest one — so a locally-running server and that persona's already-
+deployed Fly Machine (which is always-on, per `docs/decisions/TOPOLOGY-AND-DATABASE.md`) are two
+such connections at once, and Slack has no way to know which one a manual local check cares about.
+A `reaction_added`/`message` event that happens to route to the _deployed_ Machine instead of the
+local process looks up its own real production database, finds nothing for a locally-seeded test
+ticket, and silently no-ops — indistinguishable, from the local process's own logs, from the event
+never having arrived at all. **Before a live-fleet check that depends on real-time event delivery
+(a reaction listener, in particular — an ambient/DM message check is lower-risk since a reply is
+usually expected from whichever process handles it), stop that persona's deployed Fly Machine first**
+(`fly machine stop <id> -a moe-<persona>`), confirm `stopped` via `fly status`, run the check, then
+restart it (`fly machine start <id> -a moe-<persona>`) — same machine id, no redeploy needed. A raw,
+minimal Socket Mode listener that logs every event's own `slack_event`/named-type payload (bypassing
+the real app's own dispatch code entirely) is the fastest way to confirm whether an event is actually
+reaching the local process at all, before assuming a code-level bug.
+
 ---
 
 ## Path 1 (primary): Neon point-in-time restore

@@ -32,11 +32,11 @@ const FIXED_TRAILER = 'React 👍 to draft it, or 👎 if not.';
 
 // VISION §5.2's Mid-band reaction legend — 👍 (yes, draft it) / 👎 (no) — deliberately distinct
 // from the High-band 📦/🔁/✅ legend so a later reaction-outcome dispatch (BUILD_PLAN 3.4b-ii) can
-// tell the two apart by reaction name alone, no message-type lookup collision to resolve. Slack's
-// own `reaction_added` event sends the descriptive alias, not GitHub-style `+1`/`-1` shorthand —
-// confirmed against Slack's own published event reference (its own example payload literally
-// shows `"reaction": "thumbsup"`), not guessed from `iamcal/emoji-data`'s primary/alias field
-// split, which would have given the wrong answer here.
+// tell the two apart by reaction name alone, no message-type lookup collision to resolve.
+// `reactions.add` accepts either alias for this emoji (`thumbsup`/`+1`) and seeds the same real
+// icon either way, so the literal name used here for *seeding* the legend doesn't need to match
+// what a real click later reports — see `classify-confirming-question-outcome.ts`'s own comment
+// for BUILD_PLAN 6.1e's correction of an earlier, wrong claim about which alias that *is*.
 const ANSWER_REACTION_LEGEND = ['👍', '👎'] as const;
 const REACTION_NAME_BY_LEGEND_EMOJI: Readonly<
   Record<(typeof ANSWER_REACTION_LEGEND)[number], string>
