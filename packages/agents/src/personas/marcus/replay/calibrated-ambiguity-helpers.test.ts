@@ -25,13 +25,14 @@ describe('opensWithIncompleteness', () => {
     ).toBe(false);
   });
 
-  it('does not flag an unrelated incompleteness-shaped aside later in an otherwise-complete plan (R6)', () => {
-    expect(
-      opensWithIncompleteness(
-        "I'll use retryWithBackoff for this. One thing I haven't confirmed yet is whether " +
-          'the dead-letter path needs updating too, but that does not block starting.',
-      ),
-    ).toBe(false);
+  it('does not flag "still waiting"/"pending confirmation" mentioned as a trailing caveat, not the lede (R6)', () => {
+    // A whole-body scan would wrongly match "still waiting" here — the opening-sentence scope
+    // this function actually uses correctly does not, since the plan commits to an approach
+    // before that caveat appears.
+    const reply =
+      "i'll use retrywithbackoff for this. we're still waiting on one config value from ops, " +
+      'but that does not block starting.';
+    expect(opensWithIncompleteness(reply)).toBe(false);
   });
 
   it('scans a bounded window rather than the whole reply when no sentence boundary exists (R7)', () => {
@@ -51,9 +52,14 @@ describe('isGenuineReadyClaim', () => {
     );
   });
 
-  it('returns false for an unnegated "blocked" claim naming a real block (R4/R5)', () => {
+  it('returns false when an otherwise-ready claim also names an unnegated "blocked" item (R4/R5)', () => {
+    // Must contain unnegated "ready" too, or the function short-circuits on the `ready` check
+    // before ever reaching the `unnegatedBlocked` guard this test exists to exercise.
     expect(
-      isGenuineReadyClaim('blocked on riley confirming the endpoint'),
+      isGenuineReadyClaim(
+        'ready to hand off — flagging that a related ticket is blocked on ops, does not affect ' +
+          'this one',
+      ),
     ).toBe(false);
   });
 
