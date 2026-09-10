@@ -7,7 +7,6 @@ import { createAnthropicClient } from '@moe/agents';
 import {
   appendTurn,
   claimAlertThreshold,
-  claimTicket,
   createBankHolidaysCache,
   createPendingConfirmingQuestion,
   createPendingTicketDraft,
@@ -19,16 +18,13 @@ import {
   getPendingTicketDraftByMessage,
   getPersonaCostForMonth,
   getRecentTurns,
-  getTicketBriefByMessage,
   markPendingConfirmingQuestionPosted,
   markPendingTicketDraftPosted,
   recordUsage,
   releasePendingConfirmingQuestionClaim,
   releasePendingTicketDraftClaim,
-  releaseTicket,
   resolveConfirmingQuestionAndLog,
   resolvePendingConfirmingQuestion,
-  transitionTicketStatus,
   updatePendingTicketDraftContent,
 } from '@moe/core';
 import {
@@ -41,6 +37,13 @@ import {
 } from '@moe/slack';
 
 import { approveBriefAndTransitionToPlan } from './approve-brief-via-reaction.js';
+import { approvePlanAndTransitionToBuild } from './approve-plan-via-reaction.js';
+import {
+  createBriefApprovalPrimitives,
+  createBriefStore,
+  createPlanApprovalPrimitives,
+  createPlanStore,
+} from './create-reaction-approval-stores.js';
 import { createInboundMessageHandler } from './handle-inbound-message.js';
 import { createReactionHandler } from './handle-reaction-added.js';
 import { createSenderTriggerCache } from './sender-trigger-cache.js';
@@ -87,41 +90,6 @@ function createDraftStore(db: Kysely<Database>) {
     ) => markPendingTicketDraftPosted(db, id, messageTs),
     releaseClaim: (id: Parameters<typeof releasePendingTicketDraftClaim>[1]) =>
       releasePendingTicketDraftClaim(db, id),
-  };
-}
-
-// BUILD_PLAN 6.1d — mirrors `createDraftStore`/`createConfirmingQuestionStore`'s own one-method
-// shape above.
-function createBriefStore(db: Kysely<Database>) {
-  return {
-    getByMessage: (scope: Parameters<typeof getTicketBriefByMessage>[1]) =>
-      getTicketBriefByMessage(db, scope),
-  };
-}
-
-// BUILD_PLAN 6.1d's own reaction-outcome-only primitives, extracted purely to keep `createStores`
-// under eslint's `max-lines-per-function` — bound here (not `HandlerDeps`) since
-// `approveBriefAndTransitionToPlan` (wired in `wireAndStartListener` below) is
-// `createReactionHandler`'s only caller. Kept as three separate closures, not one composed
-// function, so `approveBriefAndTransitionToPlan`'s own `ApproveBriefDeps` stays generic
-// (claim/transition/release, no Brief/Plan-specific knowledge) — the `fromStatus: 'Brief'`/
-// `toStatus: 'Plan'` specificity lives entirely here, in the composition root.
-function createBriefApprovalPrimitives(db: Kysely<Database>) {
-  return {
-    claimTicketForApproval: (id: string, claimedBy: string) =>
-      claimTicket(db, id, claimedBy),
-    transitionBriefToPlan: (input: {
-      readonly id: string;
-      readonly projectKey: string;
-      readonly claimedBy: string;
-    }) =>
-      transitionTicketStatus(db, {
-        ...input,
-        fromStatus: 'Brief',
-        toStatus: 'Plan',
-      }),
-    releaseTicketAfterApproval: (id: string, claimedBy: string) =>
-      releaseTicket(db, id, claimedBy),
   };
 }
 
@@ -180,6 +148,7 @@ function createStores(db: Kysely<Database>) {
     },
     confirmingQuestionStore: createConfirmingQuestionStore(db),
     briefStore: createBriefStore(db),
+    planStore: createPlanStore(db),
     // The claim-then-act fallback fix's own composed primitives — each atomically claims a row
     // and performs its downstream write in one transaction, closing the failure-recovery gap
     // `draftStore.resolve`+`ticketStore.create`/`confirmingQuestionStore.resolve`+
@@ -194,6 +163,7 @@ function createStores(db: Kysely<Database>) {
       input: Parameters<typeof resolveConfirmingQuestionAndLog>[1],
     ) => resolveConfirmingQuestionAndLog(db, input),
     ...createBriefApprovalPrimitives(db),
+    ...createPlanApprovalPrimitives(db),
   };
 }
 
@@ -219,7 +189,9 @@ type ListenerContext = {
 // Extracted from `wireAndStartListener` purely to stay under eslint's `max-lines-per-function` —
 // binds `createReactionHandler`'s deps, including BUILD_PLAN 6.1d's own
 // `approveBriefAndTransitionToPlan` closure (composing the three `createBriefApprovalPrimitives`
-// closures above with `ctx.logger`, per `ApproveBriefDeps`'s own shape).
+// closures above with `ctx.logger`, per `ApproveBriefDeps`'s own shape) and BUILD_PLAN 6.1e's own
+// sibling `approvePlanAndTransitionToBuild` closure, composed the identical way from
+// `createPlanApprovalPrimitives` instead.
 function buildReactionHandler(
   ctx: ListenerContext,
 ): ReturnType<typeof createReactionHandler> {
@@ -246,6 +218,19 @@ function buildReactionHandler(
           claimTicket: ctx.claimTicketForApproval,
           transitionTicket: ctx.transitionBriefToPlan,
           releaseTicket: ctx.releaseTicketAfterApproval,
+          logger: ctx.logger,
+        },
+        input,
+      ),
+    planStore: ctx.planStore,
+    approvePlanAndTransitionToBuild: (
+      input: Parameters<typeof approvePlanAndTransitionToBuild>[1],
+    ) =>
+      approvePlanAndTransitionToBuild(
+        {
+          claimTicket: ctx.claimTicketForPlanApproval,
+          transitionTicket: ctx.transitionPlanToBuild,
+          releaseTicket: ctx.releaseTicketAfterPlanApproval,
           logger: ctx.logger,
         },
         input,

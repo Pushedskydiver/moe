@@ -201,7 +201,7 @@ Alex can DM any persona, and personas can DM each other, as genuinely separate, 
 
 ### 6.3 Emoji reactions as language
 
-👀 / 👍 / ✅ / 🛑 acknowledge without a new message. Alex's own reactions carry meaning too (👍 on a brief = approval, 🛑 on a PR = hold).
+👀 / 👍 / ✅ / 🛑 acknowledge without a new message. Alex's own reactions carry meaning too (👍 on a brief or plan = approval, 🛑 on a PR = hold).
 
 ### 6.4 Operating rhythm
 

@@ -60,6 +60,7 @@ describe('runMigrations', () => {
         '0026_widen_ticket_briefs_with_content.sql',
         '0027_create_ticket_plans.sql',
         '0028_add_ticket_briefs_message_unique.sql',
+        '0029_add_ticket_plans_message_unique.sql',
       ],
     });
 
@@ -95,6 +96,7 @@ describe('runMigrations', () => {
       { id: '0026_widen_ticket_briefs_with_content.sql' },
       { id: '0027_create_ticket_plans.sql' },
       { id: '0028_add_ticket_briefs_message_unique.sql' },
+      { id: '0029_add_ticket_plans_message_unique.sql' },
     ]);
   });
 

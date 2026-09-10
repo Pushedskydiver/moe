@@ -11,7 +11,11 @@ import { createDb } from '../ticket-lifecycle/db.js';
 import { runMigrations } from '../ticket-lifecycle/migrate.js';
 import { getTestPool, resetDatabase } from '../ticket-lifecycle/test-db.js';
 import { createTicket } from '../ticket-lifecycle/tickets-repository.js';
-import { createTicketPlan, getTicketPlan } from './ticket-plans-repository.js';
+import {
+  createTicketPlan,
+  getTicketPlan,
+  getTicketPlanByMessage,
+} from './ticket-plans-repository.js';
 
 const migrationsDir = join(
   dirname(fileURLToPath(import.meta.url)),
@@ -97,5 +101,82 @@ describe('ticket plans repository', () => {
 
     const { rows } = await pool.query('SELECT * FROM ticket_plans');
     expect(rows).toHaveLength(1);
+  });
+});
+
+describe('getTicketPlanByMessage', () => {
+  let pool: Pool;
+  let db: Kysely<Database>;
+
+  beforeEach(async () => {
+    pool = getTestPool();
+    await runMigrations(pool, migrationsDir);
+    db = createDb(pool);
+  });
+
+  afterEach(async () => {
+    await db.destroy();
+    const cleanupPool = getTestPool();
+    await resetDatabase(cleanupPool);
+    await cleanupPool.end();
+  });
+
+  it('returns ok:true with plan:null when no plan exists for that (channelId, messageTs)', async () => {
+    const result = await getTicketPlanByMessage(db, {
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000100',
+    });
+
+    expect(result).toEqual({ ok: true, plan: null });
+  });
+
+  it('finds the plan posted at the given (channelId, messageTs)', async () => {
+    const ticket = await seedTicket(db);
+    const created = await createTicketPlan(db, {
+      ticketId: ticket.id,
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000100',
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+
+    const found = await getTicketPlanByMessage(db, {
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000100',
+    });
+
+    expect(found).toEqual({ ok: true, plan: created.plan });
+  });
+
+  it('does not return a second, unrelated ticket plan posted at a different (channelId, messageTs)', async () => {
+    const ticketOne = await seedTicket(db);
+    const secondTicket = await createTicket(db, {
+      projectKey: 'chief-clancy',
+      title: 'A second, unrelated ticket',
+      status: 'Plan',
+      severity: 'Medium',
+      classOfService: 'Standard',
+    });
+    if (!secondTicket.ok) throw new Error('failed to seed second ticket');
+
+    await createTicketPlan(db, {
+      ticketId: ticketOne.id,
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000100',
+    });
+    await createTicketPlan(db, {
+      ticketId: secondTicket.ticket.id,
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000200',
+    });
+
+    const found = await getTicketPlanByMessage(db, {
+      channelId: 'C0B88H0JUA3',
+      messageTs: '1700000000.000200',
+    });
+
+    expect(found.ok).toBe(true);
+    if (!found.ok) return;
+    expect(found.plan?.ticketId).toBe(secondTicket.ticket.id);
   });
 });

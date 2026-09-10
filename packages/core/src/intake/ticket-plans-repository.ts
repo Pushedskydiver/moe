@@ -88,3 +88,28 @@ export async function getTicketPlan(
     return { ok: false, error: { kind: 'unknown', cause } };
   }
 }
+
+/**
+ * Reverse lookup by the Slack message a plan was posted as — BUILD_PLAN 6.1e's own reason for
+ * migration `0029`'s `UNIQUE (channel_id, message_ts)` constraint. `dispatchPlanApproval`
+ * (`apps/server`) uses this to find the ticket a 👍 reaction on a Plan message belongs to, mirroring
+ * `getTicketPlan`'s exact shape with a different WHERE clause.
+ */
+export async function getTicketPlanByMessage(
+  db: Kysely<Database>,
+  scope: { readonly channelId: string; readonly messageTs: string },
+): Promise<TicketPlanOrNullResult> {
+  try {
+    const row = await db
+      .selectFrom('ticketPlans')
+      .selectAll()
+      .where('channelId', '=', scope.channelId)
+      .where('messageTs', '=', scope.messageTs)
+      .executeTakeFirst();
+    if (!row) return { ok: true, plan: null };
+    const parsed = parsePlanRow(row);
+    return parsed.ok ? { ok: true, plan: parsed.plan } : parsed;
+  } catch (cause) {
+    return { ok: false, error: { kind: 'unknown', cause } };
+  }
+}
