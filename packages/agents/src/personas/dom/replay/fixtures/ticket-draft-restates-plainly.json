@@ -5,13 +5,13 @@
   "promptContentHash": "eb4c45bac3bab598955b013528ccbec73f0487be9d75ee47c2597d875aaa4c1b",
   "scenarioInputHash": "52211c60f96104f80d923a879ce5035e5c15b4d36e256f3c563b65ac021622f0",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T06:07:24.867Z",
+  "recordedAt": "2026-09-10T20:33:32.689Z",
   "stopReason": "end_turn",
   "outputTokensRaw": 78,
   "result": {
     "ok": true,
-    "title": "Approve button sometimes does nothing on review page",
-    "body": "Clicking the approve button on the review page sometimes has no effect — no error is shown, it just doesn't respond. Refreshing the page and trying again works around it.",
+    "title": "Approve button on review page sometimes does nothing",
+    "body": "Clicking the approve button on the review page sometimes has no effect — no error is shown, the click just doesn't register. Refreshing the page and trying again works around it.",
     "usage": {
       "inputTokens": 43,
       "outputTokens": 78,

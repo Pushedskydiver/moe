@@ -29,7 +29,12 @@ export {
 export { fetchPersonaPromptContent } from './fetch-persona-prompt-content.js';
 export type { GatedReplyEvidence } from './compose-gated-reply.js';
 export { composeGatedReply } from './compose-gated-reply.js';
-export { STATUS_CLAIM_TOOL } from './status-claim-tool.js';
+export {
+  STATUS_CLAIM_TOOL,
+  STATUS_CLAIM_TOOL_NAME,
+} from './status-claim-tool.js';
+export type { ReactReaction } from './react-tool.js';
+export { parseReactInput, REACT_TOOL, REACT_TOOL_NAME } from './react-tool.js';
 export { haikuCostUsdMicros, sonnetCostUsdMicros } from './model-pricing.js';
 export type {
   CostCapConfig,

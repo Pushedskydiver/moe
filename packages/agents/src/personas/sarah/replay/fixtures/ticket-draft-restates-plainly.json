@@ -5,16 +5,16 @@
   "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
   "scenarioInputHash": "e94943549b04d601da87bebec50e2000c9b54a905022387d9af5a2d982eaaea5",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-08-15T08:12:36.792Z",
+  "recordedAt": "2026-09-10T20:28:27.306Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 51,
+  "outputTokensRaw": 64,
   "result": {
     "ok": true,
-    "title": "Export button 500s on empty date range",
-    "body": "On the reports page, clicking /export throws a 500 error when the date range field is left empty.",
+    "title": "Export button throws 500 with empty date range",
+    "body": "The /export button on the reports page throws a 500 error when the date range is empty.",
     "usage": {
       "inputTokens": 27,
-      "outputTokens": 51,
+      "outputTokens": 64,
       "cacheCreationInputTokens": 3224,
       "cacheReadInputTokens": 0
     }

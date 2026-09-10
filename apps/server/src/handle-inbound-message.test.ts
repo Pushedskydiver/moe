@@ -1168,6 +1168,36 @@ describe('createInboundMessageHandler', () => {
     });
   });
 
+  it('persists only the user turn, not an assistant turn, when the model reacts instead of replying', async () => {
+    const deps = makeDeps({
+      anthropicClient: makeAnthropicClient({
+        content: [
+          {
+            type: 'tool_use',
+            id: 'toolu_01',
+            name: 'react',
+            input: { reaction: 'eyes' },
+          },
+        ],
+        usage: { input_tokens: 12, output_tokens: 34 },
+      }),
+    });
+    const handler = createInboundMessageHandler(deps);
+
+    await handler(DM_MESSAGE);
+
+    expect(deps.historyStore.appendTurn).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      channelId: 'D123',
+      threadKey: 'dm',
+      role: 'user',
+      content: DM_MESSAGE.text,
+    });
+    expect(deps.historyStore.appendTurn).not.toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'assistant' }),
+    );
+  });
+
   it('persists the user turn but not an assistant turn when the LLM call fails', async () => {
     const deps = makeDeps({
       anthropicClient: makeAnthropicClient(() => {

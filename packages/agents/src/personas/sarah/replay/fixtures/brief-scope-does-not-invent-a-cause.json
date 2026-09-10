@@ -5,21 +5,21 @@
   "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
   "scenarioInputHash": "e94943549b04d601da87bebec50e2000c9b54a905022387d9af5a2d982eaaea5",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-01T22:52:05.697Z",
+  "recordedAt": "2026-09-10T20:28:32.644Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 249,
+  "outputTokensRaw": 278,
   "result": {
     "ok": true,
-    "summary": "The export button on the reports page returns a 500 error when no date range is set — needs to handle that input case instead of erroring.",
+    "summary": "The export button on the reports page returns a 500 error when no date range is set, instead of handling the empty input gracefully.",
     "scope": [
-      "Reproduce the 500 with an empty date range on the reports export endpoint",
-      "Add validation/handling for missing or empty date range input",
-      "Return a proper response (error message or sensible default) instead of a server error",
-      "Add test coverage for the empty date range case"
+      "Reproduce the 500 error with an empty date range on the reports export endpoint",
+      "Determine why the empty date range isn't handled before hitting the server",
+      "Add proper validation or a default/fallback for missing date range input",
+      "Verify the export works correctly once a date range is provided or defaulted"
     ],
     "usage": {
       "inputTokens": 27,
-      "outputTokens": 249,
+      "outputTokens": 278,
       "cacheCreationInputTokens": 3336,
       "cacheReadInputTokens": 0
     }
