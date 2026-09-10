@@ -138,7 +138,11 @@ describe('generateAndPost', () => {
 
     const result = await generateAndPost(deps, DM_MESSAGE, []);
 
-    expect(result).toEqual({ ok: true, text: 'Sure, tell me more.' });
+    expect(result).toEqual({
+      ok: true,
+      outcome: 'replied',
+      text: 'Sure, tell me more.',
+    });
     expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'D123', text: 'Sure, tell me more.' }),
     );
@@ -180,7 +184,7 @@ describe('generateAndPost', () => {
 
     // `ok: true` — `HALT_TEXT` genuinely reached Slack, so history should match the real
     // transcript rather than silently diverging from it for the rest of the month.
-    expect(result).toEqual({ ok: true, text: HALT_TEXT });
+    expect(result).toEqual({ ok: true, outcome: 'replied', text: HALT_TEXT });
     expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
       expect.objectContaining({ channel: 'D123', text: HALT_TEXT }),
     );
@@ -195,7 +199,11 @@ describe('generateAndPost', () => {
 
     // `ok` reflects whether there is real reply content to persist, independent of Slack
     // delivery success — the distinction this function's own TSDoc draws.
-    expect(result).toEqual({ ok: true, text: 'Sure, tell me more.' });
+    expect(result).toEqual({
+      ok: true,
+      outcome: 'replied',
+      text: 'Sure, tell me more.',
+    });
     expect(deps.logger.error).toHaveBeenCalledWith('failed to post reply', {
       errorMessage: expect.any(String) as string,
     });
@@ -227,6 +235,201 @@ describe('generateAndPost', () => {
     expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
       expect.objectContaining({ model: resolvePersonaModel(deps.personaId) }),
     );
+  });
+
+  // Regression check, not a new behavior (BUILD_PLAN 6.1f, R2 new #5): a useful drift-catcher, but
+  // not a durable guardrail on its own — exactly as editable as the future change it would flag.
+  // The rationale comment at the real `tools: [STATUS_CLAIM_TOOL]` call site above is the durable
+  // signal a future engineer actually sees; this test is a backstop alongside it, not instead.
+  it('still passes only STATUS_CLAIM_TOOL to the real generateReply call — REACT_TOOL is not live yet', async () => {
+    const deps = makeDeps();
+
+    await generateAndPost(deps, DM_MESSAGE, []);
+
+    const callArg = deps.anthropicClient.messages.create.mock.calls[0]?.[0] as {
+      tools: ReadonlyArray<{ readonly name: string }>;
+    };
+    expect(callArg.tools).toEqual([
+      expect.objectContaining({ name: 'report_status' }),
+    ]);
+  });
+
+  it('reacts with eyes instead of replying when the model calls the react tool', async () => {
+    const deps = makeDeps();
+    deps.anthropicClient.messages.create.mockResolvedValue({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_01',
+          name: 'react',
+          input: { reaction: 'eyes' },
+        },
+      ],
+      usage: { input_tokens: 12, output_tokens: 34 },
+    });
+
+    const result = await generateAndPost(deps, DM_MESSAGE, []);
+
+    expect(deps.slackClient.reactions.add).toHaveBeenCalledWith({
+      channel: DM_MESSAGE.channelId,
+      timestamp: DM_MESSAGE.ts,
+      name: 'eyes',
+    });
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, outcome: 'reacted' });
+  });
+
+  it('reacts with white_check_mark instead of replying when the model calls the react tool', async () => {
+    const deps = makeDeps();
+    deps.anthropicClient.messages.create.mockResolvedValue({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_01',
+          name: 'react',
+          input: { reaction: 'white_check_mark' },
+        },
+      ],
+      usage: { input_tokens: 12, output_tokens: 34 },
+    });
+
+    const result = await generateAndPost(deps, DM_MESSAGE, []);
+
+    expect(deps.slackClient.reactions.add).toHaveBeenCalledWith({
+      channel: DM_MESSAGE.channelId,
+      timestamp: DM_MESSAGE.ts,
+      name: 'white_check_mark',
+    });
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    expect(result).toEqual({ ok: true, outcome: 'reacted' });
+  });
+
+  it('falls through to the reply path when the react tool_use input is malformed', async () => {
+    const deps = makeDeps();
+    deps.anthropicClient.messages.create.mockResolvedValue({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_01',
+          name: 'react',
+          input: { reaction: 'not-a-real-reaction' },
+        },
+        { type: 'text', text: 'Sure, tell me more.' },
+      ],
+      usage: { input_tokens: 12, output_tokens: 34 },
+    });
+
+    const result = await generateAndPost(deps, DM_MESSAGE, []);
+
+    expect(deps.slackClient.reactions.add).not.toHaveBeenCalled();
+    expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ channel: 'D123', text: 'Sure, tell me more.' }),
+    );
+    expect(result).toEqual({
+      ok: true,
+      outcome: 'replied',
+      text: 'Sure, tell me more.',
+    });
+  });
+
+  it('lets react win over report_status when the model calls both in the same turn, logging the collision', async () => {
+    const deps = makeDeps();
+    deps.anthropicClient.messages.create.mockResolvedValue({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_01',
+          name: 'report_status',
+          input: { claim: 'done' },
+        },
+        {
+          type: 'tool_use',
+          id: 'toolu_02',
+          name: 'react',
+          input: { reaction: 'eyes' },
+        },
+      ],
+      usage: { input_tokens: 12, output_tokens: 34 },
+    });
+
+    const result = await generateAndPost(deps, DM_MESSAGE, []);
+
+    expect(deps.slackClient.reactions.add).toHaveBeenCalledWith({
+      channel: DM_MESSAGE.channelId,
+      timestamp: DM_MESSAGE.ts,
+      name: 'eyes',
+    });
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    expect(deps.logger.info).toHaveBeenCalledWith(
+      'model called both report_status and react in the same turn, react wins',
+      {
+        personaId: 'sarah',
+        channelId: DM_MESSAGE.channelId,
+        messageTs: DM_MESSAGE.ts,
+        reaction: 'eyes',
+      },
+    );
+    expect(result).toEqual({ ok: true, outcome: 'reacted' });
+  });
+
+  it('logs, without falling back to a text post, when the Slack reaction call itself fails', async () => {
+    const deps = makeDeps();
+    deps.anthropicClient.messages.create.mockResolvedValue({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_01',
+          name: 'react',
+          input: { reaction: 'eyes' },
+        },
+      ],
+      usage: { input_tokens: 12, output_tokens: 34 },
+    });
+    deps.slackClient.reactions.add.mockResolvedValue({
+      ok: false,
+      error: 'channel_not_found',
+    });
+
+    const result = await generateAndPost(deps, DM_MESSAGE, []);
+
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to post acknowledgement reaction',
+      { errorMessage: expect.any(String) as string },
+    );
+    expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+    // The LLM call itself succeeded — only the Slack side-effect failed, so this stays `ok: true`.
+    expect(result).toEqual({ ok: true, outcome: 'reacted' });
+  });
+
+  it('honors only the first react tool_use block when the model calls it more than once', async () => {
+    const deps = makeDeps();
+    deps.anthropicClient.messages.create.mockResolvedValue({
+      content: [
+        {
+          type: 'tool_use',
+          id: 'toolu_01',
+          name: 'react',
+          input: { reaction: 'eyes' },
+        },
+        {
+          type: 'tool_use',
+          id: 'toolu_02',
+          name: 'react',
+          input: { reaction: 'white_check_mark' },
+        },
+      ],
+      usage: { input_tokens: 12, output_tokens: 34 },
+    });
+
+    const result = await generateAndPost(deps, DM_MESSAGE, []);
+
+    expect(deps.slackClient.reactions.add).toHaveBeenCalledTimes(1);
+    expect(deps.slackClient.reactions.add).toHaveBeenCalledWith({
+      channel: DM_MESSAGE.channelId,
+      timestamp: DM_MESSAGE.ts,
+      name: 'eyes',
+    });
+    expect(result).toEqual({ ok: true, outcome: 'reacted' });
   });
 
   it('forwards prior history to the model', async () => {

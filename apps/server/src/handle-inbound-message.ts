@@ -372,7 +372,15 @@ async function handleThreadedMessage(
 
   await persistTurns(deps, scope, {
     user: message.text,
-    ...(generated.ok ? { assistant: generated.text } : {}),
+    // A `reacted` outcome persists only the user's own message — no assistant entry — same shape
+    // the `!generated.ok` branch already uses: there is no reply text to persist either way. Not
+    // reachable in real production this chunk (`generate-and-post-reply.ts` never offers
+    // `REACT_TOOL` to the real `tools` array yet), but the branch is real, tested code, not dead —
+    // it activates the moment a future chunk adds `REACT_TOOL` there, with no further change
+    // needed here (BUILD_PLAN 6.1f).
+    ...(generated.ok && generated.outcome === 'replied'
+      ? { assistant: generated.text }
+      : {}),
   });
 }
 

@@ -1,15 +1,19 @@
 import type { HandlerDeps } from './handle-inbound-message.js';
+import type { GenerateReplyResult } from '@moe/agents';
 import type { InboundMessage } from '@moe/slack';
 
 import {
   buildPersonaSystemPrompt,
   composeGatedReply,
   generateReply,
+  parseReactInput,
+  REACT_TOOL_NAME,
   resolvePersonaModel,
   sonnetCostUsdMicros,
   STATUS_CLAIM_TOOL,
+  STATUS_CLAIM_TOOL_NAME,
 } from '@moe/agents';
-import { postMessage } from '@moe/slack';
+import { addReaction, postMessage } from '@moe/slack';
 
 import { checkCostCapAndAlert } from './check-cost-cap.js';
 import { recordUsageLogged } from './record-usage-logged.js';
@@ -30,7 +34,9 @@ const HALT_TEXT =
   "I've hit my monthly budget cap and can't generate a new reply right now — I'll be back once it resets next month.";
 
 export type GenerateAndPostResult =
-  { readonly ok: true; readonly text: string } | { readonly ok: false };
+  | { readonly ok: true; readonly outcome: 'replied'; readonly text: string }
+  | { readonly ok: true; readonly outcome: 'reacted' }
+  | { readonly ok: false };
 
 async function postHaltReply(
   deps: HandlerDeps,
@@ -46,6 +52,88 @@ async function postHaltReply(
       errorMessage: posted.error.message,
     });
   }
+}
+
+/**
+ * Not reachable in real production this chunk — `generateAndPost`'s own real `tools` array never
+ * offers `REACT_TOOL`, so `generated.toolUses` can never actually carry one today. Built and
+ * tested anyway (BUILD_PLAN 6.1f) so this activates the moment a future chunk adds `REACT_TOOL` to
+ * that array, with no further change needed here. Returns `undefined` (not a `{ok: false}`-shaped
+ * result) when there is no valid `react` call to act on — the caller's own signal to fall through
+ * to the ordinary reply-composition path unchanged. Only the first `react` call is honored if the
+ * model calls it more than once in a turn — same accepted-edge-case shape `compose-gated-reply.ts`
+ * already documents for repeated `report_status` calls.
+ */
+async function dispatchReactToolUse(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  generated: Extract<GenerateReplyResult, { readonly ok: true }>,
+): Promise<GenerateAndPostResult | undefined> {
+  const reactCall = generated.toolUses.find(
+    (toolUse) => toolUse.name === REACT_TOOL_NAME,
+  );
+  const reaction =
+    reactCall !== undefined ? parseReactInput(reactCall.input) : undefined;
+  if (reaction === undefined) return undefined;
+
+  const statusCallAlsoPresent = generated.toolUses.some(
+    (toolUse) => toolUse.name === STATUS_CLAIM_TOOL_NAME,
+  );
+  if (statusCallAlsoPresent) {
+    deps.logger.info(
+      'model called both report_status and react in the same turn, react wins',
+      {
+        personaId: deps.personaId,
+        channelId: message.channelId,
+        messageTs: message.ts,
+        reaction,
+      },
+    );
+  }
+
+  const reacted = await addReaction(deps.slackClient, {
+    channelId: message.channelId,
+    messageTs: message.ts,
+    reactionName: reaction,
+  });
+  if (!reacted.ok) {
+    deps.logger.error('failed to post acknowledgement reaction', {
+      errorMessage: reacted.error.message,
+    });
+  }
+
+  return { ok: true, outcome: 'reacted' };
+}
+
+/**
+ * Composes the gated reply text once (reused for both the Slack post and the caller's own
+ * persisted/buffered history entry, so the two can never drift apart — avoids redundant work now,
+ * and once Stage 6 wires in real evidence that could itself change between calls, e.g. a
+ * re-fetched CI status, a second `composeGatedReply` call could otherwise return a different
+ * result than the first), posts it, and reports the outcome.
+ */
+async function composeAndPostReply(
+  deps: HandlerDeps,
+  message: InboundMessage,
+  params: { readonly generated: GenerateReplyResult; readonly now: Date },
+): Promise<GenerateAndPostResult> {
+  const { generated, now } = params;
+  const text = generated.ok
+    ? composeGatedReply(generated, () => now.toISOString())
+    : FALLBACK_TEXT;
+
+  const posted = await postMessage(deps.slackClient, {
+    channelId: message.channelId,
+    text,
+    ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
+  });
+  if (!posted.ok) {
+    deps.logger.error('failed to post reply', {
+      errorMessage: posted.error.message,
+    });
+  }
+
+  return generated.ok ? { ok: true, outcome: 'replied', text } : { ok: false };
 }
 
 /**
@@ -81,7 +169,7 @@ export async function generateAndPost(
     // means a real month-long halt doesn't leave the history silently diverging from what the user
     // actually saw in Slack — a plain LLM failure (below) has no such content to persist, which is
     // the one case `ok: false` still covers.
-    return { ok: true, text: HALT_TEXT };
+    return { ok: true, outcome: 'replied', text: HALT_TEXT };
   }
 
   const generated = await generateReply(deps.anthropicClient, {
@@ -89,6 +177,10 @@ export async function generateAndPost(
     history,
     system: await buildPersonaSystemPrompt(deps.personaId, deps.logger),
     model: resolvePersonaModel(deps.personaId),
+    // REACT_TOOL (react-tool.ts) is deliberately NOT included here yet — it has no grounding in
+    // any real persona's prompt.md (do-not-touch), so exposing it to live traffic would let a
+    // model reach for it based on its tool description alone. Add it here only once a follow-up
+    // chunk updates prompt.md accordingly (BUILD_PLAN 6.1f).
     tools: [STATUS_CLAIM_TOOL],
   });
 
@@ -107,24 +199,10 @@ export async function generateAndPost(
     );
   }
 
-  // Composed once and reused for both the Slack post and the persisted/buffered history entry
-  // below, so the two can never drift apart — avoids redundant work now, and once Stage 6 wires
-  // in real evidence that could itself change between calls (e.g. a re-fetched CI status), a
-  // second composeGatedReply call could otherwise return a different result than the first.
-  const text = generated.ok
-    ? composeGatedReply(generated, () => now.toISOString())
-    : FALLBACK_TEXT;
-
-  const posted = await postMessage(deps.slackClient, {
-    channelId: message.channelId,
-    text,
-    ...(message.threadTs !== undefined ? { threadTs: message.threadTs } : {}),
-  });
-  if (!posted.ok) {
-    deps.logger.error('failed to post reply', {
-      errorMessage: posted.error.message,
-    });
+  if (generated.ok) {
+    const reacted = await dispatchReactToolUse(deps, message, generated);
+    if (reacted !== undefined) return reacted;
   }
 
-  return generated.ok ? { ok: true, text } : { ok: false };
+  return composeAndPostReply(deps, message, { generated, now });
 }
