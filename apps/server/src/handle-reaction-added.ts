@@ -189,7 +189,8 @@ function logBriefApprovalFailure(
 // BUILD_PLAN 6.1d's own 👍-on-a-Brief dispatch — reached only when `dispatchConfirmingQuestionOutcome`
 // above has just returned `false` for a `thumbsup` reaction (genuinely no confirming question at
 // this message), so `thumbsup`'s pre-existing meaning is never shadowed: this is purely a fallback
-// for the *other* thing `thumbsup` can now mean (VISION §6.3: "👍 on a brief = approval").
+// for one of the *other* things `thumbsup` can now mean (VISION §6.3: "👍 on a brief or plan =
+// approval" — extended at BUILD_PLAN 6.1e to cover Plan too, not just Brief).
 // Same lookup → null-check shape as `dispatchDraftOutcome`/`dispatchConfirmingQuestionOutcome`
 // above, over `ticket_briefs` instead. The identity check runs first and needs no DB round trip at
 // all — `docs/GLOSSARY.md`'s "Confirming question (Mid-band)" entry has the full disambiguation
@@ -349,13 +350,17 @@ async function dispatchPlanApproval(
  * fall through — and only once `dispatchConfirmingQuestionOutcome` has confirmed this message
  * genuinely isn't a confirming question (`matchedConfirmingQuestion === false`).
  *
- * BUILD_PLAN 6.1e extends the chain with a fourth and, per that chunk's own plan doc, final link:
- * once `dispatchBriefApproval` has also confirmed this message genuinely isn't a Brief
- * (`matchedBrief === false`), `dispatchPlanApproval` gets the same chance against `ticket_plans`.
- * Same boolean-fallthrough contract, same `thumbsup`-only gating — Plan→Build is the last
- * forward-approval reaction-triggered stage transition in the lifecycle (Build→Review is driven by
- * a PR open, Review→Done by the merge executor — neither is a reaction), so this link is not
- * generalized into a list-driven dispatch (this chunk's own plan doc has the full reasoning).
+ * BUILD_PLAN 6.1e extends the `thumbsup`-approval sub-chain with a third and, per that chunk's own
+ * plan doc, final link: once `dispatchBriefApproval` has also confirmed this message genuinely
+ * isn't a Brief (`matchedBrief === false`), `dispatchPlanApproval` gets the same chance against
+ * `ticket_plans`. (Counting within the `questionOutcome`-gated `thumbsup`/`thumbsdown` sub-chain
+ * this comment is describing — confirming-question, then Brief-approval, then Plan-approval — not
+ * the disjoint, mutually-exclusive `dispatchDraftOutcome` branch above, which is a separate legend
+ * entirely and was never part of this count.) Same boolean-fallthrough contract, same
+ * `thumbsup`-only gating — Plan→Build is the last forward-approval reaction-triggered stage
+ * transition in the lifecycle (Build→Review is driven by a PR open, Review→Done by the
+ * merge-action executors — neither is a reaction), so this link is not generalized into a
+ * list-driven dispatch (this chunk's own plan doc has the full reasoning).
  */
 export async function handleReactionAdded(
   deps: ReactionOutcomeDeps,
