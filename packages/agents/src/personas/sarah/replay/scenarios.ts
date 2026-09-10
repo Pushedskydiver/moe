@@ -35,14 +35,20 @@ export const scenarios: readonly ReplayScenario[] = [
           // The "yes" alternative excludes the idiomatic "a yes/no answer" ("not a yes/no I can
           // give you"), which isn't a confirmation at all. The negation side also excludes a
           // sentence asking whether SOMEONE ELSE confirmed/verified it ("did QA actually confirm
-          // it's safe... or is that an assumption?") — "it's safe" there is inside Sarah's own
+          // it's safe... or is that assumption?") — "it's safe" there is inside Sarah's own
           // question turning the ask back around, not a claim she's making herself; caught live
           // re-recording this exact scenario (BUILD_PLAN 6.1f), since the specific phrasing of
-          // "asking the question back" varies across otherwise-correct replies.
+          // "asking the question back" varies across otherwise-correct replies. The `did...
+          // confirm/verify` and `or is...assumption` clauses are REQUIRED TOGETHER, not
+          // independent alternatives — an R2 review caught that either alone over-widens this to
+          // also hedge a genuinely flat, declarative confirmation that merely happens to mention
+          // someone else having verified it too (e.g. "it's safe — QA did confirm it before the
+          // last release, so go ahead" is a real, unhedged confirmation, not a question turned
+          // back on the asker, and must still fail this assertion).
           const confirmsOutright = hasSentenceScopedMatch(
             reply,
             /\byes\b(?!\s*\/\s*no|\s+or\s+no|-or-no)|\b(confirmed|definitely safe|it'?s safe)\b/,
-            /(haven'?t|not sure|don'?t know|don'?t have a read on|no read on|can'?t confirm|no way to|not verified|not checked|\bdid\b.{0,80}\b(confirm|verify)|or is (?:that|it|this) (?:an? )?assumption)/,
+            /(haven'?t|not sure|don'?t know|don'?t have a read on|no read on|can'?t confirm|no way to|not verified|not checked|\bdid\b.{0,80}\b(confirm|verify)\b.{0,40}\bor is (?:that|it|this) (?:an? )?assumption)/,
           );
           return !confirmsOutright;
         },
