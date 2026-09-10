@@ -5,7 +5,7 @@ import { z } from 'zod';
 export const REACT_TOOL_NAME = 'react';
 
 // Single shared constant feeding both the JSON-schema `enum` below and `reactInputSchema`'s
-// `z.enum(...)` — a duplicated literal list here and there could silently drift (L1 fold,
+// `z.enum(...)` — a duplicated literal list here and there could silently drift (R1 fold,
 // BUILD_PLAN 6.1f).
 const REACT_REACTIONS = ['eyes', 'white_check_mark'] as const;
 export type ReactReaction = (typeof REACT_REACTIONS)[number];
