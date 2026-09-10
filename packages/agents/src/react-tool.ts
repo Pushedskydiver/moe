@@ -11,8 +11,8 @@ const REACT_REACTIONS = ['eyes', 'white_check_mark'] as const;
 export type ReactReaction = (typeof REACT_REACTIONS)[number];
 
 /**
- * Mechanism only — not yet wired into `generate-and-post-reply.ts`'s real, live `tools` array
- * (BUILD_PLAN 6.1f). See that file's own call-site comment for the condition that flips it on.
+ * Live in `generate-and-post-reply.ts`'s real `tools` array as of BUILD_PLAN 6.1g, grounded in
+ * every persona's own `prompt.md` (do-not-touch, drafted with Alex).
  */
 export const REACT_TOOL: Anthropic.Tool = {
   name: REACT_TOOL_NAME,

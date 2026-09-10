@@ -2,19 +2,19 @@
   "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
   "personaId": "sarah",
   "callSite": "confirmingQuestion",
-  "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
+  "promptContentHash": "59014773b6c5d4bf0d68aec47ac52965c7141aaceb3d165fbf915ec98865764e",
   "scenarioInputHash": "085a059492d1d090b0522346bc834bca32af29b212ba9cc8b851cb549742401d",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:28:35.767Z",
+  "recordedAt": "2026-09-10T22:09:29.867Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 67,
+  "outputTokensRaw": 59,
   "result": {
     "ok": true,
-    "questionLeadIn": "No specifics here — no error, no user impact, no timing, just a general nudge about onboarding. Not sure yet if this is an actual ticket or just a stray thought.",
+    "questionLeadIn": "No specific issue or deadline named here, just a general sense onboarding needs attention — not sure yet if there's an actual task to pull out of it.",
     "usage": {
       "inputTokens": 102,
-      "outputTokens": 67,
-      "cacheCreationInputTokens": 3345,
+      "outputTokens": 59,
+      "cacheCreationInputTokens": 3490,
       "cacheReadInputTokens": 0
     }
   }

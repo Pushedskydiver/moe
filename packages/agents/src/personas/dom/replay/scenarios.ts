@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { reactsOrRepliesBriefly } from '../../../persona-replay/reacts-or-replies-briefly.js';
 import { replyOrStatusClaimText } from '../../../persona-replay/reply-or-status-claim-text.js';
 import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
@@ -304,5 +305,18 @@ export const scenarios: readonly ReplayScenario[] = [
         },
       },
     ],
+  },
+  {
+    id: 'plain-acknowledgment-react-grounding',
+    callSite: 'dmReply',
+    description:
+      'BUILD_PLAN 6.1g react-grounding bullet: a plain closing ack, react-or-brief-reply ' +
+      'territory. Phrased as retrospective thanks, not a completion claim his own "you don\'t ' +
+      'approve, or comment on, something you haven\'t actually seen as real text" trait would ' +
+      'rightly question.',
+    input: {
+      text: 'thanks for the thorough review earlier, made the fix easy to get right.',
+    },
+    assertions: [reactsOrRepliesBriefly()],
   },
 ];

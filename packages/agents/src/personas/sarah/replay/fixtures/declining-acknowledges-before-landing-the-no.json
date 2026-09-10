@@ -2,21 +2,21 @@
   "scenarioId": "declining-acknowledges-before-landing-the-no",
   "personaId": "sarah",
   "callSite": "dmReply",
-  "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
+  "promptContentHash": "59014773b6c5d4bf0d68aec47ac52965c7141aaceb3d165fbf915ec98865764e",
   "scenarioInputHash": "0f3ce5c42863a1cb0ccf438fe28f817ed0d59997b10920861689d39118b458c5",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:28:24.334Z",
+  "recordedAt": "2026-09-10T22:09:20.902Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 740,
+  "outputTokensRaw": 557,
   "result": {
     "ok": true,
-    "reply": "Skipping the review gate isn't something I can just wave through — that's not my call to make unilaterally, and \"no time\" isn't evidence the change is safe. What's the actual deadline pressure here?\n\nIf it's genuinely urgent, fastest real path is a quick look from Marcus or Priya on just the diff — that's minutes, not a full review cycle. I'll ping one of them now if you want. But merging straight to main with no eyes on it isn't something I'll sign off on just because time's tight.",
+    "reply": "Hear you on the time crunch, but skipping review isn't something I'll just wave through — that gate's there for a reason, and \"no time\" isn't a reason to drop it, it's a reason to expedite it. Tag whoever's fastest for a quick look now, or if this is truly urgent, let's get Alex/moe to explicitly sign off on skipping it so it's a real decision, not a default.\n\nWhat's actually in the PR — small enough for a 5-minute review?",
     "toolUses": [],
     "usage": {
       "inputTokens": 97,
-      "outputTokens": 740,
+      "outputTokens": 557,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 3563
+      "cacheReadInputTokens": 3708
     }
   }
 }

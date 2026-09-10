@@ -2,29 +2,29 @@
   "scenarioId": "status-relay-routes-through-report-status",
   "personaId": "riley",
   "callSite": "dmReply",
-  "promptContentHash": "0d2665824767b91e2c85225930a9ccfa6223fd3995454b28a9b1d79c606aeb99",
+  "promptContentHash": "467d5fc95f605aadda4d691c13819508f02aad7cf0043547ca153045dd004cb6",
   "scenarioInputHash": "398d9c8809fbd5c370f7fbbc4e042e1c88da3e1a05c98b8cf4774f4ef3b332cd",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:31:35.340Z",
+  "recordedAt": "2026-09-10T22:13:01.060Z",
   "stopReason": "tool_use",
-  "outputTokensRaw": 163,
+  "outputTokensRaw": 311,
   "result": {
     "ok": true,
     "reply": "",
     "toolUses": [
       {
-        "id": "toolu_01D3xNYLzJBpwtp3SRH5EPXj",
+        "id": "toolu_01P7mxiJs3d1zzfgWrhoDuxY",
         "name": "report_status",
         "input": {
-          "claim": "retry-cap-fix branch CI: 4/4 passed (caps at 3 attempts, exponential backoff, logs each retry, returns null after cap) — ready for review"
+          "claim": "CI on retry-cap-fix branch: 4 passed, 0 failed — caps at 3 attempts, exponential backoff, logs each retry, returns null after cap. Ready for review."
         }
       }
     ],
     "usage": {
       "inputTokens": 147,
-      "outputTokens": 163,
+      "outputTokens": 311,
       "cacheCreationInputTokens": 0,
-      "cacheReadInputTokens": 5032
+      "cacheReadInputTokens": 5176
     }
   }
 }

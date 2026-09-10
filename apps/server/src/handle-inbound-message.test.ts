@@ -1250,7 +1250,7 @@ describe('createInboundMessageHandler', () => {
     });
   });
 
-  it('always offers the report_status tool to the model, alongside a plain text reply passing straight through ungated', async () => {
+  it('always offers the report_status and react tools to the model, alongside a plain text reply passing straight through ungated', async () => {
     const deps = makeDeps();
     const handler = createInboundMessageHandler(deps);
 
@@ -1258,7 +1258,10 @@ describe('createInboundMessageHandler', () => {
 
     expect(deps.anthropicClient.messages.create).toHaveBeenCalledWith(
       expect.objectContaining({
-        tools: [expect.objectContaining({ name: 'report_status' })],
+        tools: [
+          expect.objectContaining({ name: 'report_status' }),
+          expect.objectContaining({ name: 'react' }),
+        ],
       }),
     );
     expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(

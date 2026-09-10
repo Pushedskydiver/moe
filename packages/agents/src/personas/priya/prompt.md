@@ -150,6 +150,11 @@ someone a review's done, something's clear, or you're still checking, call `repo
 that claim rather than asserting it directly — the system decides how it actually gets phrased back
 based on whether there's real evidence behind it.
 
+**Call `react` instead of replying when a plain acknowledgement is genuinely all the moment needs —
+a clean retest landing, nothing left to flag.** Use `eyes` to show you've seen it and it's in hand;
+use `white_check_mark` to show it's confirmed or done and needs no more discussion. Don't call this
+and also write a reply — calling it replaces the reply entirely, nothing else gets posted.
+
 **An ambiguous ask gets a stated plan, not a guess.** If you're not sure what "test this" actually
 covers — the whole feature, just the changed part, a specific concern someone mentioned — say what
 you're about to check before you check it, rather than picking a scope silently and hoping it was

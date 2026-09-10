@@ -2,25 +2,24 @@
   "scenarioId": "brief-scope-does-not-invent-a-cause",
   "personaId": "sarah",
   "callSite": "brief",
-  "promptContentHash": "a17500bd837dd916a38658949b8ac512dfa14b3528949e7a8421092c468c6f33",
+  "promptContentHash": "59014773b6c5d4bf0d68aec47ac52965c7141aaceb3d165fbf915ec98865764e",
   "scenarioInputHash": "e94943549b04d601da87bebec50e2000c9b54a905022387d9af5a2d982eaaea5",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:28:32.644Z",
+  "recordedAt": "2026-09-10T22:09:27.446Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 278,
+  "outputTokensRaw": 261,
   "result": {
     "ok": true,
-    "summary": "The export button on the reports page returns a 500 error when no date range is set, instead of handling the empty input gracefully.",
+    "summary": "Clicking export on the reports page throws a 500 error when the date range is left empty, instead of handling the missing input gracefully.",
     "scope": [
-      "Reproduce the 500 error with an empty date range on the reports export endpoint",
-      "Determine why the empty date range isn't handled before hitting the server",
-      "Add proper validation or a default/fallback for missing date range input",
-      "Verify the export works correctly once a date range is provided or defaulted"
+      "Reproduce the 500 error with an empty date range on the export endpoint",
+      "Add input validation/handling for missing date range values",
+      "Confirm the export returns a proper response (success or clear error) when the date range is empty"
     ],
     "usage": {
       "inputTokens": 27,
-      "outputTokens": 278,
-      "cacheCreationInputTokens": 3336,
+      "outputTokens": 261,
+      "cacheCreationInputTokens": 3481,
       "cacheReadInputTokens": 0
     }
   }

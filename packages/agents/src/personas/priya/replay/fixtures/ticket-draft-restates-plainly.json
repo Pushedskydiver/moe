@@ -2,20 +2,20 @@
   "scenarioId": "ticket-draft-restates-plainly",
   "personaId": "priya",
   "callSite": "ticketDraft",
-  "promptContentHash": "eed9e61ba5a8ee961bd352bebf07738227e3af8475fd7f980258885405158113",
+  "promptContentHash": "f0635f6a358b60d6462a1c43e2c737daf5da4bcf0454d1504cc100390831c195",
   "scenarioInputHash": "fcdcbb0976329cb23f26ec97c20124047dbde7625f476c0b71c92fecbf890e37",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:32:39.855Z",
+  "recordedAt": "2026-09-10T22:13:58.825Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 57,
+  "outputTokensRaw": 58,
   "result": {
     "ok": true,
-    "title": "Duplicate rows when filtering search by tag",
-    "body": "Search results page shows duplicate entries when filtering by tag — the same row appears two or three times.",
+    "title": "Duplicate entries when filtering search results by tag",
+    "body": "The search results page shows duplicate entries when filtering by tag — the same row appears two or three times.",
     "usage": {
       "inputTokens": 31,
-      "outputTokens": 57,
-      "cacheCreationInputTokens": 5716,
+      "outputTokens": 58,
+      "cacheCreationInputTokens": 5853,
       "cacheReadInputTokens": 0
     }
   }

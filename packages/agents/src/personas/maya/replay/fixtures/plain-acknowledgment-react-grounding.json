@@ -1,0 +1,22 @@
+{
+  "scenarioId": "plain-acknowledgment-react-grounding",
+  "personaId": "maya",
+  "callSite": "dmReply",
+  "promptContentHash": "0cf367cdfe57cca80b74f81572c601dfe465855229270e15b2b496ac6330260c",
+  "scenarioInputHash": "0a6f9add7a2cf41bcd7dd17bdbfcf8102caea808bd1caf16e8e22717f6526d1e",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-09-10T22:14:49.911Z",
+  "stopReason": "end_turn",
+  "outputTokensRaw": 166,
+  "result": {
+    "ok": true,
+    "reply": "Yeah, glad it got caught before it shipped. That kind of thing's easy to miss when everything else about a design looks fine.",
+    "toolUses": [],
+    "usage": {
+      "inputTokens": 92,
+      "outputTokens": 166,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5393
+    }
+  }
+}

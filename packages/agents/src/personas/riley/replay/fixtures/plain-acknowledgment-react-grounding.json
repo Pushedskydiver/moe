@@ -1,0 +1,30 @@
+{
+  "scenarioId": "plain-acknowledgment-react-grounding",
+  "personaId": "riley",
+  "callSite": "dmReply",
+  "promptContentHash": "467d5fc95f605aadda4d691c13819508f02aad7cf0043547ca153045dd004cb6",
+  "scenarioInputHash": "1cd7cfd8e786a54796baf6773fca9f1e91a0dfcee07a822abf4e1dec6f8fe86f",
+  "model": "claude-sonnet-5",
+  "recordedAt": "2026-09-10T22:13:11.406Z",
+  "stopReason": "tool_use",
+  "outputTokensRaw": 232,
+  "result": {
+    "ok": true,
+    "reply": "",
+    "toolUses": [
+      {
+        "id": "toolu_01VwHSfZBnxaRWRty5Wucpd9",
+        "name": "react",
+        "input": {
+          "reaction": "eyes"
+        }
+      }
+    ],
+    "usage": {
+      "inputTokens": 100,
+      "outputTokens": 232,
+      "cacheCreationInputTokens": 0,
+      "cacheReadInputTokens": 5176
+    }
+  }
+}

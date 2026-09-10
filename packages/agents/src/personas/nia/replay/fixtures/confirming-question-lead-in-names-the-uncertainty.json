@@ -2,19 +2,19 @@
   "scenarioId": "confirming-question-lead-in-names-the-uncertainty",
   "personaId": "nia",
   "callSite": "confirmingQuestion",
-  "promptContentHash": "c87f5f6be457fb9f87bfaed8a49935e809f27f1af62d5c696044ac53816cdaaa",
+  "promptContentHash": "eace8eba66a5e4e6efc44cd3186cafbc0de8118e80f0df89155fb88c6261b6aa",
   "scenarioInputHash": "8f599ae9c554530bc0f9dd5318bccf9edc48ddb9ba0115a9dd594ab0e9bfb9e9",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:35:08.940Z",
+  "recordedAt": "2026-09-10T22:16:31.961Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 69,
+  "outputTokensRaw": 41,
   "result": {
     "ok": true,
-    "questionLeadIn": "\"Someone should\" and \"at some point\" don't tell me if this is you flagging something specific you're seeing or just a general nudge — no name, no timeframe attached.",
+    "questionLeadIn": "No specific person or moment attached here — just a general sense that a check-in's due at some point.",
     "usage": {
       "inputTokens": 97,
-      "outputTokens": 69,
-      "cacheCreationInputTokens": 4632,
+      "outputTokens": 41,
+      "cacheCreationInputTokens": 4767,
       "cacheReadInputTokens": 0
     }
   }

@@ -2,20 +2,20 @@
   "scenarioId": "ticket-draft-restates-plainly",
   "personaId": "riley",
   "callSite": "ticketDraft",
-  "promptContentHash": "0d2665824767b91e2c85225930a9ccfa6223fd3995454b28a9b1d79c606aeb99",
+  "promptContentHash": "467d5fc95f605aadda4d691c13819508f02aad7cf0043547ca153045dd004cb6",
   "scenarioInputHash": "49612b9168eed4afee6b428bd540130d153e0db3ac125e705e6b2b0761342be2",
   "model": "claude-sonnet-5",
-  "recordedAt": "2026-09-10T20:31:38.995Z",
+  "recordedAt": "2026-09-10T22:13:05.431Z",
   "stopReason": "end_turn",
-  "outputTokensRaw": 50,
+  "outputTokensRaw": 52,
   "result": {
     "ok": true,
     "title": "CSV export cuts off after 1000 rows",
-    "body": "CSV export stops after 1000 rows instead of exporting all rows.",
+    "body": "CSV export stops after 1000 rows instead of exporting the full dataset.",
     "usage": {
       "inputTokens": 28,
-      "outputTokens": 50,
-      "cacheCreationInputTokens": 4693,
+      "outputTokens": 52,
+      "cacheCreationInputTokens": 4837,
       "cacheReadInputTokens": 0
     }
   }

@@ -2,6 +2,7 @@ import type { ReplayScenario } from '../../../persona-replay/replay-scenario.js'
 
 import { confirmingQuestionLeadIn } from '../../../persona-replay/confirming-question-lead-in.js';
 import { dmReplyText } from '../../../persona-replay/dm-reply-text.js';
+import { reactsOrRepliesBriefly } from '../../../persona-replay/reacts-or-replies-briefly.js';
 import { hasSentenceScopedMatch } from '../../../persona-replay/sentence-scoped-match.js';
 import { ticketDraftBody } from '../../../persona-replay/ticket-draft-body.js';
 
@@ -180,5 +181,20 @@ export const scenarios: readonly ReplayScenario[] = [
         },
       },
     ],
+  },
+  {
+    id: 'plain-acknowledgment-react-grounding',
+    callSite: 'dmReply',
+    description:
+      'BUILD_PLAN 6.1g — the new `react`-tool grounding bullet (§Reasoning discipline): a plain ' +
+      'closing acknowledgment with nothing left to add is react-or-brief-reply territory, not a ' +
+      'substantive reply. Deliberately phrased as retrospective thanks about something already ' +
+      'flagged, not a fresh "should be good to go" completion claim — her own evidence-before- ' +
+      'verdict discipline around unverified accessibility claims would rightly make her question ' +
+      'the latter shape instead of acknowledging it.',
+    input: {
+      text: 'thanks for flagging that contrast issue, good catch.',
+    },
+    assertions: [reactsOrRepliesBriefly()],
   },
 ];
