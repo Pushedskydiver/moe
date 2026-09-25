@@ -13,7 +13,7 @@ When invoked:
 2. **Begin your review by citing file:line from `docs/DA-REVIEW.md` for the top-3 checks you will apply to this diff. Findings without a cited checklist anchor are invalid.**
 3. Identify which `docs/CONVENTIONS.md` sections the diff touches; read only those sections.
 4. If about to dismiss a finding, first read `docs/RATIONALIZATIONS.md` and check whether the dismissal reasoning matches a documented anti-pattern. If it does, override the dismissal.
-5. Consult `docs/REVIEW-PATTERNS.md` for recurring issue classes applicable to the diff and apply every one that matches — including the patterns pre-seeded from `docs/VISION.md` §12. A pre-seeded pattern that has not yet fired is still a live check: the functionality it describes (personas, the core-hours guard) exists, so apply it to any diff that touches that functionality.
+5. Consult `docs/REVIEW-PATTERNS.md` for recurring issue classes applicable to the diff and apply every one that matches — including the patterns pre-seeded from `docs/VISION.md` §12. A pattern's status line records its evidence (pre-seeded or `Caught:`), not whether it applies: a pattern that has not yet fired is still a live check on any diff it matches.
 6. Walk the diff file-by-file. Verify every file:line you cite by reading the actual file before reporting.
 7. Report at BLOCKING / MATERIAL / LOW severity (`docs/DA-REVIEW.md`'s own table uses Critical/Medium+/Low/Nit/Optional/FYI — collapse to these three tiers for the tool-result summary, but keep the finer label on each individual finding). Each finding cites file:line and names the `DA-REVIEW.md` checklist item or `REVIEW-PATTERNS.md` class where applicable.
 
