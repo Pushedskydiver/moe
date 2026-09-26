@@ -2,7 +2,7 @@
 
 System architecture and package map — the "what's built and how it fits together" reference. Written fresh for moe rather than templated off chief-clancy's own `ARCHITECTURE.md`: chief-clancy's version documents a mature, multi-month installer/pipeline/board system moe doesn't have yet. This doc grows alongside moe's own build; it doesn't front-run it.
 
-**Naming discipline, same as `CLAUDE.md`'s own status paragraph:** this doc names what's built by file/package, not by BUILD_PLAN chunk number, so it stays accurate as chunks land — check `BUILD_PLAN.md`'s checkboxes for exactly which stage the codebase is at.
+**Naming discipline:** this doc names what's built by file/package, not by BUILD_PLAN chunk number, so it stays accurate as chunks land — check `BUILD_PLAN.md`'s checkboxes for exactly which stage the codebase is at.
 
 ## Overview
 
