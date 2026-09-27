@@ -34,7 +34,7 @@ github     ← core
 server     ← agents, memory, slack, github, core     (apps/server — the only package allowed to import everything)
 ```
 
-`core` sits at the bottom by design — every other package depends on it, it depends on nothing else in the graph. `apps/server` sits at the top — it's parameterized by persona ID and is the only thing allowed to import every package, matching the "one process per persona" topology below.
+`core` sits at the bottom by design — every other package may depend on it (all do except the still-scaffolded `memory`), and it depends on nothing else in the graph. `apps/server` sits at the top — it's parameterized by persona ID and is the only thing allowed to import every package, matching the "one process per persona" topology below.
 
 ## Process topology
 

@@ -19,7 +19,7 @@ export type ComposeExternalPostBodyParams = {
  * platform-layer bot identity is the single shared GitHub App already built at chunk 4.1
  * (confirmed via AskUserQuestion: no per-persona GitHub identity work for this chunk) — this
  * function only adds the other two layers, both as deterministic boilerplate rather than
- * LLM-composed text, since no persona has an authored voice yet (chunk 5.3, do-not-touch).
+ * LLM-composed text.
  */
 export function composeExternalPostBody(
   params: ComposeExternalPostBodyParams,
