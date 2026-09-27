@@ -53,9 +53,10 @@ describe('parseFrontmatter', () => {
   });
 
   it('does not read a colon with no following whitespace as a key', () => {
-    const { fields } = parseFrontmatter('model:opus');
+    const { fields, unparseableLines } = parseFrontmatter('model:opus');
 
     expect(fields).toEqual({});
+    expect(unparseableLines).toEqual(['model:opus']);
   });
 
   it('property: unique key/value lines round-trip with no duplicates', () => {
@@ -79,12 +80,14 @@ describe('parseFrontmatter', () => {
           .map(({ key, value }) => `${key}: ${value}`)
           .join('\n');
 
-        const { fields, duplicateKeys } = parseFrontmatter(text);
+        const { fields, duplicateKeys, unparseableLines } =
+          parseFrontmatter(text);
 
         expect(fields).toEqual(
           Object.fromEntries(records.map(({ key, value }) => [key, value])),
         );
         expect(duplicateKeys).toEqual([]);
+        expect(unparseableLines).toEqual([]);
       }),
     );
   });

@@ -39,8 +39,8 @@ const KEY_VALUE_LINE = /^([\w-]+):(?:\s+(.*))?$/u;
 // Deliberately not a YAML parser: every agent file uses flat `key: value` lines, and that is the
 // only shape this reads. A block scalar (`description: >-` plus indented lines) can't be followed
 // onto its continuation lines, so its bare marker reads as an empty value and fails validation
-// rather than passing as content. Any other non-blank line at column 0 (e.g. `effort:high`, which
-// YAML rejects) is returned as unparseable, never silently skipped.
+// rather than passing as content. Any other line at column 0 that isn't a `#` comment (e.g.
+// `effort:high`, which YAML rejects in a mapping) is returned as unparseable, never silently skipped.
 export function parseFrontmatter(frontmatterText: string): ParsedFrontmatter {
   const lines = frontmatterText.split('\n');
   const entries = lines
