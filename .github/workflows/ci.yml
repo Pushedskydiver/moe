@@ -5,7 +5,9 @@ name: CI
 # hidden extra steps. "AGENTS.md freshness" is a separate, additional gate
 # (docs/DEVELOPMENT.md §AGENTS.md generation) — not part of that mirrored
 # suite, since a developer only needs to run its underlying commands after
-# editing CLAUDE.md, not on every push.
+# editing CLAUDE.md, not on every push. "Agent frontmatter" is separate for
+# the same reason (docs/DEVELOPMENT.md §Quality Gates): it only matters after
+# editing .claude/agents/, scripts/, tsconfig.base.json or a root dependency.
 
 on:
   pull_request:
@@ -60,6 +62,20 @@ jobs:
       - run: pnpm generate:agents-md
       - run: pnpm format
       - run: git diff --exit-code AGENTS.md
+
+  agent-frontmatter:
+    name: Agent frontmatter
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: ./.github/actions/setup
+
+      # The root package isn't in `pnpm -r`, so the quality suite's typecheck and test never
+      # reach root scripts/ — this job is the only place they're type-checked and tested.
+      - run: pnpm typecheck:scripts
+      - run: pnpm test:scripts
+      - run: pnpm check:agents
 
   fly-configs-freshness:
     name: Fly configs freshness
