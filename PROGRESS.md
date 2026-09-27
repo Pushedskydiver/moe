@@ -2,7 +2,91 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
 
-## Next workstreams (after Session 60)
+## Next workstreams (after Session 61)
+
+Updated 2026-09-28 end-Session-61 — **`docs/glossary-thinning` has its R1 and R2 folds committed on the local branch (`c8cd765`; not pushed, no PR yet). R2 found one MATERIAL, which was folded, so an R3 range check on the R2 fold is due. Session 62 starts with the review-queue sweep re-report bug R2 found (Alex), then R3.** All 8 personas are `started` with checks passing.
+
+**Asked and decided (Alex, 2026-09-28, in chat at handoff):** the review-queue sweep re-report bug (R2's DA M1, below) is **Session 62's first task**, before the glossary PR's R3. The desktop chip for it was withdrawn in favour of this.
+
+**Done this session:**
+
+- **Merged `origin/main`** into the branch (`81c71b6`; only the Session 60 handoff).
+- **R1 fold brief finished** (`pr5-gloss-r1/fold-brief.md`, final, 37 find/replace items). The orchestrator made the 18 LOWs' accept/dismiss calls. A `general-purpose` agent checked each fix's source claims and wrote the settled wording. The orchestrator then spot-checked three of its surprising claims at source.
+  - F4: the "revisit" clause was already met. Any persona's DM cascade commits tickets that `create-github-issues.ts` attributes to Sarah, so it became "a known simplification".
+  - F5: GLOSSARY `:45` (the High-band draft) was stale as well as `:46`. `postAndPersistDraft` claims before posting (`handle-ambient-channel-message.ts`).
+  - L6a: "never double-reports one" was false and was dropped from GLOSSARY `:48`.
+  - Dismissed: DA L8 and L11; surrogate Findings 4, 6 and 10. Each is recorded in the brief, with a PR-body line.
+- **R1 fold** (`doc-fixer`, `04c6ec3`, 6 files).
+- **R2** (range `81c71b6..04c6ec3`, both isolated): DA 0 BLOCKING / 1 MATERIAL / 5 LOW; surrogate 0 / 0 / 5. Reports: `.claude/research/workflow-series/pr5-gloss-r2/`. Every R1 item was confirmed as applied and true.
+  - DA M1, verified at source: "never double-reports one" survived in two `packages/core` comments. The sweep's own `'mid-silence'` rows get `createdAt = new Date()` after the run's `now` (`review-queue-repository.ts:69`), and `sweptAt: now` is then recorded. So the next sweep reports them again, a real pre-existing code bug.
+  - The two reviewers converged on four LOWs: the Core hours scope, "never misses a row", "the ADR's other trigger" and the `:58` referent.
+- **R2 fold** (`pr5-gloss-r2/fold-brief.md`, `doc-fixer`, `c8cd765`, 4 files): M1 and L1–L6. `packages/core` is now touched, so the PR needs the label `core`. DA L-5 (a new but true `:46` tag) and the commit-shape note were dismissed.
+- **Sweep bug:** a follow-up chip was spawned, then withdrawn once Alex moved the bug into Session 62's loading instructions. It isn't fixed in this docs PR.
+
+**In flight:** nothing running.
+
+**Next, and open questions for Alex:** nothing waiting on Alex.
+
+**Cleanup:** the two R2 review worktrees and their branches were removed, after checking the report copies byte for byte. `git worktree list` shows only the primary checkout. `docs/glossary-thinning` is kept (unpushed work). Session 56 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
+
+**Session data:** ~142k tokens at handoff (usage tool; 5-hour window 34%, weekly 42%, Fable weekly 4%). Context at load: 91.3k (usage tool), so row 1 fired at ~131k.
+
+- **Trigger:** row 1, a phase boundary (R2 fold committed) at 140.4k, past load+40k.
+- **What grew context most:**
+  - The ~91k loaded start.
+  - Reading the branch's stale `PROGRESS.md` before `origin/main`'s (~9k; YYYY for the third time).
+  - The R1 and R2 LOW sections (~6k and ~5k).
+  - Six hand-backs (~1k each).
+- **Subagent tokens:** brief settle 199k, R1 fold 82k, DA R2 153k, surrogate R2 142k, R2 fold 41k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none.
+
+**Lessons (Session 61):**
+
+- **BBBBB — A claim dropped as false in the doc survived in code siblings outside the PR's files.** The R1 brief dropped "never double-reports one" from GLOSSARY. Its sibling grep ran only over the files in scope, and R2 found the same claim in two `packages/core` comments. When a fold drops a claim as false, grep its concept terms across the whole repo. → none (instance of AAAAA and the existing review-gate sibling rule).
+- **CCCCC — Delegating the fold brief's source checks kept the fold loop inside one session.** The orchestrator made the triage calls, and a `general-purpose` agent (199k) checked sources and wrote the wording. The orchestrator paid ~6k for the LOW reads plus ~3k for spot checks, not ~20k+. The agent's three surprising claims all held at source. → none (observation; weigh it for `docs/DEVELOPMENT.md` §Session Pattern if it holds up again).
+
+### Session 62 loading instructions
+
+- **Check live state first:**
+  - `git fetch`, then read **`git show origin/main:PROGRESS.md`**, not the working tree's copy (YYYY).
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `8e27f4c`), `git status`, `gh pr list`, and `git log --oneline origin/main..docs/glossary-thinning` (expect 8 commits, ending `c8cd765`).
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+  - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
+- **First: fix the review-queue sweep re-report bug** (Alex, 2026-09-28). It's a code bug, so it gets its own branch from a freshly pulled `main` (e.g. `fix/review-queue-sweep-rereport`) and its own PR, type `🐛 fix`.
+  - The bug: `runReviewQueueSweep` (`apps/server/src/review-queue-sweep.ts`) takes `now`, writes `'mid-silence'` rows stamped `createdAt: new Date()` after it (`packages/core/src/intake/review-queue-repository.ts:69`), then records `sweptAt: now`. The next sweep lists `createdAt > since` (`:99`), so those rows are reported twice. Evidence: `pr5-gloss-r2/da-r2-report.md` M1. Also weigh its L-2 clock-skew race: a row stamped before `now` but committed after the listing.
+  - TDD (`docs/TESTING.md`): first a failing test showing the double report across two consecutive sweeps, then the fix.
+  - Keep the comments at `review-queue-repository.ts:~86-88` and `packages/core/src/schema.ts:~228-229` true. On `main` they still say "never double-reports one"; the glossary branch rewords them. Whichever PR merges second resolves the overlap.
+  - Build it with `implementer`, then run the review gate (`docs/DEVELOPMENT.md` §Review Gate) and open the PR (Alex merges). Labels: `server`, plus `core` if `packages/core` changes.
+- **Then: finish `docs/glossary-thinning`.**
+  1. Check out the branch; merge `origin/main` if it has moved.
+  2. Run the R3 range check on `04c6ec3..c8cd765`, DA and surrogate in parallel and isolated. Both check every item in `pr5-gloss-r2/fold-brief.md`: applied as settled, true at source, no new false absolute.
+     - Per UUUU/XXXX: git only in their own worktree; reports written there and `cp`'d to `pr5-gloss-r3/`.
+     - 0 BLOCKING/MATERIAL → the disclosed LOW pass, then self-review (`docs/SELF-REVIEW.md`).
+     - Cosmetic item for the LOW pass: `apps/server/src/review-queue-sweep.ts:375`'s orphaned "Lists every" line wrap.
+  3. Measure tokens per brief §4 at three points, in one run: `main`, `dbae5a3`, HEAD, for GLOSSARY and ARCHITECTURE.
+  4. Run the full pre-push suite (tests via `pnpm -r --no-bail --if-present run test`, WWWW), push, and open the PR per brief §5.
+     - Labels: `chore`, `server`, `github`, `core`.
+     - The body carries both fold briefs' "Carry into the PR body" lists and the token figures.
+     - Post the surrogate reports (R1 on) as one comment.
+- **Then the SESSION-HANDOFF PR** (decided in Session 60; its own branch):
+  - §1 row 1 → load + 40k.
+  - A §9 "context at load" field.
+  - §5 prompt step 1 → fetch, then read `origin/main`'s `PROGRESS.md`. YYYY has now recurred 3 of 3 times.
+  - The due harvests: PPPP (§6), SSSS (§9) and YYYY (§5/§6).
+  - Check whether `docs/GIT.md`'s blast-radius list names SESSION-HANDOFF; if it does, the surrogate is mandatory.
+- **Decision branches:**
+  1. If R3 finds BLOCKING/MATERIAL, fold it; reaching R4 means ask Alex.
+  2. If the sweep fix changes the "picks up where the last completed one left off" behaviour that GLOSSARY `:48` now describes, re-check that line before the glossary PR opens.
+- **Carry-overs:**
+  - WWWW into `docs/DEVELOPMENT.md` §Quick Reference, in the next PR that touches it.
+  - The A4 cite-fix PR (Alex: fix the cites).
+  - Then the O10 Prettier chore PR, the Hook PR, and the chief-clancy doc-port workstream (candidates in `git show 3abde05:PROGRESS.md`'s Session 52 entry). Confirm the order with Alex.
+  - Memory: `harness-and-tooling-gotchas.md` is past the ~5 KB re-consolidation mark.
+- **Recommended model and effort for Session 62:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 60
 
 Updated 2026-09-28 end-Session-60 — **[#116](https://github.com/Pushedskydiver/moe/pull/116) merged (`2796725`). `docs/glossary-thinning` is built and R1-reviewed on a local branch (`9cc684d`; not pushed, no PR yet). Its R1 fold is half-briefed: the MATERIALs are settled, the LOWs are untriaged.** All 8 personas are `started` with checks passing.
 
@@ -260,71 +344,6 @@ Updated 2026-09-27 end-Session-57 — **The docs-thinning brief is final: the `s
   - PPPP's harvest (`docs/SESSION-HANDOFF.md` §6) and SSSS's (§9) go into the next PR that touches that doc.
   - After both thinning PRs: the O10 Prettier chore PR, then the Hook PR, then the chief-clancy doc-port workstream. The candidates are in `git show 3abde05:PROGRESS.md`'s Session 52 entry. Confirm the order with Alex.
 - **Recommended model and effort for Session 58:** Opus, `high`.
-- **Fallback:** if Alex redirects on load, follow that.
-
-## Earlier: Session 56
-
-Updated 2026-09-27 end-Session-56 — **The docs-thinning brief is drafted, settled, and through `spec-grill` R1 and its fold. The verification round comes next, then the build.** The brief is `.claude/research/workflow-series/pr5-brief.md` (gitignored). It splits the work into two PRs: `docs/development-thinning` first, then `docs/glossary-thinning`. `main` is unchanged apart from this handoff. All 8 personas are `started` with checks passing.
-
-**Asked and decided (Alex, 2026-09-27, `AskUserQuestion`):**
-
-1. `docs/VISION.md:327` becomes "…preventing `CONVENTIONS.md` ↔ `AGENTS.md` drift", dropping `CLAUDE.md` from the chain.
-2. `docs/VISION.md:208` (§6.4) is repointed from `BUILD_PLAN.md` to GLOSSARY's "Core hours" and "Away-detection" entries. `BUILD_PLAN.md` has no core-hours text.
-
-Both edits ride in `docs/development-thinning`.
-
-**Done this session:**
-
-- **Brief draft** (`Plan`, background): `pr5-brief-draft.md`.
-  - Measured at `9e6e4a2` with Session 54's counter:
-    - GLOSSARY: 28,857 → ~10k. ~7.2k of the current count is Prettier table padding, so the tables become bullet lists.
-    - DEVELOPMENT: 14,937 → ~13.4k. Only incident narration moves out, verbatim, to a new `docs/history/DEVELOPMENT-EVIDENCE.md`.
-    - ARCHITECTURE: 13,952 → ~10.7k.
-  - Found a stale GLOSSARY entry: "Confirming question" still says "fixed-template", false since #86.
-- **Settled brief:** `pr5-brief.md`. Its top block records A1/A2 and the orchestrator's O1–O10: two PRs; Tier A only; isolation paragraph Option A; GLOSSARY history goes to a git pointer plus chunk ids; `implementer` builds and `doc-fixer` folds.
-- **`spec-grill` R1:** 0 BLOCKING / 8 MATERIAL / 13 LOW, plus 2 NOTICED. Report: `pr5-grill/r1-report.md`. Alex's A1/A2 wordings were verified true.
-- **R1 fold** (`doc-fixer`): applied per `pr5-grill/r1-fold-brief.md`.
-  - M7 took fix (a): two stale code comments join the glossary PR as their own commit (`apps/server`, label `server`).
-  - M6's chunk-5.1 "no live execution" clause is out of scope and gets listed as NOTICED.
-  - One disclosed judgement call: L12's four settlement-stale lines were left as they are, because the brief's top block already overrides them.
-
-**Next, and open questions for Alex:**
-
-- **[ALEX] A4:** three places cite "§6.4's sub-10s casual-reply latency target", but VISION §6.4 has none: `VISION.md:317`, `packages/agents/src/create-anthropic-client.ts:9` and `apps/server/src/create-pull-loop-behavior-deps.ts:40`. It's out of both PRs, and the development PR lists it as NOTICED. Should a follow-up fix the cites or add the target? That's Alex's call.
-- **[ALEX] O10:** a scoped `.prettierrc` override (`proseWrap: "never"` for the table-heavy docs) would collapse table padding with no words changed. RATIONALIZATIONS would go ~8.2k → ~6.1k tokens, and `docs/history/` has ~300 KB of padding. Repo config, so it needs its own PR. Raised with Alex, not yet answered.
-
-**Cleanup:** no branches were created. `git worktree list` shows only the primary checkout. Session 51 was archived into `docs/history/SESSIONS.md`.
-
-**Session data:** ~166k tokens at handoff (usage tool; 5-hour window 5%, weekly 38%, Fable weekly 4%).
-
-- **Trigger:** the 150k soft line, reached while digesting R1. The fold was finished as the current unit, then this handoff.
-- **What grew context most:** reading the 510-line brief whole to settle it (~10k), the R1 report (~6k), `PROGRESS.md` + `SESSION-HANDOFF.md` at load (~15k), and digging three older `PROGRESS.md` versions for the thinning scope (~6k).
-- **Subagent tokens:** brief draft 320k, grill R1 221k, fold 135k.
-- **Structural warning signs:** none.
-- **Clarifying question needed that the last entry should have answered:** none for Alex. But the scope had to be recovered from `git show 49e811f:PROGRESS.md` (PPPP).
-
-**Lessons (Session 56):**
-
-- **PPPP — A workstream carried as a one-line label lost its scope.** Five handoffs said "PR 5: docs thinning, plus VISION:327". The real scope (the #111 paragraph, the ARCHITECTURE rows, the GLOSSARY baseline) lived only in the Session 49 and 50 entries (`49e811f`, `c21d48c`), both now out of the detail band. When a deferred workstream's loading instructions shrink to a label, keep a pointer to where its scope is written (a commit's `PROGRESS.md`, or a brief file). → `docs/SESSION-HANDOFF.md` §6 (rides the next PR that touches it).
-- **QQQQ — Carried-forward scope was also wrong in its details.** "`packages/agents` row missing the 6.1d–6.1g files" was really 5.3a–6.1g across three rows, and 6.1d/6.1e touched `packages/core`, not slack. The brief draft and then the grill caught it. Re-verify inherited scope against the code before settling a brief. → none (an instance of verify-primary-source).
-- **RRRR — Byte size isn't content size for markdown tables.** Prettier pads every cell to the widest cell in its column, so GLOSSARY is 148 KB but 55 KB collapsed. Measure tokens and padding before judging which doc is heavy. → none (acted on in the glossary PR, and O10 above).
-
-### Session 57 loading instructions
-
-- **Check live state first:**
-  - `git log --oneline -3 origin/main` (expect this handoff on top of `9e6e4a2`), `git status`, `gh pr list`.
-  - `fly status -a moe-<persona>` for all 8 persona Apps.
-- **Primary: finish the docs-thinning brief, then build `docs/development-thinning`.**
-  1. Run the `spec-grill` verification round on `pr5-brief.md`. Give it a confirm-or-disprove brief naming R1's M1–M8 and L1–L13, plus `pr5-grill/r1-fold-brief.md`'s settlements. Report to `pr5-grill/r2-report.md` with a short hand-back. Fold with `doc-fixer`.
-  2. Branch `docs/development-thinning` from a freshly pulled `main`. Fill in `<date>`/`<branch-point sha>` (O6), then dispatch `implementer` with brief §3. Run the review gate per brief §6. The surrogate is mandatory, since the PR touches the blast-radius docs DEVELOPMENT and VISION.
-  3. Measure before/after tokens per brief §4. The PR body carries the NOTICED items (A4, isolation Option B) and the token figures.
-  4. Then do `docs/glossary-thinning` (brief §5), in its own session if the context triggers fire.
-- **Decision branches:**
-  1. **[ALEX]** A4 (above): ask when the development PR opens.
-  2. **[ALEX]** O10 (above): ask if still unanswered. Nothing waits on it.
-  3. If the verification round finds BLOCKING/MATERIAL, fold it and decide whether another round is warranted. Two rounds and a fold are the norm (Session 53); ask Alex at R4.
-- **Carry-overs:** PPPP's harvest goes into `docs/SESSION-HANDOFF.md` §6, in the next PR that touches it. After both thinning PRs: the Hook PR, then the chief-clancy doc-port workstream (candidates in the Session 52 entry). Confirm the order with Alex.
-- **Recommended model and effort for Session 57:** Opus, `high`.
 - **Fallback:** if Alex redirects on load, follow that.
 
 ## Session archive
