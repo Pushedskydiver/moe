@@ -21,7 +21,7 @@ type PersonaRosterEntry = {
 
 /**
  * Mirrors `docs/PERSONAS.md`'s roster table / VISION §4.1 — the two doc sources change in
- * lockstep (`CLAUDE.md` do-not-touch), and this constant must track both. First real consumer:
+ * lockstep (`AGENTS.md` do-not-touch), and this constant must track both. First real consumer:
  * `packages/github`'s external-post attribution composer (BUILD_PLAN 4.4a), which needs a
  * persona's display name and role and cannot import `packages/agents` directly
  * (`docs/CONVENTIONS.md` §Architecture Enforcement).

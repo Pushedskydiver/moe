@@ -22,8 +22,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "knip": "knip",
-    "generate:agents-md": "node scripts/generate-agents-md.ts",
     "check:agents": "node scripts/check-agent-frontmatter.ts",
+    "check:rulebook": "node scripts/check-rulebook.ts",
     "test:scripts": "vitest run --dir scripts",
     "typecheck:scripts": "tsc -p scripts",
     "prepare": "husky"

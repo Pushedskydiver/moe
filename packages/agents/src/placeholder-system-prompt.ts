@@ -11,7 +11,7 @@ import { fetchPersonaPromptContent } from './fetch-persona-prompt-content.js';
  * isn't overridden; every real call site has a persona ID and always overrides it). Deliberately
  * generic, non-persona voice — the real persona character
  * (`packages/agents/src/personas/*\/prompt.md`) is Stage 5 behind the do-not-touch gate
- * (`CLAUDE.md` §Non-obvious constraints).
+ * (`AGENTS.md` §Non-obvious constraints).
  */
 export const PLACEHOLDER_SYSTEM_PROMPT =
   'You are a helpful assistant replying to a direct message on Slack. Reply concisely and ' +

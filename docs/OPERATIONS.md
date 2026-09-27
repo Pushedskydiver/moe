@@ -33,7 +33,7 @@ The eight `fly.<persona>.toml` files at the repo root are **generated** from
 `pnpm --filter @moe/core generate:fly-configs` after changing the builder or the roster; CI's
 "Fly configs freshness" job fails the build if the committed files drift.
 
-**Deploys are Alex-only and never CI-automated** (`CLAUDE.md`, `docs/GIT.md` §Deploy Flow) — a
+**Deploys are Alex-only and never CI-automated** (`AGENTS.md`, `docs/GIT.md` §Deploy Flow) — a
 truncated/empty secret has taken the live service down before, and that risk now multiplies across
 eight Apps on a manual copy-paste path.
 
@@ -233,7 +233,7 @@ connections are active, each payload may be sent to _any_ of the connections"), 
 splits across every currently-open WebSocket connection for the same app-level token, not just the
 newest one — so a locally-running server and that persona's already-deployed Fly Machine (which is
 always-on: these `fly.<persona>.toml` configs declare no `[services]` block, so Fly's
-traffic-based autostop/autostart never applies — `CLAUDE.md`'s own `--ha=false` explanation) are
+traffic-based autostop/autostart never applies — `AGENTS.md`'s own `--ha=false` explanation) are
 two such connections at once, and Slack has no way to know which one a manual local check cares
 about.
 A `reaction_added`/`message` event that happens to route to the _deployed_ Machine instead of the

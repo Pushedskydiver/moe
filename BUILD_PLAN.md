@@ -2,7 +2,7 @@
 
 > **Sizing discipline (Alex's explicit rule):** every chunk below is small, safe, and simple — roughly one PR, one sitting, one reviewable idea. Anything that turned out bigger during drafting got split. If a chunk turns out to be complex _during implementation_, stop and split it rather than pushing through — a chunk that grows past ~300 changed LOC of real logic (excluding lockfiles/scaffolding boilerplate) is a signal to split, not a target to squeeze under.
 >
-> **Reading order:** `docs/VISION.md` (product truth) → `CLAUDE.md` (engineering rules) → this file (sequence). Where this file conflicts with VISION.md, VISION.md wins.
+> **Reading order:** `docs/VISION.md` (product truth) → `AGENTS.md` (engineering rules) → this file (sequence). Where this file conflicts with VISION.md, VISION.md wins.
 >
 > **Chunk states:** `[ ]` not started · `[~]` in progress · `[x]` merged · `[GATE]` needs an Alex conversation/decision before starting — not buildable until the gate clears.
 >
@@ -249,6 +249,6 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 - **SOTA quality additions** (mutation testing, prompt-injection fixtures, extended-thinking review) — re-enter after Stage 0's spine has been running for a few stages (VISION §12's deferral, pending Alex's confirm/override).
 - **Interjection-bar mechanism** (unprompted persona observations à la Marcus in VISION §1.3) — re-enter during/after Stage 6, once there's real channel traffic to calibrate against. Until then personas speak when spoken to, in ceremonies, or per intake.
 - **Disagreement-escalation chain code** (VISION §9) — re-enter when a real persistent disagreement is observed in practice; the prompt-side pushback half is covered by 5.3's Appendix-C layering.
-- **Chief-clancy doc ports** (LIFECYCLE.md, VISUAL-ARCHITECTURE.md) — re-enter once moe has real personas and a working ticket pipeline to describe/diagram (Stage 4+). **`docs/guides/`** — re-enter once moe ships an installable/configurable deployed surface. **`docs/roles/`** — re-enter once moe's own personas exist past scaffold, adopting its one-file-per-role convention. **TECHNICAL-REFERENCE.md, COMPARISON.md** — no near-term moe equivalent, no specific re-entry trigger. Decided at chunk 0.6c; see `CLAUDE.md`'s doc-port paragraph.
+- **Chief-clancy doc ports** (LIFECYCLE.md, VISUAL-ARCHITECTURE.md) — re-enter once moe has real personas and a working ticket pipeline to describe/diagram (Stage 4+). **`docs/guides/`** — re-enter once moe ships an installable/configurable deployed surface. **`docs/roles/`** — re-enter once moe's own personas exist past scaffold, adopting its one-file-per-role convention. **TECHNICAL-REFERENCE.md, COMPARISON.md** — no near-term moe equivalent, no specific re-entry trigger. Decided at chunk 0.6c; see `docs/decisions/CHIEF-CLANCY-DOC-PORTS.md`.
 - **`docs/INDEX.md`** — re-enter once enough real PRs exist to route against (Stage 1–2 territory).
 - **Per-persona learning windows / self-development** (VISION §7's continuous-learning facet) — re-enter after Stage 8 lands and memory is stable.

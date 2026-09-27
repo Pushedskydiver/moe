@@ -1,13 +1,12 @@
 name: CI
 
-# The "Quality suite" job mirrors CLAUDE.md's documented pre-push suite exactly
+# The "Quality suite" job mirrors AGENTS.md's documented pre-push suite exactly
 # (same commands, same order) so a green run here reproduces locally with no
-# hidden extra steps. "AGENTS.md freshness" is a separate, additional gate
-# (docs/DEVELOPMENT.md §AGENTS.md generation) — not part of that mirrored
-# suite, since a developer only needs to run its underlying commands after
-# editing CLAUDE.md, not on every push. "Agent frontmatter" is separate for
-# the same reason (docs/DEVELOPMENT.md §Quality Gates): it only matters after
-# editing .claude/agents/, scripts/, tsconfig.base.json or a root dependency.
+# hidden extra steps. "Agent frontmatter" is a separate, additional gate
+# (docs/DEVELOPMENT.md §Quality Gates): it now also covers AGENTS.md,
+# CLAUDE.md and .claude/rules/ (via `pnpm check:rulebook`), and it only
+# matters after editing those, .claude/agents/, scripts/, tsconfig.base.json
+# or a root dependency — not on every push.
 
 on:
   pull_request:
@@ -51,18 +50,6 @@ jobs:
       - run: pnpm format:check
       - run: pnpm knip
 
-  agents-md-freshness:
-    name: AGENTS.md freshness
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v6
-
-      - uses: ./.github/actions/setup
-
-      - run: pnpm generate:agents-md
-      - run: pnpm format
-      - run: git diff --exit-code AGENTS.md
-
   agent-frontmatter:
     name: Agent frontmatter
     runs-on: ubuntu-latest
@@ -76,6 +63,7 @@ jobs:
       - run: pnpm typecheck:scripts
       - run: pnpm test:scripts
       - run: pnpm check:agents
+      - run: pnpm check:rulebook
 
   fly-configs-freshness:
     name: Fly configs freshness
@@ -85,8 +73,8 @@ jobs:
 
       - uses: ./.github/actions/setup
 
-      # No `pnpm format` step, unlike the AGENTS.md job above: Prettier has no TOML parser, so it
-      # leaves fly.*.toml untouched and the generator's own output is already the canonical form.
+      # No `pnpm format` step: Prettier has no TOML parser, so it leaves fly.*.toml untouched and
+      # the generator's own output is already the canonical form.
       - run: pnpm --filter @moe/core generate:fly-configs
       # Staged first, then diffed against HEAD, rather than a bare `git diff --exit-code`: adding a
       # ninth persona to the roster emits a brand-new fly.<id>.toml, and an *untracked* file is
