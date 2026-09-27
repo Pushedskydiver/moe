@@ -9,12 +9,12 @@ const LOCAL_TEST_HOSTS = new Set(['localhost', '127.0.0.1']);
 const NON_LOCAL_DATABASE_URL_MESSAGE =
   "DATABASE_URL must point at a local Postgres (host localhost or 127.0.0.1) — getTestPool() refuses any other host because resetDatabase() drops moe's tables on it. The URL is not shown here because it may contain a password.";
 
-// `pg` resolves the connection string with `pg-connection-string`'s own `parse`, and a `?host=`
-// query param overrides the URL's authority host there — so the *effective* host pg will
-// actually use can differ from `new URL(...).hostname`. Returns `null` on anything `parse`
-// itself throws on, rather than surfacing the parse error: the guard below refuses `null` the
-// same as any other non-local host, so the caller never has to handle a third outcome.
-function parseEffectiveHost(connectionString: string): string | null {
+// `pg` resolves its connection string with `pg-connection-string`'s own `parse`, where a
+// non-empty `?host=` query param overrides the URL's authority host — so this checks the host
+// `parse` returns, not `new URL(...).hostname`. An empty host is refused too: `pg` would fall
+// back to `PGHOST`. Returns `null` on anything `parse` throws on, which the guard refuses like
+// any other non-local host, so the caller never handles a third outcome.
+function parseHost(connectionString: string): string | null {
   try {
     return parse(connectionString).host;
   } catch {
@@ -22,19 +22,18 @@ function parseEffectiveHost(connectionString: string): string | null {
   }
 }
 
-function assertLocalTestDatabaseUrl(connectionString: string): void {
-  const effectiveHost = parseEffectiveHost(connectionString);
-  if (!effectiveHost || !LOCAL_TEST_HOSTS.has(effectiveHost)) {
-    throw new Error(NON_LOCAL_DATABASE_URL_MESSAGE);
-  }
+function isLocalTestDatabaseUrl(connectionString: string): boolean {
+  const host = parseHost(connectionString);
+  return host !== null && LOCAL_TEST_HOSTS.has(host);
 }
 
 /**
  * Real-database test helper (docs/TESTING.md: "prefer a real test database where practical").
  * Requires `DATABASE_URL` — fails loudly rather than silently skipping, so a missing local
  * Postgres shows up as a clear test failure, not quietly-passing suites. Refuses any
- * `DATABASE_URL` whose effective host isn't `localhost` or `127.0.0.1`, because `resetDatabase()`
- * drops moe's tables on whatever database this pool points at.
+ * `DATABASE_URL` whose host, as `pg-connection-string` parses it, isn't exactly `localhost` or
+ * `127.0.0.1`, because `resetDatabase()` drops moe's tables on whatever database this pool
+ * points at.
  */
 export function getTestPool(): Pool {
   const connectionString = process.env.DATABASE_URL;
@@ -44,7 +43,9 @@ export function getTestPool(): Pool {
         'Point it at a local/dev database, e.g. postgres://postgres:password@localhost:5432/moe_dev',
     );
   }
-  assertLocalTestDatabaseUrl(connectionString);
+  if (!isLocalTestDatabaseUrl(connectionString)) {
+    throw new Error(NON_LOCAL_DATABASE_URL_MESSAGE);
+  }
   return createPool(connectionString);
 }
 
