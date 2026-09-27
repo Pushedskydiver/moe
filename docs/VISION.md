@@ -205,7 +205,7 @@ Alex can DM any persona, and personas can DM each other, as genuinely separate, 
 
 ### 6.4 Operating rhythm
 
-Core hours, off-hours behavior, weekend/bank-holiday rest, and Slack-status-based away-detection carry over conceptually from the previous design; the detailed parameters (exact hours, holiday calendar source, away-keyword list) are re-specified in `BUILD_PLAN.md` rather than restated here.
+Core hours, off-hours behavior, weekend/bank-holiday rest, and Slack-status-based away-detection carry over conceptually from the previous design; the detailed parameters (exact hours, holiday calendar source, away-keyword list) are re-specified in `docs/GLOSSARY.md` ("Core hours", "Away-detection") rather than restated here.
 
 ### 6.5 EOD digest
 
@@ -324,7 +324,7 @@ The per-persona tool allowlist grid, the CLI-vs-MCP decision rule ("use the ligh
 
 - ESLint complexity caps (`eslint-plugin-sonarjs` + `eslint-plugin-functional` + `eslint-plugin-unicorn` + `eslint-plugin-n`): cyclomatic 10, cognitive 15, max 50 LOC/function, max 300 LOC/file, max 3 params, max depth 3, no `let`, immutable data.
 - A devil's-advocate review gate before any PR, reading each changed file at HEAD (not diff-scoped) for factual-claim drift — chief-clancy's `da-review`/`copilot-surrogate` pattern.
-- A `docs/INDEX.md` scenario router preventing `CONVENTIONS.md` ↔ `AGENTS.md` ↔ `CLAUDE.md` drift.
+- A `docs/INDEX.md` scenario router preventing `CONVENTIONS.md` ↔ `AGENTS.md` drift.
 - Pre-push hygiene (`knip`, `publint`, `attw`) for the packages Moe actually publishes.
 - 5-group import ordering via `@ianvs/prettier-plugin-sort-imports`.
 - A pre-seeded `docs/REVIEW-PATTERNS.md` with the highest-confidence failure classes (persona-prompt drift, ESM `.js` extension slips, schema/type separation, business-hours guard misses, recorded-transcript drift) so the review agent has something to consult on day one.
