@@ -47,7 +47,7 @@ One firing is a data point, not a build order; a second of the same class is a d
 
 1. Positions A–D and the revisit triggers above are unchanged.
 2. This decision's "imported numeric thresholds" (Decision, above) and Position C mean chief-clancy's handoff-cost and backfill metrics, which stay declined.
-3. PCR's context-size handoff triggers are a separate, handoff-timing mechanism: moe has recorded a Session data line since Session 46 (in anticipation of `docs/SESSION-HANDOFF.md`), and Alex's Session 46 scope call (PR 3 with per-session token records, `git show 5f63516:PROGRESS.md`) and Session 47 expansion (usage-aware handoff, `docs/history/SESSIONS.md` Session 47) adopted PCR's usage-aware handoff, whose §6 is that per-session record.
+3. PCR's context-size handoff triggers are a separate, handoff-timing mechanism: moe has recorded a Session data line since Session 46 (in anticipation of `docs/SESSION-HANDOFF.md`), and Alex's Session 46 scope call (a PCR-style handoff doc with per-session token records, `git show 5f63516:PROGRESS.md`) and his Session 47 expansion to PCR's usage-aware handoff (`docs/history/SESSIONS.md` Session 47) adopted the per-session record that PCR's §6 defines.
 4. Only Rationale 4's decline of "a per-session bookkeeping habit" (quoted verbatim: "event-based triggers (below) instead of a per-session bookkeeping habit") is superseded, by the Session data line.
 5. The "enters `BUILD_PLAN.md` as its own chunk with Alex's sign-off" clause above covers adopting automation, which this does not do.
 

@@ -4,7 +4,7 @@ Anti-rationalization table for common self-deceptions during development. Each e
 
 **Adapted from chief-clancy's own `docs/RATIONALIZATIONS.md`.** That version cites specific chief-clancy PR/session numbers as evidence for most entries, plus a handful of entries that are chief-clancy's own empirical investigations (a hook-salience pilot, a fabricated-citation incident) with no moe equivalent. This version keeps the entries that are universal software-engineering self-deceptions — none of which depend on chief-clancy's package graph or history — and drops the chief-clancy-specific investigation entries rather than repeat findings moe hasn't run the pilots for.
 
-This is a **living document**. When a new self-deception is caught in review, add it with a `Caught in:` line citing the PR. Moe starts this table evidence-free on the entries below where chief-clancy's own citations didn't transfer — the disciplines are adopted on chief-clancy's track record, and moe earns its own citations as they happen.
+This is a **living document**. When a new self-deception is caught in review, add it with a `Caught in:` line citing the PR (or the session or commit, when no PR caught it). Moe starts this table evidence-free on the entries below where chief-clancy's own citations didn't transfer — the disciplines are adopted on chief-clancy's track record, and moe earns its own citations as they happen.
 
 **Read this before every review pass.** The headline meta-rationalization below is the failure mode all the others compose into.
 
@@ -38,7 +38,7 @@ This is the meta-rationalization. Every other entry below is a specific instance
 | "The spec said X so X is true."                         | Verify the citations. Read the cited file/lines before trusting a spec claim.                                                                                                                                                                                                                                                                                                                                               |
 | "Planning is overhead."                                 | Planning IS the task. Implementation without a plan is just typing.                                                                                                                                                                                                                                                                                                                                                         |
 | "The worker will know which steps I meant."             | Name the steps a mode skips; never describe them by implication. A brief that said "skip reading beyond what the findings touch" was read to skip the conventions and do-not-touch steps too. Caught in: a #112 doc-fixer fold.                                                                                                                                                                                             |
-| "A new path will be committed like any other."          | Run `git check-ignore -v <new path>` before assuming a new directory isn't gitignored — a path under a partly-ignored parent (e.g. `.claude/*`, which was ignored except `agents/` until #114 un-ignored `rules/`) can pass every local check and never get committed, failing only in CI. Caught in the brief grill for #114.                                                                                              |
+| "A new path will be committed like any other."          | Run `git check-ignore -v <new path>` before assuming a new directory isn't gitignored — a path under a partly-ignored parent (e.g. `.claude/*`, which was ignored except `agents/` until #114 un-ignored `rules/`) can pass every local check and never get committed, failing only in CI. Caught in: #114's brief grill.                                                                                                   |
 | "Wording I settled in my own brief is already checked." | The fixer applies settled wording verbatim, so check each replacement sentence against its source before it goes into a brief — the same discipline you'd apply to any other sentence entering a doc. Caught in: #114 R3 — two LOWs were the orchestrator's own verbatim R2 fold-brief wording (an overclaim in `CONVENTIONS.md`'s status line; the wrong actor named for the required-check swap in `SINGLE-RULEBOOK.md`). |
 
 ## Build
@@ -84,13 +84,13 @@ This is the meta-rationalization. Every other entry below is a specific instance
 
 ## Ship
 
-| Rationalization                      | Reality                                                                                                                                                                                                                                              |
-| ------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| "It works on my machine."            | Environments differ. Check CI, check config, check dependencies.                                                                                                                                                                                     |
-| "The CI is flaky, just retry it."    | Flaky tests mask real bugs. Diagnose the flakiness, don't paper over it.                                                                                                                                                                             |
-| "The CI passed, ship it."            | CI passing is necessary but not sufficient. Did you actually verify the change does what it claims?                                                                                                                                                  |
-| "I'll fix it later."                 | Later never comes. The next commit will introduce new bugs on top of this one. Fix it now.                                                                                                                                                           |
-| "Deleting the old CI job is enough." | A PR that deletes the job behind a required check is unmergeable until the branch-protection setting changes to match. Put that settings step in the PR body as a _pre_-merge action, and update any doc that lists required checks. Caught in #114. |
+| Rationalization                      | Reality                                                                                                                                                                                                                                               |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| "It works on my machine."            | Environments differ. Check CI, check config, check dependencies.                                                                                                                                                                                      |
+| "The CI is flaky, just retry it."    | Flaky tests mask real bugs. Diagnose the flakiness, don't paper over it.                                                                                                                                                                              |
+| "The CI passed, ship it."            | CI passing is necessary but not sufficient. Did you actually verify the change does what it claims?                                                                                                                                                   |
+| "I'll fix it later."                 | Later never comes. The next commit will introduce new bugs on top of this one. Fix it now.                                                                                                                                                            |
+| "Deleting the old CI job is enough." | A PR that deletes the job behind a required check is unmergeable until the branch-protection setting changes to match. Put that settings step in the PR body as a _pre_-merge action, and update any doc that lists required checks. Caught in: #114. |
 
 ## Process meta
 
@@ -109,18 +109,20 @@ This is the meta-rationalization. Every other entry below is a specific instance
 
 ## Where this is referenced
 
-The disciplines this file documents are surfaced in the relevant process docs. When you're in the middle of a review, walk back here to check the column you're working in:
+The main places that point here (selected, not exhaustive):
 
-- `docs/DA-REVIEW.md` §See also (:9) and its anti-rationalization-index link (:273).
-- `docs/SELF-REVIEW.md`'s anti-rationalization-index link (:170).
-- `docs/DEVELOPMENT.md` §Round-2 verification (:73), which names this file's "it's just a one-line fix" entry directly.
+- `.claude/agents/da-review.md`, which reads this file before dismissing any finding.
+- `docs/DA-REVIEW.md`'s intro See-also line and §See also.
+- `docs/SELF-REVIEW.md` §See also.
+- `docs/DEVELOPMENT.md` §Review Gate's "Round-2 verification, in full" paragraph, which names this file's "it's just a one-line fix" entry directly.
+- `docs/SESSION-HANDOFF.md` §8, as a lesson-harvest destination.
 
 ## How to add an entry
 
 1. Catch a real self-deception during review.
 2. Phrase the rationalization in plain words (what you actually told yourself).
 3. Phrase the reality as a tight, declarative response.
-4. Add a `Caught in:` line citing the PR that surfaced it, so future readers can trace the lesson back to its origin.
+4. Add a `Caught in:` line citing the PR (or the session or commit, when no PR caught it) that surfaced it, so future readers can trace the lesson back to its origin.
 5. Place the entry in the right phase section (Define / Plan / Build / Test / Review / Ship / Meta).
 6. Commit with a descriptive message — `📝 docs(rationalizations): add "<rationalization>" — caught in <PR>`.
 
