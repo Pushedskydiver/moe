@@ -2,7 +2,75 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/DEVELOPMENT.md` §Session handoff for the mechanics).
 
-## Next workstreams (after Session 51)
+## Next workstreams (after Session 52)
+
+Updated 2026-09-27 end-Session-52 — **PR 4 (single rulebook) is open as [PR #114](https://github.com/Pushedskydiver/moe/pull/114), not merged (Alex merges). Its Round-2 loop converged at R3, and the required-check swap is done.** The branch `chore/single-rulebook` is at `d4a204d` (`main` merged in, because `strict: true` needs it up to date). CI was pending at handoff. All 8 personas are `started` with checks passing.
+
+**Asked and decided (Alex, 2026-09-27, this session):** Alex told Claude to update `main`'s required checks. Claude applied the change: "AGENTS.md freshness" out, "Agent frontmatter" in, `strict: true` kept. A read-back confirmed `["Quality suite","Validate PR title format","Agent frontmatter"]`. "Agent frontmatter" already runs on `main`, so no other PR is blocked by it.
+
+**Done this session:**
+
+- **R2** (`ffdc9e6..c173da7`):
+  - DA: 0 MATERIAL, 7 LOW.
+  - Surrogate: 1 MATERIAL, 9 LOW. The MATERIAL was `DEVELOPMENT.md:31`, where the C7 reword brought back the A1 stub-reasoning error. DA flagged the same line independently, as a LOW.
+  - Folded in `7943654` (`implementer`) and `24ac62b` (`doc-fixer`), which ran in parallel and staged by explicit path.
+- **R3** (`c173da7..24ac62b`): DA 0 MATERIAL / 3 LOW; surrogate 0 MATERIAL / 6 LOW. The loop stopped.
+- **LOW pass:** `a29467f` (`implementer`, 6 items). The orchestrator read the diff, and the PR discloses that no fresh context checked it.
+- **Self-review:** walked for the code layer; nothing new.
+- **Local suite:** green except `packages/core`'s 20 DB-backed files (no `DATABASE_URL`).
+- **On the PR:** the body carries every item the Session 52 loading instructions required. Two surrogate comments are posted (R1 A–C; R2+R3), and the titles were checked. DA reports stayed in chat.
+- **PR body promise:** PR 3 closes C15, `OPERATIONS.md:229`'s non-existent "§Session handoff precedent".
+- **Deferred on #114:** `PERSONAS.md:5`/`:28`'s stale forward reference (next to the protected roster), and DA's HTML-comment / multi-line-code-span FYI.
+- **PR 3 brief drafted** by a background `Plan` agent: `.claude/research/workflow-series/pr3-brief-draft.md` (gitignored, local, ~17 KB). It has not been grilled or reviewed yet.
+- **Local reports:** all R2/R3 reports and fold briefs are in `.claude/research/workflow-series/pr4-r2/` and `pr4-r3/`.
+
+**Cleanup:** isolated review worktrees were auto-removed (`git worktree list` shows only the primary checkout). `chore/single-rulebook` is kept because its PR is open. Session 47 was archived into `docs/history/SESSIONS.md`.
+
+**Session data:** ~190k tokens at handoff (usage tool; 5-hour window 22%, weekly 35%).
+
+- **Trigger:** the 150k soft line was crossed at ~160k during the R3 fold; the PR was opened first (the phase boundary), then this handoff.
+- **What grew context most:** 7 review and fold reports (~4–6k each), the PR 3 brief draft (~5k), and the self-review file reads.
+- **Subagent tokens:** DA R2 106k, surrogate R2 238k, surrogate R3 155k, DA R3 94k, brief draft 155k, folds 71k + 84k + 51k.
+- **Structural warning signs:** none.
+
+**Lessons (Session 52):**
+
+- **FFFF — A fold brief's settled wording is prose too, and it needs the same claim check.** Two of R3's LOWs were verbatim wording from the orchestrator's own R2 brief: `CONVENTIONS.md:5` ("the configs implement this document", which overclaims) and `SINGLE-RULEBOOK.md:18` ("Alex made the swap", which names the wrong actor). The fixer applies settled wording exactly as given, so nobody verifies it before the next round. Before writing a replacement sentence into a brief, check it against the source, just as you would a sentence in a doc.
+- **GGGG — Reviewer convergence, instances 10–11.** At R2, DA and the surrogate independently flagged `DEVELOPMENT.md:31` (DA as a LOW, the surrogate as a MATERIAL). At R3, both flagged the permissive indented-fence test and the lone-CR regression. Grade by the higher of the two severities, and still verify.
+- **HHHH — `pr4-r1/extract-handback.py` only returns strings containing BLOCKING/MATERIAL/LOW.** A non-review report, such as a brief, extracts as empty. Use an unfiltered variant for those (the same walk, keep the longest string).
+
+### Session 53 loading instructions
+
+- **Check live state first:**
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `4b4536f`), `git status` and `gh pr list`.
+  - #114's CI and merge state: `mcp__ccd_pr__get_status`, or `gh pr view 114`.
+  - `fly status` for all 8 persona Apps (`moe-sarah`, `-riley`, `-marcus`, `-priya`, `-dom`, `-theo`, `-nia`, `-maya`).
+- **#114:**
+  - If CI is red, fix it on the branch. A fix to a reviewed line needs its own range check.
+  - If Alex merged it, delete the local branch `chore/single-rulebook`, which needs no permission.
+  - If it's still open and `BEHIND` again, merge `origin/main` in.
+- **Then PR 3, the handoff protocol.** Start from `.claude/research/workflow-series/pr3-brief-draft.md`.
+  1. Branch `docs/session-handoff` from `main` **after #114 merges**. PR 3 edits the single-rulebook `AGENTS.md`, and `main` still has the generated one until then. The draft's file:line references were taken at `c173da7`, so re-grep all of them.
+  2. Settle the draft's open items as the orchestrator:
+     - keep the Fable row as a trial row;
+     - add "no review IDs in code comments" to `implementer.md`;
+     - DDDD and HHHH go to memory, not repo docs;
+     - post-handoff decisions go in a dated "Update:" line;
+     - branch timing is as in step 1.
+  3. **Ask Alex the one item marked as his:** should the weekly plan limit get its own handoff trigger? The recommendation is no new trigger row: record the weekly percentage in every entry, and name it in the handoff notice at ≥85%.
+  4. Run `spec-grill` R1 on the brief and fold its findings. Then run a verification round, which PR 4 skipped (lesson BBBB). The brief must include `git check-ignore -v` for the new path.
+  5. Have `implementer` build it, then run the full review gate. The surrogate is mandatory: the diff touches blast-radius docs and is over 50 LOC.
+  6. **PR 3 must close C15** (`OPERATIONS.md:229`), as #114's body promises. The draft's section G already plans it.
+- **After PR 3, as before:** PR 5 (docs thinning, plus the VISION:327 edit, which is Alex's call), then the Hook PR, then the chief-clancy doc-port workstream (Alex reopened it at the end of Session 51):
+  - **Candidates**, from `docs/decisions/CHIEF-CLANCY-DOC-PORTS.md`, whose re-entry conditions look met: `docs/roles/` (one file per role; the personas exist), and `LIFECYCLE.md` / `VISUAL-ARCHITECTURE.md` (Stage 4+ is complete).
+  - `guides/` needs a judgment call on whether moe counts as an "installable/configurable deployed surface". `TECHNICAL-REFERENCE.md` / `COMPARISON.md` stay out.
+  - Do it after PR 5, so docs aren't ported into files about to be thinned. Confirm the order and which docs to port with Alex when it starts.
+  - **Mechanics:** a dated "Status update" in `CHIEF-CLANCY-DOC-PORTS.md` (lifecycle in `docs/decisions/README.md`), mirrored in `BUILD_PLAN.md` §Deliberately not scheduled.
+- **Recommended model and effort for Session 53:** Opus, `high`.
+- **Decision branches:** FFFF–HHHH above, DDDD–EEEE in the Session 51 entry, and earlier ones via `git log -p PROGRESS.md`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 51
 
 Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 review and its fold; the branch `chore/single-rulebook` is pushed at `c173da7`. No PR is open yet, and the scoped R2 is the next step.** Main is unchanged (`c21d48c`), and all 8 personas are `started` with checks passing.
 
@@ -19,7 +87,7 @@ Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 revie
   - `c173da7`: `doc-fixer` did 19 doc items across 14 files.
   - `ffdc9e6..c173da7`: 17 files, +119/−55.
 - **Deferred with reasons (list them in the PR body):**
-  - A6: `CHIEF-CLANCY-DOC-PORTS.md`'s `roles/` and Stage-4 re-entry conditions look met. **Alex reopened the deferral (2026-09-27, end of Session 51).** It is its own workstream after PR 4 (below), not part of PR 4.
+  - A6: `CHIEF-CLANCY-DOC-PORTS.md`'s `roles/` and Stage-4 re-entry conditions look met. **Alex reopened the deferral (2026-09-27, end of Session 51).** It is its own workstream after PR 4 (see the latest loading instructions), not part of PR 4.
   - C12: `CAST-ROSTER.md:14` "CLAUDE.md's do-not-touch list" is dated decision prose.
   - C15: `OPERATIONS.md:229` cites a precedent that doesn't exist; it's older drift.
   - C17: `TOOL-ALLOWLIST-GRID.md:85`'s OWASP LLM06 link text doesn't match its slug; this needs an external check.
@@ -33,31 +101,6 @@ Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 revie
 
 - **DDDD — Subagent hand-back reports aren't in the transcript's text blocks.** To save a report verbatim for a PR comment, extract the longest string from the `*andback*` tool_use input in the task's `.output` JSONL. `.claude/research/workflow-series/pr4-r1/extract-handback.py <task.output> <out.md>` does it. Don't retype a report.
 - **EEEE — Measuring always-loaded tokens needs neutral paths.** `claude -p` in the primary checkout also loads the path-keyed auto-memory, which confounds a before/after comparison. Run both sides in scratch worktrees and subtract a no-rulebook baseline.
-
-### Session 52 loading instructions
-
-- **Check live state first:** `git log --oneline -3 origin/main` (expect this handoff on `c21d48c`), `git status`, `gh pr list`, `git log --oneline -3 origin/chore/single-rulebook` (expect `c173da7`). Check fly status for all 8 persona Apps (`moe-sarah`, `-riley`, `-marcus`, `-priya`, `-dom`, `-theo`, `-nia`, `-maya`).
-- **First: R2 on PR 4, scoped to `ffdc9e6..c173da7`.** Run it in `isolation: 'worktree'` and tell each reviewer to read the primary checkout's absolute path, which must have the branch checked out.
-  - Dispatch `da-review`, with the R1 finding list from `pr4-r1/da-r1.md`.
-  - Dispatch `copilot-surrogate` (17 files, under the ceiling), with the A/B/C lists.
-  - Each brief asks the reviewer to confirm or disprove each fold, find anything the fold introduced, and grep for sibling copies of corrected wording.
-  - Loop until 0 BLOCKING/MATERIAL, and ask Alex at R4. Then close the LOWs, walk self-review, open the PR (`📦 chore: make AGENTS.md the single rulebook, retire the generator`, label `chore` or per `docs/GIT.md` §Labels), and post the surrogate comment.
-  - **The PR body must carry:**
-    - Alex's pre-merge settings step: in `main`'s required checks, remove "AGENTS.md freshness" and add "Agent frontmatter". **Alex confirmed the swap (2026-09-27, end of Session 51).** He makes the change himself unless he asks Claude to. Before handing the PR over, confirm it's done: `gh api repos/Pushedskydiver/moe/branches/main/protection/required_status_checks --jq .contexts`.
-    - The grill fold had no verification round.
-    - `check-rulebook.ts` is a separate script (the orchestrator's call).
-    - The token measurement above.
-    - The reviewer disagreement and how it was resolved.
-    - The deferred list, with A6 marked as reopened by Alex and moved to its own workstream.
-    - The pre-merge checkpoint.
-- **Then, as before:** PR 3 (handoff protocol), PR 5 (docs thinning, plus the VISION:327 edit, which is Alex's call), then the Hook PR.
-- **New workstream — the chief-clancy doc-port (Alex reopened it at the end of Session 51):**
-  - **Candidates** (from `docs/decisions/CHIEF-CLANCY-DOC-PORTS.md`, whose re-entry conditions look met): `docs/roles/` (one file per role; the personas exist), and `LIFECYCLE.md` / `VISUAL-ARCHITECTURE.md` (Stage 4+ is complete). `guides/` depends on whether moe counts as an "installable/configurable deployed surface", which needs a judgment call. `TECHNICAL-REFERENCE.md` / `COMPARISON.md` stay out.
-  - **Recommended order:** after PR 5, so new docs aren't ported into files that are about to be thinned. Confirm the order and which docs to port with Alex when the workstream starts.
-  - **Mechanics:** add a dated "Status update" to `CHIEF-CLANCY-DOC-PORTS.md` (the lifecycle in `docs/decisions/README.md`), and mirror it in `BUILD_PLAN.md` §Deliberately not scheduled. See the Session 50 loading instructions in `git log -p PROGRESS.md` for scope, orchestration, thresholds and the Marcus Plan-stall note.
-- **Recommended model and effort for Session 52:** Opus, `high`.
-- **Decision branches:** DDDD–EEEE above, BBBB–CCCC in the Session 50 entry, and earlier ones via `git log -p PROGRESS.md`.
-- **Fallback:** if Alex redirects on load, follow that.
 
 ## Earlier: Session 50
 
@@ -111,24 +154,6 @@ Updated 2026-09-27 end-Session-48 — **PR 2b of the workflow series is open as 
 - **WWW — A safety rule written into one step leaks through the others.** The "don't run tests against a non-local DB" rule was patched four rounds running (R1 which DB, R2 an exported shell value, R3 the `--no-bail` fallback, R4 the TDD step's own test runs) — each fold closed one path and the next check found another. When prose keeps leaking, fix the mechanism (here: a host guard in the helper), not the wording.
 - **XXX — A settled brief makes a Sonnet fixer reliable, but brief wording is scope.** `doc-fixer` applied 27 findings across two folds with nothing stopped, verified script names and exports before writing them, and reported the out-of-scope gap instead of inventing text. Its one defect came from the brief: "skip reading beyond what the findings touch" was read as skipping the conventions and do-not-touch steps too. Name the steps a mode skips; never describe them.
 - **YYY — Claude Code's native `AGENTS.md` read is conditional.** It happens only when there is no `CLAUDE.md` in the directory tree; otherwise `CLAUDE.md` wins. A redirect has to be `@AGENTS.md`, never a sentence.
-
-## Earlier: Session 47
-
-Updated 2026-09-27 end-Session-47 — **PR 2 of the workflow series is open as [PR #111](https://github.com/Pushedskydiver/moe/pull/111), not merged (Alex merges); it ran the new scoped Round-2 rule on itself and converged at R3.** [PR #110](https://github.com/Pushedskydiver/moe/pull/110) merged 2026-09-27 02:36 UTC.
-
-**Asked and decided (Alex, 2026-09-27, this session):** (1) bring over every PCR agent worth having, adapted — `implementer` and `doc-fixer` now (PR 2b), `chunk-briefer` after measuring one chunk; `doc-checker` only if PR 3 shows a gap `copilot-surrogate` + scoped Round-2 don't cover; not `code-reader`/`lint-fixer` (unused in PCR) or `import-mapper`/`maths-reviewer` (PCR-domain). (2) Carry over PCR's usage-aware handoff: Claude checks context, the 5-hour and weekly limits with the desktop app's usage tool (`mcp__ccd_session_mgmt__get_usage`, confirmed working here), decides when to hand off, does the cleanup, writes the entry, and gives a lean paste-in prompt plus the next session's model and effort — PR 3, now built from PCR's `docs/SESSION-HANDOFF.md` (triggers: phase boundary above 100k, soft 150k, hard 250k, 5-hour window ≥85%, structural warning signs, topic switch). (3) **Adopt PCR's rulebook shape** (Alex: "No — adopt PCR's shape", `AskUserQuestion`): `AGENTS.md` becomes the single rulebook, `CLAUDE.md` a one-line `@AGENTS.md` import; retire `scripts/generate-agents-md.ts`, its marker conventions and CI freshness job (PR 4). (4) Docs optimisation is now agreed, not a candidate (PR 5). (5) Delete `docs/archive-build-narrative` — it was already gone on GitHub (auto-deleted on merge); local ref pruned.
-
-**Shipped (on #111, unmerged):** review agents pin `model: opus` + `effort: high`; `docs/DEVELOPMENT.md` §Review Gate's Round-2 rule is a loop of fresh checks scoped to each fold's commit range (stop at 0 BLOCKING/MATERIAL; the last check's LOWs close in one author-read, disclosed pass; ask Alex if R4 still finds BLOCKING/MATERIAL), with `da-review`/`copilot-surrogate` Round-2 modes and sibling edits (pre-merge checkpoint, `RATIONALIZATIONS.md`, `GLOSSARY.md`, `REVIEW-PATTERNS.md`, the worktree paragraph — isolated worktrees branch from `main`); `scripts/check-agent-frontmatter.ts` (Zod v4, 23 tests incl. a fast-check property) in a new CI job "Agent frontmatter" that also type-checks and tests root `scripts/`. **Verified:** build/lint/typecheck/format/knip and the three new script commands green locally; package tests at baseline (agents 323, server 421, slack 147, github 43, memory 1); `packages/core`'s 20 DB-backed files fail locally (Docker down) — CI runs them. CI on #111 had not reported at handoff. Review trail is in the PR body; surrogate findings posted as a PR comment.
-
-**In flight:** nothing running. All review/fix subagents finished and their output is committed on #111.
-
-**Session data:** ~245k tokens at handoff (usage tool; 5-hour window 20%, weekly 30%). Triggers: phase boundary (PR opened) and hard line (250k) — the 150k soft line was passed at ~180k, mid-PR, and the PR was finished first. Structural warning signs: none. Most growth: review-agent reports (5 reviews + 2 grills) and the fold diffs read back.
-
-**Lessons (Session 47):**
-
-- **TTT — QQQ happened three times in one PR:** the spec-grill fold swapped one false "longest chain" claim for another (5.3g, not 3.12, is moe's longest), and the R1 fold attached `CLAUDE_CODE_SUBAGENT_MODEL` to `inherit` where the docs say it doesn't apply. Scoped range checks caught all three cheaply — evidence the new rule works. Folding a claim: state what the source says, add no superlatives.
-- **UUU — A fix that narrows a regex can turn "rejected" into "silently skipped".** Requiring a space after the colon made `effort:hgh` pass instead of fail; the fix is to report unmatched lines, never drop them.
-- **VVV — Isolated review worktrees branch from `main`, not the branch under review**, so every review brief must give the primary checkout's path for HEAD reads. All briefs this session did; one reviewer still started from `main` and noticed.
 
 ## Session archive
 
