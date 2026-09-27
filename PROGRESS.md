@@ -2,7 +2,82 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/DEVELOPMENT.md` §Session handoff for the mechanics).
 
-## Next workstreams (after Session 49)
+## Next workstreams (after Session 51)
+
+Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 review and its fold; the branch `chore/single-rulebook` is pushed at `c173da7`. No PR is open yet, and the scoped R2 is the next step.** Main is unchanged (`c21d48c`), and all 8 personas are `started` with checks passing.
+
+**Done this session:**
+
+- **Architectural pass:** passed. There is no package-graph change, `check-rulebook.ts` reuses `extractFrontmatter`, and the full do-not-touch list stays in `AGENTS.md`.
+- **R1 (`ffdc9e6`):** `da-review` returned 1 MATERIAL (the empty-`paths:` guard had no test) and 8 LOW. `copilot-surrogate` ran in 3 groups:
+  - A (rulebook, stub, rules, decisions): 1 MATERIAL (`SINGLE-RULEBOOK.md:14`'s stub-shape reasoning didn't follow) and 6 LOW.
+  - B (scripts, CI, `.gitignore`): 1 MATERIAL (a comment claimed Claude Code only imports `@` at column 0, which is false) and 5 LOW.
+  - C (repointed docs): 1 MATERIAL (`DA-REVIEW.md:96` quoted text that doesn't exist) and 16 LOW; C13–C17 are older drift that this PR didn't cause.
+- **Reviewer disagreement, resolved by the primary source:** DA confirmed "the first session after an upgrade can't read `AGENTS.md`", and surrogate A4 called it unverified. code.claude.com/docs/en/memory §"When AGENTS.md support is unavailable" confirms it (upgrades from v2.1.276 or earlier, in some cases). **Say this in the PR body.**
+- **Fold:**
+  - `7b66d57`: `implementer` did scripts and `ci.yml`. The stub's fence _tracking_ became fence _rejection_, stubs with CRLF endings get an explicit error, the comments were reworded, and 31 rulebook tests / 54 script tests pass.
+  - `c173da7`: `doc-fixer` did 19 doc items across 14 files.
+  - `ffdc9e6..c173da7`: 17 files, +119/−55.
+- **Deferred with reasons (list them in the PR body):**
+  - A6: `CHIEF-CLANCY-DOC-PORTS.md`'s `roles/` and Stage-4 re-entry conditions look met. **Alex reopened the deferral (2026-09-27, end of Session 51).** It is its own workstream after PR 4 (below), not part of PR 4.
+  - C12: `CAST-ROSTER.md:14` "CLAUDE.md's do-not-touch list" is dated decision prose.
+  - C15: `OPERATIONS.md:229` cites a precedent that doesn't exist; it's older drift.
+  - C17: `TOOL-ALLOWLIST-GRID.md:85`'s OWASP LLM06 link text doesn't match its slug; this needs an external check.
+  - DA FYI: in worktree sessions, the parent checkout's stub `@AGENTS.md` may count as an "external" import. Not verified live.
+- **Always-loaded size, measured:** one-shot `claude -p` in neutral worktrees, two runs each, minus a baseline with neither file present. **~5,030 tokens before → ~4,750 after (−280, ~6%)** for `CLAUDE.md` 12,499 B → stub 207 B + `AGENTS.md` 11,366 B at `ffdc9e6`. The fold changed `AGENTS.md` slightly, so re-measure only if the PR body needs exact numbers.
+- **Local copies of all R1 reports and both fold briefs:** `.claude/research/workflow-series/pr4-r1/` (gitignored). **Post the three surrogate reports (`surrogate-A/B/C.md`) as a PR comment once the PR exists. The DA report stays in chat only.**
+
+**Session data:** ~150k tokens at handoff (usage tool; 5-hour window 13%, weekly 34%). Trigger: the 150k soft line, reached at a phase boundary (the R1 fold was committed). What grew context most: four R1 reports (~5k each) and the token measurement. Structural warning signs: none.
+
+**Lessons (Session 51):**
+
+- **DDDD — Subagent hand-back reports aren't in the transcript's text blocks.** To save a report verbatim for a PR comment, extract the longest string from the `*andback*` tool_use input in the task's `.output` JSONL. `.claude/research/workflow-series/pr4-r1/extract-handback.py <task.output> <out.md>` does it. Don't retype a report.
+- **EEEE — Measuring always-loaded tokens needs neutral paths.** `claude -p` in the primary checkout also loads the path-keyed auto-memory, which confounds a before/after comparison. Run both sides in scratch worktrees and subtract a no-rulebook baseline.
+
+### Session 52 loading instructions
+
+- **Check live state first:** `git log --oneline -3 origin/main` (expect this handoff on `c21d48c`), `git status`, `gh pr list`, `git log --oneline -3 origin/chore/single-rulebook` (expect `c173da7`). Check fly status for all 8 persona Apps (`moe-sarah`, `-riley`, `-marcus`, `-priya`, `-dom`, `-theo`, `-nia`, `-maya`).
+- **First: R2 on PR 4, scoped to `ffdc9e6..c173da7`.** Run it in `isolation: 'worktree'` and tell each reviewer to read the primary checkout's absolute path, which must have the branch checked out.
+  - Dispatch `da-review`, with the R1 finding list from `pr4-r1/da-r1.md`.
+  - Dispatch `copilot-surrogate` (17 files, under the ceiling), with the A/B/C lists.
+  - Each brief asks the reviewer to confirm or disprove each fold, find anything the fold introduced, and grep for sibling copies of corrected wording.
+  - Loop until 0 BLOCKING/MATERIAL, and ask Alex at R4. Then close the LOWs, walk self-review, open the PR (`📦 chore: make AGENTS.md the single rulebook, retire the generator`, label `chore` or per `docs/GIT.md` §Labels), and post the surrogate comment.
+  - **The PR body must carry:**
+    - Alex's pre-merge settings step: in `main`'s required checks, remove "AGENTS.md freshness" and add "Agent frontmatter". **Alex confirmed the swap (2026-09-27, end of Session 51).** He makes the change himself unless he asks Claude to. Before handing the PR over, confirm it's done: `gh api repos/Pushedskydiver/moe/branches/main/protection/required_status_checks --jq .contexts`.
+    - The grill fold had no verification round.
+    - `check-rulebook.ts` is a separate script (the orchestrator's call).
+    - The token measurement above.
+    - The reviewer disagreement and how it was resolved.
+    - The deferred list, with A6 marked as reopened by Alex and moved to its own workstream.
+    - The pre-merge checkpoint.
+- **Then, as before:** PR 3 (handoff protocol), PR 5 (docs thinning, plus the VISION:327 edit, which is Alex's call), then the Hook PR.
+- **New workstream — the chief-clancy doc-port (Alex reopened it at the end of Session 51):**
+  - **Candidates** (from `docs/decisions/CHIEF-CLANCY-DOC-PORTS.md`, whose re-entry conditions look met): `docs/roles/` (one file per role; the personas exist), and `LIFECYCLE.md` / `VISUAL-ARCHITECTURE.md` (Stage 4+ is complete). `guides/` depends on whether moe counts as an "installable/configurable deployed surface", which needs a judgment call. `TECHNICAL-REFERENCE.md` / `COMPARISON.md` stay out.
+  - **Recommended order:** after PR 5, so new docs aren't ported into files that are about to be thinned. Confirm the order and which docs to port with Alex when the workstream starts.
+  - **Mechanics:** add a dated "Status update" to `CHIEF-CLANCY-DOC-PORTS.md` (the lifecycle in `docs/decisions/README.md`), and mirror it in `BUILD_PLAN.md` §Deliberately not scheduled. See the Session 50 loading instructions in `git log -p PROGRESS.md` for scope, orchestration, thresholds and the Marcus Plan-stall note.
+- **Recommended model and effort for Session 52:** Opus, `high`.
+- **Decision branches:** DDDD–EEEE above, BBBB–CCCC in the Session 50 entry, and earlier ones via `git log -p PROGRESS.md`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 50
+
+Updated 2026-09-27 end-Session-50 — **PR 4 of the workflow series (single rulebook) is built and pushed as branch `chore/single-rulebook` (`ffdc9e6`), not yet reviewed and no PR opened.** [PR #113](https://github.com/Pushedskydiver/moe/pull/113) merged 2026-09-27 04:42 UTC with CI green; all 8 personas `started` with checks passing on the same image. Its remote branch was deleted.
+
+**Asked and decided (Alex, 2026-09-27, this session):** the generator's CI job "AGENTS.md freshness" is a **required** check on `main` (with `strict: true`). Alex chose (`AskUserQuestion`) to **swap it for "Agent frontmatter"**: the PR deletes the freshness job and adds `pnpm check:rulebook` to the "Agent frontmatter" job, whose name stays unchanged. **Alex must make the swap in branch protection _before_ merging.** The old check will never report, so the PR can't merge until the swap is done. Also: Alex logged the `fly` CLI back in mid-session (it had reported `no access token available`).
+
+**Shipped (on the branch, unreviewed):** `AGENTS.md` is now the single rulebook (11,366 B; generator markers are gone, the wording is tool-neutral, and "see project memory" became `docs/GIT.md` §Deploy Flow). `CLAUDE.md` is a stub: a heading, one sentence and `@AGENTS.md`. There are two path-scoped rules, `.claude/rules/persona-prompts.md` and `.claude/rules/integrations.md`. `.gitignore` now un-ignores `.claude/rules/`. There are two new decision docs, `SINGLE-RULEBOOK.md` and `CHIEF-CLANCY-DOC-PORTS.md`, both indexed in the README. New `scripts/check-rulebook.ts` with 25 tests covers the stub's import line (outside any fence), rule-file `paths:` entries (quoted only, no `[`) and globs that must match git-tracked files. `generate-agents-md.ts`, the npm script and the CI job are retired. `docs/GIT.md`'s required-checks sentence now names the three post-swap checks. `CLAUDE.md` citations were repointed across `docs/`, both worker agents and 4 TSDoc comments. The diff is 31 files, +614/−269.
+
+- **Process so far:** the brief went through spec-grill R1: 1 BLOCKING (`.gitignore` hid `.claude/rules/`), 3 MATERIAL, 8 LOW. All were folded into the brief, with **no verification-round grill** — disclose that in the PR; DA R1 covers the implemented result. `implementer` then built it: 0 stops, ~219k subagent tokens. Locally green except `packages/core`'s DB-backed files (no `DATABASE_URL`).
+- **Brief** (for reviewers): `.claude/research/workflow-series/pr4-brief.md` (gitignored, local only).
+
+**Session data:** ~145k tokens at handoff (usage tool; 5-hour window 5%, weekly 32%). Trigger: phase boundary (build done) above 100k, near the 150k soft line. Most growth: the grill report and the brief. Structural warning signs: none.
+
+**Lessons (Session 50):**
+
+- **BBBB — Grill the brief, and check `.gitignore` for any new directory under a partly-ignored parent.** `.claude/*` is ignored except `agents/`, so the rule files would have passed `check:rulebook` locally (it reads the disk), never been committed, and failed only in CI. Only the spec-grill on the brief caught it. A brief that creates a directory should include `git check-ignore -v <new path>`.
+- **CCCC — A PR that deletes the job behind a required check is unmergeable until the settings change.** Put that settings step in the PR body as a _pre_-merge action, and update the doc that lists required checks (`docs/GIT.md`, which was already stale at two checks).
+
+## Earlier: Session 49
 
 Updated 2026-09-27 end-Session-49 — **the `getTestPool()` host-guard fix is open as [PR #113](https://github.com/Pushedskydiver/moe/pull/113), not merged (Alex merges).** [PR #112](https://github.com/Pushedskydiver/moe/pull/112) merged 2026-09-27 04:12 UTC with CI green; all 8 personas healthy on the 6.1g image. Alex asked to continue the workflow series starting with this fix; nothing came up that was his to decide.
 
@@ -18,23 +93,6 @@ Updated 2026-09-27 end-Session-49 — **the `getTestPool()` host-guard fix is op
 
 - **ZZZ — Guard an input with the parser that consumes it.** `pg` resolves `DATABASE_URL` with `pg-connection-string`, where `?host=` overrides the URL's host, so a `new URL().hostname` guard would have been bypassable (`…@localhost/db?host=prod`). Found by reading the library before writing the brief, not in review. A safety check on a string some library interprets must run that library's own parser, and a test should pin that both resolve the same copy.
 - **AAAA — `implementer`'s first build under a settled brief: 0 stops, and it verified the brief's claims against source instead of trusting them.** Naming the skipped steps explicitly (XXX's fix) worked — steps 3–4 ran. Running `copilot-surrogate` alongside DA R1 on a small PR cost nothing and saved a round. The R2 DA LOW (PR-local finding IDs in code comments) matched the orchestrator's own self-review before the report arrived — convergence again; a fold brief should say "no review IDs in code comments".
-
-### Session 50 loading instructions
-
-- **Check live state first (the entry is a snapshot):** `git log --oneline -10 origin/main`, `git status`, `gh pr list`, `gh pr view 113 --json state,mergedAt,statusCheckRollup`. If #113 merged: `git checkout main && git pull`, `git branch -d fix/test-pool-host-guard`. If its CI failed, fix that first (the DB-backed core tests run only in CI — a failure there is the first real run of the guard against CI's `localhost` URL). Fleet: `fly status -a moe-<persona>` for sarah, riley, marcus, priya, dom, nia, theo, maya.
-- **Primary workstream — the workflow series, in this order:**
-  1. **PR 4, rulebook:** `AGENTS.md` as the single rulebook, `CLAUDE.md` → a stub with an `@AGENTS.md` import (YYY in the Session 48 entry); retire `scripts/generate-agents-md.ts`, its CI freshness job and `DEVELOPMENT.md` §AGENTS.md generation (and the `literal`/`source-only` markers, plus `doc-fixer`/`implementer` steps that run `generate:agents-md`); path-scoped `.claude/rules/` for the persona-prompt do-not-touch and Slack/GitHub integration rules (extend `check-agent-frontmatter.ts` to rule files); chief-clancy doc-port paragraph → `docs/decisions/`. Make the rulebook's wording tool-neutral (Codex reads it too).
-  2. **PR 3, handoff protocol:** port PCR's `docs/SESSION-HANDOFF.md` (usage tool + CLI fallback, trigger table, cleanup, paste-in prompt, model/effort table, per-session tokens, lettered lessons harvested into `RATIONALIZATIONS.md`/`REVIEW-PATTERNS.md` — WWW–AAAA included); replace `DEVELOPMENT.md` §Session handoff with a pointer.
-  3. **PR 5, docs thinning:** `DEVELOPMENT.md` review-gate section and `GLOSSARY.md` via PCR `research/61`'s method, before/after token counts; include #111's deferred stale paragraph about isolated agents `cd`-ing into the primary checkout, `ARCHITECTURE.md`'s `packages/agents` row missing 6.1d–6.1g (`react-tool.ts`, `compose-confirming-question-lead-in.ts`), and `ARCHITECTURE.md:15`'s "orchestrator logic not yet built".
-  4. **Hook PR:** `.claude/settings.json` PreToolUse(Bash) making `fly deploy` / `fly secrets` ask.
-  - Baselines (tokens): `CLAUDE.md` 4,879; `docs/DEVELOPMENT.md` 16,970 (before #111); `docs/DA-REVIEW.md` 9,703; `docs/SELF-REVIEW.md` 5,314; `docs/GLOSSARY.md` 28,809.
-- **Orchestrate:** builds to `implementer`, doc folds to `doc-fixer`, both in the primary checkout with a settled brief written to the scratchpad (name skipped steps; say "no review IDs in code comments"); reviews to the pinned agents with `isolation: 'worktree'` and the primary checkout's path; `copilot-surrogate` may run alongside DA R1 when its trigger fires; check usage after each digested report and before each dispatch; hand off at 150k soft / 250k hard.
-- **Measure `chunk-briefer`** on the next real engineering chunk (#113 was too small).
-- **Marcus's Plan stall — Alex chose option (a) 2026-09-27:** cancel legacy ticket `5d743b2a-3f5c-4ff7-b272-69dc9a74dd3b`, then verify 6.1e's Plan→Build with a fresh ticket during core hours (Mon–Fri 08:30–17:00 Europe/London). Confirm the moment with Alex; use the ticket-lifecycle transition, not raw SQL.
-- **Unchanged:** small fix candidates (`record:replay --` forwarding, `OPERATIONS.md` canary-first deploy, logging successful DM outcomes); engineering candidates 6.2, 6.3a–d, 6.5a–i, 6.6, 6.10 — ask, don't default.
-- **Recommended model and effort for Session 50:** Opus, `high`.
-- **Decision branches:** ZZZ–AAAA above; WWW–YYY in the Session 48 entry; TTT–VVV in the Session 47 entry; earlier via `git log -p PROGRESS.md`.
-- **Fallback:** if Alex redirects on load, follow that.
 
 ## Earlier: Session 48
 
