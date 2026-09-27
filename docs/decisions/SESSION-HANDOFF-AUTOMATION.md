@@ -29,7 +29,7 @@ Chief-clancy investigated automating session handoff (a `PostCompact` hook + Rou
 3. **Chief-clancy's own 40-session measurement says automation solves the wrong problem.** 0/40 unplanned compactions — the harm a `PostCompact` backstop addresses never fired once. Handoff cost grew, but their own cause analysis attributed it to information density (sessions doing more), which automation doesn't reduce. Their final audit recommended formally retiring the workstream.
 4. **Their measurement protocol itself decayed** — 19/20 metric fields left unfilled across their last two audited windows. A protocol that isn't sustained is worse than none; moe adopts event-based triggers (below) instead of a per-session bookkeeping habit likely to suffer the same fate.
 
-Full evidence and citations: `docs/DEVELOPMENT.md` §Session handoff → "On automating handoff — researched position."
+Full evidence and citations: `docs/SESSION-HANDOFF.md` §11 "Why handoff stays manual."
 
 ## Deferred work: deterministic pointer-injection hook
 
@@ -43,8 +43,16 @@ If a revisit trigger fires, the preferred mechanism is a `SessionStart(compact)`
 
 One firing is a data point, not a build order; a second of the same class is a design signal. If this decision changes, it enters `BUILD_PLAN.md` as its own chunk with Alex's sign-off — not a rider on other work.
 
+## Status update (2026-09-27)
+
+1. Positions A–D and the revisit triggers above are unchanged.
+2. This decision's "imported numeric thresholds" (Context, above) and Position C mean chief-clancy's handoff-cost and backfill metrics, which stay declined.
+3. PCR's context-size handoff triggers are a separate, handoff-timing mechanism: moe has recorded a Session data line since Session 46 (in anticipation of PR 3), and Alex's Session 47 call (2026-09-27) adopted PCR's usage-aware handoff, whose §6 is that per-session record — `docs/history/SESSIONS.md` Session 47.
+4. Only Rationale 4's decline of "a per-session bookkeeping habit" (quoted verbatim: "event-based triggers (below) instead of a per-session bookkeeping habit") is superseded, by the Session data line.
+5. The "enters `BUILD_PLAN.md` as its own chunk with Alex's sign-off" clause above covers adopting automation, which this does not do.
+
 ## References
 
-- `docs/DEVELOPMENT.md` §Session handoff — full mechanics and evidence.
+- `docs/SESSION-HANDOFF.md` §11 — full mechanics and evidence.
 - `@chief-clancy/.claude/research/session-handoff/audit-2026-04-{21,23,29}.md` — the primary-source audits this decision re-derives from.
 - Repo-local `.claude/research/session-handoff-automation/research-2026-07-09.md` (gitignored) — the Session 2 deep-research artefact.

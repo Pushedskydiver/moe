@@ -175,7 +175,7 @@ Editing any of these triggers Alex-review regardless of how small the diff is:
 - `docs/VISION.md`, `docs/CEREMONIES.md` (once it exists), `docs/PERSONAS.md`
 - `docs/CONVENTIONS.md`, `docs/GIT.md`
 - `docs/DA-REVIEW.md`, `docs/SELF-REVIEW.md`
-- `docs/DEVELOPMENT.md`, `docs/TESTING.md`, `docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md`
+- `docs/DEVELOPMENT.md`, `docs/TESTING.md`, `docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md`, `docs/SESSION-HANDOFF.md`
 - `packages/agents/src/personas/*/prompt.md` — the do-not-touch list from `AGENTS.md`
 - `/.github/workflows/**`, `/.github/CODEOWNERS`
 - Repo-root config: `/package.json`, `/pnpm-workspace.yaml`, `/pnpm-lock.yaml`, `/tsconfig.base.json`, `/tsconfig.json`, `/eslint.config.ts`, `/knip.json`
