@@ -6,7 +6,7 @@
 >
 > **Chunk states:** `[ ]` not started · `[~]` in progress · `[x]` merged · `[GATE]` needs an Alex conversation/decision before starting — not buildable until the gate clears.
 >
-> **Finished chunks** keep only their title and a date here. Each one's full spec and build narrative moved verbatim to `docs/history/BUILD-NARRATIVE.md` (2026-09-27), under a heading per chunk id (5.3's sub-chunks 5.3a–5.3h sit inside §5.3), so a `BUILD_PLAN x.y` citation anywhere in the repo resolves there. Read it only when a live line points at it. Each stage's **Status** line below records when its exit criterion was met.
+> **Finished chunks** keep only their title and a date here. Each one's full spec and build narrative moved verbatim to `docs/history/BUILD-NARRATIVE.md` (2026-09-27), under a heading per chunk id (5.3's sub-chunks 5.3a–5.3h sit inside §5.3), so a `BUILD_PLAN x.y` citation anywhere in the repo resolves there. Read it only when a live line points at it. Each finished stage's **Status** line below records what the phase ledger and narrative say about its completion.
 
 ---
 
@@ -34,7 +34,7 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 
 **Exit criterion:** `pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm knip` green in CI on a hello-world monorepo; the review-gate agents exist and have been exercised once.
 
-**Status:** exit criterion met 2026-07-10, at 0.7.
+**Status:** marked complete 2026-07-10, at 0.7 (phase ledger).
 
 - [x] **0.1 — git init + pnpm workspace skeleton.** Shipped 2026-07-04. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §0.1.
 - [x] **0.2 — Lint/format config to CONVENTIONS.md spec.** Shipped 2026-07-04. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §0.2.
@@ -50,7 +50,7 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 
 **Exit criterion:** two concurrent fake persona processes race to claim the same ticket in an integration test; exactly one wins, every status message about it carries evidence.
 
-**Status:** exit criterion met 2026-07-15, at 1.6.
+**Status:** marked complete 2026-07-15, at 1.6 (phase ledger).
 
 - [x] **1.1 — Ticket types + Zod schemas.** Shipped 2026-07-10. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §1.1.
 - [x] **1.2a — [GATE] Process topology × DB access ADR.** Shipped 2026-07-11. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §1.2a.
@@ -64,7 +64,7 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 
 **Exit criterion:** one persona (Sarah, confirmed at 2.1 as front-door) runs on Fly, has her own Slack App, responds to a DM, and every work-status statement she makes carries §7.6 evidence.
 
-**Status:** exit criterion met 2026-07-18, at 2.7b.
+**Status:** marked complete 2026-07-18, at 2.7b (phase ledger); its Fly half was first met by 5.2's deploy, 2026-07-25.
 
 - [x] **2.1 — [GATE] Cast redline conversation.** Shipped 2026-07-15. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §2.1.
 - [x] **2.2 — Persona process skeleton.** Shipped 2026-07-15. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §2.2.
@@ -81,7 +81,7 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 
 **Exit criterion:** VISION §0's failure #1, inverted, now passes as a live test — paste a GitHub issue link (or a plain "this needs looking into") in **a DM or** a scoped channel, no @-mention, no command, and a ticket draft appears with a reaction gate. At this stage the issue-link case produces a **link-only draft** (the URL plus whatever the message said) — issue title/body enrichment arrives with 4.1/4.4b, since Stage 3 has no GitHub client.
 
-**Status:** exit criterion met 2026-07-25, at 3.7 (see the history note below; 3.6 had marked the stage complete on 2026-07-20 before the DM half was found unmet).
+**Status:** marked complete at 3.5 (2026-07-19) and 3.6 (2026-07-20); live-verified on both halves 2026-07-26, at 3.7 (history note below).
 
 > **History of this criterion (resolved 2026-07-25, at chunk 3.7).** It originally read "in a DM or scoped channel". Chunk 3.3 then resolved chat replies as **DMs-only** and, symmetrically, routed the intake cascade to non-DMs only (`handle-inbound-message.ts`: `if (message.channelType !== 'im')` → cascade, then `return`; a DM went to the chat-reply path and never reached Stage 1). That was a deliberate, Alex-confirmed decision, but nobody reconciled it against this criterion, which predates it — so **Stage 3 read as passing a test its own code could not pass, from 3.3 merging until 3.7**. The channel half genuinely passed throughout and was live-verified at 3.4a-iii. The DM half was filed as chunk **3.7** and is now built, restoring the original wording rather than keeping the narrowed one. Worth remembering as a pattern: an exit criterion is not self-maintaining, and a chunk that changes routing needs to be checked against the criterion of the stage it sits in.
 
@@ -114,7 +114,7 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 
 **Exit criterion:** a ticket created from chat exists as a tracked item against chief-clancy, and an externally-opened GitHub issue appears in the triage queue and can be linked to a ticket. Persona-driven conversion of a triage-queue entry into a board ticket was deliberately not a Stage-4 capability — it's Sarah's Brief-stage triage behaviour, and landed at chunk 6.1b (below), where the pull loop lives.
 
-**Status:** exit criterion met 2026-07-24, at 4.6.
+**Status:** marked complete 2026-07-24, at 4.6 (phase ledger).
 
 - [x] **4.1 — GitHub App auth + client.** Shipped 2026-07-21. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §4.1.
 - [x] **4.2 — Issue discovery (poll).** Shipped 2026-07-22. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §4.2.
@@ -129,7 +129,7 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 
 **Exit criterion:** all 8 personas from the cast redline (2.1, completed at 5.0) run as separate processes with separate Slack apps; each has a distinct, Alex-approved voice; a DM to any of them gets an in-character response — a conversational reply, or, when the 3.7 cascade classifies the DM as High/Mid band, a ticket draft or confirming question in its place.
 
-**Status:** exit criterion met 2026-08-28, at 5.3 (5.3h). Stage 6 is formally open; 5.5 and 5.6 may still land.
+**Status:** exit criterion met 2026-08-28, at 5.3h (phase ledger). Stage 6 is formally open; 5.5 and 5.6 may still land.
 
 - [x] **5.0 — [GATE] Cast redline completion.** Shipped 2026-07-24. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §5.0.
 - [x] **5.1 — Multi-app credential config + provisioning script.** Shipped 2026-07-24. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §5.1.
@@ -178,6 +178,7 @@ Each stage ends with something observable working end-to-end. **The gating rule,
       **Archived notes for this chunk:** §6.1a-i in `docs/history/BUILD-NARRATIVE.md`.
 - [ ] **6.4a — CI-result verification.** The deterministic verifier for "tests pass" claims — fetch the CI run, compare, wire to the 1.4 claim gate. Small, and it covers the highest-volume Tier 2/3 claim type.
 - [ ] **6.4b — Disjoint-context verifier subagent.** For the remaining Tier 2/3 claim types (VISION §7.6 layer 2): its own prompt, plumbing that feeds it the raw tool-call log and nothing else, an output schema, and handling of verifier disagreement. Wired to the 1.4 claim gate.
+      **Archived notes for this chunk:** §2.5 in `docs/history/BUILD-NARRATIVE.md`.
 - [ ] **6.4c — Auditable status trail.** VISION §7.6 layer 3: every status post threads to (or links) the tool-call log or CI run it's based on, and a claim later found false is corrected in place, not silently edited away.
 - [ ] **6.5a-i — Tier routing, shadow only.** The 1.6 classifier routes per VISION §8.1's table verbatim: Tier 0 auto-merge; Tier 1 fast single-approve (Dom's 6.3b approval satisfies it; the merge is then automatic); Tier 2 standard review; Tier 3 mandatory named-owner review that cannot be satisfied by the requesting persona or the human who dispatched the work. Who can review Tier 3 at all on a one-human team is the explicit Alex decision from the 6.0 gate — it is not "Alex reviews" by default. Includes the track-record table migration (schema per the 1.5 ADR), seeded/static rows for now — 6.5b makes it live. Same pattern as 3.3 for the same class of risk: shadow only — log "would have auto-merged / fast-approved / routed" decisions on real PRs; no merge-write capability exists in the code yet.
       **Blocked on two undefined parameters, added 2026-07-25.** Tier 0's gate is "no sensitive path touched; diff below a size threshold" (VISION §8.1) and Tier 3's floor names "Auth, payments, PII/secrets, CI/CD config, migrations" in prose — but neither the sensitive-path matcher nor the size threshold exists as a concrete definition anywhere. `classifyRiskTier` (1.6) takes path/change-shape inputs; something has to decide what feeds it. This chunk cannot even shadow-log a Tier 0 decision without both, so settle them here — a path glob set and a numeric LOC/file threshold, in `docs/decisions/` alongside `TRACK-RECORD-DEFINITION.md`'s own N=5 precedent — before 6.5a-ii turns the switch on.
