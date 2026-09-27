@@ -2,7 +2,53 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/DEVELOPMENT.md` §Session handoff for the mechanics).
 
-## Next workstreams (after Session 54)
+## Next workstreams (after Session 55)
+
+Updated 2026-09-27 end-Session-55 — **PR 3 (the session handoff protocol) is open as [PR #115](https://github.com/Pushedskydiver/moe/pull/115), not merged (Alex merges). Its Round-2 loop converged at R3.** The branch `docs/session-handoff` is at `dc33bdc` (`main` merged in). CI was pending at handoff, and this handoff makes #115 `BEHIND` again. All 8 personas are `started` with checks passing.
+
+**Asked and decided:** nothing. Nothing on PR 3 was Alex's to decide except the merge and the `GIT.md` blast-radius veto; the PR body names both.
+
+**Done this session:**
+
+- **R2** (`e5c4d35..d78ce6d`): DA 0 BLOCKING / 2 MATERIAL / 4 LOW; surrogate 0 / 2 / 3. Both reviewers flagged the same two MATERIALs. One was a bare "PR 3" series label in `SESSION-HANDOFF.md:161` and the decision doc's `:50`, which came from the surrogate's own R1 F7 fix wording. The other was the M2 fold swapping "zero bookkeeping" for another false absolute, "the only standing record". Both were checked at source, and the orchestrator settled the fold wording against `5f63516:PROGRESS.md` and `SESSIONS.md` row 47. `doc-fixer` folded them in `56bced0`.
+- **R3** (`d78ce6d..56bced0`): DA 0 / 0 / 2; surrogate 0 / 0 / 4, and they converged on two. The loop stopped. The **LOW pass** (`9962b5c`, `doc-fixer`) was read by the orchestrator, and the PR discloses that.
+- **Self-review:** the mechanical sweep at HEAD was clean.
+- **Local suite:** green except `packages/core`'s 20 DB-backed files (no `DATABASE_URL`). The `typecheck:scripts`/`test:scripts`/`check:agents`/`check:rulebook` set passed (57 tests).
+- **Token re-measure** (one run, Session 54's counter): `DEVELOPMENT.md` 19,370 → 14,937, `SESSION-HANDOFF.md` 7,608 (7,065 before the folds), and `AGENTS.md` 4,541 → 4,598.
+- **On the PR:** the body carries every item the Session 55 loading instructions listed. The R1–R3 surrogate reports are posted as one comment. The DA reports stay local in `.claude/research/workflow-series/pr3-r{1,2,3}/`.
+
+**Cleanup:** `git worktree list` shows only the primary checkout. `docs/session-handoff` is kept because #115 is open. Session 50 was archived into `docs/history/SESSIONS.md`.
+
+**Session data:** ~145k tokens at handoff (usage tool; 5-hour window 40%, weekly 37%, Fable weekly 4%).
+
+- **Trigger:** phase boundary above 100k (PR opened), under the 150k soft line.
+- **What grew context most:** the self-review checklist read (~4k), four R2/R3 hand-backs (~1k each, since the full reports went to files) and the LOW-severity sections of the R2 reports (~3k).
+- **Subagent tokens:** surrogate R2 104k, DA R2 102k, fold R2 45k, DA R3 61k, surrogate R3 77k, LOW pass 37k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none.
+
+**Lessons (Session 55):**
+
+- **NNNN — Replacing a false absolute with a new one.** R1's M2 fold swapped "zero bookkeeping" for "the only standing record", which was also false (R2 M2). The orchestrator's own R2 wording then added "surface them as they happen", an overclaim both reviewers caught at R3. This is the over-correction pattern (`REVIEW-PATTERNS.md`, "only" in replacement text) plus FFFF, recurring on settled fold wording. When settling wording that replaces an absolute, list what the new sentence claims about every sibling item (here, all three revisit triggers), not just the one the finding named. → none (instances of the over-correction pattern and FFFF; already harvested).
+- **OOOO — A reviewer's suggested fix reintroduced a defect the same round fixed.** The surrogate's R1 F7 fix wrote "PR 3" into the same sentence M1 had just cleaned of series labels. This is JJJJ again, this time on a label rather than a source attribution. Grep a reviewer's fix wording for the defect classes the same round flagged before applying it. → none (instance of JJJJ).
+
+### Session 56 loading instructions
+
+- **Check live state first:**
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `0ff8e12`), `git status`, `gh pr list`.
+  - #115: `mcp__ccd_pr__get_status`, or `gh pr view 115`.
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+- **#115:**
+  - If it's open and `BEHIND` (this handoff causes that), merge `origin/main` into `docs/session-handoff` and push.
+  - If CI is red, fix it on the branch; a fix to a reviewed line needs its own range check.
+  - If Alex merged it, delete the local `docs/session-handoff`; this needs no permission.
+  - If Alex vetoes the `GIT.md` blast-radius addition, revert that one line on the branch; it needs no range check.
+- **First handoff after #115 merges:** repoint `PROGRESS.md:3` to `docs/SESSION-HANDOFF.md`, and follow that doc from then on, including §8's lesson destination tags and §10's archival thresholds.
+- **Then PR 5:** docs thinning, plus VISION:327, which is Alex's call. Brief it, then grill it (R1 plus a verification round). Following LLLL, cite GitHub numbers only and name not-yet-opened PRs by doc or branch. After PR 5 comes the Hook PR, then the chief-clancy doc-port workstream. Confirm the order and which docs to port with Alex when it starts; the candidates are in the Session 52 entry's loading instructions.
+- **Recommended model and effort for Session 56:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 54
 
 Updated 2026-09-27 end-Session-54 — **[PR #114](https://github.com/Pushedskydiver/moe/pull/114) merged (`141cfae`). PR 3 (the session handoff protocol) is built, and its R1 review is folded, on the local branch `docs/session-handoff` (`d78ce6d`; not pushed, no PR yet).** The Round-2 range check on the fold is next. All 8 personas are `started` with checks passing.
 
@@ -207,24 +253,6 @@ Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 revie
 
 - **DDDD — Subagent hand-back reports aren't in the transcript's text blocks.** To save a report verbatim for a PR comment, extract the longest string from the `*andback*` tool_use input in the task's `.output` JSONL. `.claude/research/workflow-series/pr4-r1/extract-handback.py <task.output> <out.md>` does it. Don't retype a report.
 - **EEEE — Measuring always-loaded tokens needs neutral paths.** `claude -p` in the primary checkout also loads the path-keyed auto-memory, which confounds a before/after comparison. Run both sides in scratch worktrees and subtract a no-rulebook baseline.
-
-## Earlier: Session 50
-
-Updated 2026-09-27 end-Session-50 — **PR 4 of the workflow series (single rulebook) is built and pushed as branch `chore/single-rulebook` (`ffdc9e6`), not yet reviewed and no PR opened.** [PR #113](https://github.com/Pushedskydiver/moe/pull/113) merged 2026-09-27 04:42 UTC with CI green; all 8 personas `started` with checks passing on the same image. Its remote branch was deleted.
-
-**Asked and decided (Alex, 2026-09-27, this session):** the generator's CI job "AGENTS.md freshness" is a **required** check on `main` (with `strict: true`). Alex chose (`AskUserQuestion`) to **swap it for "Agent frontmatter"**: the PR deletes the freshness job and adds `pnpm check:rulebook` to the "Agent frontmatter" job, whose name stays unchanged. **Alex must make the swap in branch protection _before_ merging.** The old check will never report, so the PR can't merge until the swap is done. Also: Alex logged the `fly` CLI back in mid-session (it had reported `no access token available`).
-
-**Shipped (on the branch, unreviewed):** `AGENTS.md` is now the single rulebook (11,366 B; generator markers are gone, the wording is tool-neutral, and "see project memory" became `docs/GIT.md` §Deploy Flow). `CLAUDE.md` is a stub: a heading, one sentence and `@AGENTS.md`. There are two path-scoped rules, `.claude/rules/persona-prompts.md` and `.claude/rules/integrations.md`. `.gitignore` now un-ignores `.claude/rules/`. There are two new decision docs, `SINGLE-RULEBOOK.md` and `CHIEF-CLANCY-DOC-PORTS.md`, both indexed in the README. New `scripts/check-rulebook.ts` with 25 tests covers the stub's import line (outside any fence), rule-file `paths:` entries (quoted only, no `[`) and globs that must match git-tracked files. `generate-agents-md.ts`, the npm script and the CI job are retired. `docs/GIT.md`'s required-checks sentence now names the three post-swap checks. `CLAUDE.md` citations were repointed across `docs/`, both worker agents and 4 TSDoc comments. The diff is 31 files, +614/−269.
-
-- **Process so far:** the brief went through spec-grill R1: 1 BLOCKING (`.gitignore` hid `.claude/rules/`), 3 MATERIAL, 8 LOW. All were folded into the brief, with **no verification-round grill** — disclose that in the PR; DA R1 covers the implemented result. `implementer` then built it: 0 stops, ~219k subagent tokens. Locally green except `packages/core`'s DB-backed files (no `DATABASE_URL`).
-- **Brief** (for reviewers): `.claude/research/workflow-series/pr4-brief.md` (gitignored, local only).
-
-**Session data:** ~145k tokens at handoff (usage tool; 5-hour window 5%, weekly 32%). Trigger: phase boundary (build done) above 100k, near the 150k soft line. Most growth: the grill report and the brief. Structural warning signs: none.
-
-**Lessons (Session 50):**
-
-- **BBBB — Grill the brief, and check `.gitignore` for any new directory under a partly-ignored parent.** `.claude/*` is ignored except `agents/`, so the rule files would have passed `check:rulebook` locally (it reads the disk), never been committed, and failed only in CI. Only the spec-grill on the brief caught it. A brief that creates a directory should include `git check-ignore -v <new path>`.
-- **CCCC — A PR that deletes the job behind a required check is unmergeable until the settings change.** Put that settings step in the PR body as a _pre_-merge action, and update the doc that lists required checks (`docs/GIT.md`, which was already stale at two checks).
 
 ## Session archive
 
