@@ -41,7 +41,7 @@ Always run `pnpm format` after regenerating — the raw script output isn't byte
 
 1. Read the brief / pick up the next chunk from `BUILD_PLAN.md`.
 2. Build it as vertical slices — tracer-bullet TDD (`docs/CONVENTIONS.md` §Testing Standards): one test, implement, next test, refactor, lint.
-3. **Check the chunk's own `BUILD_PLAN.md` box and add a `Built <date>...` narrative paragraph as part of this same PR, not a follow-up** — confirmed precedent (6.1c's own PR #103) ships this in the feature PR itself; a chunk merging with its box still unchecked is a gap to fix, not the norm. A `Deployed <date>...` paragraph appended on top is the one piece that's genuinely a separate, later, direct-to-main commit — only after Alex's explicit deploy authorization, per `docs/GIT.md` §Deploy Flow.
+3. **Close the chunk in this same PR, not a follow-up** (the norm since 6.0's PR #99; 6.1d's PR #104 was the exception, closed by a follow-up commit). In `BUILD_PLAN.md`, replace the chunk's entry with the one-line finished form, keeping its bold id and title: ``- [x] **<id> — <title>.** Built <date>. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §<id>.`` (`Built`, not `Shipped`: the merge date doesn't exist yet when the PR is written; the `Shipped` dates on older lines come from the phase ledger, frozen 2026-09-27). Append a `## <id>` section to the end of `docs/history/BUILD-NARRATIVE.md` holding the chunk's original spec line plus its `Built <date>...` narrative; add no ledger row. If the moved text names a chunk that isn't finished yet (by id, or by a form like "Stage 8"; a `VISION §x.y` reference is not a chunk id), add or extend that chunk's `**Archived notes for this chunk:**` line in `BUILD_PLAN.md`, so a future builder still finds it. If the chunk completes its stage, add or update that stage's **Status** line. A chunk merging with its box still unchecked is a gap to fix, not the norm. A `Deployed <date>...` paragraph added to the chunk's archive section later is the one piece that's genuinely a separate, direct-to-main commit (`docs/history/` is not on `docs/GIT.md` §Blast-Radius Docs, so §Rules allows it direct to main when no branch or PR is open) — only after Alex's explicit deploy authorization, per `docs/GIT.md` §Deploy Flow.
 4. Run the full quality suite locally before pushing (`CLAUDE.md` §Commands).
 5. Review gate: DA (subagent) → self-review → fix everything → push → open PR.
 6. Alex reviews and merges. After confirming the merge, sync `main` and delete the local branch (`docs/GIT.md` §Rules).
@@ -136,7 +136,7 @@ This section is deliberately evidence-free — no cited pilot runs, no PR number
 
 ### `PROGRESS.md` structure
 
-Root `PROGRESS.md` is moe's living state document — this resolves `CLAUDE.md`'s open question about moe's own equivalent of chief-clancy's `PROGRESS.md`/`docs/history/SESSIONS.md` pair. Same names, same shapes, same mechanics — there's no reason to invent different ones for an identical concept, and matching names keeps this doc's own citations to chief-clancy's precedent legible.
+Root `PROGRESS.md` is moe's living state document — this resolves `CLAUDE.md`'s open question about moe's own equivalent of chief-clancy's `PROGRESS.md`/`docs/history/SESSIONS.md` pair. Same names and mechanics (one shape difference: moe's phase ledger moved to `docs/history/BUILD-NARRATIVE.md` on 2026-09-27; chief-clancy's still sits in `PROGRESS.md`) — there's no reason to invent different ones for an identical concept, and matching names keeps this doc's own citations to chief-clancy's precedent legible.
 
 Shape (a fresh, young-codebase version of chief-clancy's structure — the mechanism, not yet the multi-year scar tissue):
 
@@ -178,11 +178,11 @@ compression commit.
 
 ## Phase ledger
 
-| Chunk/Stage | Status | Shipped | Headline |
-| ----------- | ------ | ------- | -------- |
+Moved to `docs/history/BUILD-NARRATIVE.md` (2026-09-27); `BUILD_PLAN.md`'s
+checkboxes remain the source of truth for what has shipped.
 ```
 
-The **detail band** (`## Next workstreams` down to `## Session archive`) is the only part that grows and gets pruned. The **Phase ledger** is permanent, one row per Stage-0 chunk (and later, per BUILD_PLAN stage) — it never gets pruned, just appended to.
+The **detail band** (`## Next workstreams` down to `## Session archive`) is the only part that grows and gets pruned. The **phase ledger** — one row per chunk (5.3 by its sub-chunks) shipped up to 2026-09-27, now frozen — lives at the top of `docs/history/BUILD-NARRATIVE.md`, not in `PROGRESS.md`: at ~36k tokens it had become most of this file's weight, and nothing at session start needs it.
 
 ### Archival — `docs/history/SESSIONS.md`
 
