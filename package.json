@@ -23,6 +23,9 @@
     "format:check": "prettier --check .",
     "knip": "knip",
     "generate:agents-md": "node scripts/generate-agents-md.ts",
+    "check:agents": "node scripts/check-agent-frontmatter.ts",
+    "test:scripts": "vitest run --dir scripts",
+    "typecheck:scripts": "tsc -p scripts",
     "prepare": "husky"
   },
   "lint-staged": {
@@ -53,6 +56,7 @@
     "prettier": "^3.9.4",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.62.1",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.9",
+    "zod": "^4.4.3"
   }
 }
