@@ -7,9 +7,9 @@ import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-// `inherit` is deliberately absent: an agent without a pinned model falls back to the main
-// conversation's model (unless `CLAUDE_CODE_SUBAGENT_MODEL` is set), so a session on a smaller
-// model silently weakens every review it dispatches.
+// `inherit` is deliberately absent: `inherit` takes the main conversation's model, and an omitted
+// `model` falls back to `CLAUDE_CODE_SUBAGENT_MODEL` if set, else the main conversation's model —
+// either way a session on a smaller model silently weakens every review it dispatches.
 const MODELS = ['opus', 'sonnet', 'haiku'] as const;
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
@@ -31,16 +31,20 @@ export function extractFrontmatter(fileText: string): string | null {
 type ParsedFrontmatter = {
   readonly fields: Readonly<Record<string, string>>;
   readonly duplicateKeys: readonly string[];
+  readonly unparseableLines: readonly string[];
 };
+
+const KEY_VALUE_LINE = /^([\w-]+):(?:\s+(.*))?$/u;
 
 // Deliberately not a YAML parser: every agent file uses flat `key: value` lines, and that is the
 // only shape this reads. A block scalar (`description: >-` plus indented lines) can't be followed
 // onto its continuation lines, so its bare marker reads as an empty value and fails validation
-// rather than passing as content.
+// rather than passing as content. Any other non-blank line at column 0 (e.g. `effort:high`, which
+// YAML rejects) is returned as unparseable, never silently skipped.
 export function parseFrontmatter(frontmatterText: string): ParsedFrontmatter {
   const lines = frontmatterText.split('\n');
   const entries = lines
-    .map((line) => /^([\w-]+):(?:\s+(.*))?$/u.exec(line))
+    .map((line) => KEY_VALUE_LINE.exec(line))
     .filter((match) => match !== null)
     .map(([, key = '', rawValue = '']) => [key, toValue(rawValue)] as const);
 
@@ -49,7 +53,15 @@ export function parseFrontmatter(frontmatterText: string): ParsedFrontmatter {
     ...new Set(keys.filter((key, index) => keys.indexOf(key) !== index)),
   ];
 
-  return { fields: Object.fromEntries(entries), duplicateKeys };
+  const unparseableLines = lines.filter(
+    (line) => /^[^\s#]/u.test(line) && !KEY_VALUE_LINE.test(line),
+  );
+
+  return {
+    fields: Object.fromEntries(entries),
+    duplicateKeys,
+    unparseableLines,
+  };
 }
 
 function toValue(rawValue: string): string {
@@ -63,12 +75,16 @@ export function validateAgentFile(file: string, fileText: string): string[] {
   if (frontmatter === null)
     return [`${file}: no leading --- frontmatter block`];
 
-  const { fields, duplicateKeys } = parseFrontmatter(frontmatter);
+  const { fields, duplicateKeys, unparseableLines } =
+    parseFrontmatter(frontmatter);
   const result = agentFrontmatterSchema.safeParse(fields);
   const name = fields['name'];
   const expectedName = basename(file, '.md');
 
   return [
+    ...unparseableLines.map(
+      (line) => `unparseable line "${line}" — expected \`key: value\``,
+    ),
     ...duplicateKeys.map((key) => `"${key}" appears more than once`),
     ...(result.success
       ? []

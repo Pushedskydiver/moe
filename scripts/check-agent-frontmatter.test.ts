@@ -108,7 +108,7 @@ describe('validateAgentFile', () => {
     expect(validateAgentFile(path, agentFile(VALID_FRONTMATTER))).toEqual([]);
   });
 
-  it("rejects model: inherit — an unpinned model falls back to the main conversation's model unless CLAUDE_CODE_SUBAGENT_MODEL is set", () => {
+  it("rejects model: inherit, which takes the main conversation's model", () => {
     const text = agentFile(
       VALID_FRONTMATTER.replace('model: opus', 'model: inherit'),
     );
@@ -160,7 +160,7 @@ describe('validateAgentFile', () => {
     );
 
     expect(validateAgentFile(path, text)).toEqual([
-      expect.stringContaining('tools'),
+      expect.stringContaining('da-review.md: tools:'),
     ]);
   });
 
@@ -168,7 +168,7 @@ describe('validateAgentFile', () => {
     const text = agentFile(VALID_FRONTMATTER.replace('name: da-review\n', ''));
 
     expect(validateAgentFile(path, text)).toEqual([
-      expect.stringContaining('name'),
+      expect.stringContaining('da-review.md: name:'),
     ]);
   });
 
@@ -189,6 +189,17 @@ describe('validateAgentFile', () => {
     expect(result).toEqual([expect.stringContaining('add it to the schema')]);
     expect(result[0]).toContain('tolls');
   });
+
+  it.each(['effort:high', 'tolls:Read'])(
+    'rejects a top-level line that is not `key: value` (%s)',
+    (line) => {
+      const text = agentFile(`${VALID_FRONTMATTER}\n${line}`);
+
+      expect(validateAgentFile(path, text)).toEqual([
+        expect.stringContaining(`unparseable line "${line}"`),
+      ]);
+    },
+  );
 
   it('rejects a repeated key', () => {
     const text = agentFile(
