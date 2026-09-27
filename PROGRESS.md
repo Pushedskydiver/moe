@@ -2,7 +2,72 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
 
-## Next workstreams (after Session 55)
+## Next workstreams (after Session 56)
+
+Updated 2026-09-27 end-Session-56 — **The docs-thinning brief is drafted, settled, and through `spec-grill` R1 and its fold. The verification round comes next, then the build.** The brief is `.claude/research/workflow-series/pr5-brief.md` (gitignored). It splits the work into two PRs: `docs/development-thinning` first, then `docs/glossary-thinning`. `main` is unchanged apart from this handoff. All 8 personas are `started` with checks passing.
+
+**Asked and decided (Alex, 2026-09-27, `AskUserQuestion`):**
+
+1. `docs/VISION.md:327` becomes "…preventing `CONVENTIONS.md` ↔ `AGENTS.md` drift", dropping `CLAUDE.md` from the chain.
+2. `docs/VISION.md:208` (§6.4) is repointed from `BUILD_PLAN.md` to GLOSSARY's "Core hours" and "Away-detection" entries. `BUILD_PLAN.md` has no core-hours text.
+
+Both edits ride in `docs/development-thinning`.
+
+**Done this session:**
+
+- **Brief draft** (`Plan`, background): `pr5-brief-draft.md`.
+  - Measured at `9e6e4a2` with Session 54's counter:
+    - GLOSSARY: 28,857 → ~10k. ~7.2k of the current count is Prettier table padding, so the tables become bullet lists.
+    - DEVELOPMENT: 14,937 → ~13.4k. Only incident narration moves out, verbatim, to a new `docs/history/DEVELOPMENT-EVIDENCE.md`.
+    - ARCHITECTURE: 13,952 → ~10.7k.
+  - Found a stale GLOSSARY entry: "Confirming question" still says "fixed-template", false since #86.
+- **Settled brief:** `pr5-brief.md`. Its top block records A1/A2 and the orchestrator's O1–O10: two PRs; Tier A only; isolation paragraph Option A; GLOSSARY history goes to a git pointer plus chunk ids; `implementer` builds and `doc-fixer` folds.
+- **`spec-grill` R1:** 0 BLOCKING / 8 MATERIAL / 13 LOW, plus 2 NOTICED. Report: `pr5-grill/r1-report.md`. Alex's A1/A2 wordings were verified true.
+- **R1 fold** (`doc-fixer`): applied per `pr5-grill/r1-fold-brief.md`.
+  - M7 took fix (a): two stale code comments join the glossary PR as their own commit (`apps/server`, label `server`).
+  - M6's chunk-5.1 "no live execution" clause is out of scope and gets listed as NOTICED.
+  - One disclosed judgement call: L12's four settlement-stale lines were left as they are, because the brief's top block already overrides them.
+
+**Next, and open questions for Alex:**
+
+- **[ALEX] A4:** three places cite "§6.4's sub-10s casual-reply latency target", but VISION §6.4 has none: `VISION.md:317`, `packages/agents/src/create-anthropic-client.ts:9` and `apps/server/src/create-pull-loop-behavior-deps.ts:40`. It's out of both PRs, and the development PR lists it as NOTICED. Should a follow-up fix the cites or add the target? That's Alex's call.
+- **[ALEX] O10:** a scoped `.prettierrc` override (`proseWrap: "never"` for the table-heavy docs) would collapse table padding with no words changed. RATIONALIZATIONS would go ~8.2k → ~6.1k tokens, and `docs/history/` has ~300 KB of padding. Repo config, so it needs its own PR. Raised with Alex, not yet answered.
+
+**Cleanup:** no branches were created. `git worktree list` shows only the primary checkout. Session 51 was archived into `docs/history/SESSIONS.md`.
+
+**Session data:** ~166k tokens at handoff (usage tool; 5-hour window 5%, weekly 38%, Fable weekly 4%).
+
+- **Trigger:** the 150k soft line, reached while digesting R1. The fold was finished as the current unit, then this handoff.
+- **What grew context most:** reading the 510-line brief whole to settle it (~10k), the R1 report (~6k), `PROGRESS.md` + `SESSION-HANDOFF.md` at load (~15k), and digging three older `PROGRESS.md` versions for the thinning scope (~6k).
+- **Subagent tokens:** brief draft 320k, grill R1 221k, fold 135k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none for Alex. But the scope had to be recovered from `git show 49e811f:PROGRESS.md` (PPPP).
+
+**Lessons (Session 56):**
+
+- **PPPP — A workstream carried as a one-line label lost its scope.** Five handoffs said "PR 5: docs thinning, plus VISION:327". The real scope (the #111 paragraph, the ARCHITECTURE rows, the GLOSSARY baseline) lived only in the Session 49 and 50 entries (`49e811f`, `c21d48c`), both now out of the detail band. When a deferred workstream's loading instructions shrink to a label, keep a pointer to where its scope is written (a commit's `PROGRESS.md`, or a brief file). → `docs/SESSION-HANDOFF.md` §6 (rides the next PR that touches it).
+- **QQQQ — Carried-forward scope was also wrong in its details.** "`packages/agents` row missing the 6.1d–6.1g files" was really 5.3a–6.1g across three rows, and 6.1d/6.1e touched `packages/core`, not slack. The brief draft and then the grill caught it. Re-verify inherited scope against the code before settling a brief. → none (an instance of verify-primary-source).
+- **RRRR — Byte size isn't content size for markdown tables.** Prettier pads every cell to the widest cell in its column, so GLOSSARY is 148 KB but 55 KB collapsed. Measure tokens and padding before judging which doc is heavy. → none (acted on in the glossary PR, and O10 above).
+
+### Session 57 loading instructions
+
+- **Check live state first:**
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `9e6e4a2`), `git status`, `gh pr list`.
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+- **Primary: finish the docs-thinning brief, then build `docs/development-thinning`.**
+  1. Run the `spec-grill` verification round on `pr5-brief.md`. Give it a confirm-or-disprove brief naming R1's M1–M8 and L1–L13, plus `pr5-grill/r1-fold-brief.md`'s settlements. Report to `pr5-grill/r2-report.md` with a short hand-back. Fold with `doc-fixer`.
+  2. Branch `docs/development-thinning` from a freshly pulled `main`. Fill in `<date>`/`<branch-point sha>` (O6), then dispatch `implementer` with brief §3. Run the review gate per brief §6. The surrogate is mandatory, since the PR touches the blast-radius docs DEVELOPMENT and VISION.
+  3. Measure before/after tokens per brief §4. The PR body carries the NOTICED items (A4, isolation Option B) and the token figures.
+  4. Then do `docs/glossary-thinning` (brief §5), in its own session if the context triggers fire.
+- **Decision branches:**
+  1. **[ALEX]** A4 (above): ask when the development PR opens.
+  2. **[ALEX]** O10 (above): ask if still unanswered. Nothing waits on it.
+  3. If the verification round finds BLOCKING/MATERIAL, fold it and decide whether another round is warranted. Two rounds and a fold are the norm (Session 53); ask Alex at R4.
+- **Carry-overs:** PPPP's harvest goes into `docs/SESSION-HANDOFF.md` §6, in the next PR that touches it. After both thinning PRs: the Hook PR, then the chief-clancy doc-port workstream (candidates in the Session 52 entry). Confirm the order with Alex.
+- **Recommended model and effort for Session 57:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 55
 
 Updated 2026-09-27 end-Session-55 — **PR 3 (the session handoff protocol) is open as [PR #115](https://github.com/Pushedskydiver/moe/pull/115), not merged (Alex merges). Its Round-2 loop converged at R3.** The branch `docs/session-handoff` is at `dc33bdc` (`main` merged in). CI was pending at handoff, and this handoff makes #115 `BEHIND` again. All 8 personas are `started` with checks passing.
 
@@ -217,38 +282,6 @@ Updated 2026-09-27 end-Session-52 — **PR 4 (single rulebook) is open as [PR #1
 - **Recommended model and effort for Session 53:** Opus, `high`.
 - **Decision branches:** FFFF–HHHH above, DDDD–EEEE in the Session 51 entry, and earlier ones via `git log -p PROGRESS.md`.
 - **Fallback:** if Alex redirects on load, follow that.
-
-## Earlier: Session 51
-
-Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 review and its fold; the branch `chore/single-rulebook` is pushed at `c173da7`. No PR is open yet, and the scoped R2 is the next step.** Main is unchanged (`c21d48c`), and all 8 personas are `started` with checks passing.
-
-**Done this session:**
-
-- **Architectural pass:** passed. There is no package-graph change, `check-rulebook.ts` reuses `extractFrontmatter`, and the full do-not-touch list stays in `AGENTS.md`.
-- **R1 (`ffdc9e6`):** `da-review` returned 1 MATERIAL (the empty-`paths:` guard had no test) and 8 LOW. `copilot-surrogate` ran in 3 groups:
-  - A (rulebook, stub, rules, decisions): 1 MATERIAL (`SINGLE-RULEBOOK.md:14`'s stub-shape reasoning didn't follow) and 6 LOW.
-  - B (scripts, CI, `.gitignore`): 1 MATERIAL (a comment claimed Claude Code only imports `@` at column 0, which is false) and 5 LOW.
-  - C (repointed docs): 1 MATERIAL (`DA-REVIEW.md:96` quoted text that doesn't exist) and 16 LOW; C13–C17 are older drift that this PR didn't cause.
-- **Reviewer disagreement, resolved by the primary source:** DA confirmed "the first session after an upgrade can't read `AGENTS.md`", and surrogate A4 called it unverified. code.claude.com/docs/en/memory §"When AGENTS.md support is unavailable" confirms it (upgrades from v2.1.276 or earlier, in some cases). **Say this in the PR body.**
-- **Fold:**
-  - `7b66d57`: `implementer` did scripts and `ci.yml`. The stub's fence _tracking_ became fence _rejection_, stubs with CRLF endings get an explicit error, the comments were reworded, and 31 rulebook tests / 54 script tests pass.
-  - `c173da7`: `doc-fixer` did 19 doc items across 14 files.
-  - `ffdc9e6..c173da7`: 17 files, +119/−55.
-- **Deferred with reasons (list them in the PR body):**
-  - A6: `CHIEF-CLANCY-DOC-PORTS.md`'s `roles/` and Stage-4 re-entry conditions look met. **Alex reopened the deferral (2026-09-27, end of Session 51).** It is its own workstream after PR 4 (see the latest loading instructions), not part of PR 4.
-  - C12: `CAST-ROSTER.md:14` "CLAUDE.md's do-not-touch list" is dated decision prose.
-  - C15: `OPERATIONS.md:229` cites a precedent that doesn't exist; it's older drift.
-  - C17: `TOOL-ALLOWLIST-GRID.md:85`'s OWASP LLM06 link text doesn't match its slug; this needs an external check.
-  - DA FYI: in worktree sessions, the parent checkout's stub `@AGENTS.md` may count as an "external" import. Not verified live.
-- **Always-loaded size, measured:** one-shot `claude -p` in neutral worktrees, two runs each, minus a baseline with neither file present. **~5,030 tokens before → ~4,750 after (−280, ~6%)** for `CLAUDE.md` 12,499 B → stub 207 B + `AGENTS.md` 11,366 B at `ffdc9e6`. The fold changed `AGENTS.md` slightly, so re-measure only if the PR body needs exact numbers.
-- **Local copies of all R1 reports and both fold briefs:** `.claude/research/workflow-series/pr4-r1/` (gitignored). **Post the three surrogate reports (`surrogate-A/B/C.md`) as a PR comment once the PR exists. The DA report stays in chat only.**
-
-**Session data:** ~150k tokens at handoff (usage tool; 5-hour window 13%, weekly 34%). Trigger: the 150k soft line, reached at a phase boundary (the R1 fold was committed). What grew context most: four R1 reports (~5k each) and the token measurement. Structural warning signs: none.
-
-**Lessons (Session 51):**
-
-- **DDDD — Subagent hand-back reports aren't in the transcript's text blocks.** To save a report verbatim for a PR comment, extract the longest string from the `*andback*` tool_use input in the task's `.output` JSONL. `.claude/research/workflow-series/pr4-r1/extract-handback.py <task.output> <out.md>` does it. Don't retype a report.
-- **EEEE — Measuring always-loaded tokens needs neutral paths.** `claude -p` in the primary checkout also loads the path-keyed auto-memory, which confounds a before/after comparison. Run both sides in scratch worktrees and subtract a no-rulebook baseline.
 
 ## Session archive
 
