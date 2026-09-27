@@ -2,7 +2,63 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/DEVELOPMENT.md` §Session handoff for the mechanics).
 
-## Next workstreams (after Session 52)
+## Next workstreams (after Session 53)
+
+Updated 2026-09-27 end-Session-53 — **PR 3's brief (the session handoff protocol) is settled and grilled: R1 and an R2 verification round, both folded, then a manual pass. Building waits on [PR #114](https://github.com/Pushedskydiver/moe/pull/114), which is green and `CLEAN` but not merged (Alex merges).** `main` is unchanged apart from this handoff. All 8 personas are `started` with checks passing.
+
+**Asked and decided (Alex, 2026-09-27, `AskUserQuestion`):** the weekly plan limit gets **no** handoff trigger row. Every entry's Session data records the weekly %, and the handoff notice names it when it is ≥85%.
+
+**Done this session:**
+
+- **#114:** its head was already `1463ac3` (this repo's Session 52 handoff merged in). The Quality suite finished green, so all 5 checks pass and the PR is `CLEAN`. Nothing needed fixing.
+- **Brief settled** at `.claude/research/workflow-series/pr3-brief.md` (gitignored, 225 lines). The orchestrator settled the draft's open items as the Session 53 loading instructions said. It also verified the CLI context one-liner against `get_usage`: 85,174 vs 87,703, one turn of lag.
+- **`spec-grill` R1:** 0 BLOCKING, 10 MATERIAL, 16 LOW. The orchestrator checked the sources behind M3–M6, M8 and M9. The fold (`doc-fixer`) applied all 26, with orchestrator overrides on M9, L1, L7, L8, L11, L12, L13 and L15.
+- **`spec-grill` R2 (verification):** 25/26 confirmed folded, M1 incomplete. Plus 2 new MATERIAL (N1: stale PROGRESS line cites; N2: the summary list "overrode" the body) and 7 LOW, all folded by `doc-fixer`.
+- **Manual pass:** caught 2 more. A leftover `DEVELOPMENT.md:87` cite (N9's wording missed it), and R2's own fix wording naming "Session 49" loading instructions where the source is Session 50's (lesson JJJJ). Both fixed.
+- **Reports and fold briefs:** `.claude/research/workflow-series/pr3-grill/` (`r1-report.md`, `r1-fold-brief.md`, `r2-report.md`, `brief-after-r1-fold.md`).
+- **Memory:** DDDD and HHHH are filed under harness/tooling, and GGGG under the reviewer-convergence note (now 11 instances; triage at the higher severity). The brief routes these three to memory.
+
+**Cleanup:** removed the detached review worktree (`git worktree list` shows only the primary checkout). `chore/single-rulebook` is kept because #114 is open. Session 48 was archived into `docs/history/SESSIONS.md`.
+
+**Session data:** ~150k tokens at handoff (usage tool; 5-hour window 28%, weekly 36%, Fable weekly 4%).
+
+- **Trigger:** a phase boundary above 100k (brief final, build blocked on #114), just under the 150k soft line.
+- **What grew context most:** 4 grill/fold hand-back reports (~3–5k each), the brief draft read (~5k) and the usage calls.
+- **Subagent tokens:** grill R1 188k, fold R1 135k, grill R2 121k, fold R2 69k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none. The one question was pre-marked as Alex's.
+
+**Lessons (Session 53):**
+
+- **IIII — A fold brief's constraints can contradict its own findings.** The R1 fold brief said "keep every file:line as is" while M1 required a full fold. The constraint won, so stale PROGRESS line cites survived. The verification round caught it (N1), which is the case for running R_n on briefs. Before dispatch, check the constraints are compatible with every finding.
+- **JJJJ — Reviewer fix wording is settled wording too (FFFF recurred twice, while named).** R2's paste-ready fix labelled Session 50's loading instructions "Session 49", and R1's L11 fold swapped one false Fable claim for another (N4). "Apply the Fix wording as given" hands the fixer unchecked prose. Spot-check any source attribution in a reviewer's fix before accepting it verbatim.
+
+### Session 54 loading instructions
+
+- **Check live state first:**
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `e4c7bb6`, or #114's squash above it), `git status` and `gh pr list`.
+  - #114: `mcp__ccd_pr__get_status`, or `gh pr view 114`.
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+- **#114:**
+  - If Alex merged it, delete the local `chore/single-rulebook`; this needs no permission.
+  - If it's still open and `BEHIND`, merge `origin/main` in.
+  - If CI is red, fix it on the branch, and give the fix its own range check.
+- **PR 3, only once #114 has merged.** The brief is final: `.claude/research/workflow-series/pr3-brief.md`. Don't re-grill it; two rounds and a manual pass are done.
+  1. Branch `docs/session-handoff` from a freshly pulled `main`.
+  2. Dispatch `implementer` in build mode with the brief. The builder re-greps every code-doc file:line first; they were verified at `1463ac3`, and the squash merge shouldn't move them, but check.
+  3. The brief's closing "Orchestrator-only steps" are yours:
+     - Measure DEVELOPMENT.md's tokens before and after, with Session 46's counter (`git show 5f63516:PROGRESS.md`).
+     - Run the Round-2 loop until there are 0 BLOCKING/MATERIAL, then self-review.
+     - The surrogate is mandatory (blast-radius docs, >50 LOC); split it by logical grouping if the diff tops 20 files. Post its findings as a PR comment.
+     - Repoint `PROGRESS.md:3` in the first handoff after PR 3 merges.
+  4. The PR body closes C15 (`OPERATIONS.md:229`), as #114 promised. It also flags the decision-doc Status update as amending an earlier decision on Alex's instruction.
+  - **Nothing on PR 3 is marked as Alex's to decide** (the weekly limit is settled above). GIT.md's blast-radius addition is his to veto in review.
+- **After PR 3, as before:** PR 5 (docs thinning, plus VISION:327, which is Alex's call), then the Hook PR, then the chief-clancy doc-port workstream. Confirm the order and which docs to port with Alex when it starts; the candidates and mechanics are in the Session 52 entry's loading instructions.
+- **Recommended model and effort for Session 54:** Opus, `high`.
+- **Decision branches:** IIII–JJJJ above; FFFF–HHHH in the Session 52 entry.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 52
 
 Updated 2026-09-27 end-Session-52 — **PR 4 (single rulebook) is open as [PR #114](https://github.com/Pushedskydiver/moe/pull/114), not merged (Alex merges). Its Round-2 loop converged at R3, and the required-check swap is done.** The branch `chore/single-rulebook` is at `d4a204d` (`main` merged in, because `strict: true` needs it up to date). CI was pending at handoff. All 8 personas are `started` with checks passing.
 
@@ -136,24 +192,6 @@ Updated 2026-09-27 end-Session-49 — **the `getTestPool()` host-guard fix is op
 
 - **ZZZ — Guard an input with the parser that consumes it.** `pg` resolves `DATABASE_URL` with `pg-connection-string`, where `?host=` overrides the URL's host, so a `new URL().hostname` guard would have been bypassable (`…@localhost/db?host=prod`). Found by reading the library before writing the brief, not in review. A safety check on a string some library interprets must run that library's own parser, and a test should pin that both resolve the same copy.
 - **AAAA — `implementer`'s first build under a settled brief: 0 stops, and it verified the brief's claims against source instead of trusting them.** Naming the skipped steps explicitly (XXX's fix) worked — steps 3–4 ran. Running `copilot-surrogate` alongside DA R1 on a small PR cost nothing and saved a round. The R2 DA LOW (PR-local finding IDs in code comments) matched the orchestrator's own self-review before the report arrived — convergence again; a fold brief should say "no review IDs in code comments".
-
-## Earlier: Session 48
-
-Updated 2026-09-27 end-Session-48 — **PR 2b of the workflow series is open as [PR #112](https://github.com/Pushedskydiver/moe/pull/112), not merged (Alex merges): the `implementer` and `doc-fixer` Sonnet worker agents.** [PR #111](https://github.com/Pushedskydiver/moe/pull/111) merged 2026-09-27 03:27 UTC with CI green; all 8 personas healthy on the 6.1g image; the merged local branch `docs/prompt-audit-fixes` (#109) was deleted.
-
-**Asked and decided (Alex, 2026-09-27, this session):** (1) **Reorder: PR 4 (rulebook) before PR 3 (handoff protocol)**, so PR 3 edits the single `AGENTS.md` directly instead of the generator about to be retired. Verified against Claude Code's memory docs first: Claude Code reads `AGENTS.md` natively (v2.1.277+) but **only when no `CLAUDE.md` exists** — a `CLAUDE.md` that merely mentions `AGENTS.md` hides it, so the stub must be an `@AGENTS.md` import (PCR's shape); keep the stub rather than delete `CLAUDE.md`, since some sessions (first after an upgrade, `agents-md` plugin disabled) can't read `AGENTS.md` directly. (2) **#112's R4 still found a MATERIAL → Alex chose (via `AskUserQuestion`) to fold, close with a disclosed author-read (no R5), and follow up with a code guard:** `getTestPool()` (`packages/core/src/ticket-lifecycle/test-db.ts`) should refuse any `DATABASE_URL` host other than localhost/127.0.0.1 (CI's is `localhost`, `.github/workflows/ci.yml:41`), so no prompt wording is load-bearing for prod safety.
-
-**Shipped (on #112, unmerged):** `.claude/agents/implementer.md` (build mode + fold mode; branch check; `[GATE]` check; every test run through `env -u DATABASE_URL` unless the brief gives a localhost URL; never pushes/merges/deploys) and `.claude/agents/doc-fixer.md` (applies findings under a settled brief; never commits; branch check); `DEVELOPMENT.md` §Session Pattern "Orchestrate" bullet (no `model` param, primary checkout, never `isolation: 'worktree'`, one worker per checkout); `CLAUDE.md`/`AGENTS.md`, `ARCHITECTURE.md` (tree + corrected `packages/agents` row). Review: R1 DA 6 MATERIAL + surrogate 2 MATERIAL → R2 (surrogate clean, DA 2 MATERIAL from the fold) → R3 DA 1 MATERIAL → R4 DA 1 MATERIAL → Alex's call above. Folds 1–2 by `doc-fixer` (its first real runs: 19 then 8 findings applied, 0 stopped), folds 3–4 by the orchestrator directly. Surrogate findings posted as a PR comment. CI on #112 had not reported at handoff.
-
-**In flight:** nothing running.
-
-**Session data:** ~205k tokens at handoff (usage tool; 5-hour window 27%, weekly 31%). Triggers: phase boundary (PR opened), past the 150k soft line (crossed at the fold-1 dispatch; the PR was finished first). Most growth: six review reports and three fixer reports returning to the main context, plus the reads to settle fold briefs. Structural warning signs: none.
-
-**Lessons (Session 48):**
-
-- **WWW — A safety rule written into one step leaks through the others.** The "don't run tests against a non-local DB" rule was patched four rounds running (R1 which DB, R2 an exported shell value, R3 the `--no-bail` fallback, R4 the TDD step's own test runs) — each fold closed one path and the next check found another. When prose keeps leaking, fix the mechanism (here: a host guard in the helper), not the wording.
-- **XXX — A settled brief makes a Sonnet fixer reliable, but brief wording is scope.** `doc-fixer` applied 27 findings across two folds with nothing stopped, verified script names and exports before writing them, and reported the out-of-scope gap instead of inventing text. Its one defect came from the brief: "skip reading beyond what the findings touch" was read as skipping the conventions and do-not-touch steps too. Name the steps a mode skips; never describe them.
-- **YYY — Claude Code's native `AGENTS.md` read is conditional.** It happens only when there is no `CLAUDE.md` in the directory tree; otherwise `CLAUDE.md` wins. A redirect has to be `@AGENTS.md`, never a sentence.
 
 ## Session archive
 
