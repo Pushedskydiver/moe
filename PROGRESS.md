@@ -2,7 +2,43 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/DEVELOPMENT.md` §Session handoff for the mechanics).
 
-## Next workstreams (after Session 47)
+## Next workstreams (after Session 48)
+
+Updated 2026-09-27 end-Session-48 — **PR 2b of the workflow series is open as [PR #112](https://github.com/Pushedskydiver/moe/pull/112), not merged (Alex merges): the `implementer` and `doc-fixer` Sonnet worker agents.** [PR #111](https://github.com/Pushedskydiver/moe/pull/111) merged 2026-09-27 03:27 UTC with CI green; all 8 personas healthy on the 6.1g image; the merged local branch `docs/prompt-audit-fixes` (#109) was deleted.
+
+**Asked and decided (Alex, 2026-09-27, this session):** (1) **Reorder: PR 4 (rulebook) before PR 3 (handoff protocol)**, so PR 3 edits the single `AGENTS.md` directly instead of the generator about to be retired. Verified against Claude Code's memory docs first: Claude Code reads `AGENTS.md` natively (v2.1.277+) but **only when no `CLAUDE.md` exists** — a `CLAUDE.md` that merely mentions `AGENTS.md` hides it, so the stub must be an `@AGENTS.md` import (PCR's shape); keep the stub rather than delete `CLAUDE.md`, since some sessions (first after an upgrade, `agents-md` plugin disabled) can't read `AGENTS.md` directly. (2) **#112's R4 still found a MATERIAL → Alex chose (via `AskUserQuestion`) to fold, close with a disclosed author-read (no R5), and follow up with a code guard:** `getTestPool()` (`packages/core/src/ticket-lifecycle/test-db.ts`) should refuse any `DATABASE_URL` host other than localhost/127.0.0.1 (CI's is `localhost`, `.github/workflows/ci.yml:41`), so no prompt wording is load-bearing for prod safety.
+
+**Shipped (on #112, unmerged):** `.claude/agents/implementer.md` (build mode + fold mode; branch check; `[GATE]` check; every test run through `env -u DATABASE_URL` unless the brief gives a localhost URL; never pushes/merges/deploys) and `.claude/agents/doc-fixer.md` (applies findings under a settled brief; never commits; branch check); `DEVELOPMENT.md` §Session Pattern "Orchestrate" bullet (no `model` param, primary checkout, never `isolation: 'worktree'`, one worker per checkout); `CLAUDE.md`/`AGENTS.md`, `ARCHITECTURE.md` (tree + corrected `packages/agents` row). Review: R1 DA 6 MATERIAL + surrogate 2 MATERIAL → R2 (surrogate clean, DA 2 MATERIAL from the fold) → R3 DA 1 MATERIAL → R4 DA 1 MATERIAL → Alex's call above. Folds 1–2 by `doc-fixer` (its first real runs: 19 then 8 findings applied, 0 stopped), folds 3–4 by the orchestrator directly. Surrogate findings posted as a PR comment. CI on #112 had not reported at handoff.
+
+**In flight:** nothing running.
+
+**Session data:** ~205k tokens at handoff (usage tool; 5-hour window 27%, weekly 31%). Triggers: phase boundary (PR opened), past the 150k soft line (crossed at the fold-1 dispatch; the PR was finished first). Most growth: six review reports and three fixer reports returning to the main context, plus the reads to settle fold briefs. Structural warning signs: none.
+
+**Lessons (Session 48):**
+
+- **WWW — A safety rule written into one step leaks through the others.** The "don't run tests against a non-local DB" rule was patched four rounds running (R1 which DB, R2 an exported shell value, R3 the `--no-bail` fallback, R4 the TDD step's own test runs) — each fold closed one path and the next check found another. When prose keeps leaking, fix the mechanism (here: a host guard in the helper), not the wording.
+- **XXX — A settled brief makes a Sonnet fixer reliable, but brief wording is scope.** `doc-fixer` applied 27 findings across two folds with nothing stopped, verified script names and exports before writing them, and reported the out-of-scope gap instead of inventing text. Its one defect came from the brief: "skip reading beyond what the findings touch" was read as skipping the conventions and do-not-touch steps too. Name the steps a mode skips; never describe them.
+- **YYY — Claude Code's native `AGENTS.md` read is conditional.** It happens only when there is no `CLAUDE.md` in the directory tree; otherwise `CLAUDE.md` wins. A redirect has to be `@AGENTS.md`, never a sentence.
+
+### Session 49 loading instructions
+
+- **Check live state first (the entry is a snapshot):** `git log --oneline -10 origin/main`, `git status`, `gh pr list`, `gh pr view 112 --json state,mergedAt,statusCheckRollup`. If #112 merged: `git checkout main && git pull`, delete the local branch. If its CI failed, fix that first. Fleet: `fly status -a moe-<persona>` for sarah, riley, marcus, priya, dom, nia, theo, maya.
+- **Primary workstream — in this order:**
+  1. **Fix PR: `getTestPool()` host guard** (Alex's call above). TDD: refuse a `DATABASE_URL` whose host isn't `localhost`/`127.0.0.1`, with an error that never echoes the URL (it holds a password). Good first real use of `implementer` in build-like mode under a settled brief; it is too small to measure a `chunk-briefer` against — measure that on the next engineering chunk.
+  2. **PR 4, rulebook:** `AGENTS.md` as the single rulebook, `CLAUDE.md` → a stub with an `@AGENTS.md` import (see YYY); retire `scripts/generate-agents-md.ts`, its CI freshness job and `DEVELOPMENT.md` §AGENTS.md generation (and the `literal`/`source-only` markers, plus `doc-fixer`/`implementer` steps that run `generate:agents-md`); path-scoped `.claude/rules/` for the persona-prompt do-not-touch and Slack/GitHub integration rules (extend `check-agent-frontmatter.ts` to rule files); chief-clancy doc-port paragraph → `docs/decisions/`. Make the rulebook's wording tool-neutral (Codex reads it too).
+  3. **PR 3, handoff protocol:** port PCR's `docs/SESSION-HANDOFF.md` (usage tool + CLI fallback, trigger table, cleanup, paste-in prompt, model/effort table, per-session tokens, lettered lessons harvested into `RATIONALIZATIONS.md`/`REVIEW-PATTERNS.md` — WWW–YYY included); replace `DEVELOPMENT.md` §Session handoff with a pointer.
+  4. **PR 5, docs thinning:** `DEVELOPMENT.md` review-gate section and `GLOSSARY.md` via PCR `research/61`'s method, before/after token counts; include #111's deferred stale paragraph about isolated agents `cd`-ing into the primary checkout, `ARCHITECTURE.md`'s `packages/agents` row missing 6.1d–6.1g (`react-tool.ts`, `compose-confirming-question-lead-in.ts`), and `ARCHITECTURE.md:15`'s "orchestrator logic not yet built" (flagged by #112's R2 DA, outside its range).
+  5. **Hook PR:** `.claude/settings.json` PreToolUse(Bash) making `fly deploy` / `fly secrets` ask.
+  - Baselines (tokens): `CLAUDE.md` 4,879; `docs/DEVELOPMENT.md` 16,970 (before #111); `docs/DA-REVIEW.md` 9,703; `docs/SELF-REVIEW.md` 5,314; `docs/GLOSSARY.md` 28,809.
+- **Orchestrate:** builds to `implementer`, doc folds to `doc-fixer`, both in the primary checkout with a settled brief written to the scratchpad; reviews to the pinned agents with `isolation: 'worktree'` and the primary checkout's path; check usage after each digested report and before each dispatch; hand off at 150k soft / 250k hard.
+- **Housekeeping due (deferred again this session):** the detail band holds Sessions 44–48 — archive 44–46 into `docs/history/SESSIONS.md` as its own mechanical commit.
+- **Marcus's Plan stall — Alex chose option (a) 2026-09-27:** cancel legacy ticket `5d743b2a-3f5c-4ff7-b272-69dc9a74dd3b`, then verify 6.1e's Plan→Build with a fresh ticket during core hours (Mon–Fri 08:30–17:00 Europe/London). Confirm the moment with Alex; use the ticket-lifecycle transition, not raw SQL.
+- **Unchanged:** small fix candidates (`record:replay --` forwarding, `OPERATIONS.md` canary-first deploy, logging successful DM outcomes); engineering candidates 6.2, 6.3a–d, 6.5a–i, 6.6, 6.10 — ask, don't default; carry-overs in the Session 46 entry.
+- **Recommended model and effort for Session 49:** Opus, `high`.
+- **Decision branches:** WWW–YYY above; TTT–VVV in the Session 47 entry; earlier via `git log -p PROGRESS.md`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 47
 
 Updated 2026-09-27 end-Session-47 — **PR 2 of the workflow series is open as [PR #111](https://github.com/Pushedskydiver/moe/pull/111), not merged (Alex merges); it ran the new scoped Round-2 rule on itself and converged at R3.** [PR #110](https://github.com/Pushedskydiver/moe/pull/110) merged 2026-09-27 02:36 UTC.
 
@@ -19,23 +55,6 @@ Updated 2026-09-27 end-Session-47 — **PR 2 of the workflow series is open as [
 - **TTT — QQQ happened three times in one PR:** the spec-grill fold swapped one false "longest chain" claim for another (5.3g, not 3.12, is moe's longest), and the R1 fold attached `CLAUDE_CODE_SUBAGENT_MODEL` to `inherit` where the docs say it doesn't apply. Scoped range checks caught all three cheaply — evidence the new rule works. Folding a claim: state what the source says, add no superlatives.
 - **UUU — A fix that narrows a regex can turn "rejected" into "silently skipped".** Requiring a space after the colon made `effort:hgh` pass instead of fail; the fix is to report unmatched lines, never drop them.
 - **VVV — Isolated review worktrees branch from `main`, not the branch under review**, so every review brief must give the primary checkout's path for HEAD reads. All briefs this session did; one reviewer still started from `main` and noticed.
-
-### Session 48 loading instructions
-
-- **Check live state first (the entry is a snapshot):** `git log --oneline -10 origin/main`, `git status`, `gh pr list`, `gh pr view 111 --json state,mergedAt,statusCheckRollup`. If #111 merged: `git checkout main && git pull`, delete the local branch, and update memory `da-review-r2-verification.md` to the scoped-loop rule (it still says "budget until clean"; 5.3g's eight rounds, not 3.12's six, is the longest chain). If #111's CI failed, fix that first. Fleet: `fly status -a moe-<persona>` for all 8.
-- **Primary workstream — continue the workflow series, in order:**
-  1. **PR 2b, new agents:** `implementer` (Sonnet; TDD vertical slices; never merges, deploys, or touches do-not-touch files) and `doc-fixer` (Sonnet; applies a settled brief — this session's `fold1-brief.md` pattern worked: one Sonnet fixer, every choice pre-decided, finding ids cited). Read PCR's `.claude/agents/implementer.md` and `doc-fixer.md` and `research/55` §Draft `doc-fixer` first. Measure one real chunk's builder reading before a `chunk-briefer`.
-  2. **PR 3, handoff protocol:** port PCR's `docs/SESSION-HANDOFF.md` to `docs/SESSION-HANDOFF.md` here, adapted: the usage tool (with a fallback for the terminal CLI, where it doesn't exist), the trigger table, cleanup steps, the paste-in prompt, a model/effort table, per-session token recording, and lettered lessons harvested into `docs/RATIONALIZATIONS.md`/`docs/REVIEW-PATTERNS.md` rather than re-carried. Replace `docs/DEVELOPMENT.md` §Session handoff with a pointer.
-  3. **PR 4, rulebook:** `AGENTS.md` as the single rulebook, `CLAUDE.md` → `@AGENTS.md`; retire the generator + its CI job + `DEVELOPMENT.md` §AGENTS.md generation; path-scoped `.claude/rules/` for the persona-prompt do-not-touch and Slack/GitHub integration rules (extend `check-agent-frontmatter.ts` to rule files, as PCR's `check-claude-docs.ts` does); chief-clancy doc-port paragraph → `docs/decisions/`.
-  4. **PR 5, docs thinning:** `DEVELOPMENT.md` review-gate section (17k tokens) and `GLOSSARY.md` (29k) via PCR `research/61`'s method, before/after token counts; include #111's deferred stale paragraph about isolated agents `cd`-ing into the primary checkout.
-  5. **Hook PR:** `.claude/settings.json` PreToolUse(Bash) making `fly deploy` / `fly secrets` ask.
-  - Baselines (tokens): `CLAUDE.md` 4,879; `docs/DEVELOPMENT.md` 16,970 (before #111); `docs/DA-REVIEW.md` 9,703; `docs/SELF-REVIEW.md` 5,314; `docs/GLOSSARY.md` 28,809. Counter: a 20-line Node script using `@anthropic-ai/sdk`'s `messages.countTokens` from `packages/agents` with `.env.local`'s key.
-- **Housekeeping due:** the detail band now holds Sessions 44–47 — archive 44 (and 45 if needed) into `docs/history/SESSIONS.md` as its own mechanical commit.
-- **Marcus's Plan stall — Alex chose option (a) 2026-09-27:** cancel legacy ticket `5d743b2a-3f5c-4ff7-b272-69dc9a74dd3b`, then verify 6.1e's Plan→Build with a fresh ticket during core hours (Mon–Fri 08:30–17:00 Europe/London). Confirm the moment with Alex; use the ticket-lifecycle transition, not raw SQL.
-- **Unchanged from Session 47's list:** small fix candidates (`record:replay --` forwarding, `OPERATIONS.md` canary-first deploy, logging successful DM outcomes); engineering candidates 6.2, 6.3a–d, 6.5a–i, 6.6, 6.10 — ask, don't default; carry-overs in the Session 46 entry below (fleet image, App IDs, channels, DB hosts, replay rule).
-- **Recommended model and effort for Session 48:** Opus, `high` (orchestrating agent/protocol docs). Orchestrate: fixes to a Sonnet fixer under a settled brief, reviews to the pinned agents, check usage after each digested report and before each new dispatch; hand off at 150k soft / 250k hard.
-- **Decision branches:** TTT–VVV above; QQQ–SSS in the Session 46 entry; earlier via `git log -p PROGRESS.md`.
-- **Fallback:** if Alex redirects on load, follow that.
 
 ## Earlier: Session 46
 
