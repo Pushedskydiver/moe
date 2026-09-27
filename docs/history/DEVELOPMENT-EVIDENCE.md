@@ -1,12 +1,12 @@
 # DEVELOPMENT.md evidence
 
-History, not live guidance. Incident narratives moved verbatim out of `docs/DEVELOPMENT.md` on 2026-09-27 (from commit `89df804`), so the live doc keeps each rule plus a one-line pointer here — except §Chunk close, which no live doc points to (kept here for history only). Text here is stale by design: a "step N", "above", "below", "this sentence", "this very file" or "this same change" means that commit's `docs/DEVELOPMENT.md`. Read only when a live doc points here.
+History, not live guidance. Incident narratives moved verbatim out of `docs/DEVELOPMENT.md` on 2026-09-27 (from commit `89df804`), so the live doc keeps each rule plus a one-line pointer here — except §Chunk close, which no live doc points to (kept here for history only). Text here is stale by design: a "step N", "this step", "item N", "above", "below", "this sentence", "this very file", "this very gap" or "this same change" means that commit's `docs/DEVELOPMENT.md`. Read only when a live doc points here.
 
 ## Chunk close
 
 From §Quick Reference step 3:
 
-> the norm since 6.0's PR #99; 6.1d's PR #104 was the exception, closed by a follow-up commit
+> (the norm since 6.0's PR #99; 6.1d's PR #104 was the exception, closed by a follow-up commit)
 
 ## Step 6
 
@@ -42,7 +42,7 @@ From §Review Gate's pre-merge checkpoint item 3:
 
 From §Review Gate's "Round-2 verification, in full" paragraph:
 
-> caught live, twice, on PR #24: a DA-chain finding got mutation-tested by the same agent that fixed it — reverting the fix, confirming a test would catch the regression, restoring it — instead of a fresh R2 dispatch; a separate, later MATERIAL `copilot-surrogate` finding was fixed with only a new test and no independent check at all, not even self-verification. No bug shipped either time, but the discipline gap was real, and the second instance is the stronger example — it wasn't self-verified by any method, just re-tested
+> (caught live, twice, on PR #24: a DA-chain finding got mutation-tested by the same agent that fixed it — reverting the fix, confirming a test would catch the regression, restoring it — instead of a fresh R2 dispatch; a separate, later MATERIAL `copilot-surrogate` finding was fixed with only a new test and no independent check at all, not even self-verification. No bug shipped either time, but the discipline gap was real, and the second instance is the stronger example — it wasn't self-verified by any method, just re-tested)
 
 ## Isolation
 
@@ -54,7 +54,7 @@ From §Review Gate's isolation paragraph:
 
 From §Review Gate's "worktree-isolated dispatch" paragraph:
 
-> caught live: a chunk-5.0 R2 pass concluded none of five already-fixed findings existed, because it checked its own isolated worktree instead of the primary checkout where the actual uncommitted edits lived — a corrected re-dispatch with the primary path spelled out confirmed all five were genuinely folded
+> (caught live: a chunk-5.0 R2 pass concluded none of five already-fixed findings existed, because it checked its own isolated worktree instead of the primary checkout where the actual uncommitted edits lived — a corrected re-dispatch with the primary path spelled out confirmed all five were genuinely folded)
 
 ## Dispatched reviews
 
