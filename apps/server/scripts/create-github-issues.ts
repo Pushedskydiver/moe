@@ -47,9 +47,8 @@ const githubClient = createGithubClient(parsedGithub.config, logger);
 
 await createGithubIssuesForTickets({
   logger,
-  // Sarah is the only wired persona today (VISION §4.1, BUILD_PLAN 5.3 — the rest of the cast's
-  // prompts/voices aren't built yet) and the front-door owner of chat-born ticket intake
-  // (BUILD_PLAN chunks 2.x-3.x). Hardcoded here rather than threaded through env/config, same as
+  // Sarah is the front-door owner of chat-born ticket intake (BUILD_PLAN chunks 2.x-3.x).
+  // Hardcoded here rather than threaded through env/config, same as
   // `reaction-outcome-actions.ts`'s own `DEFAULT_SEVERITY` ('Medium') placeholder — a real choice to
   // revisit once a second persona's own tickets need attributing to someone other than Sarah.
   personaId: 'sarah',
