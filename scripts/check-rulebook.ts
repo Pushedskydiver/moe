@@ -9,7 +9,10 @@ import { fileURLToPath } from 'node:url';
 
 import { extractFrontmatter } from './check-agent-frontmatter.ts';
 
-const FENCE_LINE = /^```/u;
+// Up to 3 spaces of indent, then 3+ backticks or 3+ tildes: the CommonMark fence-open shape.
+// Rejected outright rather than tracked open/closed — a stub that contains any fenced code block
+// at all is already off-shape for a 10-line, one-import file.
+const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/u;
 const IMPORT_LINE = '@AGENTS.md';
 
 export function checkClaudeStub(
@@ -19,20 +22,25 @@ export function checkClaudeStub(
   const errors: string[] = [];
   if (!agentsMdExists) errors.push('AGENTS.md does not exist');
 
-  let inFence = false;
+  if (claudeText.includes('\r')) {
+    errors.push('CLAUDE.md stub uses CRLF line endings, expected LF');
+  }
+
+  let hasFence = false;
   let importLineCount = 0;
   let nonEmptyCount = 0;
 
   for (const line of claudeText.split('\n')) {
-    if (FENCE_LINE.test(line)) {
-      inFence = !inFence;
-      nonEmptyCount++;
-      continue;
-    }
     if (line.trim() !== '') nonEmptyCount++;
-    // Untrimmed, no indent: Claude Code only recognizes an import at column 0, and skips one
-    // inside a fenced code block (it would otherwise treat this file's own example as live).
-    if (!inFence && line === IMPORT_LINE) importLineCount++;
+    if (FENCE_OPEN.test(line)) hasFence = true;
+    // Policy, not a Claude Code limit: Claude Code imports any whitespace-preceded @path outside
+    // code spans/blocks, but the stub keeps its one import on its own unindented line so this
+    // check can find it.
+    if (line === IMPORT_LINE) importLineCount++;
+  }
+
+  if (hasFence) {
+    errors.push('`CLAUDE.md` stub must not contain a fenced code block');
   }
 
   if (importLineCount === 0) {
@@ -54,7 +62,7 @@ export function checkClaudeStub(
   return errors;
 }
 
-export type ParsedRuleFrontmatter = {
+type ParsedRuleFrontmatter = {
   readonly globs: readonly string[];
   readonly errors: readonly string[];
 };
@@ -66,12 +74,11 @@ const QUOTED_ENTRY = /^(['"])(.*)\1$/u;
 // Deliberately not a YAML parser (same reasoning as check-agent-frontmatter.ts's own
 // parseFrontmatter): every rule file uses exactly one shape, `paths:` followed by a block list of
 // quoted glob strings, and that is the only shape this reads. A `paths` entry must be quoted
-// (single or double) because YAML itself rejects a bare `*.ts`/`**/*.ts` (a YAML alias token) or
-// `{a,b}`/`[x]` (YAML flow-collection tokens) as a plain scalar — and when that happens, Claude
-// Code silently ignores the whole frontmatter block and loads the rule unscoped, rather than
-// failing loudly. An entry containing `[` is rejected outright even when quoted: Claude Code's own
-// glob matcher and Node's `path.matchesGlob` disagree on POSIX bracket character classes, and no
-// rule file actually needs one.
+// (single or double): YAML reads a bare entry starting `*` as an alias — a parse error, so Claude
+// Code drops the frontmatter and loads the rule unscoped — and one starting `{`/`[` as a mapping or
+// sequence rather than a string; quoting every entry avoids both. An entry containing `[` is
+// rejected outright even when quoted: Claude Code's own glob matcher and Node's `path.matchesGlob`
+// disagree on POSIX bracket character classes, and no rule file actually needs one.
 export function parseRuleFrontmatter(
   frontmatterText: string,
 ): ParsedRuleFrontmatter {
@@ -160,7 +167,7 @@ export function parseRuleFrontmatter(
   return { globs, errors };
 }
 
-const FRONTMATTER_BODY = /^---\n[\s\S]*?\n---\n?([\s\S]*)$/u;
+const FRONTMATTER_BODY = /^---\n[\s\S]*?\n---(?:\n|$)([\s\S]*)$/u;
 
 export function validateRuleFile(
   file: string,

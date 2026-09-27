@@ -3,10 +3,11 @@ name: CI
 # The "Quality suite" job mirrors AGENTS.md's documented pre-push suite exactly
 # (same commands, same order) so a green run here reproduces locally with no
 # hidden extra steps. "Agent frontmatter" is a separate, additional gate
-# (docs/DEVELOPMENT.md §Quality Gates): it now also covers AGENTS.md,
-# CLAUDE.md and .claude/rules/ (via `pnpm check:rulebook`), and it only
-# matters after editing those, .claude/agents/, scripts/, tsconfig.base.json
-# or a root dependency — not on every push.
+# (docs/DEVELOPMENT.md §Quality Gates): it now also checks AGENTS.md exists
+# and validates CLAUDE.md and .claude/rules/ (via `pnpm check:rulebook`), and
+# it only matters after editing those, .claude/agents/, scripts/,
+# tsconfig.base.json or a root dependency, or moving/deleting files a
+# .claude/rules/ glob targets — not on every push.
 
 on:
   pull_request:

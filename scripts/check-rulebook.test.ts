@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -32,11 +36,32 @@ describe('checkClaudeStub', () => {
     ]);
   });
 
-  it('rejects an @AGENTS.md line only inside a fenced code block', () => {
-    const text = '# Moe Monorepo\n\n```\n@AGENTS.md\n```\n';
+  it('rejects a triple-backtick fenced code block even with a valid import outside it', () => {
+    const text = '# Moe Monorepo\n\n@AGENTS.md\n\n```\ncode\n```\n';
     expect(checkClaudeStub(text, true)).toEqual([
-      'no `@AGENTS.md` import line found (outside any fenced code block, unindented)',
+      '`CLAUDE.md` stub must not contain a fenced code block',
     ]);
+  });
+
+  it('rejects a tilde-fenced code block even with a valid import outside it', () => {
+    const text = '# Moe Monorepo\n\n@AGENTS.md\n\n~~~\ncode\n~~~\n';
+    expect(checkClaudeStub(text, true)).toEqual([
+      '`CLAUDE.md` stub must not contain a fenced code block',
+    ]);
+  });
+
+  it('rejects a 4-backtick fenced code block (with an inner ``` line) even with a valid import outside it', () => {
+    const text = '# Moe Monorepo\n\n@AGENTS.md\n\n````\n```\ncode\n```\n````\n';
+    expect(checkClaudeStub(text, true)).toEqual([
+      '`CLAUDE.md` stub must not contain a fenced code block',
+    ]);
+  });
+
+  it('reports CRLF line endings explicitly', () => {
+    const text = '# Moe Monorepo\r\n\r\n@AGENTS.md\r\n';
+    expect(checkClaudeStub(text, true)).toContain(
+      'CLAUDE.md stub uses CRLF line endings, expected LF',
+    );
   });
 
   it('rejects an indented @AGENTS.md line', () => {
@@ -94,12 +119,13 @@ describe('parseRuleFrontmatter', () => {
   it('rejects a bare, unquoted entry (YAML alias token)', () => {
     const { errors } = parseRuleFrontmatter('paths:\n  - *.ts');
     expect(errors.length).toBe(1);
-    expect(errors[0]).toMatch(/must be quoted|not a single quoted glob/u);
+    expect(errors[0]).toContain('not a single quoted glob');
   });
 
-  it('rejects a bracketed-flow-list entry', () => {
+  it('rejects a bare brace-glob entry (YAML flow-mapping token)', () => {
     const { errors } = parseRuleFrontmatter('paths:\n  - {a,b}/x.ts');
     expect(errors.length).toBe(1);
+    expect(errors[0]).toContain('not a single quoted glob');
   });
 
   it('rejects an entry containing a bracket class', () => {
@@ -113,6 +139,12 @@ describe('parseRuleFrontmatter', () => {
       "paths:\n  - 'packages/slack/src/**' # comment",
     );
     expect(errors.length).toBe(1);
+    expect(errors[0]).toContain('not a single quoted glob');
+  });
+
+  it('reports paths has no entries for an empty paths key', () => {
+    const { errors } = parseRuleFrontmatter('paths:');
+    expect(errors).toEqual(['paths has no entries']);
   });
 
   it('skips blank lines and column-0 # comments', () => {
@@ -196,5 +228,28 @@ describe('checkRulesDirectory', () => {
     ).toEqual([
       '/nonexistent/path/for/check-rulebook-test: directory not found',
     ]);
+  });
+
+  it('reports no rule files found for an empty directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'check-rulebook-test-'));
+    try {
+      expect(checkRulesDirectory(dir, [], () => true)).toEqual([
+        `${dir}: no rule files found`,
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('ignores a non-.md file in the directory', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'check-rulebook-test-'));
+    try {
+      writeFileSync(join(dir, 'notes.txt'), 'not a rule file');
+      expect(checkRulesDirectory(dir, [], () => true)).toEqual([
+        `${dir}: no rule files found`,
+      ]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
   });
 });
