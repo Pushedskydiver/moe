@@ -225,10 +225,9 @@ for that exact line before assuming a stuck reconnect loop is a real problem.
 
 **A local dev server using a persona's real production credentials competes with that persona's
 own deployed Fly Machine for Socket Mode event delivery, if both are running at once.** Found
-during BUILD_PLAN 6.1e's own manual live-fleet check (2026-09-10): every persona's local
-`.env.local` credentials are that persona's _real_, live Slack app tokens — there's no separate
-sandboxed test app per persona. Per
-Slack's own Socket Mode docs (`docs.slack.dev/apis/events-api/using-socket-mode`: "When multiple
+during BUILD_PLAN 6.1e's own manual live-fleet check (2026-09-10): the local `.env.local` holds
+a persona's real, live Slack app tokens — there's no separate sandboxed test app per persona.
+Per Slack's own Socket Mode docs (`docs.slack.dev/apis/events-api/using-socket-mode`: "When multiple
 connections are active, each payload may be sent to _any_ of the connections"), event delivery
 splits across every currently-open WebSocket connection for the same app-level token, not just the
 newest one — so a locally-running server and that persona's already-deployed Fly Machine (which is

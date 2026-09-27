@@ -46,13 +46,13 @@ One firing is a data point, not a build order; a second of the same class is a d
 ## Status update (2026-09-27)
 
 1. Positions A–D and the revisit triggers above are unchanged.
-2. This decision's "imported numeric thresholds" (Context, above) and Position C mean chief-clancy's handoff-cost and backfill metrics, which stay declined.
-3. PCR's context-size handoff triggers are a separate, handoff-timing mechanism: moe has recorded a Session data line since Session 46 (in anticipation of PR 3), and Alex's Session 47 call (2026-09-27) adopted PCR's usage-aware handoff, whose §6 is that per-session record — `docs/history/SESSIONS.md` Session 47.
+2. This decision's "imported numeric thresholds" (Decision, above) and Position C mean chief-clancy's handoff-cost and backfill metrics, which stay declined.
+3. PCR's context-size handoff triggers are a separate, handoff-timing mechanism: moe has recorded a Session data line since Session 46 (in anticipation of `docs/SESSION-HANDOFF.md`), and Alex's Session 46 scope call (PR 3 with per-session token records, `git show 5f63516:PROGRESS.md`) and Session 47 expansion (usage-aware handoff, `docs/history/SESSIONS.md` Session 47) adopted PCR's usage-aware handoff, whose §6 is that per-session record.
 4. Only Rationale 4's decline of "a per-session bookkeeping habit" (quoted verbatim: "event-based triggers (below) instead of a per-session bookkeeping habit") is superseded, by the Session data line.
 5. The "enters `BUILD_PLAN.md` as its own chunk with Alex's sign-off" clause above covers adopting automation, which this does not do.
 
 ## References
 
-- `docs/SESSION-HANDOFF.md` §11 — full mechanics and evidence.
+- `docs/SESSION-HANDOFF.md` §11 — full evidence (mechanics: §1–§10).
 - `@chief-clancy/.claude/research/session-handoff/audit-2026-04-{21,23,29}.md` — the primary-source audits this decision re-derives from.
 - Repo-local `.claude/research/session-handoff-automation/research-2026-07-09.md` (gitignored) — the Session 2 deep-research artefact.

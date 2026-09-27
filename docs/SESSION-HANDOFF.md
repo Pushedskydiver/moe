@@ -4,7 +4,7 @@ Claude decides when to hand off a session; Alex doesn't have to call it. Claude 
 
 Status of the numbers below: **judgement, not measurement.** No study measures cross-session handoff for long tool-using agent sessions the way this doc uses the term. The mechanism is evidenced — reasoning accuracy degrades as input length grows (Levy et al. 2024, arXiv 2402.14848), and recall is U-shaped over long context, worst in the middle (Liu et al. 2023, arXiv 2307.03172) — but the thresholds below are a dial, not a measured constant.
 
-Moe's own data, recorded per session since Session 46 in anticipation of this doc: tokens at handoff were ~300k (Session 46), ~245k (Session 47), ~205k (Session 48), ~175k (Session 49), ~145k (Session 50), ~150k (Session 51), and ~190k (Session 52) — each session's own `PROGRESS.md` "Session data" line (Session 46: `git show 5f63516:PROGRESS.md`; Session 47: `git show 4b4536f:PROGRESS.md`; Sessions 48–52: `PROGRESS.md`'s own entries). §9 below is how this record stays honest rather than decaying into a felt sense of "about right."
+Moe's own data, recorded per session since Session 46 in anticipation of this doc: tokens at handoff were ~300k (Session 46), ~245k (Session 47), ~205k (Session 48), ~175k (Session 49), ~145k (Session 50), ~150k (Session 51), ~190k (Session 52), and ~150k (Session 53) — each session's own `PROGRESS.md` "Session data" line (Session 46: `git show 5f63516:PROGRESS.md`; Sessions 47–48: `git show 4b4536f:PROGRESS.md`; Sessions 49–53: `git show 76032c1:PROGRESS.md`). §9 below is how this record stays honest rather than decaying into a felt sense of "about right."
 
 ## 1. When to hand off: the sooner of
 
@@ -45,7 +45,7 @@ No new weekly-limit trigger row is added (Alex, 2026-09-27) — the weekly % liv
 5. A one-line notice to Alex saying why now (naming the weekly % if ≥85%, per §9), plus the paste-in prompt (§5) as a text block Alex pastes into a new session — not a task chip.
 6. The recommended model and effort for the next session (§7).
 
-Rules for the entry: point to files instead of restating them, separate "done" from "verified", list open questions for Alex rather than assuming answers, and never default silently to a workstream if the next step is unclear. If Alex keeps the session going after its handoff is written, keep working and write a new entry at the next stopping point. Never edit the earlier one, apart from §6's dated `Update (<date>):` line for a decision that brings no new work.
+Rules for the entry: point to files instead of restating them, separate "done" from "verified", list open questions for Alex rather than assuming answers, and never default silently to a workstream if the next step is unclear. If Alex keeps the session going after its handoff is written, keep working and write a new entry at the next stopping point. Never edit the earlier one, apart from §6's post-handoff decision rule (one dated `Update (<date>):` line plus the matching loading-instructions amendment).
 
 ## 4. Cleanup at handoff
 
@@ -77,6 +77,7 @@ Continue the moe project.
 - Asked and decided.
 - Shipped/Done (paths; what was verified and how).
 - In flight.
+- Next, and open questions for Alex — anything marked his to decide.
 - Cleanup.
 - Session data (§9).
 - Lessons (§8).
@@ -84,15 +85,15 @@ Continue the moe project.
 
 The loading instructions carry:
 
-- Live checks: `git log origin/main`, `git status`, `gh pr list`, and `fly status -a moe-<persona>` for all 8 persona Apps.
+- Live checks: `git log origin/main`, `git status`, `gh pr list`, and `fly status -a moe-<persona>` for every persona App (one per `fly.*.toml`).
 - The primary workstream.
 - Orchestration notes.
 - The recommended model and effort.
-- **Decision branches, numbered** — not lettered, since a lettered list collides with lesson letters (§8).
+- **Decision branches, numbered** — not lettered, since a lettered list collides with lesson letters (§8). Mark each branch that is Alex's to decide.
 - Carry-overs.
 - The fallback.
 
-**No restating codified rules inside a loading-instructions block** — it's a pointer to `docs/*.md`, not a copy of it. Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious constraints) is marked Alex's call.
+**No restating codified rules inside a loading-instructions block** — it's a pointer to `docs/*.md`, not a copy of it. The exception: genuinely session-specific direction (the workstream pointer, decision branches, carry-overs) and anything the next session can't discover just by reading the codebase (an in-flight external dependency, a fact only true this week). Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious constraints) is marked Alex's call.
 
 **Post-handoff decisions.** A decision recorded after handoff with no new work adds one dated `Update (<date>):` line to the entry and amends the loading-instructions block to match; new work always gets a new entry. `4b4536f` (which edited the Session 51 entry in four places after its `710d53f` handoff) is the case that motivated this rule, not an example of it.
 
@@ -111,7 +112,7 @@ Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Conte
 
 ## 8. Lessons
 
-- Letters continue from the newest entry's last letter (`JJJJ` at the time of writing).
+- Letters continue from the newest entry's last letter (`JJJJ`, Session 53, at the time of writing).
 - Each lesson ends with a destination tag: `→ RATIONALIZATIONS.md §<phase>`, `→ REVIEW-PATTERNS.md §<area>`, `→ <other file>`, `→ memory`, or `→ none`.
 - Both destination docs are blast-radius (`docs/GIT.md`'s list), so a harvest needs a PR. It rides in the next PR that already touches that doc. A harvest is due by the time its entry archives: it must be in an open or merged PR by then. Archival never waits on a merge; if a lesson is still unharvested, list it under the new entry's carry-overs.
 - Loading instructions stop carrying letter-range pointers such as "DDDD–EEEE above, BBBB–CCCC in the Session 50 entry…" — the letters live with the lessons themselves, not as a pointer chain.
@@ -124,11 +125,11 @@ Review every ten sessions. The first review is at Session 60, using data from Se
 
 ## 10. Archival into `docs/history/SESSIONS.md`
 
-When the detail band (`## Next workstreams` down to `## Session archive` in `PROGRESS.md`) holds **more than 5 discrete session entries, or exceeds roughly 10k tokens** (whichever fires first), compress the oldest entry to a one-line row in `docs/history/SESSIONS.md` before continuing with the current session's own work. A token threshold over a fixed entry count, because session entries vary widely in size, so a fixed-N count drifts against the thing that actually matters — how much context loading `PROGRESS.md` costs every session.
+When the detail band (`## Next workstreams` down to `## Session archive` in `PROGRESS.md`) holds **more than 5 discrete session entries, or exceeds roughly 10k tokens** (whichever fires first), compress the oldest entry to a one-line row in `docs/history/SESSIONS.md` before continuing with the current session's own work. A token threshold over a fixed entry count, because session entries vary widely in size, so a fixed-N count drifts against the thing that actually matters — how much context loading `PROGRESS.md` costs every session. The detail band is the only part of `PROGRESS.md` that grows and gets pruned; `## Session archive` and the `## Phase ledger` stub (pointing to the frozen ledger in `docs/history/BUILD-NARRATIVE.md`) are fixed sections below it.
 
 **Check at session start, before picking up any workstream** — this is the primary trigger. A preemptive check at handoff time is a fine secondary habit but isn't a substitute for the session-start check; a check that only happens "when it occurs to someone" silently backslides.
 
-`docs/history/SESSIONS.md` shape:
+`docs/history/SESSIONS.md` approximate shape:
 
 ```markdown
 # Session archive
@@ -155,11 +156,11 @@ Moe keeps manual handoff (`PROGRESS.md` + loading-instructions blocks) as the pr
 2. **"Unproven summary quality" has hardened into measured-risky, and the failure mode is omission, not fabrication.** LLM compaction summaries are unpredictably lossy — retention follows the summarizer's in-the-moment salience judgment, and omissions are undetectable from the compacted context alone (arXiv 2606.11213, adversarially verified; its kernel case study shows a summary keeping the prose "what" while dropping the structural detail the next task needed). Consistent with that, reported but not independently re-verified: ~91% faithfulness vs ~50% completeness across nine summarizers, worst on long inputs (arXiv 2409.19898); the best production compression strategy scoring 3.70/5 on functional preservation with file/artifact state the worst dimension at 2.19–2.45/5 (Factory AI, 36k+ production coding-agent messages); hallucination detectors near chance (55% F1, FaithBench) — so a bad summary can't be cheaply machine-caught. First-party failure reports exist against Claude Code's own auto-compact ([anthropics/claude-code#13112](https://github.com/anthropics/claude-code/issues/13112)).
 3. **Chief-clancy's 40-session measurement says automation solves the wrong problem.** Across four audited 10-session windows: **0/40 unplanned compactions** — the harm a `PostCompact` backstop addresses never fired once. Handoff cost grew (≈5k → ≈27k tokens median) but their cause analysis attributed it to information density (sessions doing more), which automation cannot reduce: it removes ~1 minute of human latency and none of the authoring cost. Their final audit recommended formally retiring the workstream, not just deferring it.
 4. **The industry converges on moe's existing shape.** Cline's official continuity mechanism (Memory Bank) is manual, user-triggered structured markdown — the same shape as `PROGRESS.md`; third-party writeups describe Cursor and Devin Desktop sessions as starting fresh, with continuity supplied by workspace files and rules rather than automated summaries (vendor-adjacent sources — hold loosely). Published practitioner workflows replace `/compact` with manual handoff files. Automated-summary systems do exist (claude-mem's Stop-hook checkpoint summaries), so this is a considered decline, not a capability gap.
-5. **The asymmetry cuts against replacing what works.** The manual author is the session that did the work, writing at a phase boundary while context is still good, exercising judgment about what the next session specifically needs. An automated summarizer runs at the worst moment (post-compaction), with no notion of moe-specific salience, and its errors surface only as next-session confusion — on a surface no review gate covers. Moe's own record, dated 2026-07-09: every cold-load to that point had worked end-to-end with zero clarifying questions (n=1 so far).
+5. **The asymmetry cuts against replacing what works.** The manual author is the session that did the work, writing at a phase boundary while context is still good, exercising judgment about what the next session specifically needs. An automated summarizer runs at the worst moment (post-compaction), with no notion of moe-specific salience, and its errors surface only as next-session confusion — on a surface no review gate covers. Moe's own record, dated 2026-07-09: every cold-load to that point had worked end-to-end with zero clarifying questions (n=1 at that date).
 
-**What moe does not import, and where that has since partly changed:** chief-clancy's handoff-_cost_ thresholds and backfilled metric fields stay declined — their own 8k-token handoff-cost threshold drifted out of meaning as sessions got heavier, and their backfill discipline collapsed (19/20 metric fields left TBD across their last two audited windows); a protocol that decays silently is worse than none. But this is now a **partial** supersession, not the original blanket position: PCR's context-size handoff triggers are a separate, handoff-_timing_ mechanism, not a bookkeeping habit — moe has recorded a Session data line since Session 46 (in anticipation of this doc), and Alex's Session 47 call (2026-09-27, `docs/history/SESSIONS.md` Session 47) adopted PCR's usage-aware handoff, whose own §6 is exactly this per-session record. Only the original Rationale 4 wording — adopting "event-based triggers (below) instead of a per-session bookkeeping habit" (`docs/decisions/SESSION-HANDOFF-AUTOMATION.md`) — is superseded, and only in its decline of the per-session record, by that Session data line — the revisit triggers below are otherwise unchanged.
+**What moe does not import, and where that has since partly changed:** chief-clancy's handoff-_cost_ thresholds and backfilled metric fields stay declined — their own 8k-token handoff-cost threshold drifted out of meaning as sessions got heavier, and their backfill discipline collapsed (19/20 metric fields left TBD across their last two audited windows); a protocol that decays silently is worse than none. But this is now a **partial** supersession, not the original blanket position: PCR's context-size handoff triggers are a separate, handoff-_timing_ mechanism, not a bookkeeping habit — moe has recorded a Session data line since Session 46 (in anticipation of this doc), and Alex's Session 46 scope call (PR 3 with per-session token records, `git show 5f63516:PROGRESS.md`) and Session 47 expansion (usage-aware handoff, `docs/history/SESSIONS.md` Session 47) adopted PCR's usage-aware handoff, whose own §6 is exactly this per-session record. Only the original Rationale 4 wording — adopting "event-based triggers (below) instead of a per-session bookkeeping habit" (`docs/decisions/SESSION-HANDOFF-AUTOMATION.md`) — is superseded, and only in its decline of the per-session record, by that Session data line — the revisit triggers below are unchanged.
 
-**Revisit triggers — event-based, recorded in `PROGRESS.md` when one fires, zero bookkeeping when none do:**
+**Revisit triggers — event-based, recorded in `PROGRESS.md` when one fires. The only standing record is §9's per-session "clarifying question needed" field, which is where the second trigger shows up:**
 
 - An unplanned compaction costs real state (work redone, a decision lost).
 - A cold-load fails: the next session needs clarifying questions, or catches factual errors in `PROGRESS.md` (chief-clancy's one real quality incident was exactly this — three factual errors in a handoff entry, caught at next-session load).

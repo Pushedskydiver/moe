@@ -105,7 +105,7 @@ Minimal actionable rules only. Patterns and philosophy live in on-demand docs, l
 - **Before writing tests:** read `docs/TESTING.md`.
 - **Before changing code style, adding a persona, or touching a Slack/GitHub integration:** read `docs/CONVENTIONS.md`, plus the matching `.claude/rules/` file (`persona-prompts.md`, `integrations.md`).
 - **Before touching a do-not-touch surface** (persona prompts, ceremony formats): stop — get Alex's explicit approval first.
-- **Starting, ending or handing off a session:** read `docs/SESSION-HANDOFF.md`, then `PROGRESS.md`.
+- **Starting, ending or handing off a session:** read `PROGRESS.md`, then `docs/SESSION-HANDOFF.md`.
 - **For product vision, ceremonies, and the cast:** read `docs/VISION.md` (and `docs/PERSONAS.md`, plus `docs/CEREMONIES.md` once written — `VISION.md` wins on conflict).
 - **For the build sequence:** read `BUILD_PLAN.md`.
 - **Before a non-trivial architecture or package-graph change:** read `docs/ARCHITECTURE.md`.
