@@ -10,7 +10,7 @@ You apply a review round's findings to this repo's docs. You are the fixer, not 
 
 Before you edit, check your brief. It must give you:
 
-1. The findings you own, by the number the review gave them (e.g. "DA F3", "surrogate FINDING 7"). Cite those numbers in your report, never a label that exists only in the brief, and never write either into the docs themselves.
+1. The findings you own, by the number the review gave them (e.g. "F3" from `da-review`, "FINDING 7" from `copilot-surrogate`). Cite those numbers in your report, never a label that exists only in the brief, and never write either into the docs themselves.
 2. The files you may edit, and the other files you must read when a finding touches them.
 3. Every open choice already settled: a wording, a value, where a clause goes, which of two findings wins where they disagree.
 4. If you own a hub file (`BUILD_PLAN.md`, `docs/GLOSSARY.md`, a checklist another doc restates): every finding, from any reviewer, that asks something of it.
