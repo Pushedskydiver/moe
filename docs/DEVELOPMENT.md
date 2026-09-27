@@ -57,7 +57,7 @@ This has one CI-shaped consequence: type-aware ESLint rules (`@typescript-eslint
 8. **Alex reviews and merges.** No auto-merge decision, no gate/exception table — `AGENTS.md`: "Alex merges." Squash-merge, PR title becomes the commit message. **Before handing over, walk the pre-merge checkpoint below — all four items, out loud, against the actual PR rather than from recall.** Then: **confirm any required Round-2 pass — step 2's DA review or steps 5–6's `copilot-surrogate` dispatch — actually completed and came back clean before this step** — a dispatch that never returned a result isn't the same as one that returned clean (see the 'dispatched review isn't done' paragraph below).
 9. **Post-merge:** confirm the merge (`gh pr view <n> --json state,mergedAt`), `git checkout main && git pull`, delete the local branch. The remote branch deletes itself (`delete_branch_on_merge`).
 
-**Pre-merge checkpoint — four questions, answered against the PR, not from memory.** Two real slips motivated this, both caught by Alex rather than by the gate. (chunks 5.2a and 3.7: `docs/history/DEVELOPMENT-EVIDENCE.md` §Pre-merge checkpoint)
+**Pre-merge checkpoint — four questions, answered against the PR, not from memory.** Two real slips motivated this, both caught by Alex rather than by the gate (chunks 5.2a and 3.7: `docs/history/DEVELOPMENT-EVIDENCE.md` §Pre-merge checkpoint).
 
 Item 1 below restates step 6's triggers deliberately, not redundantly: its contribution is the three commands, so the check is mechanical rather than recalled. So, immediately before handing the PR to Alex:
 
