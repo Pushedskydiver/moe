@@ -24,15 +24,15 @@ export function checkClaudeStub(
   const errors: string[] = [];
   if (!agentsMdExists) errors.push('AGENTS.md does not exist');
 
-  // CRLF is reported once, then normalised away so a CRLF stub that's otherwise valid returns
-  // exactly this one error instead of also failing the import-line check below (which compares
-  // against a bare LF line).
-  const hasCrlf = claudeText.includes('\r\n');
-  if (hasCrlf) {
-    errors.push('uses CRLF line endings, expected LF');
+  // CR or CRLF is reported once, then normalised away so a CRLF (or lone-CR) stub that's
+  // otherwise valid returns exactly this one error instead of also failing the import-line check
+  // below (which compares against a bare LF line).
+  const hasCr = claudeText.includes('\r');
+  if (hasCr) {
+    errors.push('uses CR or CRLF line endings, expected LF');
   }
-  const normalizedText = hasCrlf
-    ? claudeText.replaceAll('\r\n', '\n')
+  const normalizedText = hasCr
+    ? claudeText.replaceAll(/\r\n?/gu, '\n')
     : claudeText;
 
   let hasFence = false;
@@ -85,7 +85,7 @@ const QUOTED_ENTRY = /^(['"])(.*)\1$/u;
 // quoted glob strings, and that is the only shape this reads. A `paths` entry must be quoted
 // (single or double): a bare entry starting `*`, `{` or `[` is either a YAML parse error — real
 // globs like `{a,b}/x.ts` or `[x]/y.ts` fall here, and Claude Code then drops the frontmatter and
-// loads the rule unscoped — or, if it's a bare `{…}`/`[…]` with nothing else after it, a mapping or
+// loads the rule unscoped — or, if it's a bare `{…}`/`[…]` with nothing but a comment after it, a mapping or
 // sequence rather than a string; quoting every entry avoids both. An entry containing `[` is
 // rejected outright even when quoted: Claude Code's own glob matcher and Node's `path.matchesGlob`
 // disagree on POSIX bracket character classes, and no rule file actually needs one.

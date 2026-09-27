@@ -58,7 +58,7 @@ describe('checkClaudeStub', () => {
   });
 
   it('rejects a 3-space-indented fenced code block', () => {
-    const text = '# Moe Monorepo\n\n@AGENTS.md\n\n   ```\ncode\n```\n';
+    const text = '# Moe Monorepo\n\n@AGENTS.md\n\n   ```\ncode\n';
     expect(checkClaudeStub(text, true)).toEqual([
       'must not contain a fenced code block',
     ]);
@@ -73,7 +73,14 @@ describe('checkClaudeStub', () => {
   it('reports CRLF line endings as the only error for an otherwise-valid stub', () => {
     const text = '# Moe Monorepo\r\n\r\n@AGENTS.md\r\n';
     expect(checkClaudeStub(text, true)).toEqual([
-      'uses CRLF line endings, expected LF',
+      'uses CR or CRLF line endings, expected LF',
+    ]);
+  });
+
+  it('reports lone-CR line endings as the only error for an otherwise-valid stub', () => {
+    const text = '# Moe Monorepo\r\r@AGENTS.md\r';
+    expect(checkClaudeStub(text, true)).toEqual([
+      'uses CR or CRLF line endings, expected LF',
     ]);
   });
 

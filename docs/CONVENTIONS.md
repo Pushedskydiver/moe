@@ -1,8 +1,8 @@
 # Code Conventions
 
-Standards enforced across the `@moe` monorepo. All rules are configured in the root ESLint and Prettier configs. Adapted near-wholesale from chief-clancy's own `docs/CONVENTIONS.md` per `docs/VISION.md` §12 — this is the direct fix for the previous attempt's "AI-code smells, inconsistent, hard to navigate" failure mode. Deltas from the source are called out explicitly; everything else is adopted because it's genuinely good discipline, not because it happens to be chief-clancy's.
+Standards enforced across the `@moe` monorepo. Many of these rules are configured in the root ESLint and Prettier configs. Adapted near-wholesale from chief-clancy's own `docs/CONVENTIONS.md` per `docs/VISION.md` §12 — this is the direct fix for the previous attempt's "AI-code smells, inconsistent, hard to navigate" failure mode. Deltas from the source are called out explicitly; everything else is adopted because it's genuinely good discipline, not because it happens to be chief-clancy's.
 
-**Status:** live — `eslint.config.ts` and the Prettier config implement this document.
+**Status:** live — `eslint.config.ts` and `.prettierrc` enforce the rules that have a lint or format rule; the rest, including the taste-shaped rules, are enforced in review.
 
 ---
 
