@@ -2,7 +2,60 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
 
-## Next workstreams (after Session 56)
+## Next workstreams (after Session 57)
+
+Updated 2026-09-27 end-Session-57 — **The docs-thinning brief is final: the `spec-grill` verification round ran and its findings are folded. The build of `docs/development-thinning` is next.** The brief is `.claude/research/workflow-series/pr5-brief.md` (gitignored, 536 lines). `main` is unchanged apart from this handoff. All 8 personas are `started` with checks passing.
+
+**Asked and decided (Alex, 2026-09-27, `AskUserQuestion`):** O10 is **yes**. A scoped `.prettierrc` `proseWrap: "never"` override lands as its own chore PR **after both thinning PRs**. The mechanism: with `proseWrap: "never"`, Prettier prints a table wider than `printWidth` in compact form, so no other option is needed. The brief's top block records it.
+
+**Done this session:**
+
+- **`spec-grill` R2 (verification):** 17 of R1's items confirmed, 4 partial (M3, M5, L3, L12), 0 BLOCKING / 2 MATERIAL / 8 LOW new. Report: `pr5-grill/r2-report.md`. The ~35 re-checked file:line cites all hold at `3abde05`.
+  - NM1: §3.4's "no rule lost" check used a `{1,40}` word-diff regex, which never printed a longer deleted run. The grill tested it: a kept rule sentence slipped past. §6 still gave DA the pre-R1 criterion.
+  - NM2: R1's M5 fix sentence placed `listClaimableTickets` under `capacity/`. It lives in `ticket-lifecycle/tickets-repository.ts` and does no ordering. The orchestrator verified this at source.
+- **R2 fold** (`doc-fixer`): applied per `pr5-grill/r2-fold-brief.md`. Before settling, the orchestrator verified the source claims inside NM2, NL1, NL2 and NL8's fix wording: oldest-`createdAt`-first at `find-next-claimable-ticket.ts:17`, the fixed fallback lead-in at `compose-and-post-confirming-question.ts:58-63`, and "live-chat-reply" at `create-pull-loop-behavior-deps.ts:40`. NL6 took both fixes: the override at brief `:22` now names "Optional" and "NOTICED BUT NOT TOUCHING", and §3.5 carries a "Superseded by A2" line. The orchestrator spot-checked the folded lines. No R3: the MATERIAL fix wording was verified at source, and the build's own review gate reads the result.
+
+**Next, and open questions for Alex:**
+
+- **[ALEX] A4** (unchanged): three places cite a §6.4 latency target that VISION §6.4 doesn't have. Ask when the development PR opens. The brief's `:504` now quotes each site's wording correctly.
+
+**Cleanup:** no branches were created. `git worktree list` shows only the primary checkout. Session 52 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
+
+**Session data:** ~116k tokens at handoff (usage tool; 5-hour window 7%, weekly 39%, Fable weekly 4%).
+
+- **Trigger:** phase boundary above 100k (brief final), before the build phase.
+- **What grew context most:** the fixed start. `get_usage` read **88.6k right after loading**: system tools 30k, MCP tools 19k, memory/skills/system prompt ~13.5k, plus `PROGRESS.md` + `SESSION-HANDOFF.md` (~15k). Then two hand-backs (~2k each) and source checks.
+- **Subagent tokens:** grill R2 128k, fold 75k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none.
+
+**Lessons (Session 57):**
+
+- **SSSS — The start-of-session baseline eats most of the phase-boundary margin.** This session started at 88.6k, so §1 row 1's 100k line sat ~12k above a freshly loaded session. It fired after one grill round and one fold. About 49k of that baseline is tool schemas (system + MCP), which moe doesn't control from the repo. Earlier Session data lines never recorded the start figure, so it's unknown whether this is new. At Session 60's §9 review, weigh measuring the thresholds as a delta above the loaded start. → `docs/SESSION-HANDOFF.md` §9 (a "context at load" field; rides the next PR that touches it).
+- **TTTT — A reviewer's fix sentence was wrong at R1 and reached the brief verbatim (NM2).** This is JJJJ/OOOO again. This session checked every source claim in R2's fix wording before settling it, and all of them held. → none (instance of JJJJ).
+
+### Session 58 loading instructions
+
+- **Check live state first:**
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `3abde05`), `git status`, `gh pr list`.
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+  - Record the `get_usage` context figure right after loading (SSSS).
+- **Primary: build `docs/development-thinning`.** The brief is final. Don't re-grill it.
+  1. Branch `docs/development-thinning` from a freshly pulled `main`. Fill in `<date>`/`<branch-point sha>` at brief `:237` (O6).
+  2. Dispatch `implementer` with brief §3. The dispatch says: "read the Decisions-settled block first; it overrides §3.5 and §7", because commit 3 edits both `VISION.md:327` (A1) and `:208` (A2).
+  3. Run the review gate per brief §6. The surrogate is mandatory, because the PR touches the blast-radius docs DEVELOPMENT and VISION. Loop until 0 BLOCKING/MATERIAL, then self-review.
+  4. Measure before/after tokens per brief §4. The PR body carries the NOTICED items (A4, isolation Option B) and the token figures.
+  5. Then `docs/glossary-thinning` (brief §5), in its own session if a trigger fires.
+- **Decision branches:**
+  1. **[ALEX]** A4: ask when the development PR opens.
+  2. If the build's review gate reaches R4, ask Alex.
+- **Carry-overs:**
+  - PPPP's harvest (`docs/SESSION-HANDOFF.md` §6) and SSSS's (§9) go into the next PR that touches that doc.
+  - After both thinning PRs: the O10 Prettier chore PR, then the Hook PR, then the chief-clancy doc-port workstream. The candidates are in `git show 3abde05:PROGRESS.md`'s Session 52 entry. Confirm the order with Alex.
+- **Recommended model and effort for Session 58:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 56
 
 Updated 2026-09-27 end-Session-56 — **The docs-thinning brief is drafted, settled, and through `spec-grill` R1 and its fold. The verification round comes next, then the build.** The brief is `.claude/research/workflow-series/pr5-brief.md` (gitignored). It splits the work into two PRs: `docs/development-thinning` first, then `docs/glossary-thinning`. `main` is unchanged apart from this handoff. All 8 personas are `started` with checks passing.
 
@@ -213,74 +266,6 @@ Updated 2026-09-27 end-Session-53 — **PR 3's brief (the session handoff protoc
 - **After PR 3, as before:** PR 5 (docs thinning, plus VISION:327, which is Alex's call), then the Hook PR, then the chief-clancy doc-port workstream. Confirm the order and which docs to port with Alex when it starts; the candidates and mechanics are in the Session 52 entry's loading instructions.
 - **Recommended model and effort for Session 54:** Opus, `high`.
 - **Decision branches:** IIII–JJJJ above; FFFF–HHHH in the Session 52 entry.
-- **Fallback:** if Alex redirects on load, follow that.
-
-## Earlier: Session 52
-
-Updated 2026-09-27 end-Session-52 — **PR 4 (single rulebook) is open as [PR #114](https://github.com/Pushedskydiver/moe/pull/114), not merged (Alex merges). Its Round-2 loop converged at R3, and the required-check swap is done.** The branch `chore/single-rulebook` is at `d4a204d` (`main` merged in, because `strict: true` needs it up to date). CI was pending at handoff. All 8 personas are `started` with checks passing.
-
-**Asked and decided (Alex, 2026-09-27, this session):** Alex told Claude to update `main`'s required checks. Claude applied the change: "AGENTS.md freshness" out, "Agent frontmatter" in, `strict: true` kept. A read-back confirmed `["Quality suite","Validate PR title format","Agent frontmatter"]`. "Agent frontmatter" already runs on `main`, so no other PR is blocked by it.
-
-**Done this session:**
-
-- **R2** (`ffdc9e6..c173da7`):
-  - DA: 0 MATERIAL, 7 LOW.
-  - Surrogate: 1 MATERIAL, 9 LOW. The MATERIAL was `DEVELOPMENT.md:31`, where the C7 reword brought back the A1 stub-reasoning error. DA flagged the same line independently, as a LOW.
-  - Folded in `7943654` (`implementer`) and `24ac62b` (`doc-fixer`), which ran in parallel and staged by explicit path.
-- **R3** (`c173da7..24ac62b`): DA 0 MATERIAL / 3 LOW; surrogate 0 MATERIAL / 6 LOW. The loop stopped.
-- **LOW pass:** `a29467f` (`implementer`, 6 items). The orchestrator read the diff, and the PR discloses that no fresh context checked it.
-- **Self-review:** walked for the code layer; nothing new.
-- **Local suite:** green except `packages/core`'s 20 DB-backed files (no `DATABASE_URL`).
-- **On the PR:** the body carries every item the Session 52 loading instructions required. Two surrogate comments are posted (R1 A–C; R2+R3), and the titles were checked. DA reports stayed in chat.
-- **PR body promise:** PR 3 closes C15, `OPERATIONS.md:229`'s non-existent "§Session handoff precedent".
-- **Deferred on #114:** `PERSONAS.md:5`/`:28`'s stale forward reference (next to the protected roster), and DA's HTML-comment / multi-line-code-span FYI.
-- **PR 3 brief drafted** by a background `Plan` agent: `.claude/research/workflow-series/pr3-brief-draft.md` (gitignored, local, ~17 KB). It has not been grilled or reviewed yet.
-- **Local reports:** all R2/R3 reports and fold briefs are in `.claude/research/workflow-series/pr4-r2/` and `pr4-r3/`.
-
-**Cleanup:** isolated review worktrees were auto-removed (`git worktree list` shows only the primary checkout). `chore/single-rulebook` is kept because its PR is open. Session 47 was archived into `docs/history/SESSIONS.md`.
-
-**Session data:** ~190k tokens at handoff (usage tool; 5-hour window 22%, weekly 35%).
-
-- **Trigger:** the 150k soft line was crossed at ~160k during the R3 fold; the PR was opened first (the phase boundary), then this handoff.
-- **What grew context most:** 7 review and fold reports (~4–6k each), the PR 3 brief draft (~5k), and the self-review file reads.
-- **Subagent tokens:** DA R2 106k, surrogate R2 238k, surrogate R3 155k, DA R3 94k, brief draft 155k, folds 71k + 84k + 51k.
-- **Structural warning signs:** none.
-
-**Lessons (Session 52):**
-
-- **FFFF — A fold brief's settled wording is prose too, and it needs the same claim check.** Two of R3's LOWs were verbatim wording from the orchestrator's own R2 brief: `CONVENTIONS.md:5` ("the configs implement this document", which overclaims) and `SINGLE-RULEBOOK.md:18` ("Alex made the swap", which names the wrong actor). The fixer applies settled wording exactly as given, so nobody verifies it before the next round. Before writing a replacement sentence into a brief, check it against the source, just as you would a sentence in a doc.
-- **GGGG — Reviewer convergence, instances 10–11.** At R2, DA and the surrogate independently flagged `DEVELOPMENT.md:31` (DA as a LOW, the surrogate as a MATERIAL). At R3, both flagged the permissive indented-fence test and the lone-CR regression. Grade by the higher of the two severities, and still verify.
-- **HHHH — `pr4-r1/extract-handback.py` only returns strings containing BLOCKING/MATERIAL/LOW.** A non-review report, such as a brief, extracts as empty. Use an unfiltered variant for those (the same walk, keep the longest string).
-
-### Session 53 loading instructions
-
-- **Check live state first:**
-  - `git log --oneline -3 origin/main` (expect this handoff on top of `4b4536f`), `git status` and `gh pr list`.
-  - #114's CI and merge state: `mcp__ccd_pr__get_status`, or `gh pr view 114`.
-  - `fly status` for all 8 persona Apps (`moe-sarah`, `-riley`, `-marcus`, `-priya`, `-dom`, `-theo`, `-nia`, `-maya`).
-- **#114:**
-  - If CI is red, fix it on the branch. A fix to a reviewed line needs its own range check.
-  - If Alex merged it, delete the local branch `chore/single-rulebook`, which needs no permission.
-  - If it's still open and `BEHIND` again, merge `origin/main` in.
-- **Then PR 3, the handoff protocol.** Start from `.claude/research/workflow-series/pr3-brief-draft.md`.
-  1. Branch `docs/session-handoff` from `main` **after #114 merges**. PR 3 edits the single-rulebook `AGENTS.md`, and `main` still has the generated one until then. The draft's file:line references were taken at `c173da7`, so re-grep all of them.
-  2. Settle the draft's open items as the orchestrator:
-     - keep the Fable row as a trial row;
-     - add "no review IDs in code comments" to `implementer.md`;
-     - DDDD and HHHH go to memory, not repo docs;
-     - post-handoff decisions go in a dated "Update:" line;
-     - branch timing is as in step 1.
-  3. **Ask Alex the one item marked as his:** should the weekly plan limit get its own handoff trigger? The recommendation is no new trigger row: record the weekly percentage in every entry, and name it in the handoff notice at ≥85%.
-  4. Run `spec-grill` R1 on the brief and fold its findings. Then run a verification round, which PR 4 skipped (lesson BBBB). The brief must include `git check-ignore -v` for the new path.
-  5. Have `implementer` build it, then run the full review gate. The surrogate is mandatory: the diff touches blast-radius docs and is over 50 LOC.
-  6. **PR 3 must close C15** (`OPERATIONS.md:229`), as #114's body promises. The draft's section G already plans it.
-- **After PR 3, as before:** PR 5 (docs thinning, plus the VISION:327 edit, which is Alex's call), then the Hook PR, then the chief-clancy doc-port workstream (Alex reopened it at the end of Session 51):
-  - **Candidates**, from `docs/decisions/CHIEF-CLANCY-DOC-PORTS.md`, whose re-entry conditions look met: `docs/roles/` (one file per role; the personas exist), and `LIFECYCLE.md` / `VISUAL-ARCHITECTURE.md` (Stage 4+ is complete).
-  - `guides/` needs a judgment call on whether moe counts as an "installable/configurable deployed surface". `TECHNICAL-REFERENCE.md` / `COMPARISON.md` stay out.
-  - Do it after PR 5, so docs aren't ported into files about to be thinned. Confirm the order and which docs to port with Alex when it starts.
-  - **Mechanics:** a dated "Status update" in `CHIEF-CLANCY-DOC-PORTS.md` (lifecycle in `docs/decisions/README.md`), mirrored in `BUILD_PLAN.md` §Deliberately not scheduled.
-- **Recommended model and effort for Session 53:** Opus, `high`.
-- **Decision branches:** FFFF–HHHH above, DDDD–EEEE in the Session 51 entry, and earlier ones via `git log -p PROGRESS.md`.
 - **Fallback:** if Alex redirects on load, follow that.
 
 ## Session archive
