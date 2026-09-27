@@ -1,10 +1,12 @@
 # Progress
 
-Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/DEVELOPMENT.md` §Session handoff for the mechanics).
+Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
 
 ## Next workstreams (after Session 55)
 
 Updated 2026-09-27 end-Session-55 — **PR 3 (the session handoff protocol) is open as [PR #115](https://github.com/Pushedskydiver/moe/pull/115), not merged (Alex merges). Its Round-2 loop converged at R3.** The branch `docs/session-handoff` is at `dc33bdc` (`main` merged in). CI was pending at handoff, and this handoff makes #115 `BEHIND` again. All 8 personas are `started` with checks passing.
+
+**Update (2026-09-27):** Alex merged #115 at 19:59 UTC (`a3efc7b`), with the `GIT.md` blast-radius line kept. The local `docs/session-handoff` was deleted, and the remote branch was already gone. Line 3 now points to `docs/SESSION-HANDOFF.md`.
 
 **Asked and decided:** nothing. Nothing on PR 3 was Alex's to decide except the merge and the `GIT.md` blast-radius veto; the PR body names both.
 
@@ -35,15 +37,9 @@ Updated 2026-09-27 end-Session-55 — **PR 3 (the session handoff protocol) is o
 ### Session 56 loading instructions
 
 - **Check live state first:**
-  - `git log --oneline -3 origin/main` (expect this handoff on top of `0ff8e12`), `git status`, `gh pr list`.
-  - #115: `mcp__ccd_pr__get_status`, or `gh pr view 115`.
+  - `git log --oneline -3 origin/main` (expect this entry's Update commit on top of `a3efc7b`, #115's squash), `git status`, `gh pr list`.
   - `fly status -a moe-<persona>` for all 8 persona Apps.
-- **#115:**
-  - If it's open and `BEHIND` (this handoff causes that), merge `origin/main` into `docs/session-handoff` and push.
-  - If CI is red, fix it on the branch; a fix to a reviewed line needs its own range check.
-  - If Alex merged it, delete the local `docs/session-handoff`; this needs no permission.
-  - If Alex vetoes the `GIT.md` blast-radius addition, revert that one line on the branch; it needs no range check.
-- **First handoff after #115 merges:** repoint `PROGRESS.md:3` to `docs/SESSION-HANDOFF.md`, and follow that doc from then on, including §8's lesson destination tags and §10's archival thresholds.
+- **#115 is merged.** Follow `docs/SESSION-HANDOFF.md` from now on, including §8's lesson destination tags and §10's archival thresholds.
 - **Then PR 5:** docs thinning, plus VISION:327, which is Alex's call. Brief it, then grill it (R1 plus a verification round). Following LLLL, cite GitHub numbers only and name not-yet-opened PRs by doc or branch. After PR 5 comes the Hook PR, then the chief-clancy doc-port workstream. Confirm the order and which docs to port with Alex when it starts; the candidates are in the Session 52 entry's loading instructions.
 - **Recommended model and effort for Session 56:** Opus, `high`.
 - **Fallback:** if Alex redirects on load, follow that.
