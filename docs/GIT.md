@@ -29,7 +29,7 @@ All work branches from `main` and merges back to `main` via PR.
 **`fix(docs)` drift-fix predicate — all five must hold:**
 
 1. **No branch/PR open.** Same precondition as rule #2 above — if you have an open feature branch, commit the drift-fix there instead.
-2. **Not executable markdown.** Persona prompt files (`packages/agents/src/personas/*/prompt.md`) and any workflow/command markdown Claude executes as instructions are excluded — use the PR flow.
+2. **Not executable markdown.** Persona prompt files (`packages/agents/src/personas/*/prompt.md`) and any slash-command/skill/workflow/rule markdown under `.claude/` or `.codex/` that Claude or Codex executes as instructions are excluded — use the PR flow.
 3. **Grep-falsifiable drift.** The edit corrects a claim provable false by `grep`/`read` against code or another on-disk ground-truth source. Doesn't apply to taste changes or rule-body rewrites — those need PR review regardless of size.
 4. **Low-LOC.** LOC touched ≤ 50 across all files in the commit.
 5. **Not on the blast-radius list** below. Drift-fixes on those docs go through the PR flow (Alex-merge).
@@ -165,14 +165,14 @@ PRs touching multiple packages get multiple labels. Root-only changes (CI, docs,
 summary. Since BUILD_PLAN 5.2 there are eight Fly Apps (`moe-sarah` … `moe-maya`), one per persona,
 so "the deploy" is eight invocations rather than one.
 
-This is a deliberate safety choice, not a placeholder — a prior truncated/empty secret took the live service down when deploy was more automated (see project history). Revisit only with a concrete plan for how a bad deploy gets caught before it reaches production.
+This is a deliberate safety choice, not a placeholder — a prior truncated/empty secret took the live service down when deploy was more automated. Revisit only with a concrete plan for how a bad deploy gets caught before it reaches production.
 
 ## Blast-Radius Docs (Alex-merge, not auto-mergeable)
 
 Editing any of these triggers Alex-review regardless of how small the diff is:
 
 - `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`
-- `docs/VISION.md`, `docs/CEREMONIES.md`, `docs/PERSONAS.md` (once written)
+- `docs/VISION.md`, `docs/CEREMONIES.md`, `docs/PERSONAS.md`
 - `docs/CONVENTIONS.md`, `docs/GIT.md`
 - `docs/DA-REVIEW.md`, `docs/SELF-REVIEW.md`
 - `docs/DEVELOPMENT.md`, `docs/TESTING.md`, `docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md`

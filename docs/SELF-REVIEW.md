@@ -28,7 +28,7 @@ NOTICED BUT NOT TOUCHING:
 → Want me to create tasks for these?
 ```
 
-Drive-by refactors mixed with feature work are harder to review, harder to revert, and hide bugs in noise. Stay in scope. The temptation to "quickly clean this up while I'm here" is exactly the kind of scope creep this codebase's own AGENTS.md warns against — surface it as a NOTICED block and move on.
+Drive-by refactors mixed with feature work are harder to review, harder to revert, and hide bugs in noise. Stay in scope. The temptation to "quickly clean this up while I'm here" is exactly the kind of scope creep `docs/DEVELOPMENT.md` §Session Pattern & Context Management warns against (its NOTICED BUT NOT TOUCHING bullet) — surface it as a NOTICED block and move on.
 
 ---
 

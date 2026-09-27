@@ -25,7 +25,8 @@ pnpm build && pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && p
 
 ```bash
 # After editing AGENTS.md, CLAUDE.md, .claude/agents/, .claude/rules/, a root script,
-# tsconfig.base.json or a root dependency (CI's "Agent frontmatter" job)
+# tsconfig.base.json or a root dependency, or after moving/deleting files a
+# .claude/rules/ glob targets (CI's "Agent frontmatter" job)
 pnpm typecheck:scripts && pnpm test:scripts && pnpm check:agents && pnpm check:rulebook
 ```
 
@@ -38,7 +39,7 @@ No `publint`/`attw`/changesets yet — moe doesn't publish any package to npm to
 # One Fly App per persona: moe-sarah … moe-maya. Run from the repo root.
 fly deploy -c fly.sarah.toml --ha=false
 
-# Regenerate the eight fly.<persona>.toml files (never hand-edit them; CI gates freshness).
+# Regenerate the eight fly.<persona>.toml files (never hand-edit them; CI checks freshness — the "Fly configs freshness" job, not a required check).
 pnpm --filter @moe/core generate:fly-configs
 ```
 

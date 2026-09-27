@@ -64,7 +64,7 @@ packages/
 docs/              # this doc set
 .claude/
   agents/          # review agents (da-review, spec-grill, copilot-surrogate) and workers (implementer, doc-fixer)
-  rules/           # path-scoped rules Claude Code loads when editing a matching file
+  rules/           # path-scoped rules Claude Code loads when reading a matching file
   research/        # gitignored — local research artefacts, never pushed
 ```
 

@@ -93,7 +93,7 @@ Two discipline modes. **Reactive** — when the current round's scope spans more
 
 Run this regex on every PR: `deferred to a future|lands in a (later|future)|in a subsequent (chunk|slice)|TODO|FIXME|tbd|coming soon|when chunk \d|after chunk \d.\d lands`
 
-**This does not flag moe's own acknowledged forward-reference convention.** `AGENTS.md` and `BUILD_PLAN.md` deliberately reference docs that don't exist yet (`docs/ARCHITECTURE.md`, `docs/GLOSSARY.md`, `docs/decisions/`, etc.) and say so explicitly — "chunk 0 deliverable, not an aspirational claim." That's a documented, intentional pattern, not drift. The sweep is for the OTHER case: a forward reference that used to be accurate and has gone stale (the chunk it pointed to shipped under a different name, or got reordered, or the referencing prose was never updated once the target landed), or a new forward reference introduced without the same explicit "not yet built" framing this codebase already uses. Check which case you're looking at before flagging it.
+**This does not flag moe's own acknowledged forward-reference convention.** `AGENTS.md` deliberately references docs that don't exist yet and says so explicitly — `docs/INDEX.md` "does not exist yet" and `docs/CEREMONIES.md` "once it exists". That's a documented, intentional pattern, not drift. The sweep is for the OTHER case: a forward reference that used to be accurate and has gone stale (the chunk it pointed to shipped under a different name, or got reordered, or the referencing prose was never updated once the target landed), or a new forward reference introduced without the same explicit "not yet built" framing this codebase already uses. Check which case you're looking at before flagging it.
 
 ### Test permissiveness audit
 
@@ -141,7 +141,7 @@ Persona prompt files (`packages/agents/src/personas/*/prompt.md`) and any slash-
 - [ ] If the file can be invoked with different inputs or contexts (a persona prompt handling different message types, a skill handling different flag combinations), mentally execute it with each input. Does every instruction still make sense for that input? Does the output format work for all cases?
 - [ ] Hardcoded values (thresholds, package names, paths) are correct for every path through the file, not just the primary one
 - [ ] After renaming or restructuring a reference (a command, a section, a persona), grep the whole file and its callers for the old name
-- [ ] Do-not-touch surfaces (`AGENTS.md`'s list — persona prompts, `docs/CEREMONIES.md` once it exists, `docs/VISION.md` §2/§4.1/§14) are never edited without Alex's explicit prior approval, first-draft included
+- [ ] Do-not-touch surfaces (`AGENTS.md`'s list — persona prompts, `docs/CEREMONIES.md` once it exists, `docs/VISION.md` §2/§4.1/§14, `docs/PERSONAS.md`'s roster table) are never edited without Alex's explicit prior approval, first-draft included
 
 ## Architecture & imports
 
@@ -182,7 +182,7 @@ Package graph (`docs/CONVENTIONS.md` §Architecture Enforcement, settled at chun
 - [ ] Type inlining: 1-property always inline; 2-property inline when it fits one line, otherwise name; 3+/nested/reused earn a named type
 - [ ] No `eslint-disable` without a documented justification — look for a simpler alternative first
 - [ ] Naming: files/dirs kebab-case, types PascalCase, functions camelCase, constants UPPER_SNAKE_CASE
-- [ ] Function names follow the verb vocabulary in `docs/CONVENTIONS.md` (`make*`/`create*`/`build*`/`resolve*`/`parse*`/`detect*`/`ensure*`/`fetch*`/`find*`/`is*`/`has*`/`can*`/`should*`/`wire*`); no `compute*`/`calculate*`/`attempt*`/`try*`/generic `get*`/`set*`
+- [ ] Function names follow the verb vocabulary in `docs/CONVENTIONS.md` (`make*`/`create*`/`build*`/`resolve*`/`parse*`/`detect*`/`ensure*`/`fetch*`/`validate*`/`upsert*`/`find*`/`evaluate*`/`is*`/`has*`/`can*`/`should*`/`wire*`/`provision*`); no `compute*`/`calculate*`/`attempt*`/`try*`/generic `get*`/`set*`
 - [ ] Type suffixes follow the project dialect (`*Opts`, `*Result`, `*Ctx`/`*Context`, `*Deps`, `*Fn`)
 - [ ] Abbreviations from the allowlist (`ctx`, `opts`, `fs`, `fn`, `env`, `id`, `url`, `args`, `argv`, `i`) or unambiguous domain terms
 - [ ] Expected failures return a `Result`-shaped discriminated union (`{ ok: true, ...data } | { ok: false, error: { kind, ...context } }`), not thrown exceptions or a bare `error: string`

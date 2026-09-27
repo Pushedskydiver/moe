@@ -11,7 +11,7 @@ Chief-clancy also has `docs/LIFECYCLE.md`, `docs/TECHNICAL-REFERENCE.md`, `docs/
 
 ## Context
 
-Settled at BUILD_PLAN chunk 0.6c. Moved out of `CLAUDE.md` in the single-rulebook change (2026-09-27), unchanged in substance — the content below is the same doc-port paragraph that used to live there.
+Settled at BUILD_PLAN chunk 0.6c. Moved out of `CLAUDE.md` in the single-rulebook change (2026-09-27) — this doc is that paragraph, restructured, unchanged in substance.
 
 ## Re-entry conditions
 
