@@ -2,7 +2,60 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/DEVELOPMENT.md` §Session handoff for the mechanics).
 
-## Next workstreams (after Session 50)
+## Next workstreams (after Session 51)
+
+Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 review and its fold; the branch `chore/single-rulebook` is pushed at `c173da7`. No PR is open yet, and the scoped R2 is the next step.** Main is unchanged (`c21d48c`), and all 8 personas are `started` with checks passing.
+
+**Done this session:**
+
+- **Architectural pass:** passed. There is no package-graph change, `check-rulebook.ts` reuses `extractFrontmatter`, and the full do-not-touch list stays in `AGENTS.md`.
+- **R1 (`ffdc9e6`):** `da-review` returned 1 MATERIAL (the empty-`paths:` guard had no test) and 8 LOW. `copilot-surrogate` ran in 3 groups:
+  - A (rulebook, stub, rules, decisions): 1 MATERIAL (`SINGLE-RULEBOOK.md:14`'s stub-shape reasoning didn't follow) and 6 LOW.
+  - B (scripts, CI, `.gitignore`): 1 MATERIAL (a comment claimed Claude Code only imports `@` at column 0, which is false) and 5 LOW.
+  - C (repointed docs): 1 MATERIAL (`DA-REVIEW.md:96` quoted text that doesn't exist) and 16 LOW; C13–C17 are older drift that this PR didn't cause.
+- **Reviewer disagreement, resolved by the primary source:** DA confirmed "the first session after an upgrade can't read `AGENTS.md`", and surrogate A4 called it unverified. code.claude.com/docs/en/memory §"When AGENTS.md support is unavailable" confirms it (upgrades from v2.1.276 or earlier, in some cases). **Say this in the PR body.**
+- **Fold:**
+  - `7b66d57`: `implementer` did scripts and `ci.yml`. The stub's fence _tracking_ became fence _rejection_, stubs with CRLF endings get an explicit error, the comments were reworded, and 31 rulebook tests / 54 script tests pass.
+  - `c173da7`: `doc-fixer` did 19 doc items across 14 files.
+  - `ffdc9e6..c173da7`: 17 files, +119/−55.
+- **Deferred with reasons (list them in the PR body):**
+  - A6: `CHIEF-CLANCY-DOC-PORTS.md`'s `roles/` and Stage-4 re-entry conditions look met. Re-opening that deferral is **Alex's call**, so ask him.
+  - C12: `CAST-ROSTER.md:14` "CLAUDE.md's do-not-touch list" is dated decision prose.
+  - C15: `OPERATIONS.md:229` cites a precedent that doesn't exist; it's older drift.
+  - C17: `TOOL-ALLOWLIST-GRID.md:85`'s OWASP LLM06 link text doesn't match its slug; this needs an external check.
+  - DA FYI: in worktree sessions, the parent checkout's stub `@AGENTS.md` may count as an "external" import. Not verified live.
+- **Always-loaded size, measured:** one-shot `claude -p` in neutral worktrees, two runs each, minus a baseline with neither file present. **~5,030 tokens before → ~4,750 after (−280, ~6%)** for `CLAUDE.md` 12,499 B → stub 207 B + `AGENTS.md` 11,366 B at `ffdc9e6`. The fold changed `AGENTS.md` slightly, so re-measure only if the PR body needs exact numbers.
+- **Local copies of all R1 reports and both fold briefs:** `.claude/research/workflow-series/pr4-r1/` (gitignored). **Post the three surrogate reports (`surrogate-A/B/C.md`) as a PR comment once the PR exists. The DA report stays in chat only.**
+
+**Session data:** ~150k tokens at handoff (usage tool; 5-hour window 13%, weekly 34%). Trigger: the 150k soft line, reached at a phase boundary (the R1 fold was committed). What grew context most: four R1 reports (~5k each) and the token measurement. Structural warning signs: none.
+
+**Lessons (Session 51):**
+
+- **DDDD — Subagent hand-back reports aren't in the transcript's text blocks.** To save a report verbatim for a PR comment, extract the longest string from the `*andback*` tool_use input in the task's `.output` JSONL. `.claude/research/workflow-series/pr4-r1/extract-handback.py <task.output> <out.md>` does it. Don't retype a report.
+- **EEEE — Measuring always-loaded tokens needs neutral paths.** `claude -p` in the primary checkout also loads the path-keyed auto-memory, which confounds a before/after comparison. Run both sides in scratch worktrees and subtract a no-rulebook baseline.
+
+### Session 52 loading instructions
+
+- **Check live state first:** `git log --oneline -3 origin/main` (expect this handoff on `c21d48c`), `git status`, `gh pr list`, `git log --oneline -3 origin/chore/single-rulebook` (expect `c173da7`). Check fly status for all 8 persona Apps (`moe-sarah`, `-riley`, `-marcus`, `-priya`, `-dom`, `-theo`, `-nia`, `-maya`).
+- **First: R2 on PR 4, scoped to `ffdc9e6..c173da7`.** Run it in `isolation: 'worktree'` and tell each reviewer to read the primary checkout's absolute path, which must have the branch checked out.
+  - Dispatch `da-review`, with the R1 finding list from `pr4-r1/da-r1.md`.
+  - Dispatch `copilot-surrogate` (17 files, under the ceiling), with the A/B/C lists.
+  - Each brief asks the reviewer to confirm or disprove each fold, find anything the fold introduced, and grep for sibling copies of corrected wording.
+  - Loop until 0 BLOCKING/MATERIAL, and ask Alex at R4. Then close the LOWs, walk self-review, open the PR (`📦 chore: make AGENTS.md the single rulebook, retire the generator`, label `chore` or per `docs/GIT.md` §Labels), and post the surrogate comment.
+  - **The PR body must carry:**
+    - Alex's pre-merge settings step: in `main`'s required checks, remove "AGENTS.md freshness" and add "Agent frontmatter".
+    - The grill fold had no verification round.
+    - `check-rulebook.ts` is a separate script (the orchestrator's call).
+    - The token measurement above.
+    - The reviewer disagreement and how it was resolved.
+    - The deferred list, with A6 as a question for Alex.
+    - The pre-merge checkpoint.
+- **Then, as before:** PR 3 (handoff protocol), PR 5 (docs thinning, plus the VISION:327 edit, which is Alex's call), then the Hook PR. See the Session 50 loading instructions in `git log -p PROGRESS.md` for scope, orchestration, thresholds and the Marcus Plan-stall note.
+- **Recommended model and effort for Session 52:** Opus, `high`.
+- **Decision branches:** DDDD–EEEE above, BBBB–CCCC in the Session 50 entry, and earlier ones via `git log -p PROGRESS.md`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 50
 
 Updated 2026-09-27 end-Session-50 — **PR 4 of the workflow series (single rulebook) is built and pushed as branch `chore/single-rulebook` (`ffdc9e6`), not yet reviewed and no PR opened.** [PR #113](https://github.com/Pushedskydiver/moe/pull/113) merged 2026-09-27 04:42 UTC with CI green; all 8 personas `started` with checks passing on the same image. Its remote branch was deleted.
 
@@ -19,16 +72,6 @@ Updated 2026-09-27 end-Session-50 — **PR 4 of the workflow series (single rule
 
 - **BBBB — Grill the brief, and check `.gitignore` for any new directory under a partly-ignored parent.** `.claude/*` is ignored except `agents/`, so the rule files would have passed `check:rulebook` locally (it reads the disk), never been committed, and failed only in CI. Only the spec-grill on the brief caught it. A brief that creates a directory should include `git check-ignore -v <new path>`.
 - **CCCC — A PR that deletes the job behind a required check is unmergeable until the settings change.** Put that settings step in the PR body as a _pre_-merge action, and update the doc that lists required checks (`docs/GIT.md`, which was already stale at two checks).
-
-### Session 51 loading instructions
-
-- **Check live state first:** `git log --oneline -5 origin/main`, `git status`, `gh pr list`, `git log --oneline -2 origin/chore/single-rulebook` (expect `ffdc9e6`). Fleet: `fly status -a moe-<persona>` for all 8 (run outside the sandbox if it reports no token; if it's genuinely logged out, ask Alex to run `fly auth login`).
-- **First: finish PR 4's review gate** on `chore/single-rulebook`, in order: architectural → DA R1 (`da-review`) with `copilot-surrogate` alongside (mandatory: blast-radius docs and >50 LOC; 31 files is over its 20-file ceiling, so split it by logical group — rulebook + stub + rules + decisions; scripts + CI + package.json + `.gitignore`; repointed docs + agents + TSDoc) → fold (code findings to `implementer`, doc findings to `doc-fixer`) → scoped R2 → self-review → open the PR (`📦 chore: make AGENTS.md the single rulebook, retire the generator`). **The PR body must carry:** the pre-merge settings step for Alex (in main's required checks, remove "AGENTS.md freshness" and add "Agent frontmatter"); the disclosure that the grill fold had no verification round; that the check is a separate `check-rulebook.ts`, not an extension of `check-agent-frontmatter.ts` (orchestrator's call); and before/after always-loaded size (`CLAUDE.md` 12,499 B before → stub + `AGENTS.md` ≈ 11.6 KB after; measure in tokens).
-- **Then the rest of the workflow series, in order:** PR 3 (handoff protocol — port PCR's `docs/SESSION-HANDOFF.md`, harvest lettered lessons WWW–CCCC into `RATIONALIZATIONS.md`/`REVIEW-PATTERNS.md`, replace `DEVELOPMENT.md` §Session handoff with a pointer); PR 5 (docs thinning — `DEVELOPMENT.md` review gate, `GLOSSARY.md`, #111's stale isolated-agent paragraph, `ARCHITECTURE.md`'s `packages/agents` row and line 15, and `docs/VISION.md:327`'s now-dated `AGENTS.md`↔`CLAUDE.md` drift line — VISION edit, ask Alex); Hook PR (`fly deploy`/`fly secrets` ask).
-- **Orchestrate / thresholds / Marcus's Plan stall / candidates / chunk-briefer:** unchanged from the Session 50 loading instructions (in `git log -p PROGRESS.md`): workers in the primary checkout with a scratchpad brief, reviews in `isolation: 'worktree'`, check usage after each digested report and before each dispatch, hand off at 150k soft / 250k hard. Marcus: cancel legacy ticket `5d743b2a-3f5c-4ff7-b272-69dc9a74dd3b`, then verify Plan→Build with a fresh ticket in core hours (Mon–Fri 08:30–17:00 Europe/London) — confirm the moment with Alex.
-- **Recommended model and effort for Session 51:** Opus, `high`.
-- **Decision branches:** BBBB–CCCC above; ZZZ–AAAA in the Session 49 entry; WWW–YYY in the Session 48 entry; earlier via `git log -p PROGRESS.md`.
-- **Fallback:** if Alex redirects on load, follow that.
 
 ## Earlier: Session 49
 
