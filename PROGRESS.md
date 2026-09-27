@@ -19,7 +19,7 @@ Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 revie
   - `c173da7`: `doc-fixer` did 19 doc items across 14 files.
   - `ffdc9e6..c173da7`: 17 files, +119/−55.
 - **Deferred with reasons (list them in the PR body):**
-  - A6: `CHIEF-CLANCY-DOC-PORTS.md`'s `roles/` and Stage-4 re-entry conditions look met. Re-opening that deferral is **Alex's call**, so ask him.
+  - A6: `CHIEF-CLANCY-DOC-PORTS.md`'s `roles/` and Stage-4 re-entry conditions look met. **Alex reopened the deferral (2026-09-27, end of Session 51).** It is its own workstream after PR 4 (below), not part of PR 4.
   - C12: `CAST-ROSTER.md:14` "CLAUDE.md's do-not-touch list" is dated decision prose.
   - C15: `OPERATIONS.md:229` cites a precedent that doesn't exist; it's older drift.
   - C17: `TOOL-ALLOWLIST-GRID.md:85`'s OWASP LLM06 link text doesn't match its slug; this needs an external check.
@@ -43,14 +43,18 @@ Updated 2026-09-27 end-Session-51 — **PR 4 (single rulebook) finished R1 revie
   - Each brief asks the reviewer to confirm or disprove each fold, find anything the fold introduced, and grep for sibling copies of corrected wording.
   - Loop until 0 BLOCKING/MATERIAL, and ask Alex at R4. Then close the LOWs, walk self-review, open the PR (`📦 chore: make AGENTS.md the single rulebook, retire the generator`, label `chore` or per `docs/GIT.md` §Labels), and post the surrogate comment.
   - **The PR body must carry:**
-    - Alex's pre-merge settings step: in `main`'s required checks, remove "AGENTS.md freshness" and add "Agent frontmatter".
+    - Alex's pre-merge settings step: in `main`'s required checks, remove "AGENTS.md freshness" and add "Agent frontmatter". **Alex confirmed the swap (2026-09-27, end of Session 51).** He makes the change himself unless he asks Claude to. Before handing the PR over, confirm it's done: `gh api repos/Pushedskydiver/moe/branches/main/protection/required_status_checks --jq .contexts`.
     - The grill fold had no verification round.
     - `check-rulebook.ts` is a separate script (the orchestrator's call).
     - The token measurement above.
     - The reviewer disagreement and how it was resolved.
-    - The deferred list, with A6 as a question for Alex.
+    - The deferred list, with A6 marked as reopened by Alex and moved to its own workstream.
     - The pre-merge checkpoint.
-- **Then, as before:** PR 3 (handoff protocol), PR 5 (docs thinning, plus the VISION:327 edit, which is Alex's call), then the Hook PR. See the Session 50 loading instructions in `git log -p PROGRESS.md` for scope, orchestration, thresholds and the Marcus Plan-stall note.
+- **Then, as before:** PR 3 (handoff protocol), PR 5 (docs thinning, plus the VISION:327 edit, which is Alex's call), then the Hook PR.
+- **New workstream — the chief-clancy doc-port (Alex reopened it at the end of Session 51):**
+  - **Candidates** (from `docs/decisions/CHIEF-CLANCY-DOC-PORTS.md`, whose re-entry conditions look met): `docs/roles/` (one file per role; the personas exist), and `LIFECYCLE.md` / `VISUAL-ARCHITECTURE.md` (Stage 4+ is complete). `guides/` depends on whether moe counts as an "installable/configurable deployed surface", which needs a judgment call. `TECHNICAL-REFERENCE.md` / `COMPARISON.md` stay out.
+  - **Recommended order:** after PR 5, so new docs aren't ported into files that are about to be thinned. Confirm the order and which docs to port with Alex when the workstream starts.
+  - **Mechanics:** add a dated "Status update" to `CHIEF-CLANCY-DOC-PORTS.md` (the lifecycle in `docs/decisions/README.md`), and mirror it in `BUILD_PLAN.md` §Deliberately not scheduled. See the Session 50 loading instructions in `git log -p PROGRESS.md` for scope, orchestration, thresholds and the Marcus Plan-stall note.
 - **Recommended model and effort for Session 52:** Opus, `high`.
 - **Decision branches:** DDDD–EEEE above, BBBB–CCCC in the Session 50 entry, and earlier ones via `git log -p PROGRESS.md`.
 - **Fallback:** if Alex redirects on load, follow that.
