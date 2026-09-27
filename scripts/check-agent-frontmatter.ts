@@ -1,14 +1,15 @@
 // Validates the frontmatter of every `.claude/agents/**/*.md` file. Run by CI's "Agent
 // frontmatter" job (`pnpm check:agents`); see docs/DEVELOPMENT.md §Quality Gates.
 
-import { readdirSync, readFileSync } from 'node:fs';
+import { readdirSync, readFileSync, realpathSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 
 import { z } from 'zod';
 
-// `inherit` is deliberately absent: an agent without a pinned model follows whichever model the
-// dispatching session runs, so a session on a smaller model silently weakens every review it sends.
+// `inherit` is deliberately absent: an agent without a pinned model falls back to the main
+// conversation's model (unless `CLAUDE_CODE_SUBAGENT_MODEL` is set), so a session on a smaller
+// model silently weakens every review it dispatches.
 const MODELS = ['opus', 'sonnet', 'haiku'] as const;
 const EFFORTS = ['low', 'medium', 'high', 'xhigh', 'max'] as const;
 
@@ -37,9 +38,9 @@ type ParsedFrontmatter = {
 // onto its continuation lines, so its bare marker reads as an empty value and fails validation
 // rather than passing as content.
 export function parseFrontmatter(frontmatterText: string): ParsedFrontmatter {
-  const entries = frontmatterText
-    .split('\n')
-    .map((line) => /^([\w-]+):(.*)$/u.exec(line))
+  const lines = frontmatterText.split('\n');
+  const entries = lines
+    .map((line) => /^([\w-]+):(?:\s+(.*))?$/u.exec(line))
     .filter((match) => match !== null)
     .map(([, key = '', rawValue = '']) => [key, toValue(rawValue)] as const);
 
@@ -69,7 +70,9 @@ export function validateAgentFile(file: string, fileText: string): string[] {
 
   return [
     ...duplicateKeys.map((key) => `"${key}" appears more than once`),
-    ...(result.success ? [] : result.error.issues.map(describeIssue)),
+    ...(result.success
+      ? []
+      : result.error.issues.map((issue) => describeIssue(issue))),
     ...(name && name !== expectedName
       ? [`name "${name}" does not match the filename "${expectedName}"`]
       : []),
@@ -104,7 +107,7 @@ const AGENTS_DIR = join(
 
 // Runs only as a script, not when the test file imports it.
 const entryPoint = process.argv[1];
-if (entryPoint && import.meta.url === pathToFileURL(entryPoint).href) {
+if (entryPoint && fileURLToPath(import.meta.url) === realpathSync(entryPoint)) {
   const errors = checkAgentDirectory(AGENTS_DIR);
   for (const error of errors) console.error(`::error::${error}`);
   if (errors.length > 0) process.exit(1);

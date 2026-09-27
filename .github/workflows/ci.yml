@@ -7,7 +7,7 @@ name: CI
 # suite, since a developer only needs to run its underlying commands after
 # editing CLAUDE.md, not on every push. "Agent frontmatter" is separate for
 # the same reason (docs/DEVELOPMENT.md §Quality Gates): it only matters after
-# editing .claude/agents/ or scripts/.
+# editing .claude/agents/, scripts/, tsconfig.base.json or a root dependency.
 
 on:
   pull_request:

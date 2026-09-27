@@ -1,8 +1,9 @@
-import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
-import { describe, expect, it } from 'vitest';
+import fc from 'fast-check';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import {
   checkAgentDirectory,
@@ -50,6 +51,43 @@ describe('parseFrontmatter', () => {
 
     expect(fields['description']).toBe('');
   });
+
+  it('does not read a colon with no following whitespace as a key', () => {
+    const { fields } = parseFrontmatter('model:opus');
+
+    expect(fields).toEqual({});
+  });
+
+  it('property: unique key/value lines round-trip with no duplicates', () => {
+    const keyArbitrary = fc.stringMatching(/^[a-z][a-z-]{0,15}$/u);
+    const valueArbitrary = fc
+      .string({ unit: 'grapheme-ascii', minLength: 1 })
+      .filter(
+        (value) =>
+          value.trim() === value &&
+          !/^(["']).*\1$/u.test(value) &&
+          !/^[|>][+-]?$/u.test(value),
+      );
+    const recordsArbitrary = fc.uniqueArray(
+      fc.record({ key: keyArbitrary, value: valueArbitrary }),
+      { selector: (entry) => entry.key },
+    );
+
+    fc.assert(
+      fc.property(recordsArbitrary, (records) => {
+        const text = records
+          .map(({ key, value }) => `${key}: ${value}`)
+          .join('\n');
+
+        const { fields, duplicateKeys } = parseFrontmatter(text);
+
+        expect(fields).toEqual(
+          Object.fromEntries(records.map(({ key, value }) => [key, value])),
+        );
+        expect(duplicateKeys).toEqual([]);
+      }),
+    );
+  });
 });
 
 const agentFile = (frontmatter: string): string =>
@@ -70,20 +108,20 @@ describe('validateAgentFile', () => {
     expect(validateAgentFile(path, agentFile(VALID_FRONTMATTER))).toEqual([]);
   });
 
-  it('rejects model: inherit, which follows the dispatching session', () => {
+  it("rejects model: inherit — an unpinned model falls back to the main conversation's model unless CLAUDE_CODE_SUBAGENT_MODEL is set", () => {
     const text = agentFile(
       VALID_FRONTMATTER.replace('model: opus', 'model: inherit'),
     );
 
     expect(validateAgentFile(path, text)).toEqual([
-      expect.stringContaining('model'),
+      expect.stringContaining('da-review.md: model:'),
     ]);
   });
   it('rejects a missing model', () => {
     const text = agentFile(VALID_FRONTMATTER.replace('model: opus\n', ''));
 
     expect(validateAgentFile(path, text)).toEqual([
-      expect.stringContaining('model'),
+      expect.stringContaining('da-review.md: model:'),
     ]);
   });
 
@@ -116,6 +154,24 @@ describe('validateAgentFile', () => {
     ]);
   });
 
+  it('rejects an empty tools', () => {
+    const text = agentFile(
+      VALID_FRONTMATTER.replace('tools: Read, Grep, Glob, Bash', 'tools:'),
+    );
+
+    expect(validateAgentFile(path, text)).toEqual([
+      expect.stringContaining('tools'),
+    ]);
+  });
+
+  it('rejects a missing name', () => {
+    const text = agentFile(VALID_FRONTMATTER.replace('name: da-review\n', ''));
+
+    expect(validateAgentFile(path, text)).toEqual([
+      expect.stringContaining('name'),
+    ]);
+  });
+
   it('rejects a name that differs from the filename', () => {
     const text = agentFile(
       VALID_FRONTMATTER.replace('name: da-review', 'name: da-reviewer'),
@@ -126,12 +182,12 @@ describe('validateAgentFile', () => {
     ]);
   });
 
-  it('rejects an unknown key and says how to allow a real one', () => {
+  it('rejects an unknown key and says how to allow a real one, naming it', () => {
     const text = agentFile(`${VALID_FRONTMATTER}\ntolls: Read`);
+    const result = validateAgentFile(path, text);
 
-    expect(validateAgentFile(path, text)).toEqual([
-      expect.stringContaining('add it to the schema'),
-    ]);
+    expect(result).toEqual([expect.stringContaining('add it to the schema')]);
+    expect(result[0]).toContain('tolls');
   });
 
   it('rejects a repeated key', () => {
@@ -152,8 +208,22 @@ describe('validateAgentFile', () => {
 });
 
 describe('checkAgentDirectory', () => {
-  it('checks .md files in nested folders too', () => {
+  const tempDirs: string[] = [];
+
+  function makeTempAgentsDir(): string {
     const directory = mkdtempSync(join(tmpdir(), 'agents-'));
+    tempDirs.push(directory);
+    return directory;
+  }
+
+  afterEach(() => {
+    for (const dir of tempDirs.splice(0)) {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('checks .md files in nested folders too', () => {
+    const directory = makeTempAgentsDir();
     mkdirSync(join(directory, 'review'));
     writeFileSync(
       join(directory, 'review', 'da-review.md'),
@@ -166,7 +236,7 @@ describe('checkAgentDirectory', () => {
   });
 
   it('fails when the directory holds no agent files', () => {
-    const directory = mkdtempSync(join(tmpdir(), 'agents-'));
+    const directory = makeTempAgentsDir();
 
     expect(checkAgentDirectory(directory)).toEqual([
       expect.stringContaining('no agent files found'),
