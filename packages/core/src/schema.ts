@@ -226,7 +226,7 @@ type PendingConfirmingQuestionsTable = {
  * `review-queue-sweep` CLI script last ran (`personaId` is the `PRIMARY KEY`, not a
  * surrogate `id`, since there's genuinely only ever one row per persona — no history, no
  * `createdAt`). Each sweep only reports `review_queue` rows created after `lastSweptAt`,
- * so an irregularly-run sweep never misses a row and never double-reports one — Alex
+ * so an irregularly-run sweep picks up where the last completed one left off — Alex
  * confirmed this design via `AskUserQuestion` over the cheaper "fixed rolling window from
  * now" alternative, which has real gaps if the script is skipped or run twice in one window.
  */

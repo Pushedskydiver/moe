@@ -85,7 +85,7 @@ export async function createReviewQueueEntry(
  * Lists a persona's `review_queue` rows created strictly after `since`, oldest first (BUILD_PLAN
  * 3.5's own `review-queue-sweep` script) — the sweep's own scope boundary, paired with
  * `sweep-state-repository.ts`'s `getSweepState`/`recordSweepCompleted` so an irregularly-run
- * sweep never misses a row and never double-reports one.
+ * sweep picks up where the last completed one left off.
  */
 export async function listReviewQueueEntriesSince(
   db: Kysely<Database>,

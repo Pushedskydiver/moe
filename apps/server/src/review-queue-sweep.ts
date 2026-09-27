@@ -370,8 +370,9 @@ async function postSweepDigest(
  * BUILD_PLAN 3.5's own review-queue sweep — VISION §5.2's "nothing is silently eaten" backstop,
  * finally given a real reader. Triggered manually (Alex confirmed via `AskUserQuestion`: a CLI
  * script, `scripts/review-queue-sweep.ts`'s own thin real-infra wrapper around this function —
- * not a background timer, since the codebase has no scheduled-job infrastructure and chunk 7.2a's
- * own future ceremony scheduler is the real home for that, not this chunk). Lists every
+ * not a background timer, since the codebase had no scheduled-job infrastructure at chunk 3.5
+ * and chunk 7.2a's own future ceremony scheduler is the real home for that, not this chunk).
+ * Lists every
  * `review_queue` row created since this persona's last sweep
  * (`resolveStaleQuestionsAndSweepWindow`, including any `'mid-silence'` rows this very run just
  * wrote) and DMs a formatted digest (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's
