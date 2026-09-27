@@ -227,7 +227,8 @@ type PendingConfirmingQuestionsTable = {
  * surrogate `id`, since there's genuinely only ever one row per persona — no history, no
  * `createdAt`). Each sweep reports the `review_queue` rows created in `(lastSweptAt, until]`
  * and records `until` as the new `lastSweptAt`, so consecutive completed sweeps' windows
- * neither overlap nor gap — Alex confirmed this design via `AskUserQuestion` over the cheaper
+ * neither overlap nor gap (one known narrow exception: `review-queue-sweep.ts`'s
+ * `runReviewQueueSweep` TSDoc) — Alex confirmed this design via `AskUserQuestion` over the cheaper
  * "fixed rolling window from now" alternative, which has real gaps if the script is skipped or
  * run twice in one window.
  */

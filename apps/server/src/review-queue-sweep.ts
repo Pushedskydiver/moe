@@ -392,10 +392,10 @@ async function postSweepDigest(
  * unconditionally after `postSweepDigest`, defeating this very backstop's own purpose). Reading
  * `until` after this run's own writes, and recording it (not `now`) as the next `lastSweptAt`,
  * keeps consecutive completed sweeps' windows from overlapping (a row reported twice) or gapping
- * (a row missed) — see `packages/core/src/intake/review-queue-repository.ts`'s own
- * `listReviewQueueEntriesSince` TSDoc for the one known narrow exception this doesn't close: a row
- * whose `createdAt` is stamped just before `until` but whose insert commits after the listing
- * query runs is never listed by either window.
+ * (a row missed), with one known narrow exception this doesn't close: `createdAt` is stamped by
+ * the writing process before its insert commits, so a row stamped just before `until` but committed
+ * after the listing query runs is never listed by either window (milliseconds, plus any clock skew
+ * between the CLI host and the persona's machine).
  *
  * `now` keeps its own separate, pre-existing roles unchanged: the Mid-band silence cutoff and the
  * ignored-draft threshold, both computed relative to when this run started, not to `until`.
