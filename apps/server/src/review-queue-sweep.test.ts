@@ -51,9 +51,15 @@ function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
 
+// Every existing test's own `now` literal — used as the default injected clock too, so a test
+// that doesn't override `clock` still sees `until === now` and its existing `sweptAt`/`listSince`
+// expectations hold unchanged.
+const DEFAULT_TEST_NOW = new Date('2026-07-19T12:00:00.000Z');
+
 function makeDeps(
   overrides: Partial<{
     readonly slackClient: SweepDeps['slackClient'];
+    readonly clock: SweepDeps['clock'];
     readonly sweepStateStore: SweepStateStore;
     readonly reviewQueueStore: ReviewQueueStore;
     readonly confirmingQuestionStore: ConfirmingQuestionStore;
@@ -64,6 +70,7 @@ function makeDeps(
     personaId: 'sarah',
     alertSlackUserId: 'U04UQ6CLZ1U',
     logger: makeLogger(),
+    clock: overrides.clock ?? (() => DEFAULT_TEST_NOW),
     slackClient: overrides.slackClient ?? {
       chat: { postMessage: vi.fn().mockResolvedValue({ ok: true, ts: 'x' }) },
     },
@@ -449,6 +456,7 @@ describe('runReviewQueueSweep', () => {
     expect(deps.reviewQueueStore.listSince).toHaveBeenCalledWith({
       personaId: 'sarah',
       since: new Date(0),
+      until: DEFAULT_TEST_NOW,
     });
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to read sweep state — falling back to sweeping from the beginning',
@@ -481,11 +489,11 @@ describe('runReviewQueueSweep', () => {
 
   // Reproduces the re-report bug: `resolveStaleQuestionsAndSweepWindow` writes this run's own
   // `'mid-silence'` row stamped with a real clock read *after* `now` (`createReviewQueueEntry`,
-  // `packages/core/src/intake/review-queue-repository.ts`), so the row's own `createdAt` is
-  // always later than the `now` this run records as `sweptAt`. The next sweep's `since` is that
-  // same `now`, so the row (`createdAt > since`) is listed and posted again. Stateful in-memory
-  // fakes stand in for the DB across two consecutive calls, so the second run's `listSince`
-  // genuinely sees the state the first run left behind, not a scripted return value.
+  // `packages/core/src/intake/review-queue-repository.ts`), so the row's own `createdAt` can fall
+  // after the boundary a naive fix would record. Stateful in-memory fakes stand in for the DB
+  // across two consecutive calls, so the second run's `listSince` genuinely sees the state the
+  // first run left behind, not a scripted return value — `deps.clock` is read only after this
+  // run's own `'mid-silence'` write, matching `runReviewQueueSweep`'s own read order.
   describe('the re-report bug this fix addresses', () => {
     it('does not re-report, on the very next sweep, a mid-silence row this run itself just wrote', async () => {
       const rows: ReviewQueueEntry[] = [];
@@ -496,11 +504,16 @@ describe('runReviewQueueSweep', () => {
       // strictly after the `now` passed into this run — this fake reproduces that ordering
       // directly rather than approximating it.
       const midSilenceCreatedAt = new Date(run1Now.getTime() + 1000);
+      const run1Until = new Date(midSilenceCreatedAt.getTime() + 500);
+      const run2Now = new Date('2026-07-20T12:00:00.000Z');
+      const run2Until = new Date(run2Now.getTime() + 500);
 
       const listSince = vi.fn<ReviewQueueStore['listSince']>(async (scope) => ({
         ok: true,
         entries: rows.filter(
-          (row) => row.createdAt.getTime() > scope.since.getTime(),
+          (row) =>
+            row.createdAt.getTime() > scope.since.getTime() &&
+            row.createdAt.getTime() <= scope.until.getTime(),
         ),
       }));
       const resolveAndLog = vi.fn<ConfirmingQuestionStore['resolveAndLog']>(
@@ -536,8 +549,13 @@ describe('runReviewQueueSweep', () => {
           state: { personaId: 'sarah', lastSweptAt: input.sweptAt },
         };
       });
+      const clock = vi
+        .fn<SweepDeps['clock']>()
+        .mockReturnValueOnce(run1Until)
+        .mockReturnValueOnce(run2Until);
 
       const deps = makeDeps({
+        clock,
         reviewQueueStore: { listSince },
         confirmingQuestionStore: {
           findStale: vi
@@ -552,10 +570,75 @@ describe('runReviewQueueSweep', () => {
       await runReviewQueueSweep(deps, run1Now);
       expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(1);
 
-      const run2Now = new Date('2026-07-20T12:00:00.000Z');
       await runReviewQueueSweep(deps, run2Now);
 
       expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(1);
+    });
+
+    // The mirror image of the test above: a row whose `createdAt` falls just after this run's own
+    // `until` is deferred, not lost — it's genuinely still unreported (excluded from run 1's
+    // digest), and the very next sweep's window starts exactly where this one ended, so the row
+    // is included there instead.
+    it("defers, rather than loses, a row created just after this run's own until boundary", async () => {
+      const until1 = new Date('2026-07-19T12:00:01.000Z');
+      const rowCreatedAt = new Date('2026-07-19T12:00:02.000Z');
+      const until2 = new Date('2026-07-19T12:00:03.000Z');
+      const row = makeEntry({
+        id: 'c2a85f64-5717-4562-b3fc-2c963f66afac',
+        outcomeReason: 'low-confidence',
+        sourceMessageText: 'written just after run 1 listed',
+        createdAt: rowCreatedAt,
+      });
+      let recordedSweptAt: Date | null = null;
+
+      const listSince = vi.fn<ReviewQueueStore['listSince']>(async (scope) => ({
+        ok: true,
+        entries: [row].filter(
+          (entry) =>
+            entry.createdAt.getTime() > scope.since.getTime() &&
+            entry.createdAt.getTime() <= scope.until.getTime(),
+        ),
+      }));
+      const getSweepState = vi.fn<SweepStateStore['getSweepState']>(
+        async () => ({
+          ok: true,
+          state:
+            recordedSweptAt === null
+              ? null
+              : { personaId: 'sarah', lastSweptAt: recordedSweptAt },
+        }),
+      );
+      const recordSweepCompleted = vi.fn<
+        SweepStateStore['recordSweepCompleted']
+      >(async (input) => {
+        recordedSweptAt = input.sweptAt;
+        return {
+          ok: true,
+          state: { personaId: 'sarah', lastSweptAt: input.sweptAt },
+        };
+      });
+      const clock = vi
+        .fn<SweepDeps['clock']>()
+        .mockReturnValueOnce(until1)
+        .mockReturnValueOnce(until2);
+
+      const deps = makeDeps({
+        clock,
+        reviewQueueStore: { listSince },
+        sweepStateStore: { getSweepState, recordSweepCompleted },
+      });
+
+      await runReviewQueueSweep(deps, new Date('2026-07-19T12:00:00.000Z'));
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+
+      await runReviewQueueSweep(deps, new Date('2026-07-19T12:00:04.000Z'));
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining(
+            'written just after run 1 listed',
+          ) as string,
+        }),
+      );
     });
   });
 });

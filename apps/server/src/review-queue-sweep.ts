@@ -48,6 +48,11 @@ export type SweepDeps = {
   readonly alertSlackUserId: string;
   readonly logger: Logger;
   readonly slackClient: PostMessageClient;
+  // Injected clock (`docs/TESTING.md`'s mock-time boundary, `sender-trigger-cache.ts`'s own
+  // precedent) — read once, after this run's own `'mid-silence'` writes, as the window's `until`
+  // boundary. Deliberately separate from the `now` parameter below, which keeps its own existing
+  // roles (the silence cutoff, the ignored-draft threshold) unchanged.
+  readonly clock: () => Date;
   readonly sweepStateStore: {
     readonly getSweepState: (
       personaId: string,
@@ -61,6 +66,7 @@ export type SweepDeps = {
     readonly listSince: (scope: {
       readonly personaId: string;
       readonly since: Date;
+      readonly until: Date;
     }) => Promise<ReviewQueueEntryListResult>;
   };
   readonly confirmingQuestionStore: {
@@ -327,10 +333,10 @@ async function fetchDraftOutcomeCounts(
 
 // Extracted from `runReviewQueueSweep` purely to stay under eslint's `max-lines-per-function` —
 // DMs Alex a formatted digest (`formatSweepMessage`), skipped entirely (just logged) when
-// there's nothing new to report. Returns whether the sweep's own "since" window is now safe to
-// advance — `true` for both "nothing to report" and "posted successfully," `false` only when a
-// real digest existed but the post itself failed (DA review, chunk 3.5: `sweep_state` must not
-// advance past rows Alex was never actually shown, or this backstop defeats its own purpose —
+// there's nothing new to report. Returns whether the sweep's own `(since, until]` window is now
+// safe to advance — `true` for both "nothing to report" and "posted successfully," `false` only
+// when a real digest existed but the post itself failed (DA review, chunk 3.5: `sweep_state` must
+// not advance past rows Alex was never actually shown, or this backstop defeats its own purpose —
 // those rows would never appear in a future digest either, since `listReviewQueueEntriesSince`'s
 // own `since` boundary would already be past them). The draft-outcome counts (BUILD_PLAN 3.6) are
 // only fetched here, alongside an existing post — surfacing them "in the 3.5 sweep post" per
@@ -370,28 +376,41 @@ async function postSweepDigest(
 /**
  * BUILD_PLAN 3.5's own review-queue sweep — VISION §5.2's "nothing is silently eaten" backstop,
  * finally given a real reader. Triggered manually (Alex confirmed via `AskUserQuestion`: a CLI
- * script, `scripts/review-queue-sweep.ts`'s own thin real-infra wrapper around this function —
- * not a background timer, since the codebase has no scheduled-job infrastructure and chunk 7.2a's
- * own future ceremony scheduler is the real home for that, not this chunk). Lists every
- * `review_queue` row created since this persona's last sweep
- * (`resolveStaleQuestionsAndSweepWindow`, including any `'mid-silence'` rows this very run just
- * wrote) and DMs a formatted digest (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's
- * own lifetime-cumulative High-band draft-outcome counts (`fetchDraftOutcomeCounts`), VISION
- * §5.4's named production metric for the whole intake cascade. `sweep_state` is only advanced once
- * both listing *and* posting actually succeed — either failure leaves it untouched, so the next
- * run re-covers the same window rather than silently skipping past rows Alex was never shown
- * (DA review, chunk 3.5: the posting-failure half of this was originally missed — `sweep_state`
- * advanced unconditionally after `postSweepDigest`, defeating this very backstop's own purpose).
+ * script, `scripts/review-queue-sweep.ts`'s own thin real-infra wrapper around this function — not
+ * a background timer, since the codebase has no scheduled-job infrastructure and chunk 7.2a's own
+ * future ceremony scheduler is the real home for that, not this chunk).
+ *
+ * Lists every `review_queue` row created in `(lastSweptAt, until]`, where `until` is read from
+ * `deps.clock()` *after* `resolveStaleQuestionsAndSweepWindow` writes this run's own
+ * `'mid-silence'` rows (so this run's own writes are included), and DMs a formatted digest
+ * (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's own lifetime-cumulative High-band
+ * draft-outcome counts (`fetchDraftOutcomeCounts`), VISION §5.4's named production metric for the
+ * whole intake cascade. `sweep_state` is only advanced, to `until` (not `now`), once both listing
+ * *and* posting actually succeed — either failure leaves it untouched, so the next run re-covers
+ * the same window rather than silently skipping past rows Alex was never shown (DA review, chunk
+ * 3.5: the posting-failure half of this was originally missed — `sweep_state` advanced
+ * unconditionally after `postSweepDigest`, defeating this very backstop's own purpose). Reading
+ * `until` after this run's own writes, and recording it (not `now`) as the next `lastSweptAt`,
+ * keeps consecutive completed sweeps' windows from overlapping (a row reported twice) or gapping
+ * (a row missed) — see `packages/core/src/intake/review-queue-repository.ts`'s own
+ * `listReviewQueueEntriesSince` TSDoc for the one known narrow exception this doesn't close: a row
+ * whose `createdAt` is stamped just before `until` but whose insert commits after the listing
+ * query runs is never listed by either window.
+ *
+ * `now` keeps its own separate, pre-existing roles unchanged: the Mid-band silence cutoff and the
+ * ignored-draft threshold, both computed relative to when this run started, not to `until`.
  */
 export async function runReviewQueueSweep(
   deps: SweepDeps,
   now: Date,
 ): Promise<void> {
   const since = await resolveStaleQuestionsAndSweepWindow(deps, now);
+  const until = deps.clock();
 
   const entries = await deps.reviewQueueStore.listSince({
     personaId: deps.personaId,
     since,
+    until,
   });
   if (!entries.ok) {
     deps.logger.error('failed to list review-queue entries', {
@@ -406,7 +425,7 @@ export async function runReviewQueueSweep(
 
   const recorded = await deps.sweepStateStore.recordSweepCompleted({
     personaId: deps.personaId,
-    sweptAt: now,
+    sweptAt: until,
   });
   if (!recorded.ok) {
     deps.logger.error('failed to record sweep completion', {
