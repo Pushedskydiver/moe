@@ -28,7 +28,7 @@ This has one CI-shaped consequence: type-aware ESLint rules (`@typescript-eslint
 
 ## Rulebook
 
-`AGENTS.md` is the single rulebook every agent reads; `CLAUDE.md` is a stub (heading, short paragraph, and the literal `@AGENTS.md` import line — an import, not prose) because Claude Code's native `AGENTS.md` read only fires when no `CLAUDE.md` exists in the directory tree. Path-scoped rules (persona prompts, Slack/GitHub integrations) live in `.claude/rules/**/*.md`, each with a `paths:` glob — Claude Code loads a rule when it reads a matching file; any other agent reads the matching rule file before editing those paths. `pnpm check:rulebook` (CI's "Agent frontmatter" job) validates both the stub and every rule file. Full rationale: `docs/decisions/SINGLE-RULEBOOK.md`.
+`AGENTS.md` is the single rulebook every agent reads; `CLAUDE.md` is a stub (heading, short paragraph, `@AGENTS.md` import). The redirect is a literal import rather than prose because, by default, Claude Code reads `AGENTS.md` natively only when there's no `CLAUDE.md`/`.claude/CLAUDE.md`/`CLAUDE.local.md` in the working directory or above — see `docs/decisions/SINGLE-RULEBOOK.md`. Path-scoped rules (persona prompts, Slack/GitHub integrations) live in `.claude/rules/**/*.md`, each with a `paths:` glob — Claude Code loads a rule when it reads a matching file; any other agent reads the matching rule file before editing those paths. `pnpm check:rulebook` (CI's "Agent frontmatter" job) validates both the stub and every rule file. Full rationale: `docs/decisions/SINGLE-RULEBOOK.md`.
 
 ---
 

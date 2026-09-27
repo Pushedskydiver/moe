@@ -38,7 +38,7 @@ When any predicate fails, use the PR flow.
 
 - **Create the dedicated branch as the literal first action after syncing `main`, before any edit — every single chunk/fix transition.** Not a one-time habit to remember, a step to redo explicitly each time: `git checkout main && git pull`, then `git checkout -b <next-slice>`, before touching any file. Two confirmed failure modes from skipping this: (1) after an _escalated_ (opened but not yet merged) PR, cutting the next branch without returning to `main` first stacks the un-merged commit underneath the new branch, so the new PR's diff wrongly includes both changes; (2) after a normal merge+sync, committing the next chunk's work directly onto local `main` because the branch-creation step was skipped entirely, not just misordered. Both have recurred multiple times across this project's history — the fix if it already happened: `git rebase --onto main <bad-base-branch> <slice-branch>` for case 1, or `git branch <name> <bad-commit>` followed by `git reset --hard origin/main` for case 2, then re-verify the full quality suite.
 - **Delete branches after merging.** The remote branch is deleted automatically (`delete_branch_on_merge`, see Merge Strategy below) — that half needs no action. The **local** clone's branch is not touched by GitHub and does not auto-delete: after confirming a PR merged (`gh pr view <n> --json state,mergedAt`), `git checkout main && git pull`, then `git branch -d <branch>` before starting the next chunk. Claude/Codex do this as a matter of course, not just Alex.
-- **CI must pass before merging.** Enforced via branch protection on `main`: three required status checks — `.github/workflows/ci.yml`'s "Quality suite" job, `.github/workflows/pr-title-check.yml`'s "Validate PR title format" job, and `.github/workflows/ci.yml`'s "Agent frontmatter" job (swapped in for "AGENTS.md freshness", Alex's call, Session 50, 2026-09-27). Admin/owner enforcement is off (`enforce_admins: false`) — a deliberate one-person-team escape hatch for genuine emergencies, not an invitation to routinely bypass the gate.
+- **CI must pass before merging.** Enforced via branch protection on `main`: three required status checks — `.github/workflows/ci.yml`'s "Quality suite" job, `.github/workflows/pr-title-check.yml`'s "Validate PR title format" job, and `.github/workflows/ci.yml`'s "Agent frontmatter" job (swapped in for "AGENTS.md freshness" — Alex's call in Session 50, applied 2026-09-27). Admin/owner enforcement is off (`enforce_admins: false`) — a deliberate one-person-team escape hatch for genuine emergencies, not an invitation to routinely bypass the gate.
 
 ## Branch Naming
 
@@ -172,7 +172,7 @@ This is a deliberate safety choice, not a placeholder — a prior truncated/empt
 Editing any of these triggers Alex-review regardless of how small the diff is:
 
 - `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`
-- `docs/VISION.md`, `docs/CEREMONIES.md`, `docs/PERSONAS.md`
+- `docs/VISION.md`, `docs/CEREMONIES.md` (once it exists), `docs/PERSONAS.md`
 - `docs/CONVENTIONS.md`, `docs/GIT.md`
 - `docs/DA-REVIEW.md`, `docs/SELF-REVIEW.md`
 - `docs/DEVELOPMENT.md`, `docs/TESTING.md`, `docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md`
