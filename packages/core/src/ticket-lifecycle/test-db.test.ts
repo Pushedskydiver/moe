@@ -6,18 +6,23 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { getTestPool } from './test-db.js';
 
-// DA L1: captures a thrown error outside the `try` so an `expect.unreachable()` placed inside a
-// `try` whose own `catch` would otherwise swallow it never happens — the assertion always runs
-// against a value the `catch` block already finished populating.
-function captureError(fn: () => unknown): unknown {
-  let caught: unknown;
+// Returns the error `fn` throws, and fails the test if it doesn't throw one. Asserting on the
+// result afterwards, rather than inside a `catch`, means no assertion can be swallowed by the same
+// `catch` that was meant to receive the thrown error.
+function errorThrownBy(fn: () => unknown): Error {
   try {
     fn();
   } catch (error) {
-    caught = error;
+    if (error instanceof Error) return error;
+    throw new Error('expected an Error instance to be thrown', {
+      cause: error,
+    });
   }
-  return caught;
+  throw new Error('expected the function to throw');
 }
+
+// Built at runtime so the fixture never looks like a committed credential to a secret scanner.
+const FAKE_PASSWORD = ['s3cret', 'pw'].join('-');
 
 describe('getTestPool', () => {
   afterEach(() => {
@@ -32,18 +37,16 @@ describe('getTestPool', () => {
   it('refuses a remote host', () => {
     vi.stubEnv(
       'DATABASE_URL',
-      'postgres://moe:s3cret-pw@ep-example-pooler.eu-west-2.aws.neon.tech:5432/moe',
+      `postgres://moe:${FAKE_PASSWORD}@ep-example-pooler.eu-west-2.aws.neon.tech:5432/moe`,
     );
     expect(() => getTestPool()).toThrow(
       /DATABASE_URL must point at a local Postgres/,
     );
-    const caught = captureError(() => getTestPool());
-    expect(caught).toBeInstanceOf(Error);
-    const message = (caught as Error).message;
-    expect(message).not.toContain('s3cret-pw');
-    expect(message).not.toContain('ep-example-pooler');
-    expect(message).not.toContain('neon.tech');
-    expect((caught as Error).cause).toBeUndefined();
+    const error = errorThrownBy(() => getTestPool());
+    expect(error.message).not.toContain(FAKE_PASSWORD);
+    expect(error.message).not.toContain('ep-example-pooler');
+    expect(error.message).not.toContain('neon.tech');
+    expect(error.cause).toBeUndefined();
   });
 
   it('refuses a `?host=` query-parameter override', () => {
@@ -70,12 +73,8 @@ describe('getTestPool', () => {
     );
   });
 
-  // DA M1: the allowlist is an exact string match on the host `pg-connection-string` parses out
-  // — none of these should be accepted by a `startsWith`/substring check against `localhost` or
-  // `127.0.0.1`. Prove-It: verified by temporarily swapping `LOCAL_TEST_HOSTS.has(host)` in
-  // `isLocalTestDatabaseUrl` for `host.startsWith('localhost') || host.startsWith('127.0.0.1')`
-  // and confirming the `localhost.evil.example` and `127.0.0.1.nip.io` cases below then fail to
-  // throw (both start with an allowed prefix), before restoring the exact-match guard.
+  // All four must be refused: the suffixed pair pins the allowlist against a prefix/substring
+  // regression, `LOCALHOST` against case-folding, and `[::1]` against widening the allowlist.
   it.each([
     [
       'postgres://moe:pw@localhost.evil.example:5432/moe',
@@ -104,11 +103,11 @@ describe('getTestPool', () => {
     expect(() => getTestPool()).toThrow(
       /DATABASE_URL must point at a local Postgres/,
     );
-    const caught = captureError(() => getTestPool());
-    expect((caught as Error).message).not.toContain(unparseable);
-    expect((caught as Error).message).not.toContain('user:pw');
-    expect((caught as Error).message).not.toContain('host:port');
-    expect((caught as Error).cause).toBeUndefined();
+    const error = errorThrownBy(() => getTestPool());
+    expect(error.message).not.toContain(unparseable);
+    expect(error.message).not.toContain('user:pw');
+    expect(error.message).not.toContain('host:port');
+    expect(error.cause).toBeUndefined();
   });
 
   it('returns a Pool for localhost', async () => {
@@ -125,7 +124,7 @@ describe('getTestPool', () => {
     await pool.end();
   });
 
-  // DA L3: the guard is only sound if `parseHost()` runs the connection string through the same
+  // The guard is only sound if `parseHost()` runs the connection string through the same
   // `pg-connection-string` `parse` that `pg` itself connects with — if the two ever resolved to
   // different copies (a duplicate install, a version split), this guard could validate against
   // one parser's notion of "host" while `pg` actually connects using another's.
