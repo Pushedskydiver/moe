@@ -4,7 +4,7 @@ Anti-rationalization table for common self-deceptions during development. Each e
 
 **Adapted from chief-clancy's own `docs/RATIONALIZATIONS.md`.** That version cites specific chief-clancy PR/session numbers as evidence for most entries, plus a handful of entries that are chief-clancy's own empirical investigations (a hook-salience pilot, a fabricated-citation incident) with no moe equivalent. This version keeps the entries that are universal software-engineering self-deceptions — none of which depend on chief-clancy's package graph or history — and drops the chief-clancy-specific investigation entries rather than repeat findings moe hasn't run the pilots for.
 
-This is a **living document**. When a new self-deception is caught in review, add it with a `Caught in:` line citing the PR (or the session or commit, when no PR caught it). Moe starts this table evidence-free on the entries below where chief-clancy's own citations didn't transfer — the disciplines are adopted on chief-clancy's track record, and moe earns its own citations as they happen.
+This is a **living document**. When a new self-deception is caught, in review or elsewhere in a session, add it with a `Caught in:` line citing the PR (or the session or commit, when no PR caught it). Moe starts this table evidence-free on the entries below where chief-clancy's own citations didn't transfer — the disciplines are adopted on chief-clancy's track record, and moe earns its own citations as they happen.
 
 **Read this before every review pass.** The headline meta-rationalization below is the failure mode all the others compose into.
 
@@ -119,11 +119,11 @@ The main places that point here (selected, not exhaustive):
 
 ## How to add an entry
 
-1. Catch a real self-deception during review.
+1. Catch a real self-deception, in review or elsewhere in a session.
 2. Phrase the rationalization in plain words (what you actually told yourself).
 3. Phrase the reality as a tight, declarative response.
-4. Add a `Caught in:` line citing the PR (or the session or commit, when no PR caught it) that surfaced it, so future readers can trace the lesson back to its origin.
-5. Place the entry in the right phase section (Define / Plan / Build / Test / Review / Ship / Meta).
-6. Commit with a descriptive message — `📝 docs(rationalizations): add "<rationalization>" — caught in <PR>`.
+4. Add a `Caught in:` line citing the PR that surfaced it (or the session or commit, when no PR caught it), so future readers can trace the lesson back to its origin.
+5. Place the entry in the right phase section (Define / Plan / Build / Test / Review / Ship / Process meta).
+6. Commit with a descriptive message — `📝 docs(rationalizations): add "<rationalization>" — caught in <PR, session or commit>`.
 
 The list is curated, not exhaustive. If an entry is about something moe has never actually done, it's not earning its place — this is the same discipline as `docs/DA-REVIEW.md`'s own evidence-free starting point: adopt the universal entries now, add moe-specific ones only from real catches.
