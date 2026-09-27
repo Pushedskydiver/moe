@@ -2,7 +2,57 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/DEVELOPMENT.md` §Session handoff for the mechanics).
 
-## Next workstreams (after Session 53)
+## Next workstreams (after Session 54)
+
+Updated 2026-09-27 end-Session-54 — **[PR #114](https://github.com/Pushedskydiver/moe/pull/114) merged (`141cfae`). PR 3 (the session handoff protocol) is built, and its R1 review is folded, on the local branch `docs/session-handoff` (`d78ce6d`; not pushed, no PR yet).** The Round-2 range check on the fold is next. All 8 personas are `started` with checks passing.
+
+**Asked and decided:** nothing new. Alex merged #114 mid-session.
+
+**Done this session:**
+
+- **#114:** merged by Alex at 18:24 UTC. `chore/single-rulebook` deleted locally.
+- **PR 3 build** (`implementer`, 0 stops, ~214k subagent tokens): `e460153` (new `docs/SESSION-HANDOFF.md` plus citation repoints), `9ec57b6` (`implementer.md:13`'s brief-only-label rule), `13f4e32` (lesson harvest into RATIONALIZATIONS/REVIEW-PATTERNS). None of the brief's file:lines had moved after the squash merge. The suite was green except `packages/core`'s 20 DB-backed files (no `DATABASE_URL`).
+- **Architectural pass** (orchestrator, `e5c4d35`), 4 fixes to SESSION-HANDOFF.md: "Moe decides" → "Claude decides"; restored the dropped PROGRESS-in-open-PR exception; reconciled "never edit the earlier entry" with §6's `Update` line; quoted the decision doc's Rationale 4 verbatim.
+- **R1** (range `main...e5c4d35`): DA 0 BLOCKING / 5 MATERIAL / 13 LOW; surrogate 0 / 3 / 15. They converged on two: series labels "PR 3/PR 4" cited as if they were GitHub PR numbers (#4 is really "add CI pipeline"), and a stale source for Session 48's token figure. Every MATERIAL was source-checked by the orchestrator. The others were §3's edit rule vs §6 (surrogate F2, which the architectural fix itself introduced), a "zero bookkeeping" contradiction (M2), undefined "Next"/open-question slots (M3), and the lost DEVELOPMENT.md:224 exception sentence (M5).
+- **R1 fold** (`doc-fixer`, `d78ce6d`): all MATERIAL applied as settled wording. LOWs applied except DA L8/L12/L13 and surrogate F5/F15/F18c (FYI, pre-existing or orchestrator-owned). One deviation from the brief to disclose in the PR: DA L7 swapped `AGENTS.md`'s Key-docs read order to "PROGRESS.md, then SESSION-HANDOFF.md", to match the paste-in prompt.
+- **Token measurement** (for the PR body): `docs/DEVELOPMENT.md` went from 19,370 to 14,937 tokens at `13f4e32`, and the new `docs/SESSION-HANDOFF.md` is 7,065. `AGENTS.md` went from 4,541 to 4,598. The counter is `messages.countTokens`, `claude-sonnet-5`, script at `.claude/research/workflow-series/count-tokens.mjs.txt` (gitignored; `.txt` because ESLint lints a gitignored `.mjs`): copy it to `packages/agents/count-tokens.mjs`, run `MODEL=claude-sonnet-5 node count-tokens.mjs <files>` with `.env.local`'s key exported, then delete the copy. The same counter gives 17,527 on Session 46's `DEVELOPMENT.md`, where Session 46 recorded 16,970, so only compare figures from one run.
+- **Reports:** `.claude/research/workflow-series/pr3-r1/` (`da-report.md`, `surrogate-report.md`).
+
+**In flight:** nothing running. `docs/session-handoff` is local only. Re-measure `DEVELOPMENT.md` at the final head before writing the PR body.
+
+**Cleanup:** deleted `chore/single-rulebook`. `git worktree list` shows only the primary checkout. Session 49 archived into `docs/history/SESSIONS.md`.
+
+**Session data:** ~140k tokens at handoff (usage tool; 5-hour window 36%, weekly 37%, Fable weekly 4%).
+
+- **Trigger:** phase boundary above 100k (fold committed), under the 150k soft line. This is the first handoff under PR 3's own §1 table.
+- **What grew context most:** 3 hand-back reports (~2–3k each, kept short by writing full reports to files) and reading SESSION-HANDOFF.md whole for the architectural pass (~8k).
+- **Subagent tokens:** build 214k, surrogate R1 172k, DA R1 158k, fold 137k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none.
+
+**Lessons (Session 54):**
+
+- **KKKK — The orchestrator's own architectural-pass fix introduced a MATERIAL.** It made "never edit the earlier entry" defer to §6's `Update` line, but it named only half of §6's rule (the loading-instructions amendment was missing). The surrogate caught it as F2. This is FFFF/JJJJ again, now on direct edits, not just brief wording: check a reconciling sentence against both rules it reconciles. → none (an instance of FFFF, harvested in PR 3).
+- **LLLL — A series label leaked into permanent docs as a PR number.** "Caught in PR 4" came verbatim from the brief, and both reviewers flagged it independently. PR 5's brief should cite GitHub numbers only, and name a not-yet-opened PR by its doc or branch. → none (`implementer.md:13`'s new brief-only-label rule covers it).
+- **MMMM — Hand-back reports written to files kept R1's context cost to ~2–3k per report**, against ~4–6k in Session 52. Ask reviewers for a short reply plus a full report file. → memory.
+
+### Session 55 loading instructions
+
+- **Check live state first:**
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `141cfae`), `git status`, `gh pr list`, and `git log --oneline main..docs/session-handoff` (expect 5 commits, ending `d78ce6d`).
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+- **Primary: finish PR 3.**
+  1. Check out `docs/session-handoff`. If `main` has moved beyond this handoff, merge it in.
+  2. Round-2 range check on `e5c4d35..d78ce6d`, with DA and surrogate in parallel. Each writes a report file under `.claude/research/workflow-series/pr3-r2/` and replies briefly. Loop until 0 BLOCKING/MATERIAL (ask Alex at R4), then do the one disclosed LOW pass and self-review (`docs/SELF-REVIEW.md`).
+  3. Re-measure `DEVELOPMENT.md` and `SESSION-HANDOFF.md` with the Session 54 counter, and re-measure the 19,370 baseline (`git show main:docs/DEVELOPMENT.md` at `141cfae`) in the same run.
+  4. Run the full pre-push suite, push, and open the PR: title `📝 docs: add the session handoff protocol, harvest lessons TTT–FFFF`, label `chore`. The body closes #114's C15 promise (`OPERATIONS.md:229`); flags the decision-doc Status update as amending an earlier decision on Alex's instruction; notes that REVIEW-PATTERNS' 2+-catch bar is why single-catch lessons went to RATIONALIZATIONS; discloses the architectural-pass commit, the L7 read-order deviation and the LOW-pass author-read; and says `GIT.md`'s blast-radius addition is Alex's to veto. Post the surrogate findings (R1 and later) as a PR comment.
+  5. In the first handoff after PR 3 merges, repoint `PROGRESS.md:3` to `docs/SESSION-HANDOFF.md`, and start following it.
+- **Nothing on PR 3 is Alex's to decide** beyond the merge and the GIT.md veto.
+- **After PR 3:** PR 5 (docs thinning, plus VISION:327, which is Alex's call), then the Hook PR, then the chief-clancy doc-port workstream. Confirm the order and the docs to port with Alex when it starts; the candidates are in the Session 52 entry's loading instructions.
+- **Recommended model and effort for Session 55:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 53
 
 Updated 2026-09-27 end-Session-53 — **PR 3's brief (the session handoff protocol) is settled and grilled: R1 and an R2 verification round, both folded, then a manual pass. Building waits on [PR #114](https://github.com/Pushedskydiver/moe/pull/114), which is green and `CLEAN` but not merged (Alex merges).** `main` is unchanged apart from this handoff. All 8 personas are `started` with checks passing.
 
@@ -175,23 +225,6 @@ Updated 2026-09-27 end-Session-50 — **PR 4 of the workflow series (single rule
 
 - **BBBB — Grill the brief, and check `.gitignore` for any new directory under a partly-ignored parent.** `.claude/*` is ignored except `agents/`, so the rule files would have passed `check:rulebook` locally (it reads the disk), never been committed, and failed only in CI. Only the spec-grill on the brief caught it. A brief that creates a directory should include `git check-ignore -v <new path>`.
 - **CCCC — A PR that deletes the job behind a required check is unmergeable until the settings change.** Put that settings step in the PR body as a _pre_-merge action, and update the doc that lists required checks (`docs/GIT.md`, which was already stale at two checks).
-
-## Earlier: Session 49
-
-Updated 2026-09-27 end-Session-49 — **the `getTestPool()` host-guard fix is open as [PR #113](https://github.com/Pushedskydiver/moe/pull/113), not merged (Alex merges).** [PR #112](https://github.com/Pushedskydiver/moe/pull/112) merged 2026-09-27 04:12 UTC with CI green; all 8 personas healthy on the 6.1g image. Alex asked to continue the workflow series starting with this fix; nothing came up that was his to decide.
-
-**Shipped (on #113, unmerged):** `packages/core/src/ticket-lifecycle/test-db.ts` — `getTestPool()` refuses any `DATABASE_URL` whose host, as `pg-connection-string` parses it, isn't exactly `localhost`/`127.0.0.1`, with a fixed error (no URL, host, password or `cause`). It uses pg's own parser because a `?host=` query param overrides the authority host there (see ZZZ). `pg-connection-string@^2.14.0` is now a direct `@moe/core` dependency, and a test pins that it resolves to the same file `pg` does. New `test-db.test.ts` (13 tests, no DB needed); `.claude/agents/implementer.md`'s test-run sentence now calls the guard a backstop. Review: R1 `da-review` 1 MATERIAL (exact-match not pinned) + 3 LOW, `copilot-surrogate` (run alongside R1, mandatory at >50 LOC) 2 LOW → `implementer` fold → R2 DA range check 0 BLOCKING/MATERIAL, 1 LOW → closed by a disclosed orchestrator author-read (efea980). Surrogate findings posted as a PR comment. Quality suite green locally except `packages/core`'s 20 DB-backed files (Docker down, `DATABASE_URL` unset — CI runs them). CI on #113 was 4 passing / 1 pending at handoff.
-
-**Also:** Sessions 44–46 archived into `docs/history/SESSIONS.md` (`45699bc`, direct to main).
-
-**In flight:** nothing running.
-
-**Session data:** ~175k tokens at handoff (usage tool; 5-hour window 32%, weekly 32%). Triggers: phase boundary (PR opened) at 151k, just past the 150k soft line. Most growth: four review/fold reports and the diffs read back to verify them. `implementer` runs: build ~75k subagent tokens, fold ~64k. Structural warning signs: none.
-
-**Lessons (Session 49):**
-
-- **ZZZ — Guard an input with the parser that consumes it.** `pg` resolves `DATABASE_URL` with `pg-connection-string`, where `?host=` overrides the URL's host, so a `new URL().hostname` guard would have been bypassable (`…@localhost/db?host=prod`). Found by reading the library before writing the brief, not in review. A safety check on a string some library interprets must run that library's own parser, and a test should pin that both resolve the same copy.
-- **AAAA — `implementer`'s first build under a settled brief: 0 stops, and it verified the brief's claims against source instead of trusting them.** Naming the skipped steps explicitly (XXX's fix) worked — steps 3–4 ran. Running `copilot-surrogate` alongside DA R1 on a small PR cost nothing and saved a round. The R2 DA LOW (PR-local finding IDs in code comments) matched the orchestrator's own self-review before the report arrived — convergence again; a fold brief should say "no review IDs in code comments".
 
 ## Session archive
 
