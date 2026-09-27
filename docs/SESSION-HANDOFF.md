@@ -1,6 +1,6 @@
 # Session handoff protocol
 
-Moe decides when to hand off a session; Alex doesn't have to call it. Claude says why in one line, updates `PROGRESS.md`, and gives the handoff prompt to paste into a new session.
+Claude decides when to hand off a session; Alex doesn't have to call it. Claude says why in one line, updates `PROGRESS.md`, and gives the handoff prompt to paste into a new session.
 
 Status of the numbers below: **judgement, not measurement.** No study measures cross-session handoff for long tool-using agent sessions the way this doc uses the term. The mechanism is evidenced — reasoning accuracy degrades as input length grows (Levy et al. 2024, arXiv 2402.14848), and recall is U-shaped over long context, worst in the middle (Liu et al. 2023, arXiv 2307.03172) — but the thresholds below are a dial, not a measured constant.
 
@@ -38,14 +38,14 @@ No new weekly-limit trigger row is added (Alex, 2026-09-27) — the weekly % liv
 
 ## 3. What a handoff consists of
 
-1. The `PROGRESS.md` entry, committed direct to `main`, with its exception (moved from `docs/DEVELOPMENT.md`; see `docs/GIT.md` §Rules).
+1. The `PROGRESS.md` entry, committed direct to `main` — no branch, no PR, since it's session state, not architecturally reviewed content (`docs/GIT.md` §Rules' context-only exception, applied to this one file). Exception: if `PROGRESS.md` is already part of an open PR bundled with the work being logged, leave the update there instead of splitting it out.
 2. Memory files current — decisions and preferences that should load automatically next time.
 3. Background work committed, or declared re-runnable with its inputs on disk.
 4. Cleanup (§4).
 5. A one-line notice to Alex saying why now (naming the weekly % if ≥85%, per §9), plus the paste-in prompt (§5) as a text block Alex pastes into a new session — not a task chip.
 6. The recommended model and effort for the next session (§7).
 
-Rules for the entry: point to files instead of restating them, separate "done" from "verified", list open questions for Alex rather than assuming answers, and never default silently to a workstream if the next step is unclear. If Alex keeps the session going after its handoff is written, keep working and write a new entry at the next stopping point. Never edit the earlier one.
+Rules for the entry: point to files instead of restating them, separate "done" from "verified", list open questions for Alex rather than assuming answers, and never default silently to a workstream if the next step is unclear. If Alex keeps the session going after its handoff is written, keep working and write a new entry at the next stopping point. Never edit the earlier one, apart from §6's dated `Update (<date>):` line for a decision that brings no new work.
 
 ## 4. Cleanup at handoff
 
@@ -157,7 +157,7 @@ Moe keeps manual handoff (`PROGRESS.md` + loading-instructions blocks) as the pr
 4. **The industry converges on moe's existing shape.** Cline's official continuity mechanism (Memory Bank) is manual, user-triggered structured markdown — the same shape as `PROGRESS.md`; third-party writeups describe Cursor and Devin Desktop sessions as starting fresh, with continuity supplied by workspace files and rules rather than automated summaries (vendor-adjacent sources — hold loosely). Published practitioner workflows replace `/compact` with manual handoff files. Automated-summary systems do exist (claude-mem's Stop-hook checkpoint summaries), so this is a considered decline, not a capability gap.
 5. **The asymmetry cuts against replacing what works.** The manual author is the session that did the work, writing at a phase boundary while context is still good, exercising judgment about what the next session specifically needs. An automated summarizer runs at the worst moment (post-compaction), with no notion of moe-specific salience, and its errors surface only as next-session confusion — on a surface no review gate covers. Moe's own record, dated 2026-07-09: every cold-load to that point had worked end-to-end with zero clarifying questions (n=1 so far).
 
-**What moe does not import, and where that has since partly changed:** chief-clancy's handoff-_cost_ thresholds and backfilled metric fields stay declined — their own 8k-token handoff-cost threshold drifted out of meaning as sessions got heavier, and their backfill discipline collapsed (19/20 metric fields left TBD across their last two audited windows); a protocol that decays silently is worse than none. But this is now a **partial** supersession, not the original blanket position: PCR's context-size handoff triggers are a separate, handoff-_timing_ mechanism, not a bookkeeping habit — moe has recorded a Session data line since Session 46 (in anticipation of this doc), and Alex's Session 47 call (2026-09-27, `docs/history/SESSIONS.md` Session 47) adopted PCR's usage-aware handoff, whose own §6 is exactly this per-session record. Only the original decline of "a per-session bookkeeping habit instead of event-based triggers" is superseded, by that Session data line — the revisit triggers below are otherwise unchanged.
+**What moe does not import, and where that has since partly changed:** chief-clancy's handoff-_cost_ thresholds and backfilled metric fields stay declined — their own 8k-token handoff-cost threshold drifted out of meaning as sessions got heavier, and their backfill discipline collapsed (19/20 metric fields left TBD across their last two audited windows); a protocol that decays silently is worse than none. But this is now a **partial** supersession, not the original blanket position: PCR's context-size handoff triggers are a separate, handoff-_timing_ mechanism, not a bookkeeping habit — moe has recorded a Session data line since Session 46 (in anticipation of this doc), and Alex's Session 47 call (2026-09-27, `docs/history/SESSIONS.md` Session 47) adopted PCR's usage-aware handoff, whose own §6 is exactly this per-session record. Only the original Rationale 4 wording — adopting "event-based triggers (below) instead of a per-session bookkeeping habit" (`docs/decisions/SESSION-HANDOFF-AUTOMATION.md`) — is superseded, and only in its decline of the per-session record, by that Session data line — the revisit triggers below are otherwise unchanged.
 
 **Revisit triggers — event-based, recorded in `PROGRESS.md` when one fires, zero bookkeeping when none do:**
 
