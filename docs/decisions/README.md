@@ -30,6 +30,8 @@ Decision docs live at `docs/decisions/*.md` (ALLCAPS + flat, matching the top-le
 | `BOARD-AND-CAPACITY-MODEL.md`   | Board home (moe's own DB, GitHub issues as mirror); classes of service (Standard/Expedite); WIP limits (Brief 3/Plan 2/Build 2/Review 2) |
 | `PERSONA-REPLAY-HARNESS.md`     | Two-part replay harness: a manual real-API recording script + a network-free per-persona test; content-hash drift fails by name          |
 | `TOOL-ALLOWLIST-GRID.md`        | Per-persona tool grid; CLI-vs-MCP default (direct SDK, MCP only as fallback); Riley's sandbox has no network; Tier 3 reviewer answer     |
+| `CHIEF-CLANCY-DOC-PORTS.md`     | Chief-clancy's doc set moe defers (none rejected outright); per-doc re-entry conditions                                                  |
+| `SINGLE-RULEBOOK.md`            | `AGENTS.md` the single rulebook, `CLAUDE.md` an `@AGENTS.md` stub, `.claude/rules/` path-scoped rules; generator retired                 |
 
 Other significant decisions already made this early (the package graph settled at chunk 0.3; the Messages-API-vs-Agent-SDK model-client choice) are documented in their original locations — `docs/CONVENTIONS.md` §Architecture Enforcement and `docs/VISION.md` §11, respectively — and aren't duplicated here. Backfilling them is optional, not required by this convention.
 

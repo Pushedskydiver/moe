@@ -24,12 +24,12 @@ All work branches from `main` and merges back to `main` via PR.
 - **If it runs, it needs a PR.** TypeScript (`packages/*/src/`, `apps/*/src/`), tests, executable markdown, package.json, CI config (`.github/`) — always via branch + PR.
 - **If it's only read by humans/agents for context, direct to main is fine — but only when no branch/PR is open.** Non-blast-radius docs, README badge/link fixes, typo corrections, and `fix(docs)` drift-fix commits meeting the predicate below. If you have an open feature branch, commit doc changes there instead. **This does not include blast-radius docs** (below) — those go through the PR flow regardless of how small or context-only the edit is; predicate #5 below exists specifically to exclude them.
 
-**What is "executable markdown"?** Markdown that Claude or Codex executes as instructions rather than reads as background context — persona prompt files (`packages/agents/src/personas/*/prompt.md`) and any slash-command/skill/workflow markdown under `.claude/` or `.codex/` that an agent runs. A change here changes behavior the same way a code change does, so it goes through the PR flow like code — never the direct-to-main docs exception.
+**What is "executable markdown"?** Markdown that Claude or Codex executes as instructions rather than reads as background context — persona prompt files (`packages/agents/src/personas/*/prompt.md`) and any slash-command/skill/workflow/rule markdown under `.claude/` or `.codex/` that an agent runs. A change here changes behavior the same way a code change does, so it goes through the PR flow like code — never the direct-to-main docs exception.
 
 **`fix(docs)` drift-fix predicate — all five must hold:**
 
 1. **No branch/PR open.** Same precondition as rule #2 above — if you have an open feature branch, commit the drift-fix there instead.
-2. **Not executable markdown.** Persona prompt files (`packages/agents/src/personas/*/prompt.md`) and any workflow/command markdown Claude executes as instructions are excluded — use the PR flow.
+2. **Not executable markdown.** Persona prompt files (`packages/agents/src/personas/*/prompt.md`) and any slash-command/skill/workflow/rule markdown under `.claude/` or `.codex/` that Claude or Codex executes as instructions are excluded — use the PR flow.
 3. **Grep-falsifiable drift.** The edit corrects a claim provable false by `grep`/`read` against code or another on-disk ground-truth source. Doesn't apply to taste changes or rule-body rewrites — those need PR review regardless of size.
 4. **Low-LOC.** LOC touched ≤ 50 across all files in the commit.
 5. **Not on the blast-radius list** below. Drift-fixes on those docs go through the PR flow (Alex-merge).
@@ -38,7 +38,7 @@ When any predicate fails, use the PR flow.
 
 - **Create the dedicated branch as the literal first action after syncing `main`, before any edit — every single chunk/fix transition.** Not a one-time habit to remember, a step to redo explicitly each time: `git checkout main && git pull`, then `git checkout -b <next-slice>`, before touching any file. Two confirmed failure modes from skipping this: (1) after an _escalated_ (opened but not yet merged) PR, cutting the next branch without returning to `main` first stacks the un-merged commit underneath the new branch, so the new PR's diff wrongly includes both changes; (2) after a normal merge+sync, committing the next chunk's work directly onto local `main` because the branch-creation step was skipped entirely, not just misordered. Both have recurred multiple times across this project's history — the fix if it already happened: `git rebase --onto main <bad-base-branch> <slice-branch>` for case 1, or `git branch <name> <bad-commit>` followed by `git reset --hard origin/main` for case 2, then re-verify the full quality suite.
 - **Delete branches after merging.** The remote branch is deleted automatically (`delete_branch_on_merge`, see Merge Strategy below) — that half needs no action. The **local** clone's branch is not touched by GitHub and does not auto-delete: after confirming a PR merged (`gh pr view <n> --json state,mergedAt`), `git checkout main && git pull`, then `git branch -d <branch>` before starting the next chunk. Claude/Codex do this as a matter of course, not just Alex.
-- **CI must pass before merging.** Enforced via branch protection on `main`: `.github/workflows/ci.yml`'s "Quality suite" job and `.github/workflows/pr-title-check.yml`'s "Validate PR title format" job are both required status checks. Admin/owner enforcement is off (`enforce_admins: false`) — a deliberate one-person-team escape hatch for genuine emergencies, not an invitation to routinely bypass the gate.
+- **CI must pass before merging.** Enforced via branch protection on `main`: three required status checks — `.github/workflows/ci.yml`'s "Quality suite" job, `.github/workflows/pr-title-check.yml`'s "Validate PR title format" job, and `.github/workflows/ci.yml`'s "Agent frontmatter" job (swapped in for "AGENTS.md freshness" — Alex's call in Session 50, applied 2026-09-27). Admin/owner enforcement is off (`enforce_admins: false`) — a deliberate one-person-team escape hatch for genuine emergencies, not an invitation to routinely bypass the gate.
 
 ## Branch Naming
 
@@ -165,18 +165,18 @@ PRs touching multiple packages get multiple labels. Root-only changes (CI, docs,
 summary. Since BUILD_PLAN 5.2 there are eight Fly Apps (`moe-sarah` … `moe-maya`), one per persona,
 so "the deploy" is eight invocations rather than one.
 
-This is a deliberate safety choice, not a placeholder — a prior truncated/empty secret took the live service down when deploy was more automated (see project history). Revisit only with a concrete plan for how a bad deploy gets caught before it reaches production.
+This is a deliberate safety choice, not a placeholder — a prior truncated/empty secret took the live service down when deploy was more automated. Revisit only with a concrete plan for how a bad deploy gets caught before it reaches production.
 
 ## Blast-Radius Docs (Alex-merge, not auto-mergeable)
 
 Editing any of these triggers Alex-review regardless of how small the diff is:
 
-- `CLAUDE.md`, `AGENTS.md`
-- `docs/VISION.md`, `docs/CEREMONIES.md`, `docs/PERSONAS.md` (once written)
+- `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`
+- `docs/VISION.md`, `docs/CEREMONIES.md` (once it exists), `docs/PERSONAS.md`
 - `docs/CONVENTIONS.md`, `docs/GIT.md`
 - `docs/DA-REVIEW.md`, `docs/SELF-REVIEW.md`
 - `docs/DEVELOPMENT.md`, `docs/TESTING.md`, `docs/RATIONALIZATIONS.md`, `docs/REVIEW-PATTERNS.md`
-- `packages/agents/src/personas/*/prompt.md` — the do-not-touch list from `CLAUDE.md`
+- `packages/agents/src/personas/*/prompt.md` — the do-not-touch list from `AGENTS.md`
 - `/.github/workflows/**`, `/.github/CODEOWNERS`
 - Repo-root config: `/package.json`, `/pnpm-workspace.yaml`, `/pnpm-lock.yaml`, `/tsconfig.base.json`, `/tsconfig.json`, `/eslint.config.ts`, `/knip.json`
 

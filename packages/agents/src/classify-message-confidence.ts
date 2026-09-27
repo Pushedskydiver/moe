@@ -121,7 +121,7 @@ export type ClassifyMessageConfidenceResult =
  * VISION §5.2's Stage 1 gate, per `docs/decisions/STAGE-1-CLASSIFIER.md`: one bundled structured-
  * output call, Claude Haiku 4.5, a single 0-100 integer confidence score. Uses `zodOutputFormat` +
  * `.parse()` (not raw `.create()` + manual `JSON.parse`) so the response is validated against the
- * same Zod schema this function's own return type is built from — matching CLAUDE.md's "full Zod
+ * same Zod schema this function's own return type is built from — matching AGENTS.md's "full Zod
  * v4 for all runtime validation" constraint, not a workaround. `usage` passes through the API
  * response's own token counts, same "stateless, reports usage rather than accounting for it"
  * precedent as `generateReply` — the real call site (`apps/server/src/handle-inbound-message.ts`)

@@ -95,7 +95,7 @@ export async function upsertGithubIssueTriageEntry(
  * 3-column callback join form (`.leftJoin(table, (join) => join.onRef(...).onRef(...).onRef(...))`)
  * instead of the simple two-argument form. Only `state = 'open'` entries are eligible — a closed
  * issue converting into a fresh Brief-stage ticket would be pointless. No row locking — moe runs
- * exactly one pull loop per persona (`CLAUDE.md`'s "every persona is its own long-running
+ * exactly one pull loop per persona (`AGENTS.md`'s "every persona is its own long-running
  * process" constraint), so no other process ever races this read; a narrower version of the same
  * argument `transition.ts` makes for its own unlocked reads (today's one-ticket-per-tick pull-loop
  * cadence leaves no concurrent caller to race). `ORDER BY firstSeenAt ASC LIMIT 1` picks the oldest-discovered eligible

@@ -28,7 +28,7 @@ NOTICED BUT NOT TOUCHING:
 → Want me to create tasks for these?
 ```
 
-Drive-by refactors mixed with feature work are harder to review, harder to revert, and hide bugs in noise. Stay in scope. The temptation to "quickly clean this up while I'm here" is exactly the kind of scope creep this codebase's own CLAUDE.md warns against — surface it as a NOTICED block and move on.
+Drive-by refactors mixed with feature work are harder to review, harder to revert, and hide bugs in noise. Stay in scope. The temptation to "quickly clean this up while I'm here" is exactly the kind of scope creep `docs/DEVELOPMENT.md` §Session Pattern & Context Management warns against (its NOTICED BUT NOT TOUCHING bullet) — surface it as a NOTICED block and move on.
 
 ---
 
@@ -73,7 +73,7 @@ If the assertion would pass against the wrong input, tighten it before committin
 
 ## Executable markdown accuracy
 
-Persona prompt files and `.claude`/`.codex` slash-command/skill/workflow markdown are as load-bearing as TypeScript — apply the same rigour as code review. (DA owns the architectural gate for these files — see [DA-REVIEW.md §Executable markdown](DA-REVIEW.md#executable-markdown); this section is the line-level companion.)
+Persona prompt files and `.claude`/`.codex` slash-command/skill/workflow/rule markdown are as load-bearing as TypeScript — apply the same rigour as code review. (DA owns the architectural gate for these files — see [DA-REVIEW.md §Executable markdown](DA-REVIEW.md#executable-markdown); this section is the line-level companion.)
 
 - **Control flow completeness** — does every conditional path (if/else, success/failure, found/not-found) have an explicit outcome? Look for steps that warn but don't stop, then fall through to a success message.
 - **Parameterised values** — are hardcoded values (thresholds, package names, paths) correct for every path the file can take?

@@ -27,9 +27,9 @@ const configs = personaIdSchema.options.map((personaId) =>
 const expected = new Set(configs.map(({ fileName }) => fileName));
 
 // Sweep orphans before writing, so removing a persona from the roster actually removes its config
-// rather than leaving a stale file behind. Without this the CI freshness gate cannot see roster
+// rather than leaving a stale file behind. Without this the CI freshness check cannot see roster
 // *shrinkage* at all: a write-only generator leaves the orphan untouched, so `git add -A` finds
-// nothing to stage and the gate passes on real drift.
+// nothing to stage and the check passes on real drift.
 //
 // This claims the whole root `fly.<name>.toml` namespace for the generator: any file matching it
 // that isn't a current persona's is deleted, including untracked ones git could not restore. Don't

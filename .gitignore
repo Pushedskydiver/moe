@@ -23,7 +23,9 @@ node_modules/
 .DS_Store
 Thumbs.db
 
-# Claude Code — everything except reusable agent definitions
+# Claude Code — everything except reusable agent definitions and path-scoped rules
 .claude/*
 !.claude/agents/
 !.claude/agents/**
+!.claude/rules/
+!.claude/rules/**
