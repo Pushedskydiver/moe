@@ -205,7 +205,7 @@ Alex can DM any persona, and personas can DM each other, as genuinely separate, 
 
 ### 6.4 Operating rhythm
 
-Core hours, off-hours behavior, weekend/bank-holiday rest, and Slack-status-based away-detection carry over conceptually from the previous design; the detailed parameters (exact hours, holiday calendar source, away-keyword list) are re-specified in `BUILD_PLAN.md` rather than restated here.
+Core hours, off-hours behavior, weekend/bank-holiday rest, and Slack-status-based away-detection carry over conceptually from the previous design; the detailed parameters (exact hours, holiday calendar source, away-keyword list) are re-specified in `docs/GLOSSARY.md` ("Core hours", "Away-detection") rather than restated here.
 
 ### 6.5 EOD digest
 
@@ -312,7 +312,7 @@ Two hard buckets — per-ticket ceiling, per-month ceiling — scaling with risk
 
 ## 11. Tools & MCP
 
-The per-persona tool allowlist grid, the CLI-vs-MCP decision rule ("use the lightest tool that does the job"), the sandboxing model (no production code execution, worktree-isolated iteration, CI as the only path to a real build), and the curated-allowlist supply-chain hygiene rules carry over conceptually — none of this was implicated in any of the three named failures. The detailed grid itself is re-specified in `BUILD_PLAN.md` rather than reproduced here.
+The per-persona tool allowlist grid, the CLI-vs-MCP decision rule ("use the lightest tool that does the job"), the sandboxing model (no production code execution, worktree-isolated iteration, CI as the only path to a real build), and the curated-allowlist supply-chain hygiene rules carry over conceptually — none of this was implicated in any of the three named failures. The detailed grid itself is re-specified in `docs/decisions/TOOL-ALLOWLIST-GRID.md` rather than reproduced here.
 
 **Model-client choice (verified 2026-07-04, reversing an assumption inherited from the previous build):** conversational turns use the **raw Anthropic Messages API**, not the Claude Agent SDK. A docs-level verification found the TypeScript Agent SDK spawns a CLI subprocess per `query()` (~12s overhead per call, per the SDK's own issue tracker), accumulates session files on disk unbounded, and requires MCP boilerplate for custom tools — the wrong shape for a long-running service handling many short turns, and incompatible with §6.4's sub-10s casual-reply latency target on its own. The **Agent SDK remains the right tool for heavyweight autonomous work** — Riley's worktree coding sessions, where its built-in file/bash tooling and bounded-session shape genuinely fit. The line: chat turns = Messages API; multi-step agentic work in a sandbox = Agent SDK. What §4.5 settles independently of this is the process topology: each persona is its own long-running process, not subordinate agents under a single orchestrator process.
 
@@ -324,7 +324,7 @@ The per-persona tool allowlist grid, the CLI-vs-MCP decision rule ("use the ligh
 
 - ESLint complexity caps (`eslint-plugin-sonarjs` + `eslint-plugin-functional` + `eslint-plugin-unicorn` + `eslint-plugin-n`): cyclomatic 10, cognitive 15, max 50 LOC/function, max 300 LOC/file, max 3 params, max depth 3, no `let`, immutable data.
 - A devil's-advocate review gate before any PR, reading each changed file at HEAD (not diff-scoped) for factual-claim drift — chief-clancy's `da-review`/`copilot-surrogate` pattern.
-- A `docs/INDEX.md` scenario router preventing `CONVENTIONS.md` ↔ `AGENTS.md` ↔ `CLAUDE.md` drift.
+- A `docs/INDEX.md` scenario router preventing `CONVENTIONS.md` ↔ `AGENTS.md` drift.
 - Pre-push hygiene (`knip`, `publint`, `attw`) for the packages Moe actually publishes.
 - 5-group import ordering via `@ianvs/prettier-plugin-sort-imports`.
 - A pre-seeded `docs/REVIEW-PATTERNS.md` with the highest-confidence failure classes (persona-prompt drift, ESM `.js` extension slips, schema/type separation, business-hours guard misses, recorded-transcript drift) so the review agent has something to consult on day one.
