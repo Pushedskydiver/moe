@@ -41,7 +41,7 @@ Always run `pnpm format` after regenerating — the raw script output isn't byte
 
 1. Read the brief / pick up the next chunk from `BUILD_PLAN.md`.
 2. Build it as vertical slices — tracer-bullet TDD (`docs/CONVENTIONS.md` §Testing Standards): one test, implement, next test, refactor, lint.
-3. **Check the chunk's own `BUILD_PLAN.md` box and add a `Built <date>...` narrative paragraph as part of this same PR, not a follow-up** — confirmed precedent (6.1c's own PR #103) ships this in the feature PR itself; a chunk merging with its box still unchecked is a gap to fix, not the norm. A `Deployed <date>...` paragraph appended on top is the one piece that's genuinely a separate, later, direct-to-main commit — only after Alex's explicit deploy authorization, per `docs/GIT.md` §Deploy Flow.
+3. **Close the chunk in this same PR, not a follow-up** (precedent: 6.1c's PR #103): in `BUILD_PLAN.md`, replace the chunk's entry with the one-line finished form (`- [x] **<title>** Shipped <date>. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §<id>.`), and append a `## <id>` section to the end of `docs/history/BUILD-NARRATIVE.md` holding the chunk's original spec line plus its `Built <date>...` narrative, and a row in that file's phase ledger. If the moved text names a chunk that isn't finished yet, add or extend that chunk's `**Archived notes naming this chunk:**` line in `BUILD_PLAN.md`, so a future builder still finds it. A chunk merging with its box still unchecked is a gap to fix, not the norm. A `Deployed <date>...` paragraph appended to the archive section later is the one piece that's genuinely a separate, direct-to-main commit — only after Alex's explicit deploy authorization, per `docs/GIT.md` §Deploy Flow.
 4. Run the full quality suite locally before pushing (`CLAUDE.md` §Commands).
 5. Review gate: DA (subagent) → self-review → fix everything → push → open PR.
 6. Alex reviews and merges. After confirming the merge, sync `main` and delete the local branch (`docs/GIT.md` §Rules).
@@ -178,11 +178,11 @@ compression commit.
 
 ## Phase ledger
 
-| Chunk/Stage | Status | Shipped | Headline |
-| ----------- | ------ | ------- | -------- |
+Moved to `docs/history/BUILD-NARRATIVE.md` (2026-09-27); `BUILD_PLAN.md`'s
+checkboxes remain the source of truth for what has shipped.
 ```
 
-The **detail band** (`## Next workstreams` down to `## Session archive`) is the only part that grows and gets pruned. The **Phase ledger** is permanent, one row per Stage-0 chunk (and later, per BUILD_PLAN stage) — it never gets pruned, just appended to.
+The **detail band** (`## Next workstreams` down to `## Session archive`) is the only part that grows and gets pruned. The **phase ledger** — one row per finished chunk, never pruned, only appended to — lives at the top of `docs/history/BUILD-NARRATIVE.md` since 2026-09-27, not in `PROGRESS.md`: at ~36k tokens it had become most of this file's weight, and nothing at session start needs it.
 
 ### Archival — `docs/history/SESSIONS.md`
 
