@@ -122,6 +122,7 @@ This section is deliberately evidence-free — no cited pilot runs, no PR number
 
 ## Session Pattern & Context Management
 
+- **Orchestrate; don't build in the main session.** Dispatch `.claude/agents/implementer.md` to build a chunk and `.claude/agents/doc-fixer.md` to apply a review round's findings, each under a brief that settles every open choice first (the fixer's own definition lists what the brief must hold). Both are pinned to Sonnet; the main session keeps the decisions, the review dispatches and the commits of each fold. Adopted from Alex's PCR Formulation project (external — `research/54-handoff-threshold-review.md` there, not in this repo): its sessions where an Opus main session orchestrated had a median of 170k tokens, against 283k across the earlier sessions where a mostly-Sonnet main session built each PR itself.
 - **Use subagents for exploration and research**, not just review — keeps the main context focused on synthesis and decisions rather than raw search output.
 - **`/clear` between genuinely unrelated tasks** rather than letting context accumulate across topic switches.
 - **DA and `spec-grill` dispatches run in a fresh context, always** — never from the writer's own context. The whole point is a reader who hasn't already convinced themselves the work is right.

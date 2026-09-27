@@ -63,7 +63,7 @@ packages/
   github/          # GitHub integration
 docs/              # this doc set
 .claude/
-  agents/          # da-review, spec-grill, copilot-surrogate definitions
+  agents/          # review agents (da-review, spec-grill, copilot-surrogate) and workers (implementer, doc-fixer)
   research/        # gitignored — local research artefacts, never pushed
 ```
 
