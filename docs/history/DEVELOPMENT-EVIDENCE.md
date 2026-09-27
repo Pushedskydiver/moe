@@ -1,6 +1,6 @@
 # DEVELOPMENT.md evidence
 
-History, not live guidance. Incident narratives moved verbatim out of `docs/DEVELOPMENT.md` on 2026-09-27 (from commit `89df804`), so the live doc keeps each rule plus a one-line pointer here — except §Chunk close, which no live doc points to (kept here for history only). Text here is stale by design: a "step N", "this step", "item N", "above", "below", "this sentence", "this very file", "this very gap" or "this same change" means that commit's `docs/DEVELOPMENT.md`. Read only when a live doc points here.
+History, not live guidance. Incident narratives moved verbatim out of `docs/DEVELOPMENT.md` on 2026-09-27 (from commit `89df804`), so the live doc keeps each rule plus a one-line pointer here — except §Chunk close, which no live doc points to (kept here for history only). Text here is stale by design: inside a quoted span, a relative reference (e.g. "step N", "this step", "item N", "above", "below", "here", "this sentence", "this very file", "this very gap", "this same change") means that commit's `docs/DEVELOPMENT.md`. Read only when a live doc points here.
 
 ## Chunk close
 
