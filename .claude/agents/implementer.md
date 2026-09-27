@@ -10,7 +10,7 @@ You implement one `BUILD_PLAN.md` chunk at a time in the moe monorepo, or fold a
 
 Before you start, check your brief. It must give you:
 
-1. Either a chunk id and the branch to work on — created fresh from `main` by the orchestrator (`docs/GIT.md` §Rules) — or, in fold mode, an existing chunk branch plus the numbered review findings to fold, citing the review that raised each (e.g. `"F3"` from `da-review`, `"FINDING 6"` from `copilot-surrogate`).
+1. Either a chunk id and the branch to work on — created fresh from `main` by the orchestrator (`docs/GIT.md` §Rules) — or, in fold mode, an existing chunk branch plus the numbered review findings to fold, citing the review that raised each (e.g. `"F3"` from `da-review`, `"FINDING 6"` from `copilot-surrogate`). Cite those numbers in your report, never a label that exists only in the brief, and never write either into code, comments, tests or docs.
 2. Every open choice already settled, naming Alex's call where it was his.
 3. If the chunk touches a do-not-touch surface (`AGENTS.md` §Non-obvious constraints — persona `prompt.md` files, `docs/CEREMONIES.md`, `docs/VISION.md` §2/§4.1/§14, `docs/PERSONAS.md`'s roster table): Alex's approval and the exact wording he approved.
 4. The commit attribution line to end each commit message with.
