@@ -1,8 +1,8 @@
 # Build narrative — finished chunks
 
-Frozen history. Each finished `BUILD_PLAN.md` chunk's full spec line and build narrative, moved here verbatim on 2026-09-27 so the live plan stays small. Append-only: a newly finished chunk adds its own section at the end. Read only when a live doc points here.
+History, not live guidance. Each finished `BUILD_PLAN.md` chunk's full spec line and build narrative, moved here verbatim on 2026-09-27 from commit `a045dda`, so the live plan stays small. Text here is stale by design ("not yet built" means not yet built then), and a positional reference such as "line 25" or "above" means that commit's `BUILD_PLAN.md`. Read only when a live doc points here.
 
-The phase ledger (moved from `PROGRESS.md` the same day) is the index; sections follow in `BUILD_PLAN.md` order.
+Sections moved on 2026-09-27 follow `BUILD_PLAN.md` order. A chunk finished after that appends its section at the end, in finish order; the only later edit to an existing section is a `Deployed <date>` paragraph. The phase ledger below (moved from `PROGRESS.md` the same day) is frozen as of 2026-09-27: its rows are in ship order, 5.3's sub-chunks have rows of their own, and later chunks add no row.
 
 ## Phase ledger
 
