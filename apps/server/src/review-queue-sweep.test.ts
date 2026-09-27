@@ -478,4 +478,84 @@ describe('runReviewQueueSweep', () => {
     );
     expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalled();
   });
+
+  // Reproduces the re-report bug: `resolveStaleQuestionsAndSweepWindow` writes this run's own
+  // `'mid-silence'` row stamped with a real clock read *after* `now` (`createReviewQueueEntry`,
+  // `packages/core/src/intake/review-queue-repository.ts`), so the row's own `createdAt` is
+  // always later than the `now` this run records as `sweptAt`. The next sweep's `since` is that
+  // same `now`, so the row (`createdAt > since`) is listed and posted again. Stateful in-memory
+  // fakes stand in for the DB across two consecutive calls, so the second run's `listSince`
+  // genuinely sees the state the first run left behind, not a scripted return value.
+  describe('the re-report bug this fix addresses', () => {
+    it('does not re-report, on the very next sweep, a mid-silence row this run itself just wrote', async () => {
+      const rows: ReviewQueueEntry[] = [];
+      let recordedSweptAt: Date | null = null;
+      const question = makeQuestion();
+      const run1Now = new Date('2026-07-19T12:00:00.000Z');
+      // The real `createReviewQueueEntry` stamps `createdAt: new Date()` at write time, which is
+      // strictly after the `now` passed into this run — this fake reproduces that ordering
+      // directly rather than approximating it.
+      const midSilenceCreatedAt = new Date(run1Now.getTime() + 1000);
+
+      const listSince = vi.fn<ReviewQueueStore['listSince']>(async (scope) => ({
+        ok: true,
+        entries: rows.filter(
+          (row) => row.createdAt.getTime() > scope.since.getTime(),
+        ),
+      }));
+      const resolveAndLog = vi.fn<ConfirmingQuestionStore['resolveAndLog']>(
+        async () => {
+          const entry = makeEntry({
+            id: 'f1a85f64-5717-4562-b3fc-2c963f66afaa',
+            outcomeReason: 'mid-silence',
+            createdAt: midSilenceCreatedAt,
+          });
+          rows.push(entry);
+          return {
+            ok: true,
+            question: { ...question, resolvedAt: entry.createdAt },
+            entry,
+          };
+        },
+      );
+      const getSweepState = vi.fn<SweepStateStore['getSweepState']>(
+        async () => ({
+          ok: true,
+          state:
+            recordedSweptAt === null
+              ? null
+              : { personaId: 'sarah', lastSweptAt: recordedSweptAt },
+        }),
+      );
+      const recordSweepCompleted = vi.fn<
+        SweepStateStore['recordSweepCompleted']
+      >(async (input) => {
+        recordedSweptAt = input.sweptAt;
+        return {
+          ok: true,
+          state: { personaId: 'sarah', lastSweptAt: input.sweptAt },
+        };
+      });
+
+      const deps = makeDeps({
+        reviewQueueStore: { listSince },
+        confirmingQuestionStore: {
+          findStale: vi
+            .fn<ConfirmingQuestionStore['findStale']>()
+            .mockResolvedValueOnce({ ok: true, questions: [question] })
+            .mockResolvedValue({ ok: true, questions: [] }),
+          resolveAndLog,
+        },
+        sweepStateStore: { getSweepState, recordSweepCompleted },
+      });
+
+      await runReviewQueueSweep(deps, run1Now);
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(1);
+
+      const run2Now = new Date('2026-07-20T12:00:00.000Z');
+      await runReviewQueueSweep(deps, run2Now);
+
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(1);
+    });
+  });
 });

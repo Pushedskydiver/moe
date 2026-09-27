@@ -175,6 +175,10 @@ describe('review queue repository', () => {
   });
 
   describe('listReviewQueueEntriesSince (BUILD_PLAN 3.5)', () => {
+    // A far-future bound for tests that aren't themselves exercising the `until` edge — keeps
+    // every existing row well inside the window without changing what each test actually pins.
+    const FAR_FUTURE_UNTIL = new Date('2100-01-01T00:00:00.000Z');
+
     it('returns only entries created strictly after the given timestamp, oldest first', async () => {
       vi.useFakeTimers();
       try {
@@ -196,6 +200,7 @@ describe('review queue repository', () => {
         const result = await listReviewQueueEntriesSince(db, {
           personaId: 'sarah',
           since: cutoff,
+          until: FAR_FUTURE_UNTIL,
         });
 
         expect(result.ok).toBe(true);
@@ -220,6 +225,7 @@ describe('review queue repository', () => {
       const result = await listReviewQueueEntriesSince(db, {
         personaId: 'sarah',
         since,
+        until: FAR_FUTURE_UNTIL,
       });
 
       expect(result.ok).toBe(true);
@@ -232,9 +238,47 @@ describe('review queue repository', () => {
       const result = await listReviewQueueEntriesSince(db, {
         personaId: 'sarah',
         since: new Date('2000-01-01T00:00:00.000Z'),
+        until: FAR_FUTURE_UNTIL,
       });
 
       expect(result).toEqual({ ok: true, entries: [] });
+    });
+
+    // The fix's own boundary (BUILD_PLAN sweep re-report fix): the window is half-open on the
+    // left, closed on the right — `(since, until]` — so a row stamped exactly at `until` is this
+    // run's to report, and a row stamped any later is deferred to the next one.
+    it('excludes a row created after until and includes one created exactly at until', async () => {
+      vi.useFakeTimers();
+      try {
+        vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
+        const since = new Date('2026-07-19T09:00:00.000Z');
+        const until = new Date('2026-07-19T10:00:00.000Z');
+
+        vi.setSystemTime(until);
+        await createReviewQueueEntry(db, {
+          ...newEntryInput(),
+          sourceMessageText: 'created exactly at until — included',
+        });
+        vi.setSystemTime(new Date(until.getTime() + 1000));
+        await createReviewQueueEntry(db, {
+          ...newEntryInput(),
+          sourceMessageText: 'created after until — excluded, deferred',
+        });
+
+        const result = await listReviewQueueEntriesSince(db, {
+          personaId: 'sarah',
+          since,
+          until,
+        });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.entries.map((e) => e.sourceMessageText)).toEqual([
+          'created exactly at until — included',
+        ]);
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 });
