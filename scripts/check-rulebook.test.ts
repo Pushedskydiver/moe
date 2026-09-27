@@ -25,7 +25,7 @@ describe('checkClaudeStub', () => {
   it('reports a missing @AGENTS.md import line', () => {
     const errors = checkClaudeStub('# Moe Monorepo\n\nNo import here.\n', true);
     expect(errors).toEqual([
-      'no `@AGENTS.md` import line found (outside any fenced code block, unindented)',
+      'no `@AGENTS.md` import line found (on its own unindented line)',
     ]);
   });
 
@@ -39,35 +39,48 @@ describe('checkClaudeStub', () => {
   it('rejects a triple-backtick fenced code block even with a valid import outside it', () => {
     const text = '# Moe Monorepo\n\n@AGENTS.md\n\n```\ncode\n```\n';
     expect(checkClaudeStub(text, true)).toEqual([
-      '`CLAUDE.md` stub must not contain a fenced code block',
+      'must not contain a fenced code block',
     ]);
   });
 
   it('rejects a tilde-fenced code block even with a valid import outside it', () => {
     const text = '# Moe Monorepo\n\n@AGENTS.md\n\n~~~\ncode\n~~~\n';
     expect(checkClaudeStub(text, true)).toEqual([
-      '`CLAUDE.md` stub must not contain a fenced code block',
+      'must not contain a fenced code block',
     ]);
   });
 
   it('rejects a 4-backtick fenced code block (with an inner ``` line) even with a valid import outside it', () => {
     const text = '# Moe Monorepo\n\n@AGENTS.md\n\n````\n```\ncode\n```\n````\n';
     expect(checkClaudeStub(text, true)).toEqual([
-      '`CLAUDE.md` stub must not contain a fenced code block',
+      'must not contain a fenced code block',
     ]);
   });
 
-  it('reports CRLF line endings explicitly', () => {
+  it('rejects a 3-space-indented fenced code block', () => {
+    const text = '# Moe Monorepo\n\n@AGENTS.md\n\n   ```\ncode\n```\n';
+    expect(checkClaudeStub(text, true)).toEqual([
+      'must not contain a fenced code block',
+    ]);
+  });
+
+  it('does not treat an inline code span as a fenced code block', () => {
+    const text =
+      '# Moe Monorepo\n\n```inline``` code span line.\n\n@AGENTS.md\n';
+    expect(checkClaudeStub(text, true)).toEqual([]);
+  });
+
+  it('reports CRLF line endings as the only error for an otherwise-valid stub', () => {
     const text = '# Moe Monorepo\r\n\r\n@AGENTS.md\r\n';
-    expect(checkClaudeStub(text, true)).toContain(
-      'CLAUDE.md stub uses CRLF line endings, expected LF',
-    );
+    expect(checkClaudeStub(text, true)).toEqual([
+      'uses CRLF line endings, expected LF',
+    ]);
   });
 
   it('rejects an indented @AGENTS.md line', () => {
     const text = '# Moe Monorepo\n\n  @AGENTS.md\n';
     expect(checkClaudeStub(text, true)).toEqual([
-      'no `@AGENTS.md` import line found (outside any fenced code block, unindented)',
+      'no `@AGENTS.md` import line found (on its own unindented line)',
     ]);
   });
 
@@ -122,7 +135,7 @@ describe('parseRuleFrontmatter', () => {
     expect(errors[0]).toContain('not a single quoted glob');
   });
 
-  it('rejects a bare brace-glob entry (YAML flow-mapping token)', () => {
+  it('rejects a bare brace-glob entry (YAML parse error)', () => {
     const { errors } = parseRuleFrontmatter('paths:\n  - {a,b}/x.ts');
     expect(errors.length).toBe(1);
     expect(errors[0]).toContain('not a single quoted glob');
@@ -131,7 +144,7 @@ describe('parseRuleFrontmatter', () => {
   it('rejects an entry containing a bracket class', () => {
     const { errors } = parseRuleFrontmatter("paths:\n  - '[x]/y.ts'");
     expect(errors.length).toBe(1);
-    expect(errors[0]).toContain('[');
+    expect(errors[0]).toContain('bracket character classes');
   });
 
   it('rejects a quoted entry followed by a trailing comment', () => {

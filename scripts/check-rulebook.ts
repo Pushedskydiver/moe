@@ -9,10 +9,12 @@ import { fileURLToPath } from 'node:url';
 
 import { extractFrontmatter } from './check-agent-frontmatter.ts';
 
-// Up to 3 spaces of indent, then 3+ backticks or 3+ tildes: the CommonMark fence-open shape.
+// Up to 3 spaces of indent, then 3+ backticks with no further backtick later on the line (a
+// CommonMark backtick fence's info string can't itself contain a backtick, so a line like
+// "```inline``` code span line." is an inline code span, not a fence open) or 3+ tildes.
 // Rejected outright rather than tracked open/closed — a stub that contains any fenced code block
 // at all is already off-shape for a 10-line, one-import file.
-const FENCE_OPEN = /^ {0,3}(`{3,}|~{3,})/u;
+const FENCE_OPEN = /^ {0,3}(?:`{3,}(?!.*`)|~{3,})/u;
 const IMPORT_LINE = '@AGENTS.md';
 
 export function checkClaudeStub(
@@ -22,15 +24,22 @@ export function checkClaudeStub(
   const errors: string[] = [];
   if (!agentsMdExists) errors.push('AGENTS.md does not exist');
 
-  if (claudeText.includes('\r')) {
-    errors.push('CLAUDE.md stub uses CRLF line endings, expected LF');
+  // CRLF is reported once, then normalised away so a CRLF stub that's otherwise valid returns
+  // exactly this one error instead of also failing the import-line check below (which compares
+  // against a bare LF line).
+  const hasCrlf = claudeText.includes('\r\n');
+  if (hasCrlf) {
+    errors.push('uses CRLF line endings, expected LF');
   }
+  const normalizedText = hasCrlf
+    ? claudeText.replaceAll('\r\n', '\n')
+    : claudeText;
 
   let hasFence = false;
   let importLineCount = 0;
   let nonEmptyCount = 0;
 
-  for (const line of claudeText.split('\n')) {
+  for (const line of normalizedText.split('\n')) {
     if (line.trim() !== '') nonEmptyCount++;
     if (FENCE_OPEN.test(line)) hasFence = true;
     // Policy, not a Claude Code limit: Claude Code imports any whitespace-preceded @path outside
@@ -40,12 +49,12 @@ export function checkClaudeStub(
   }
 
   if (hasFence) {
-    errors.push('`CLAUDE.md` stub must not contain a fenced code block');
+    errors.push('must not contain a fenced code block');
   }
 
   if (importLineCount === 0) {
     errors.push(
-      'no `@AGENTS.md` import line found (outside any fenced code block, unindented)',
+      'no `@AGENTS.md` import line found (on its own unindented line)',
     );
   } else if (importLineCount > 1) {
     errors.push(
@@ -74,8 +83,9 @@ const QUOTED_ENTRY = /^(['"])(.*)\1$/u;
 // Deliberately not a YAML parser (same reasoning as check-agent-frontmatter.ts's own
 // parseFrontmatter): every rule file uses exactly one shape, `paths:` followed by a block list of
 // quoted glob strings, and that is the only shape this reads. A `paths` entry must be quoted
-// (single or double): YAML reads a bare entry starting `*` as an alias — a parse error, so Claude
-// Code drops the frontmatter and loads the rule unscoped — and one starting `{`/`[` as a mapping or
+// (single or double): a bare entry starting `*`, `{` or `[` is either a YAML parse error — real
+// globs like `{a,b}/x.ts` or `[x]/y.ts` fall here, and Claude Code then drops the frontmatter and
+// loads the rule unscoped — or, if it's a bare `{…}`/`[…]` with nothing else after it, a mapping or
 // sequence rather than a string; quoting every entry avoids both. An entry containing `[` is
 // rejected outright even when quoted: Claude Code's own glob matcher and Node's `path.matchesGlob`
 // disagree on POSIX bracket character classes, and no rule file actually needs one.
