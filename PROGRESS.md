@@ -2,7 +2,87 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
 
-## Next workstreams (after Session 62)
+## Next workstreams (after Session 63)
+
+Updated 2026-09-28 end-Session-63 — **`fix/review-queue-sweep-rereport` is R2-reviewed and R2-folded on the local branch (`259e76e`; not pushed, no PR yet). R2 found MATERIALs, all folded, including one behaviour change: the backward-clock guard was removed. An R3 range check on `66ec1de..259e76e` is next.** `docs/glossary-thinning` is unchanged at `c8cd765` (R3 still due). All 8 personas are `started` with checks passing.
+
+**Asked and decided:** nothing. Nothing this session was marked Alex's.
+
+**Done this session:**
+
+- **Merged `origin/main`** into the branch (`66ec1de`; only the Session 62 handoff).
+- **Pre-push suite at `9d8e125`** (orchestrator): build, lint, typecheck, format and knip passed. Every test passed except `packages/core`'s 20 DB-backed files, which fail on `DATABASE_URL is not set` (plus teardown fallout from the same cause).
+- **R2** (range `41e4a36..9d8e125`, both isolated): DA 0 BLOCKING / 2 MATERIAL / 8 LOW (+1 FYI); surrogate 0 / 1 / 9 (+6 FYI). Reports: `sweep-fix/da-r2-report.md` and `sweep-fix/surrogate-r2-report.md`. Every R1 item was applied. Both reviewers re-ran the mutation checks: moving the `until` read above the writes fails the F2 test, and reverting the guard failed its test.
+  - Converged MATERIAL, verified at source: the new exceptions list said "none of them silent", but exception (3) is a silent miss (`:422` "the one true gap").
+  - DA M2: the "loses nothing" claims were false. When the clock reads backward, this run's own `'mid-silence'` rows (stamped at or before `until`, which is at or before `since`) fall into neither window.
+  - DA L6, and the orchestrator's decision: the R1 guard (`sweptAt = max(since, until)`) breaks the file's own rule that over-reporting beats a miss. A backward step means the earlier reading was fast, and holding `lastSweptAt` at that future value skips rows later stamped in `(until, since]`.
+- **R2 fold** (`implementer`, per `sweep-fix/r2-fold-brief.md`; report `r2-fold-report.md`): 4 commits, `edc163e..259e76e`, 7 files.
+  - **The guard is removed; `sweptAt: until` again.** This is R1 L3's other option.
+  - The TSDoc now lists four exceptions: (1)–(3) are overlaps, (3) being the new backward-clock case; (4) is the stamp-versus-listing gap. Only (1) and (2) are logged. The wording is settled in the brief.
+  - The builder reported the backward test red against the guard and green without it, and the F2 mutation still red.
+  - Siblings were fixed (`schema.ts`, `review-queue-repository.ts`, `sender-trigger-cache.ts`, `sweep-state-repository.ts`), and `docs/ARCHITECTURE.md:15,20` too. All LOWs applied.
+  - Suite reported green except the DB-backed core files.
+  - **Orchestrator verified only:** the commit list, a clean tree, and that `later of` and `none of them silent` are gone from `apps packages`. Everything else is R3's to check.
+
+**In flight:** nothing running.
+
+**Next, and open questions for Alex:** nothing waiting on Alex. For his veto in the PR: (a) recording `until` even when the clock reads backward (an accepted, skew-bounded re-report) rather than a guard; (b) R1 DA L5's trade: the per-run double report swapped for gap (4), bounded by commit latency plus clock skew, rather than adding a settle delay.
+
+**Cleanup:** both R2 review worktrees and their `worktree-agent-*` branches were removed, after checking the report copies byte for byte. `git worktree list` shows only the primary checkout. Both `fix/review-queue-sweep-rereport` and `docs/glossary-thinning` are kept (unpushed work). Session 58 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
+
+**Session data:** ~125k tokens at handoff (usage tool; 5-hour window 50%, weekly 44%, Fable weekly 4%). Context at load: 81.7k (usage tool), so row 1 fired at ~121.7k.
+
+- **Trigger:** row 1, a phase boundary (R2 fold committed) at 119.3k, with the handoff itself crossing load+40k.
+- **What grew context most:**
+  - The ~82k loaded start (~10k less than Sessions 61–62: `origin/main`'s `PROGRESS.md` was read first, so no stale read).
+  - The two R2 hand-backs (~4k).
+  - The pre-push log triage (~2k).
+  - The guard trace, from source reads plus the R1 L3 lookup (~3k).
+  - Writing the fold brief (~3k).
+- **Subagent tokens:** DA R2 153k, surrogate R2 146k, R2 fold 170k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none.
+
+**Lessons (Session 63):**
+
+- **FFFFF — A fold chose between a reviewer's two options against the reviewer's framing, not the code's own priority rule.** R1 L3 offered "add a guard, or name it as an exception". The guard was chosen because it stopped an overlap. Nobody checked it against the file's stated rule that over-reporting beats a silent miss, and it inverts that rule in the very case it names. When a fold picks between options, test the pick against the code's stated invariants, not just the finding. → none (instance of the over-correction class, `docs/REVIEW-PATTERNS.md` §Over-correction).
+- **GGGGG — Reading `origin/main`'s `PROGRESS.md` first cut load by ~10k.** Loaded at 81.7k, against 91–92k when the stale branch copy was read first (YYYY). → none (evidence for the pending SESSION-HANDOFF PR's prompt step 1 change).
+
+### Session 64 loading instructions
+
+- **Check live state first:**
+  - `git fetch`, then read **`git show origin/main:PROGRESS.md`**, not the working tree's copy (YYYY, GGGGG).
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `ab66582`), `git status`, `gh pr list`, and `git log --oneline 66ec1de..fix/review-queue-sweep-rereport` (expect 4 commits, ending `259e76e`).
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+  - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
+- **First: finish `fix/review-queue-sweep-rereport`.**
+  1. Check out the branch; merge `origin/main` if it has moved.
+  2. Run the R3 range check on `66ec1de..259e76e`, DA and surrogate in parallel and isolated. Both check every item in `sweep-fix/r2-fold-brief.md`: applied as settled, true at source, no new false absolute. Grep the concept terms repo-wide.
+     - DA re-runs the F2 ordering mutation. It also re-adds a `max(since, until)` guard and confirms the rewritten backward-clock test fails.
+     - DA checks exception (4)'s wording against the code paths, including this run's own writes.
+     - Per UUUU/XXXX: git only in their own worktree; reports written there and `cp`'d to `sweep-fix/`. Their worktrees start on `main`, so tell them to detach at the branch HEAD.
+     - 0 BLOCKING/MATERIAL → the disclosed LOW pass, then self-review (`docs/SELF-REVIEW.md`).
+  3. Run the full pre-push suite (tests via `pnpm -r --no-bail --if-present run test`, WWWW), push, and open the PR: `🐛 fix(server): stop the review-queue sweep re-reporting its own writes`, labels `server` and `core` (plus the type label per `docs/GIT.md`).
+     - Body: the "Dismissed / PR body" items from both `r1-fold-brief.md` and `r2-fold-brief.md`. That covers DA L4 (the squash hides the red intermediate commit), L9 (the first sweep after merge re-reports once), and the 3-file conflict with `docs/glossary-thinning`.
+     - Two items are for Alex's veto: recording a backward `until` rather than a guard, and gap (4) rather than a settle delay.
+     - Also say the DB-backed tests first run in CI. Post the surrogate reports (R1–R3) as one comment.
+  4. Watch the DB-backed tests in CI. They have never run.
+- **Then: finish `docs/glossary-thinning`**, per the Session 62 entry's loading instructions (step "Then: finish `docs/glossary-thinning`"). R3 on `04c6ec3..c8cd765`, then the PR. Labels: `chore`, `server`, `github`, `core`.
+  - If the sweep PR has merged first, resolve the conflicts in `review-queue-repository.ts`, `schema.ts`, `review-queue-sweep.ts` and now `sender-trigger-cache.ts` in favour of the sweep PR. GLOSSARY `:54` ("never misses a row") must be scoped to exception (4) (decision branch 2).
+- **Then the SESSION-HANDOFF PR**, as specified in the Session 61 entry: row 1 → load + 40k, the "context at load" field, prompt step 1 → `origin/main` (GGGGG is supporting evidence), and the PPPP, SSSS and YYYY harvests.
+- **Decision branches:**
+  1. If the sweep R3 finds BLOCKING/MATERIAL, fold it and run R4 — reaching R4 means ask Alex (`docs/DEVELOPMENT.md` §Review Gate). Same for the glossary R3.
+  2. GLOSSARY `:54` on the glossary branch: scope "never misses a row" / "double-reports" to the sweep TSDoc's four exceptions before the glossary PR opens.
+  3. **[ALEX]** If Alex vetoes either trade on the sweep PR: for a guard, re-add `max(since, until)` and reword exception (3) as a gap; for a settle delay, add it as a fold.
+- **Carry-overs:**
+  - WWWW into `docs/DEVELOPMENT.md` §Quick Reference, in the next PR that touches it.
+  - The A4 cite-fix PR (Alex: fix the cites).
+  - Then the O10 Prettier chore PR, the Hook PR, and the chief-clancy doc-port workstream. Candidates are in `git show 3abde05:PROGRESS.md`'s Session 52 entry. Confirm the order with Alex.
+  - Memory: `harness-and-tooling-gotchas.md` is past the ~5 KB re-consolidation mark.
+- **Recommended model and effort for Session 64:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 62
 
 Updated 2026-09-28 end-Session-62 — **`fix/review-queue-sweep-rereport` is built, R1-reviewed and R1-folded on a local branch (`9d8e125`; not pushed, no PR yet). R1 found 3 MATERIALs, all folded, so an R2 range check on `41e4a36..9d8e125` is next.** `docs/glossary-thinning` is unchanged at `c8cd765` (R3 still due). All 8 personas are `started` with checks passing.
 
@@ -311,63 +391,6 @@ Updated 2026-09-27 end-Session-59 — **`docs/development-thinning` is open as [
   - The A4 cite-fix PR (Alex decided: fix the cites). It's small and can go before or after the glossary PR.
   - After both thinning PRs: the O10 Prettier chore PR, then the Hook PR, then the chief-clancy doc-port workstream (candidates in `git show 3abde05:PROGRESS.md`'s Session 52 entry). Confirm the order with Alex.
 - **Recommended model and effort for Session 60:** Opus, `high`.
-- **Fallback:** if Alex redirects on load, follow that.
-
-## Earlier: Session 58
-
-Updated 2026-09-27 end-Session-58 — **`docs/development-thinning` is built, architecturally passed, R1-reviewed and folded, on a local branch (`0abb57d`; not pushed, no PR yet). The R2 range check on the fold is next.** All 8 personas are `started` with checks passing.
-
-**Asked and decided:** nothing. Nothing this session was marked Alex's.
-
-**Done this session:**
-
-- **Build** (`implementer`, 0 stops): `a242453` (narration → new `docs/history/DEVELOPMENT-EVIDENCE.md`, pointers left), `b64857c` (isolation paragraph, Option A), `4f82603` (VISION `:208` and `:327`, A1/A2). O6 filled at brief `:237` (2026-09-27, `89df804`). The builder reported brief §3.4's two-step check clean (44 deleted runs, all mapped) and §3.6's anchors resolving.
-- **Architectural pass** (orchestrator, `1932c75`): the S5 pointer had been appended after a full stop as a stray lowercase fragment; moved inside its sentence.
-- **R1** (range `main...1932c75`, both isolated): DA 0 BLOCKING / 1 MATERIAL / 4 LOW; surrogate 0 / 3 / 5. Reports: `.claude/research/workflow-series/pr5-dev-r1/` (`da-report.md` has "G1T" for "git", a harness placeholder; `surrogate-report.md` is written for posting as the PR comment).
-  - Converged MATERIAL: Option A's sentence 3 ("Isolation does not fence off the primary checkout… a Bash command… acts on the primary session's branch") is partly false. On Claude Code 2.1.283, an isolated agent's git commands aimed at the primary checkout (`cd`/`-C`) are refused; non-git Bash and file writes still land there. Both reviewers hit the refusal; the orchestrator found the refusal string in the 2.1.283 binary.
-  - Surrogate MATERIAL: `:5`'s S1 "names each excluded section" is false against chief-clancy's own `DEVELOPMENT.md` (seven unnamed sections); `VISION.md:315` still says the tool-allowlist grid is "re-specified in `BUILD_PLAN.md`" (it's `docs/decisions/TOOL-ALLOWLIST-GRID.md`; the DA flagged it too).
-- **R1 fold** (`doc-fixer`, committed `0abb57d`) per `pr5-dev-r1/fold-brief.md`: F1–F3 MATERIAL, F4–F7 LOW. Dismissed: surrogate F4 (`:327` INDEX unwritten; Alex chose (b)), F6 (`:317`, A4), F7 (`VISION.md:309` "hardcodes", pre-existing → NOTICED), DA's S4 quote-style nit. Every source claim in the fold wording was checked at source first.
-
-**In flight:** nothing running. `docs/development-thinning` is local only.
-
-**Next, and open questions for Alex:**
-
-- **[ALEX] A4** (unchanged): three places cite a §6.4 latency target that VISION §6.4 doesn't have. Ask when the development PR opens.
-- **For Alex's veto in the PR:** the `VISION.md:315` repoint rode in on review (same drift class as A2's `:208`), not on a decision of his.
-
-**Cleanup:** no worktrees left (`git worktree list` shows only the primary checkout). `docs/development-thinning` kept (unpushed work). Session 53 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
-
-**Session data:** ~150k tokens at handoff (usage tool; 5-hour window 13%, weekly 40%, Fable weekly 4%). Context at load: 86.9k (usage tool, right after loading; SSSS).
-
-- **Trigger:** phase boundary above 100k (fold committed), landing on the 150k soft line.
-- **What grew context most:** reading the surrogate R1 report whole to verify its claims (~8k), the build and fold word-diffs (~6k), the brief's §3 (~6k), plus the ~87k loaded start.
-- **Subagent tokens:** build 140k, DA R1 135k, surrogate R1 180k, fold 50k.
-- **Structural warning signs:** none.
-- **Clarifying question needed that the last entry should have answered:** none.
-
-**Lessons (Session 58):**
-
-- **UUUU — Isolated reviewers can't run any git against the primary checkout on Claude Code 2.1.283.** This session's R1 dispatches said "run no git command there beyond plain reads"; the harness refused even those. Tell isolated reviewers to run git only in their own worktree (the object store is shared: `git diff <range>`, `git show <sha>:<path>`), and read HEAD files from the primary path with non-git reads. → memory (harness gotchas); the doc fix is in this PR's F1.
-- **VVVV — Two settled sentences passed both grill rounds and were falsified at build, each a claim about something outside the repo.** S1's "each excluded section" was checked against moe's own list, not chief-clancy's file; Option A's sentence 3 described harness behaviour nobody ran. When a settled sentence quantifies over, or describes, an external thing, check it against that thing. → none (instance of verify-primary-source).
-
-### Session 59 loading instructions
-
-- **Check live state first:**
-  - `git log --oneline -3 origin/main` (expect this handoff on top of `89df804`), `git status`, `gh pr list`, and `git log --oneline main..docs/development-thinning` (expect 5 commits, ending `0abb57d`).
-  - `fly status -a moe-<persona>` for all 8 persona Apps.
-  - Record the `get_usage` context figure right after loading (SSSS).
-- **Primary: finish `docs/development-thinning`.**
-  1. Check out the branch; merge `main` in if it has moved beyond this handoff.
-  2. R2 range check on `1932c75..0abb57d`, DA and surrogate in parallel, isolated. Name the folded findings from `pr5-dev-r1/fold-brief.md` (DA: F1, F3; surrogate: F1–F5, plus DA's F6/F7 LOWs for whichever reads EV). Per UUUU, tell them to run git only in their own worktree and read HEAD files from `/Users/alexclapperton/Desktop/alex/@moe/` with non-git reads. Reports to `pr5-dev-r2/`, short hand-backs. Loop until 0 BLOCKING/MATERIAL (ask Alex at R4), then the disclosed LOW pass and self-review (`docs/SELF-REVIEW.md`).
-  3. Measure tokens per brief §4, then run the full pre-push suite, push, and open the PR per brief §3 (title `📝 docs: move review-gate incident evidence out of DEVELOPMENT.md`, label `chore`). The body carries: token figures and why no `claude -p` run is needed (no always-loaded file touched); NOTICED BUT NOT TOUCHING (A4 `:317`, `VISION.md:309`'s stale "hardcodes", isolation Option B); the architectural-pass commit `1932c75`; the `VISION.md:315` repoint as review-driven and Alex's to veto; the LOW-pass author-read. Post the surrogate findings (R1 onward) as one PR comment.
-  4. Then `docs/glossary-thinning` (brief §5), in its own session if a trigger fires.
-- **Decision branches:**
-  1. **[ALEX]** A4: ask when the development PR opens.
-  2. If the review gate reaches R4, ask Alex.
-- **Carry-overs:**
-  - PPPP's harvest (`docs/SESSION-HANDOFF.md` §6) and SSSS's (§9) go into the next PR that touches that doc.
-  - After both thinning PRs: the O10 Prettier chore PR, then the Hook PR, then the chief-clancy doc-port workstream (candidates in `git show 3abde05:PROGRESS.md`'s Session 52 entry). Confirm the order with Alex.
-- **Recommended model and effort for Session 59:** Opus, `high`.
 - **Fallback:** if Alex redirects on load, follow that.
 
 ## Session archive
