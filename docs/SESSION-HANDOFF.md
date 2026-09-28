@@ -46,7 +46,7 @@ No new weekly-limit trigger row is added (Alex, 2026-09-27) — the weekly % liv
 2. Memory files current — decisions and preferences that should load automatically next time.
 3. Background work committed, or declared re-runnable with its inputs on disk.
 4. Cleanup (§4).
-5. A one-line notice to Alex saying why now (naming the weekly % if ≥85%, per §9), plus the paste-in prompt (§5) as a text block Alex pastes into a new session — not a task chip.
+5. A one-line notice to Alex saying why now (naming the weekly % if ≥85%, per §9), plus the paste-in prompt (§5) as a text block Alex pastes into a new session — not a task chip. When the entry rides an open PR (item 1's exception), the prompt's step 1 names that PR's branch (§5).
 6. The recommended model and effort for the next session (§7).
 
 Rules for the entry: point to files instead of restating them, separate "done" from "verified", list open questions for Alex rather than assuming answers, and never default silently to a workstream if the next step is unclear. If Alex keeps the session going after its handoff is written, keep working and write a new entry at the next stopping point. Never edit the earlier one, apart from §6's post-handoff decision rule (one dated `Update (<date>):` line plus the matching loading-instructions amendment).
@@ -73,14 +73,14 @@ Continue the moe project.
 3. Then carry on with the Next list. Ask me only what PROGRESS.md marks as mine to decide.
 ```
 
-Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first, at a cost of ~9k per resume (Sessions 61–62). Under §3's exception, when the entry rides an open PR, `origin/main`'s copy is the stale one instead. The handoff notice then names that branch, and step 1 reads its copy (`git show origin/<branch>:PROGRESS.md`).
+Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first, at a cost of ~9k per resume (Sessions 61–62). Under §3's exception, when the entry rides an open PR, `origin/main`'s copy is the stale one instead. The paste-in prompt's step 1 then names that branch instead (`git show origin/<branch>:PROGRESS.md`), since the prompt is all the next session receives.
 
 ## 6. Entry shape
 
 `## Next workstreams (after Session N)` for the newest entry, then `## Earlier: Session N` for older ones. Each entry holds:
 
 - "Updated `<date>` end-Session-N — **headline**."
-- Asked and decided. Split what Alex decided from what Claude decided under his delegation, and tag each accordingly: only the first gets "(Alex, `<date>`)". Session 60's single "Asked and decided (Alex, …)" header filed Claude's delegated calls under Alex's name, and harvesting that entry into this doc first tagged three of them as Alex's (Session 66, caught in review).
+- Asked and decided. Split what Alex decided from what Claude decided under his delegation, and tag each accordingly: only the first gets "(Alex, `<date>`)"; the second is tagged as Claude's call under Alex's delegation. Session 60's single "Asked and decided (Alex, …)" header filed Claude's delegated calls under Alex's name, and harvesting that entry into this doc first tagged three of them as Alex's (Session 66, caught in review).
 - Shipped/Done (paths; what was verified and how).
 - In flight.
 - Next, and open questions for Alex — anything marked his to decide.
@@ -96,7 +96,7 @@ The loading instructions carry:
 - Orchestration notes.
 - The recommended model and effort.
 - **Decision branches, numbered** — not lettered, since a lettered list collides with lesson letters (§8). Mark each branch that is Alex's to decide.
-- Carry-overs. A deferred workstream keeps a pointer to where its scope is written (a commit's `PROGRESS.md`, or a brief file), never just a one-line label: five handoffs once carried "PR 5: docs thinning, plus VISION:327" while its real scope sat only in the Session 49 and 50 entries, which archived out of the detail band before the fifth.
+- Carry-overs. A deferred workstream keeps a pointer to where its scope is written (a commit's `PROGRESS.md`, or a brief file), never just a one-line label: five handoffs once carried "PR 5: docs thinning, plus VISION:327" while its real scope sat only in the Session 49 and 50 entries, which archived out of the detail band by the fifth.
 - The fallback.
 
 **No restating codified rules inside a loading-instructions block** — it's a pointer to `docs/*.md`, not a copy of it. The exception: genuinely session-specific direction (the workstream pointer, decision branches, carry-overs) and anything the next session can't discover just by reading the codebase (an in-flight external dependency, a fact only true this week). Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious constraints) is marked Alex's call.
@@ -127,7 +127,7 @@ Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Conte
 
 Session data fields, per entry: tokens at handoff and their source (tool or CLI); context at load and its source (§2; row 1's baseline); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired; what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered.
 
-Fields missing from older entries stay "not recorded", with no backfill. That covers Sessions 46–52's gaps, and context at load before Session 58, the first entry to record it. It was a Claude call under Alex's delegation at §9's first review.
+Fields missing from older entries stay "not recorded", with no backfill. That covers Sessions 46–52's gaps, a Claude call under Alex's delegation at §9's first review (Session 60), and context at load before Session 58, the first entry with a context-at-load field, which Claude added under the same delegation while reviewing the change that introduced that field (Session 66).
 
 Review every ten sessions. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
 
