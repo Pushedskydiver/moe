@@ -16,7 +16,7 @@ describe('classifyFly', () => {
     expect(classifyFly('flyctl deploy')).toBe('deploy');
   });
 
-  it('flags a deploy with global flags before the subcommand', () => {
+  it('flags a deploy with an app flag before the subcommand', () => {
     expect(classifyFly('fly -a moe-sarah deploy')).toBe('deploy');
   });
 
@@ -58,7 +58,7 @@ describe('classifyFly', () => {
     'fly status && echo deploy',
     'fly logs -a moe-sarah | grep deploy',
     'git commit -m "fix deploy docs"',
-  ])('does not flag a non-deploy fly command: %s', (command) => {
+  ])('does not flag a command that runs no fly deploy: %s', (command) => {
     expect(classifyFly(command)).toBeNull();
   });
 
