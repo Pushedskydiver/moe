@@ -464,6 +464,40 @@ describe('runReviewQueueSweep', () => {
     );
   });
 
+  // R1 fold, F1: a run whose clock reads earlier than the stored `lastSweptAt` (clock skew
+  // between the CLI host and the persona's machine, or the host's own clock stepping backward)
+  // must not move the window backward — recording the clock's own earlier read as `sweptAt` would
+  // make the next run's window overlap everything already reported since `storedLastSweptAt`.
+  it("does not move lastSweptAt backward when this run's clock reads earlier than the stored value", async () => {
+    const now = new Date('2026-07-19T12:00:00.000Z');
+    const storedLastSweptAt = new Date('2026-07-19T11:00:00.000Z');
+    const earlierClockRead = new Date('2026-07-19T10:00:00.000Z');
+    const deps = makeDeps({
+      clock: () => earlierClockRead,
+      sweepStateStore: {
+        getSweepState: vi
+          .fn<SweepStateStore['getSweepState']>()
+          .mockResolvedValue({
+            ok: true,
+            state: { personaId: 'sarah', lastSweptAt: storedLastSweptAt },
+          }),
+        recordSweepCompleted: vi
+          .fn<SweepStateStore['recordSweepCompleted']>()
+          .mockResolvedValue({
+            ok: true,
+            state: { personaId: 'sarah', lastSweptAt: storedLastSweptAt },
+          }),
+      },
+    });
+
+    await runReviewQueueSweep(deps, now);
+
+    expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      sweptAt: storedLastSweptAt,
+    });
+  });
+
   it('logs an error but continues the sweep when finding stale confirming questions fails', async () => {
     const now = new Date('2026-07-19T12:00:00.000Z');
     const deps = makeDeps({

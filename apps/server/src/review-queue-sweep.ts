@@ -423,9 +423,15 @@ export async function runReviewQueueSweep(
   const posted = await postSweepDigest(deps, entries.entries, now);
   if (!posted) return;
 
+  // Never move `lastSweptAt` backward: `until` normally advances past `since`, but a clock that
+  // reads earlier than the stored value (clock skew between the CLI host and the persona's
+  // machine, or the host's own clock stepping backward) must not record a window regression — if
+  // `until <= since` the listing above is already empty, so recording `since` unchanged loses
+  // nothing.
+  const sweptAt = until > since ? until : since;
   const recorded = await deps.sweepStateStore.recordSweepCompleted({
     personaId: deps.personaId,
-    sweptAt: until,
+    sweptAt,
   });
   if (!recorded.ok) {
     deps.logger.error('failed to record sweep completion', {
