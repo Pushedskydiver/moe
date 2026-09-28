@@ -377,25 +377,42 @@ async function postSweepDigest(
  * BUILD_PLAN 3.5's own review-queue sweep — VISION §5.2's "nothing is silently eaten" backstop,
  * finally given a real reader. Triggered manually (Alex confirmed via `AskUserQuestion`: a CLI
  * script, `scripts/review-queue-sweep.ts`'s own thin real-infra wrapper around this function — not
- * a background timer, since the codebase has no scheduled-job infrastructure and chunk 7.2a's own
- * future ceremony scheduler is the real home for that, not this chunk).
+ * a background timer, since the codebase had no scheduled-job infrastructure at chunk 3.5 and
+ * chunk 7.2a's own future ceremony scheduler is the real home for that, not this chunk).
  *
  * Lists every `review_queue` row created in `(lastSweptAt, until]`, where `until` is read from
  * `deps.clock()` *after* `resolveStaleQuestionsAndSweepWindow` writes this run's own
  * `'mid-silence'` rows (so this run's own writes are included), and DMs a formatted digest
  * (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's own lifetime-cumulative High-band
  * draft-outcome counts (`fetchDraftOutcomeCounts`), VISION §5.4's named production metric for the
- * whole intake cascade. `sweep_state` is only advanced, to `until` (not `now`), once both listing
- * *and* posting actually succeed — either failure leaves it untouched, so the next run re-covers
- * the same window rather than silently skipping past rows Alex was never shown (DA review, chunk
- * 3.5: the posting-failure half of this was originally missed — `sweep_state` advanced
- * unconditionally after `postSweepDigest`, defeating this very backstop's own purpose). Reading
- * `until` after this run's own writes, and recording it (not `now`) as the next `lastSweptAt`,
- * keeps consecutive completed sweeps' windows from overlapping (a row reported twice) or gapping
- * (a row missed), with one known narrow exception this doesn't close: `createdAt` is stamped by
- * the writing process before its insert commits, so a row stamped just before `until` but committed
- * after the listing query runs is never listed by either window (milliseconds, plus any clock skew
- * between the CLI host and the persona's machine).
+ * whole intake cascade. `sweep_state` is only advanced, to the later of `since` and `until` (not
+ * `now`), once both listing *and* posting actually succeed — either failure leaves it untouched,
+ * so the next run re-covers the same window rather than silently skipping past rows Alex was
+ * never shown (DA review, chunk 3.5: the posting-failure half of this was originally missed —
+ * `sweep_state` advanced unconditionally after `postSweepDigest`, defeating this very backstop's
+ * own purpose). Recording the later of the two (R1 fold, F1) keeps a clock that reads earlier than
+ * the stored `lastSweptAt` — skew between the CLI host and the persona's machine, or the host's
+ * own clock stepping backward — from moving the window back; `until <= since` already means the
+ * listing above found nothing, so recording `since` unchanged loses nothing.
+ *
+ * Reading `until` after this run's own writes, and recording it (not `now`) as the next
+ * `lastSweptAt`, keeps consecutive completed sweeps' windows from overlapping (a row reported
+ * twice) or gapping (a row missed) in the common case — but not always; three exceptions this
+ * doesn't close, none of them silent, and none in place of the other:
+ * 1. **State-read fallback (overlap):** a failed `getSweepState` falls back to `since = new
+ *    Date(0)` (`resolveStaleQuestionsAndSweepWindow`, below) rather than aborting, so that run's
+ *    window overlaps every earlier completed one.
+ * 2. **Record failure after a successful post (overlap):** a failed `recordSweepCompleted` after
+ *    listing and posting both succeed leaves `lastSweptAt` where it was, so the next run's window
+ *    overlaps the rows Alex was already shown.
+ * 3. **Commit-ordering (gap):** `createdAt` is stamped by the writing process before its insert
+ *    commits, so a row stamped just before `until` but committed after the listing query runs is
+ *    never listed by either window (milliseconds, plus any clock skew between the CLI host and
+ *    the persona's machine).
+ *
+ * (1) and (2) are re-reports, not misses — the same rule `resolveStaleQuestionsAndSweepWindow`'s
+ * own comment states below: over-reporting an already-seen row is far lower-risk than silently
+ * missing one. (3) is the one true gap.
  *
  * `now` keeps its own separate, pre-existing roles unchanged: the Mid-band silence cutoff and the
  * ignored-draft threshold, both computed relative to when this run started, not to `until`.

@@ -94,7 +94,7 @@ type ListReviewQueueEntriesSinceScope = {
  * `recordSweepCompleted`: the caller reads `until` after writing this run's own resolved-silence
  * rows and records it as the next `lastSweptAt`, so consecutive completed sweeps' windows
  * `(a, b]`, `(b, c]` neither overlap (re-reporting a row) nor gap (silently skipping one) — see
- * `review-queue-sweep.ts`'s own `runReviewQueueSweep` TSDoc for the known narrow exception.
+ * `review-queue-sweep.ts`'s own `runReviewQueueSweep` TSDoc for the exceptions this doesn't close.
  */
 export async function listReviewQueueEntriesSince(
   db: Kysely<Database>,

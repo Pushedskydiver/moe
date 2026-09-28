@@ -222,15 +222,15 @@ type PendingConfirmingQuestionsTable = {
 
 /**
  * Kysely's compile-time shape for `sweep_state` (`./intake/sweep-state.ts`'s DB-backed
- * counterpart, BUILD_PLAN 3.5) — one row per persona, tracking when that persona's own
- * `review-queue-sweep` CLI script last ran (`personaId` is the `PRIMARY KEY`, not a
- * surrogate `id`, since there's genuinely only ever one row per persona — no history, no
- * `createdAt`). Each sweep reports the `review_queue` rows created in `(lastSweptAt, until]`
- * and records `until` as the new `lastSweptAt`, so consecutive completed sweeps' windows
- * neither overlap nor gap (one known narrow exception: `review-queue-sweep.ts`'s
- * `runReviewQueueSweep` TSDoc) — Alex confirmed this design via `AskUserQuestion` over the cheaper
- * "fixed rolling window from now" alternative, which has real gaps if the script is skipped or
- * run twice in one window.
+ * counterpart, BUILD_PLAN 3.5) — one row per persona, tracking the upper bound of that persona's
+ * own `review-queue-sweep` CLI script's last *completed* window, not simply when it last ran
+ * (`personaId` is the `PRIMARY KEY`, not a surrogate `id`, since there's genuinely only ever one
+ * row per persona — no history, no `createdAt`). A sweep that reads its own state reports the
+ * `review_queue` rows created in `(lastSweptAt, until]` and records `until` as the new
+ * `lastSweptAt`, so consecutive completed sweeps' windows neither overlap nor gap, save for the
+ * exceptions `review-queue-sweep.ts`'s own `runReviewQueueSweep` TSDoc names — Alex confirmed this
+ * design via `AskUserQuestion` over the cheaper "fixed rolling window from now" alternative, which
+ * has real gaps if the script is skipped or run twice in one window.
  */
 type SweepStateTable = {
   readonly personaId: string;
