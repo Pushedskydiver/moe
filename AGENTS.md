@@ -45,6 +45,8 @@ pnpm --filter @moe/core generate:fly-configs
 
 Deploys are deliberately not CI-automated: a truncated/empty secret has previously taken the live service down (see `docs/GIT.md` §Deploy Flow). A human runs the deploy command. `--ha=false` is deliberate — these configs declare no services, so `fly deploy`'s default would add a stopped standby Machine, and a standby that starts while the primary is only unreachable would put two processes on one persona's Slack connection. Full runbook, including per-App secrets and the pooled-`DATABASE_URL` requirement: `docs/OPERATIONS.md` §Deploying the persona fleet.
 
+An agent's `fly deploy` or mutating `fly secrets` command hits a confirmation prompt from the PreToolUse hook (`.claude/settings.json` → `scripts/guard-fly.ts`), and the human confirming that prompt is the deploy authorisation.
+
 ## Commit format
 
 ```
