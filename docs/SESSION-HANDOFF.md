@@ -73,7 +73,7 @@ Continue the moe project.
 3. Then carry on with the Next list. Ask me only what PROGRESS.md marks as mine to decide.
 ```
 
-Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first, at a cost of ~9k per resume (Sessions 61–62). Under §3's exception, when the entry rides an open PR, `origin/main`'s copy is the stale one instead. The paste-in prompt's step 1 then names that branch instead (`git show origin/<branch>:PROGRESS.md`), since the prompt is all the next session receives.
+Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first, at a cost of ~9k per resume (Sessions 61–62). Under §3's exception, when the entry rides an open PR, `origin/main`'s copy is the stale one instead. The paste-in prompt's step 1 then names that branch (`git show origin/<branch>:PROGRESS.md`), since the notice goes only to Alex.
 
 ## 6. Entry shape
 
@@ -127,7 +127,7 @@ Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Conte
 
 Session data fields, per entry: tokens at handoff and their source (tool or CLI); context at load and its source (§2; row 1's baseline); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired; what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered.
 
-Fields missing from older entries stay "not recorded", with no backfill. That covers Sessions 46–52's gaps, a Claude call under Alex's delegation at §9's first review (Session 60), and context at load before Session 58, the first entry with a context-at-load field, which Claude added under the same delegation while reviewing the change that introduced that field (Session 66).
+Fields missing from older entries stay "not recorded", with no backfill. Sessions 46–52's gaps were a Claude call under Alex's delegation at §9's first review (Session 60). Claude extended the rule to context at load before Session 58, the first entry with a context-at-load field, when adding that field to this doc (Session 66).
 
 Review every ten sessions. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
 

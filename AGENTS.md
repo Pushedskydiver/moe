@@ -4,7 +4,7 @@ Autonomous AI coworker team, built as a long-running Slack-native service. Monor
 
 **Scope note:** this file governs how the _moe codebase itself_ is built (by Alex and his coding agents — Claude Code and Codex both read this file) — not how the finished persona team behaves once it's running on chief-clancy. That's `docs/VISION.md`'s subject. A persona (Sarah, Riley, etc.) working on a _target_ project reads that project's own `CLAUDE.md`, not this one — personas are Claude-backed (raw Messages API for chat, the Claude Agent SDK for agentic coding sessions — `docs/VISION.md` §11).
 
-**Status:** read `PROGRESS.md` for current state; `BUILD_PLAN.md`'s checkboxes are the source of truth for which chunks have landed. `docs/INDEX.md` does not exist yet (parked in `BUILD_PLAN.md` §Deliberately not scheduled).
+**Status:** read `PROGRESS.md` for current state (`origin/main`'s copy, or the branch the handoff prompt names — `docs/SESSION-HANDOFF.md` §5); `BUILD_PLAN.md`'s checkboxes are the source of truth for which chunks have landed. `docs/INDEX.md` does not exist yet (parked in `BUILD_PLAN.md` §Deliberately not scheduled).
 
 Moe uses the same state-surface pair as chief-clancy, same names — root `PROGRESS.md` (the living state document session handoffs read/write) and `docs/history/SESSIONS.md` (the archival sink `PROGRESS.md` overflows into). No reason to invent different names for an identical mechanism. See `docs/SESSION-HANDOFF.md` for the full mechanics (triggers, cleanup, entry shape, archival, loading instructions). (`BUILD_PLAN.md`'s checkboxes are the source of truth for exactly which chunk resolved this — this paragraph describes the mechanism, not a chunk-completion claim.)
 
