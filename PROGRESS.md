@@ -2,7 +2,89 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
 
-## Next workstreams (after Session 68)
+## Next workstreams (after Session 69)
+
+Updated 2026-09-28 end-Session-69 — **The A4 cite fix (`fix/vision-latency-cites`, `f057ef1`; not pushed, no PR yet) has cleared its review gate. R2 found one converged MATERIAL, which was folded, and R3 found 0 BLOCKING/MATERIAL. The R3 LOW pass is committed. Next come self-review, the pre-push suite, the push and the PR.** `main` is at `71c6cac` plus this handoff, and no PRs are open. All 8 personas are `started` with checks passing.
+
+**Asked and decided:**
+
+- Alex decided: nothing this session.
+- Claude decided under Alex's delegation (2026-09-28):
+  - Graded R2's converged `PERSONA-REPLAY-HARNESS.md:36` finding MATERIAL (DA called it LOW, the surrogate MATERIAL), per the convergence rule. That opened R3.
+  - Kept surrogate R2 3 and 4 (`record-persona-replay.ts`'s stale "three cascade functions" count and its "future 5.3 sub-chunk" forward reference) out of A4 as NOTICED items, following R1's precedent. Both are true at source but aren't latency cites.
+  - Folded R3's converged L1 (the ADR's neighbouring decisions left stale) in the LOW pass rather than deferring it. DA pointed out that a bare "scope creep" deferral is `RATIONALIZATIONS.md:82`, and the fix was one paragraph in a section the PR already writes.
+
+**Done this session:**
+
+- **Merged `origin/main`** into the branch (`18665ef`; #119 and the Session 68 handoff).
+- **Pre-push suite at `18665ef`:** build, lint, typecheck, format:check and knip passed. Every test passed except `@moe/core`'s 20 DB-backed files (`DATABASE_URL is not set`, plus the pool `TypeError`s that follow from it, checked by error class). The test step ran on its own (PPPPP).
+- **R2** (range `4217a18..48efbc0`, both isolated): DA 0 BLOCKING / 0 MATERIAL / 2 LOW (+1 Nit); surrogate 0 / 1 / 3 (+2 FYI). Reports: `.claude/research/workflow-series/a4-cites-r2/`.
+  - Both confirmed F1–F6 as applied and true at source.
+  - **Converged:** decision 10 of `docs/decisions/PERSONA-REPLAY-HARNESS.md` still said 20s holds "for every production call site", which the pull loop falsified at 6.1c (#103). Verified at source.
+  - DA L2: the fold's own "Two callers override it" was a new hardcoded count. Surrogate 2: F4's settled VISION text read as a claim about moe's live replies today.
+- **R2 fold** (`implementer`, per `a4-cites-r2/fold-brief.md`, `6220a3f`): F1 appended a dated Status update to the ADR (decision 10 itself untouched, per `docs/decisions/README.md` §Lifecycle). F2 made the TSDoc count-free and gave "live-diagnosed" to both overrides. F3 made VISION `:317` a counterfactual. The orchestrator read the word diff, and it matches the brief. The worker ran prettier, eslint and the `@moe/agents` tests (323 passing), and used its own Sonnet trailer.
+- **R3** (range `18665ef..6220a3f`): DA 0 / 0 / 1 (+1 Nit, 2 FYI); surrogate 0 / 0 / 1 (+2 FYI). Reports: `a4-cites-r3/`. Both converged on the one LOW: the new Status update footnoted decision 10 but left decisions 4 and 5 and the Deferred list stale (`DA-REVIEW.md` §Multi-section).
+- **R3 LOW pass** (orchestrator, `f057ef1`, recorded in `a4-cites-r3/low-pass.md`): a second Status-update paragraph (five call sites and Result shapes; all 8 personas now have prompts and scenarios, both verified at source), and "the 20s per-attempt limit" (DA N1). **Orchestrator-applied, no further round; disclose in the PR.**
+- **Memory:** `independent-review-angle-convergence.md` gained this PR's R2/R3 instance.
+
+**In flight:** nothing running.
+
+**Next, and open questions for Alex:**
+
+- **[ALEX]** Confirm the order of the post-A4 workstreams: the O10 Prettier chore PR, the Hook PR, and the chief-clancy doc-port workstream (candidates in `git show 3abde05:PROGRESS.md`'s Session 52 entry). It has been carried since at least the Session 64 entry.
+
+**Cleanup:** all four R2/R3 review worktrees and their `worktree-agent-*` branches were removed, after checking the report copies byte for byte. `git worktree list` shows only the primary checkout. `fix/vision-latency-cites` is kept (unpushed work). Session 64 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
+
+**Session data:** ~150k tokens at handoff (usage tool; 5-hour window 15%, weekly 53%, Fable weekly 4%). Context at load: 94.0k (usage tool), so row 1 fired at ~134k. Tool schemas at load: 49.9k (system tools 30.7k plus MCP tools 19.2k).
+
+- **Trigger:** row 1, a phase boundary (the R3 LOW pass committed) at 141.8k. The R2 fold commit at 126.5k came before the threshold.
+- **What grew context most:**
+  - The ~94k loaded start, ~14k above Session 68's 80.5k. The whole of `origin/main`'s `PROGRESS.md` (37.9 KB, ~10k) was read, not just its loading-instructions block.
+  - The four R2/R3 hand-backs (~8k).
+  - Verifying the R2 and R3 findings at source (~6k).
+  - The R2 fold brief and the LOW-pass note (~4k).
+- **Subagent tokens:** DA R2 85k, surrogate R2 131k, R2 fold 25k, DA R3 81k, surrogate R3 94k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none.
+
+**Lessons (Session 69):**
+
+- **SSSSS — RRRRR recurred one layer out: R1's sibling sweep stayed in code, and the false claim also lived in a decision record.** "Every production call site" survived in decision 10 of `PERSONA-REPLAY-HARNESS.md` until R2. The Status update written to fix it then left decisions 4 and 5 stale beside it (R3). When correcting a false claim, grep its key phrase across `docs/decisions/` too. When footnoting one decision, re-read its neighbours for the same drift. → none (a recurrence of RRRRR, plus `DA-REVIEW.md` §Multi-section's rule, already written).
+- **TTTTT — OOOOO recurred: the R1 fold brief's own text produced two of R2's LOWs** (a new hardcoded "Two callers" count, and VISION text that read as a present-tense claim). A replacement sentence in a brief is new claim text, and it needs the same count-free, counterfactual-aware check as the findings it folds. → none (instance of `REVIEW-PATTERNS.md` §Over-correction's third failure mode).
+
+### Session 70 loading instructions
+
+- **Check live state first:**
+  - `git fetch`, then read **`git show origin/main:PROGRESS.md`**. Read the newest entry and its loading-instructions block, not the whole file.
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `71c6cac`), `git status`, `gh pr list` (expect none open), and `git log --oneline main..fix/vision-latency-cites` (expect 5 commits, including the merge, ending `f057ef1`).
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+  - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
+- **First: finish `fix/vision-latency-cites` (A4).**
+  1. Check out the branch, and merge `origin/main` (this handoff moved it).
+  2. Self-review per `docs/SELF-REVIEW.md` over `main...HEAD`: 6 files (`docs/VISION.md`, `docs/decisions/PERSONA-REPLAY-HARNESS.md`, `create-anthropic-client.ts` and its test, `record-persona-replay.ts`, `create-pull-loop-behavior-deps.ts`).
+  3. Run the pre-push suite: `pnpm build`, then the test step on its own (WWWW, PPPPP), then lint, typecheck, format:check and knip. The script suite doesn't apply.
+  4. Push, and open the PR: `🐛 fix(docs): drop the phantom VISION §6.4 latency-target cites`, labels `fix`, `agents`, `server` (derive them again from `git diff --stat origin/main..HEAD` after the merge, per JJJJJ).
+     - Body: the "Dismissed / PR body" items from `a4-cites-r1/fold-brief.md` and `a4-cites-r2/fold-brief.md`, plus `a4-cites-r3/low-pass.md`'s. Disclose that the R3 LOW pass (`f057ef1`) was orchestrator-applied with no further round, and that the orchestrator verified its facts at source.
+     - Post the surrogate R1–R3 reports as one comment.
+     - HHHHH: the push and `gh pr create` may need Alex's word in chat. Batch them.
+     - `docs/VISION.md` is blast-radius, so Alex merges.
+- **Decision branches:**
+  1. If self-review finds a BLOCKING or MATERIAL, fold it and run a range check before pushing.
+  2. **[ALEX]** The post-A4 order (see "Next" above). Ask in chat once the PR is open.
+- **Carry-overs:**
+  - WWWW and PPPPP go into `docs/DEVELOPMENT.md` §Quick Reference, in the next PR that touches it.
+  - IIIII rides in the next PR that touches `REVIEW-PATTERNS.md`.
+  - After A4: the O10 Prettier chore PR, the Hook PR, and the chief-clancy doc-port workstream. Candidates are in `git show 3abde05:PROGRESS.md`'s Session 52 entry.
+  - NOTICED items for a later cleanup PR:
+    - #118's (its body).
+    - `AGENTS.md:37`'s "§Node-native TS execution…" anchor, which points to a bold lead-in, not a heading (surrogate R1 FYI 12 in `handoff-r1/`).
+    - A4's out-of-scope findings: the "Dismissed / PR body" lists in `a4-cites-r1/fold-brief.md`, `a4-cites-r2/fold-brief.md` and `a4-cites-r3/low-pass.md`. The replay-harness count drift (`record-persona-replay.ts:43-44, :120-121, :145`, `replay-fixture.ts:5-10`) is one root and can be one commit.
+  - The §9 review is due at Session 70 (`docs/SESSION-HANDOFF.md` §9). Session 70 is the next session, so run it after the A4 PR opens, or record why it waits.
+  - Memory: `harness-and-tooling-gotchas.md` is past the ~5 KB re-consolidation mark.
+- **Recommended model and effort for Session 70:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 68
 
 Updated 2026-09-28 end-Session-68 — **[PR #119](https://github.com/Pushedskydiver/moe/pull/119) (`docs/session-handoff-review`) is open with all 5 CI checks passing, and it's waiting on Alex's merge. The A4 cite fix is built, R1-reviewed and R1-folded on a local branch (`fix/vision-latency-cites`, `48efbc0`; not pushed, no PR yet). An R2 range check on `4217a18..48efbc0` is next.** `main` is at `440b9e9` plus this handoff. All 8 personas are `started` with checks passing.
 
@@ -326,77 +408,6 @@ Update (2026-09-28): Alex merged #118 as `029a9bf`, with no review comments. The
   - #118's NOTICED items (its body) are candidates for a later cleanup PR.
   - Memory: `harness-and-tooling-gotchas.md` is past the ~5 KB re-consolidation mark.
 - **Recommended model and effort for Session 66:** Opus, `high`.
-- **Fallback:** if Alex redirects on load, follow that.
-
-## Earlier: Session 64
-
-Updated 2026-09-28 end-Session-64 — **`fix/review-queue-sweep-rereport` is open as [PR #117](https://github.com/Pushedskydiver/moe/pull/117), not merged (Alex merges). R3 came back with 0 BLOCKING / 0 MATERIAL, and the LOW pass was applied.** At handoff CI showed 4 passing, 1 pending. The DB-backed tests' first-ever CI run was not yet confirmed. `docs/glossary-thinning` is unchanged at `c8cd765` (R3 still due). All 8 personas are `started` with checks passing.
-
-Update (2026-09-28): #117's CI went green, 5/5. The DB-backed tests ran for the first time: all 57 `packages/core` test files passed, including `review-queue-repository.test.ts` (15 tests). The PR is `BEHIND` `main`, by the handoff commit only.
-
-Update (2026-09-28): Alex merged #117 as `77e6b77`, with no review comments. Both trades stand as shipped (no guard, no settle delay, no warn log), so decision branch 3 is closed. The local branch is deleted.
-
-**Asked and decided:** Alex gave permission in chat to open the PR, after the auto-mode classifier blocked the push and `gh pr create` (HHHHH). Nothing else was marked Alex's.
-
-**Done this session:**
-
-- **Merged `origin/main`** into the branch (`677cbf7`; only the Session 63 handoff).
-- **Pre-push suite at `677cbf7`:** build, lint, typecheck, format and knip passed. Every test passed except `packages/core`'s 20 DB-backed files, which failed on `DATABASE_URL is not set` plus the matching teardown `TypeError`s (checked by error class).
-- **R3** (range `66ec1de..259e76e`, both isolated): DA 0 BLOCKING / 0 MATERIAL / 5 LOW (+4 FYI); surrogate 0 / 0 / 6 (+4 FYI). Reports: `sweep-fix/da-r3-report.md` and `sweep-fix/surrogate-r3-report.md`.
-  - DA re-ran both mutations. Moving the `until` read above the writes fails the re-report test. Re-adding `max(since, until)` fails the backward-clock test.
-  - Surrogate L1 said it would be MATERIAL "if graded strictly". The fold had reworded `sender-trigger-cache.ts:38-41` from "nothing is silently lost" to "adds no loss … beyond the sweep's own named gap", which is false: a failed review-queue write loses the message (`log-ambient-intake-to-review-queue.ts:124-130`). The orchestrator verified this at source and **graded it LOW**: it is comment-only, the loss is logged, and neither reviewer graded it MATERIAL. It was fixed in the LOW pass (IIIII).
-- **LOW pass** (`implementer`, per `sweep-fix/r3-low-pass-brief.md`; report `r3-low-pass-report.md`): 4 commits, `e9ac32b..e4f44c7`. It covered all R3 LOWs: the TSDoc opening paragraph, exceptions (3) and (4), two path cites, `sender-trigger-cache.ts`, `sweep-state.ts`, `ARCHITECTURE.md:20`, and the until-edge DB test's insert assertions. **The orchestrator read the content diff** (`-w --word-diff`), and it matches the brief word for word. Prettier re-padded the `ARCHITECTURE.md` table, a whitespace-only change.
-- **Self-review** (`docs/SELF-REVIEW.md`, code-level layer, `main...HEAD`): clean.
-- **PR #117** was opened with labels `fix`, `server` and `core`. The body carries both fold briefs' disclosures and Alex's two veto items, plus DA R3's middle option: a `logger.warn` when `until <= since`. The surrogate R1–R3 reports are posted as one comment. The PR is bound to the desktop app's CI monitor.
-
-**In flight:** PR #117's CI (1 check pending at handoff).
-
-**Next, and open questions for Alex:**
-
-- **[ALEX]** Merge #117, or veto one of the two trades in its body: (a) a guard, rather than recording a backward `until`; (b) a settle delay, rather than accepting gap (4). The option of a warn log sits under (a).
-- Confirm the DB-backed tests pass in #117's CI. They have never run before.
-
-**Cleanup:** both R3 review worktrees and their `worktree-agent-*` branches were removed, after checking the report copies byte for byte. `git worktree list` shows only the primary checkout. `fix/review-queue-sweep-rereport` is kept (open PR) and `docs/glossary-thinning` is kept (unpushed). Session 59 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
-
-**Session data:** ~150k tokens at handoff (usage tool; 5-hour window 14%, weekly 47%, Fable weekly 4%). Context at load: 78.4k, so row 1 fired at ~118.4k.
-
-- **Trigger:** row 1. It was due at the LOW-pass commit (139k). The session carried on only to open the PR, and that was held up on the permission block. Row 2 (150k) was reached while writing the handoff.
-- **What grew context most:**
-  - The ~78k loaded start (`origin/main`'s `PROGRESS.md` read first again).
-  - Reading the SESSION-HANDOFF doc (~6k).
-  - Reading the sites to settle the LOW brief, plus writing the brief (~8k).
-  - The self-review diff reads (~6k).
-  - The two R3 hand-backs (~3k).
-- **Subagent tokens:** DA R3 158k, surrogate R3 131k, LOW pass 74k.
-- **Structural warning signs:** none.
-- **Clarifying question needed that the last entry should have answered:** none.
-
-**Lessons (Session 64):**
-
-- **HHHHH — The auto-mode classifier blocked `git push` + `gh pr create` for the PR the loading instructions scheduled, and gave no reason.** Alex's explicit chat permission cleared it. The handoff's own direct-to-`main` push may hit the same block. Before a push or PR step, expect it may need Alex's word in chat, and batch the outward-facing steps so one ask covers them. → memory (`harness-and-tooling-gotchas.md`).
-- **IIIII — A fold that rewords a qualified claim can drop the qualifier and create a new false absolute.** "nothing is _silently_ lost" became "adds no loss", and a logged loss path made it false. When a fold rewords a hedge, check that the hedge survived. → `REVIEW-PATTERNS.md` §Over-correction.
-
-### Session 65 loading instructions
-
-- **Check live state first:**
-  - `git fetch`, then read **`git show origin/main:PROGRESS.md`**, not the working tree's copy (YYYY, GGGGG).
-  - `git log --oneline -3 origin/main` (expect `77e6b77` (#117) on top of this handoff's `c75418c`, or later), `git status`, and `gh pr list` (expect none open; #117 merged as `77e6b77`).
-  - `fly status -a moe-<persona>` for all 8 persona Apps.
-  - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
-- **First: finish `docs/glossary-thinning`**, per the Session 62 entry's loading instructions (step "Then: finish `docs/glossary-thinning`"). R3 on `04c6ec3..` the post-merge HEAD, so the conflict resolution and the GLOSSARY `:54` edits are inside the range, then the PR. Labels: `chore`, `server`, `github`, `core`.
-  - #117 is merged, so merge `origin/main` into the branch first and resolve the conflicts in `review-queue-repository.ts`, `schema.ts`, `review-queue-sweep.ts` and `sender-trigger-cache.ts` in favour of #117. Also take #117's `ARCHITECTURE.md:20` and `sweep-state.ts` wording if they conflict.
-  - GLOSSARY `:54`: scope "never misses a row" / "double-reports" to the sweep TSDoc's four exceptions (decision branch 2). Surrogate R3 FYI A found three more phrases there that #117 fixed everywhere else: "the codebase has no scheduled-job infrastructure" (false: the pull loop's `setInterval`), "since the persona's last sweep", and "'last swept at' timestamp". Fix them in the same pass.
-- **Then the SESSION-HANDOFF PR**, as specified in the Session 61 entry: row 1 → load + 40k, the "context at load" field, prompt step 1 → `origin/main` (GGGGG is supporting evidence), and the PPPP, SSSS and YYYY harvests. IIIII rides in the next PR that touches `REVIEW-PATTERNS.md`.
-- **Decision branches:**
-  1. If the glossary R3 finds BLOCKING/MATERIAL, fold it and run R4. Reaching R4 means ask Alex (`docs/DEVELOPMENT.md` §Review Gate).
-  2. GLOSSARY `:54` on the glossary branch: see above.
-  3. Closed: #117 merged with both trades as shipped.
-- **Carry-overs:**
-  - WWWW into `docs/DEVELOPMENT.md` §Quick Reference, in the next PR that touches it.
-  - The A4 cite-fix PR (Alex: fix the cites).
-  - Then the O10 Prettier chore PR, the Hook PR, and the chief-clancy doc-port workstream. Candidates are in `git show 3abde05:PROGRESS.md`'s Session 52 entry. Confirm the order with Alex.
-  - Memory: `harness-and-tooling-gotchas.md` is past the ~5 KB re-consolidation mark.
-- **Recommended model and effort for Session 65:** Opus, `high`.
 - **Fallback:** if Alex redirects on load, follow that.
 
 ## Session archive
