@@ -80,7 +80,7 @@ Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§
 `## Next workstreams (after Session N)` for the newest entry, then `## Earlier: Session N` for older ones. Each entry holds:
 
 - "Updated `<date>` end-Session-N — **headline**."
-- Asked and decided.
+- Asked and decided. Split what Alex decided from what Claude decided under his delegation, and tag each accordingly: only the first gets "(Alex, `<date>`)". Session 60's single "Asked and decided (Alex, …)" header filed Claude's delegated calls under Alex's name, and harvesting that entry into this doc first tagged three of them as Alex's (Session 66, caught in review).
 - Shipped/Done (paths; what was verified and how).
 - In flight.
 - Next, and open questions for Alex — anything marked his to decide.
