@@ -51,10 +51,14 @@ function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
 
-// Every existing test's own `now` literal — used as the default injected clock too, so a test
-// that doesn't override `clock` still sees `until === now` and its existing `sweptAt`/`listSince`
-// expectations hold unchanged.
+// Every existing test's own `now` literal.
 const DEFAULT_TEST_NOW = new Date('2026-07-19T12:00:00.000Z');
+
+// The default injected clock's value, deliberately a moment after `DEFAULT_TEST_NOW` rather than
+// equal to it (R1 fold, L1) — a test that doesn't override `clock` still sees `until` and `now` as
+// two genuinely different values, so an assertion that happens to pass because `until === now`
+// can't hide behind this default.
+const DEFAULT_TEST_UNTIL = new Date(DEFAULT_TEST_NOW.getTime() + 1000);
 
 function makeDeps(
   overrides: Partial<{
@@ -70,7 +74,7 @@ function makeDeps(
     personaId: 'sarah',
     alertSlackUserId: 'U04UQ6CLZ1U',
     logger: makeLogger(),
-    clock: overrides.clock ?? (() => DEFAULT_TEST_NOW),
+    clock: overrides.clock ?? (() => DEFAULT_TEST_UNTIL),
     slackClient: overrides.slackClient ?? {
       chat: { postMessage: vi.fn().mockResolvedValue({ ok: true, ts: 'x' }) },
     },
@@ -145,7 +149,7 @@ describe('runReviewQueueSweep', () => {
     );
     expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalledWith({
       personaId: 'sarah',
-      sweptAt: now,
+      sweptAt: DEFAULT_TEST_UNTIL,
     });
   });
 
@@ -323,7 +327,7 @@ describe('runReviewQueueSweep', () => {
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
     expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalledWith({
       personaId: 'sarah',
-      sweptAt: now,
+      sweptAt: DEFAULT_TEST_UNTIL,
     });
   });
 
@@ -456,7 +460,7 @@ describe('runReviewQueueSweep', () => {
     expect(deps.reviewQueueStore.listSince).toHaveBeenCalledWith({
       personaId: 'sarah',
       since: new Date(0),
-      until: DEFAULT_TEST_NOW,
+      until: DEFAULT_TEST_UNTIL,
     });
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to read sweep state — falling back to sweeping from the beginning',
