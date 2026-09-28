@@ -6,6 +6,8 @@ Living state document — current state, what's next. Session-by-session detail 
 
 Updated 2026-09-28 end-Session-65 — **`docs/glossary-thinning` is open as [PR #118](https://github.com/Pushedskydiver/moe/pull/118), not merged (Alex merges). R3 found no BLOCKING issues and no code MATERIAL; the LOW pass was applied.** CI hadn't started at handoff. `main` is at `430e922`. All 8 personas are `started` with checks passing.
 
+Update (2026-09-28): Alex merged #118 as `029a9bf`, with no review comments. The local branch is deleted.
+
 **Asked and decided:** nothing. Nothing this session was marked Alex's.
 
 **Done this session:**
@@ -32,7 +34,7 @@ Updated 2026-09-28 end-Session-65 — **`docs/glossary-thinning` is open as [PR 
 
 **Next, and open questions for Alex:**
 
-- **[ALEX]** Merge #118.
+- ~~**[ALEX]** Merge #118.~~ Done (`029a9bf`).
 
 **Cleanup:** both R3 review worktrees and their `worktree-agent-*` branches were removed, after checking the report copies byte for byte. `docs/glossary-thinning` is kept (open PR). Session 60 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
 
@@ -58,11 +60,10 @@ Updated 2026-09-28 end-Session-65 — **`docs/glossary-thinning` is open as [PR 
 
 - **Check live state first:**
   - `git fetch`, then read **`git show origin/main:PROGRESS.md`** (YYYY, GGGGG).
-  - `git log --oneline -3 origin/main`, `git status`, and `gh pr list`. Expect #118 open or merged.
+  - `git log --oneline -3 origin/main` (expect `029a9bf` (#118) on top of `23a7b1e`, or later), `git status`, and `gh pr list` (expect none open).
   - `fly status -a moe-<persona>` for all 8 persona Apps.
   - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
-- **First: #118.** If it's merged, delete the local `docs/glossary-thinning`. If CI failed, fix it on the branch. If Alex left review comments, fold them.
-- **Then the SESSION-HANDOFF PR**, as specified in the Session 61 entry (once it archives: `git show 430e922:PROGRESS.md`). Its own branch.
+- **First: the SESSION-HANDOFF PR**, as specified in the Session 61 entry (once it archives: `git show 430e922:PROGRESS.md`). Its own branch.
   - Row 1 → load + 40k.
   - The "context at load" field.
   - Prompt step 1 → `origin/main` (GGGGG is supporting evidence).
@@ -70,7 +71,7 @@ Updated 2026-09-28 end-Session-65 — **`docs/glossary-thinning` is open as [PR 
   - Check whether `docs/GIT.md`'s blast-radius list names SESSION-HANDOFF. If it does, the surrogate is mandatory.
   - IIIII rides in the next PR that touches `REVIEW-PATTERNS.md`.
 - **Decision branches:**
-  1. If Alex's review of #118 asks for more than a wording fold, re-run the review gate on the fold range.
+  1. If the SESSION-HANDOFF PR's review loop reaches R4, ask Alex (`docs/DEVELOPMENT.md` §Review Gate).
 - **Carry-overs:**
   - WWWW into `docs/DEVELOPMENT.md` §Quick Reference, in the next PR that touches it.
   - The A4 cite-fix PR (Alex: fix the cites).
