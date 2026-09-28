@@ -54,3 +54,9 @@ BUILD_PLAN 5.4, closing the gap `docs/CONVENTIONS.md`:189 and `docs/REVIEW-PATTE
 - `docs/CONVENTIONS.md` §Testing Standards ("Persona-replay tests are load-bearing, not optional")
 - `docs/REVIEW-PATTERNS.md` — "Persona-prompt drift", "Recorded-transcript drift"
 - BUILD_PLAN 5.3a-ii's `MAX_TOKENS` misdiagnosis (`stop_reason`/`output_tokens` capture rationale)
+
+## Status update (2026-09-28)
+
+Decision 10's "every production call site" and "longer request timeout than production" no longer hold. BUILD_PLAN 6.1c ([PR #103](https://github.com/Pushedskydiver/moe/pull/103)) gave `apps/server`'s pull loop the same 120s override (`PULL_LOOP_ANTHROPIC_TIMEOUT_MS` in `create-pull-loop-behavior-deps.ts`), after a live-fleet check found a Plan-stage `composePlan` call not completing within the 20s default. As of this update, the Slack listener is the only production caller that keeps the 20s default. The recording script's own 120s override, and its reason, are unchanged.
+
+Two other lines above are out of date too. Decisions 4 and 5 say "three cascade functions" and "three Result shapes": `composeBrief` and `composePlan` have since been added, so the recording wrapper serves five call sites and `replay-fixture.ts` mirrors five Result shapes. The rationale in both decisions is unchanged. The Deferred list's "5 personas without a `prompt.md` yet" no longer applies: all 8 personas now have a `prompt.md` and replay scenarios.

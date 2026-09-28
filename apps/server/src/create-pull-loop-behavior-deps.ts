@@ -37,10 +37,10 @@ const TRIAGE_TICKET_DEFAULTS = {
 // `max_tokens`), genuinely didn't complete within `createAnthropicClient`'s 20s default — the
 // exact same failure mode that function's own TSDoc already documents having hit once before, for
 // a different reason (`record-persona-replay.ts`'s own manual recording script). That default is
-// tuned for VISION §6.4's live-chat-reply latency target; a pull-loop work step is never a live
-// chat reply a human is waiting on synchronously — it already tolerates a 60s-default tick
-// interval, so there's no reason to inherit the aggressive chat-turn timeout here. Same value the
-// recording script already independently settled on for the identical "not a live reply" reason.
+// tuned for a live chat reply; a pull-loop work step is never a live chat reply a human is
+// waiting on synchronously — it already tolerates a 60s-default tick interval, so there's no
+// reason to inherit the aggressive chat-turn timeout here. Same value the recording script
+// already independently settled on for the identical "not a live reply" reason.
 const PULL_LOOP_ANTHROPIC_TIMEOUT_MS = 120_000;
 
 // Extracted purely to keep `createPullLoopBehaviorDeps` under eslint's `max-lines-per-function`
