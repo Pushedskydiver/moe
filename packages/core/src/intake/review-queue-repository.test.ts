@@ -244,13 +244,12 @@ describe('review queue repository', () => {
       expect(result).toEqual({ ok: true, entries: [] });
     });
 
-    // The fix's own boundary (BUILD_PLAN sweep re-report fix): the window is half-open on the
+    // The fix's own boundary (`fix/review-queue-sweep-rereport`): the window is half-open on the
     // left, closed on the right — `(since, until]` — so a row stamped exactly at `until` is this
     // run's to report, and a row stamped any later is deferred to the next one.
     it('excludes a row created after until and includes one created exactly at until', async () => {
       vi.useFakeTimers();
       try {
-        vi.setSystemTime(new Date('2026-07-19T09:00:00.000Z'));
         const since = new Date('2026-07-19T09:00:00.000Z');
         const until = new Date('2026-07-19T10:00:00.000Z');
 
@@ -276,6 +275,35 @@ describe('review queue repository', () => {
         expect(result.entries.map((e) => e.sourceMessageText)).toEqual([
           'created exactly at until — included',
         ]);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    // R1 fold, L2: the other edge of the same half-open boundary — a row stamped exactly at
+    // `since` belongs to the *previous* completed window ((a, since]), not this one ((since,
+    // until]), so it must not reappear here.
+    it('excludes a row created exactly at since', async () => {
+      vi.useFakeTimers();
+      try {
+        const since = new Date('2026-07-19T09:00:00.000Z');
+        const until = new Date('2026-07-19T10:00:00.000Z');
+
+        vi.setSystemTime(since);
+        await createReviewQueueEntry(db, {
+          ...newEntryInput(),
+          sourceMessageText: 'created exactly at since — excluded',
+        });
+
+        const result = await listReviewQueueEntriesSince(db, {
+          personaId: 'sarah',
+          since,
+          until,
+        });
+
+        expect(result.ok).toBe(true);
+        if (!result.ok) return;
+        expect(result.entries).toHaveLength(0);
       } finally {
         vi.useRealTimers();
       }
