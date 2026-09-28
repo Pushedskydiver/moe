@@ -137,13 +137,13 @@ Fields missing from older entries stay "not recorded", with no backfill. Session
 Review every ten sessions. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
 
 - Alex decided that row 1 becomes relative to the context at load (§1).
-- He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, step 1's `origin/main` read and the no-backfill call.
+- He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, §5's step 1 `origin/main` read and the no-backfill call.
 
 The second review ran at Session 70, over Sessions 60–69 (`git show 8680b6a:PROGRESS.md`):
 
 - Alex confirmed no §1 threshold change and did not veto §8's end date (`git show 4e9b34e:PROGRESS.md`).
 - Under his delegation Claude adopted the three §9 field changes, the no-tool-schema-field call and §5's newest-entry read.
-- §10's mechanical check came from Session 72's lesson ZZZZZ (the archival check was skipped because step 1 printed the file before the loading instructions were read), not from the review, which recommended no change to §10's rule. That entry does not record who decided on the check: its "Alex decided" list says "nothing this session", and its list of Claude's decisions under Alex's delegation does not include it.
+- §10's mechanical check came from Session 72's lesson ZZZZZ (the archival check was skipped because §5's step 1 printed the file before the loading instructions were read), not from the review, which recommended no change to §10's rule. Claude added the check to this doc in Session 73's §9 PR (`git show b70a3cb:PROGRESS.md`, "Done this session"), and no entry lists it as a decision by either Alex or Claude.
 
 The next review is at Session 80.
 
