@@ -81,15 +81,24 @@ export async function createReviewQueueEntry(
   }
 }
 
+type ListReviewQueueEntriesSinceScope = {
+  readonly personaId: string;
+  readonly since: Date;
+  readonly until: Date;
+};
+
 /**
- * Lists a persona's `review_queue` rows created strictly after `since`, oldest first (BUILD_PLAN
- * 3.5's own `review-queue-sweep` script) — the sweep's own scope boundary, paired with
- * `sweep-state-repository.ts`'s `getSweepState`/`recordSweepCompleted` so an irregularly-run
- * sweep picks up where the last completed one left off.
+ * Lists a persona's `review_queue` rows created in the half-open window `(since, until]` —
+ * strictly after `since`, up to and including `until` — oldest first (BUILD_PLAN 3.5's own
+ * `review-queue-sweep` script). Paired with `sweep-state-repository.ts`'s `getSweepState`/
+ * `recordSweepCompleted`: the caller reads `until` after writing this run's own resolved-silence
+ * rows and records it as the next `lastSweptAt`, so consecutive completed sweeps' windows
+ * `(a, b]`, `(b, c]` neither overlap (re-reporting a row) nor gap (silently skipping one) — see
+ * `review-queue-sweep.ts`'s own `runReviewQueueSweep` TSDoc for the exceptions this doesn't close.
  */
 export async function listReviewQueueEntriesSince(
   db: Kysely<Database>,
-  scope: { readonly personaId: string; readonly since: Date },
+  scope: ListReviewQueueEntriesSinceScope,
 ): Promise<ReviewQueueEntryListResult> {
   try {
     const rows = await db
@@ -97,6 +106,7 @@ export async function listReviewQueueEntriesSince(
       .selectAll()
       .where('personaId', '=', scope.personaId)
       .where('createdAt', '>', scope.since)
+      .where('createdAt', '<=', scope.until)
       .orderBy('createdAt', 'asc')
       .execute();
 

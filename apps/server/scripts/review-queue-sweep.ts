@@ -63,6 +63,7 @@ await runReviewQueueSweep(
     alertSlackUserId,
     logger,
     slackClient,
+    clock: () => new Date(),
     sweepStateStore: {
       getSweepState: (personaId) => getSweepState(db, personaId),
       recordSweepCompleted: (input) => recordSweepCompleted(db, input),

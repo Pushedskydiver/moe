@@ -31,6 +31,17 @@ const SILENCE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 // runs would count as "ignored" before anyone could plausibly have reacted to it yet.
 const IGNORED_DRAFT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
+// Named per `docs/CONVENTIONS.md`'s Code Style rule (three or more properties earn a named
+// type) — mirrors `packages/core/src/intake/review-queue-repository.ts`'s own (non-exported)
+// `ListReviewQueueEntriesSinceScope`, the scope type of the core function `listSince` is wired to
+// (`listReviewQueueEntriesSince`). This file is the sweep's DI-testable core, not the script —
+// `apps/server/scripts/review-queue-sweep.ts` is the thin real-infra wrapper that actually calls it.
+type ListSinceScope = {
+  readonly personaId: string;
+  readonly since: Date;
+  readonly until: Date;
+};
+
 // A standalone-script-scoped DI seam, not `HandlerDeps`'s own `reviewQueueStore`/
 // `confirmingQuestionStore`/`draftStore` — this sweep needs `listSince`/`findStale`/
 // `getOutcomeCounts`, methods the live message/reaction handlers never call, so widening those
@@ -47,6 +58,11 @@ export type SweepDeps = {
   readonly alertSlackUserId: string;
   readonly logger: Logger;
   readonly slackClient: PostMessageClient;
+  // Injected clock (`docs/TESTING.md`'s mock-time boundary, `sender-trigger-cache.ts`'s own
+  // precedent) — read once, after this run's own `'mid-silence'` writes, as the window's `until`
+  // boundary. Deliberately separate from the `now` parameter below, which keeps its own existing
+  // roles (the silence cutoff, the ignored-draft threshold) unchanged.
+  readonly clock: () => Date;
   readonly sweepStateStore: {
     readonly getSweepState: (
       personaId: string,
@@ -57,10 +73,9 @@ export type SweepDeps = {
     }) => Promise<SweepStateResult>;
   };
   readonly reviewQueueStore: {
-    readonly listSince: (scope: {
-      readonly personaId: string;
-      readonly since: Date;
-    }) => Promise<ReviewQueueEntryListResult>;
+    readonly listSince: (
+      scope: ListSinceScope,
+    ) => Promise<ReviewQueueEntryListResult>;
   };
   readonly confirmingQuestionStore: {
     readonly findStale: (scope: {
@@ -326,10 +341,10 @@ async function fetchDraftOutcomeCounts(
 
 // Extracted from `runReviewQueueSweep` purely to stay under eslint's `max-lines-per-function` —
 // DMs Alex a formatted digest (`formatSweepMessage`), skipped entirely (just logged) when
-// there's nothing new to report. Returns whether the sweep's own "since" window is now safe to
-// advance — `true` for both "nothing to report" and "posted successfully," `false` only when a
-// real digest existed but the post itself failed (DA review, chunk 3.5: `sweep_state` must not
-// advance past rows Alex was never actually shown, or this backstop defeats its own purpose —
+// there's nothing new to report. Returns whether the sweep's own `(since, until]` window is now
+// safe to advance — `true` for both "nothing to report" and "posted successfully," `false` only
+// when a real digest existed but the post itself failed (DA review, chunk 3.5: `sweep_state` must
+// not advance past rows Alex was never actually shown, or this backstop defeats its own purpose —
 // those rows would never appear in a future digest either, since `listReviewQueueEntriesSince`'s
 // own `since` boundary would already be past them). The draft-outcome counts (BUILD_PLAN 3.6) are
 // only fetched here, alongside an existing post — surfacing them "in the 3.5 sweep post" per
@@ -369,29 +384,67 @@ async function postSweepDigest(
 /**
  * BUILD_PLAN 3.5's own review-queue sweep — VISION §5.2's "nothing is silently eaten" backstop,
  * finally given a real reader. Triggered manually (Alex confirmed via `AskUserQuestion`: a CLI
- * script, `scripts/review-queue-sweep.ts`'s own thin real-infra wrapper around this function —
- * not a background timer, since the codebase had no scheduled-job infrastructure at chunk 3.5
- * and chunk 7.2a's own future ceremony scheduler is the real home for that, not this chunk).
- * Lists every
- * `review_queue` row created since this persona's last sweep
- * (`resolveStaleQuestionsAndSweepWindow`, including any `'mid-silence'` rows this very run just
- * wrote) and DMs a formatted digest (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's
- * own lifetime-cumulative High-band draft-outcome counts (`fetchDraftOutcomeCounts`), VISION
- * §5.4's named production metric for the whole intake cascade. `sweep_state` is only advanced once
- * both listing *and* posting actually succeed — either failure leaves it untouched, so the next
- * run re-covers the same window rather than silently skipping past rows Alex was never shown
- * (DA review, chunk 3.5: the posting-failure half of this was originally missed — `sweep_state`
- * advanced unconditionally after `postSweepDigest`, defeating this very backstop's own purpose).
+ * script, `apps/server/scripts/review-queue-sweep.ts`'s own thin real-infra wrapper around this function — not
+ * a background timer, since the codebase had no scheduled-job infrastructure at chunk 3.5 and
+ * chunk 7.2a's own future ceremony scheduler is the real home for that, not this chunk).
+ *
+ * Lists the `review_queue` rows created in `(lastSweptAt, until]`, where `until` is read from
+ * `deps.clock()` *after* `resolveStaleQuestionsAndSweepWindow` writes this run's own
+ * `'mid-silence'` rows (so this run's own writes normally fall inside the window — exceptions (3)
+ * and (4) below name when they don't), and DMs a formatted digest
+ * (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's own lifetime-cumulative High-band
+ * draft-outcome counts (`fetchDraftOutcomeCounts`), VISION §5.4's named production metric for the
+ * whole intake cascade. `sweep_state` is only updated, to `until` (not `now`), once both listing
+ * *and* posting actually succeed — normally an advance, though exception (3) below can move it
+ * back — either failure leaves it untouched, so the next run re-covers
+ * the same window rather than silently skipping past rows Alex was never shown (DA review, chunk
+ * 3.5: the posting-failure half of this was originally missed — `sweep_state` advanced
+ * unconditionally after `postSweepDigest`, defeating this very backstop's own purpose).
+ *
+ * Reading `until` after this run's own writes, and recording it (not `now`) as the next
+ * `lastSweptAt`, keeps consecutive completed sweeps' windows from overlapping (a row reported
+ * twice) or gapping (a row missed) in the common case — but not always. Assuming one sweep per
+ * persona at a time (`sweep-state-repository.ts`), four exceptions remain; (1)–(3) re-report
+ * rows, (4) misses them, and only (1) and (2) are logged:
+ * 1. **State-read fallback (overlap):** a failed `getSweepState` falls back to `since = new
+ *    Date(0)` (`resolveStaleQuestionsAndSweepWindow`, above) rather than aborting, so that run's
+ *    window overlaps every earlier completed one.
+ * 2. **Record failure after a successful post (overlap):** a failed `recordSweepCompleted` after
+ *    listing and posting both succeed leaves `lastSweptAt` where it was, so the next run's window
+ *    overlaps the rows Alex was already shown.
+ * 3. **Clock reading backward (overlap):** if this run's clock reads `until` earlier than the
+ *    stored `lastSweptAt` — the host's clock corrected backward, or the script run from a machine
+ *    whose clock lags the last one — the listing `(since, until]` is empty and recording `until`
+ *    moves the window back, so the next run's window reaches back over `(until, since]`,
+ *    re-reporting any row there that an earlier sweep already listed. Recording `until` rather
+ *    than holding `since` is deliberate: when the stored `lastSweptAt` came from a clock that was
+ *    running fast, holding it would skip every row later stamped in `(until, since]`.
+ * 4. **Stamp-versus-listing ordering (gap):** a row stamped at or before one window's `until` can
+ *    be invisible to that window's listing and then fall at or below the next window's `since` —
+ *    its insert committed after the listing ran, or the clock that stamped it lagged the clock
+ *    that read `until` (clock skew between the CLI host and a persona's machine, or this run's own
+ *    `'mid-silence'` writes when they are stamped at or before the stored `lastSweptAt` — always
+ *    the case when (3) applies). It is bounded by commit latency plus clock skew, and nothing
+ *    detects or logs it.
+ *
+ * (1)–(3) are re-reports, not misses — the same rule `resolveStaleQuestionsAndSweepWindow`'s own
+ * comment states above: over-reporting an already-seen row is far lower-risk than silently
+ * missing one. (4) is the one true gap.
+ *
+ * `now` keeps its own separate, pre-existing roles unchanged: the Mid-band silence cutoff and the
+ * ignored-draft threshold, both computed relative to when this run started, not to `until`.
  */
 export async function runReviewQueueSweep(
   deps: SweepDeps,
   now: Date,
 ): Promise<void> {
   const since = await resolveStaleQuestionsAndSweepWindow(deps, now);
+  const until = deps.clock();
 
   const entries = await deps.reviewQueueStore.listSince({
     personaId: deps.personaId,
     since,
+    until,
   });
   if (!entries.ok) {
     deps.logger.error('failed to list review-queue entries', {
@@ -406,7 +459,7 @@ export async function runReviewQueueSweep(
 
   const recorded = await deps.sweepStateStore.recordSweepCompleted({
     personaId: deps.personaId,
-    sweptAt: now,
+    sweptAt: until,
   });
   if (!recorded.ok) {
     deps.logger.error('failed to record sweep completion', {
