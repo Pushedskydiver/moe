@@ -19,13 +19,15 @@ Moe's own data, recorded per session since Session 46 in anticipation of this do
 
 Why tokens rather than a percentage: the window is 1M tokens, so a percentage line such as 60% would be 600k, far past where quality holds.
 
-Row 1 is relative to the load while rows 2 and 3 stay absolute — Alex's call at §9's first review (2026-09-27, `git show 8e27f4c:PROGRESS.md`). Why row 1 moved: a freshly loaded session already sits at ~78–95k (Sessions 60–66), about 49k of it tool schemas that moe doesn't control from the repo, so an absolute 100k line fired after ~10k of work. Rows 2 and 3 bound total input length, the quantity the evidence above ties to degradation.
+Row 1 is relative to the context at load while rows 2 and 3 stay absolute. That was Alex's call at §9's first review (2026-09-27, `git show 8e27f4c:PROGRESS.md`), made because the load then cost ~87–95k (Sessions 57–60), so a 100k line fired after about 10k of work. About 49k of the load is tool schemas, which moe doesn't control from the repo (measured at Session 57, and again at Session 66). Separately, rows 2 and 3 bound total input length, the quantity the evidence above ties to degradation.
 
 No new weekly-limit trigger row is added (Alex, 2026-09-27) — the weekly % lives in §9's Session data field instead, named in the handoff notice at ≥85%.
 
 ## 2. How Claude checks
 
-**Desktop app:** load `mcp__ccd_session_mgmt__get_usage` through ToolSearch (it is a deferred tool). Call it after digesting each subagent report, before each dispatch, and before a new topic. It covers context, the 5-hour window and the weekly limit. Record the context figure once the loading reads finish: it is §9's context at load, and row 1's baseline.
+**At load:** record the context figure once the loading reads finish, from whichever source below applies. It is §9's context at load and row 1's baseline.
+
+**Desktop app:** load `mcp__ccd_session_mgmt__get_usage` through ToolSearch (it is a deferred tool). Call it after digesting each subagent report, before each dispatch, and before a new topic. It covers context, the 5-hour window and the weekly limit.
 
 **CLI fallback:** if ToolSearch finds no `get_usage`, the session is on the terminal CLI.
 
@@ -71,7 +73,7 @@ Continue the moe project.
 3. Then carry on with the Next list. Ask me only what PROGRESS.md marks as mine to decide.
 ```
 
-Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first; reading `origin/main`'s first cut the load by ~10k (81.7k at Session 63, against 91–92k in Sessions 61–62).
+Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first, at a cost of ~9k per resume (Sessions 61–62). Under §3's exception, when the entry rides an open PR, `origin/main`'s copy is the stale one instead. The handoff notice then names that branch, and step 1 reads its copy (`git show origin/<branch>:PROGRESS.md`).
 
 ## 6. Entry shape
 
@@ -94,7 +96,7 @@ The loading instructions carry:
 - Orchestration notes.
 - The recommended model and effort.
 - **Decision branches, numbered** — not lettered, since a lettered list collides with lesson letters (§8). Mark each branch that is Alex's to decide.
-- Carry-overs. A deferred workstream keeps a pointer to where its scope is written (a commit's `PROGRESS.md`, or a brief file), never just a one-line label: five handoffs once carried "PR 5: docs thinning" while its real scope sat only in two entries that had already archived out of the detail band.
+- Carry-overs. A deferred workstream keeps a pointer to where its scope is written (a commit's `PROGRESS.md`, or a brief file), never just a one-line label: five handoffs once carried "PR 5: docs thinning, plus VISION:327" while its real scope sat only in the Session 49 and 50 entries, which archived out of the detail band before the fifth.
 - The fallback.
 
 **No restating codified rules inside a loading-instructions block** — it's a pointer to `docs/*.md`, not a copy of it. The exception: genuinely session-specific direction (the workstream pointer, decision branches, carry-overs) and anything the next session can't discover just by reading the codebase (an in-flight external dependency, a fact only true this week). Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious constraints) is marked Alex's call.
@@ -123,11 +125,16 @@ Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Conte
 
 ## 9. Keeping this honest
 
-Session data fields, per entry: tokens at handoff and their source (tool or CLI); context at load (§2; row 1's baseline); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired; what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered.
+Session data fields, per entry: tokens at handoff and their source (tool or CLI); context at load and its source (§2; row 1's baseline); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired; what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered.
 
-Missing fields in Sessions 46–52's entries stay "not recorded"; they aren't backfilled (Alex, 2026-09-27).
+Fields missing from older entries stay "not recorded", with no backfill. That covers Sessions 46–52's gaps, and context at load before Session 58, the first entry to record it. It was a Claude call under Alex's delegation at §9's first review.
 
-Review every ten sessions. The first review ran at Session 60, over Sessions 46–59: row 1 became relative to the load, and the context-at-load field and step 1's `origin/main` read were added (Alex, 2026-09-27, `git show 8e27f4c:PROGRESS.md`). The next review is at Session 70.
+Review every ten sessions. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
+
+- Alex decided that row 1 becomes relative to the context at load (§1).
+- He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, step 1's `origin/main` read and the no-backfill call.
+
+The next review is at Session 70.
 
 ## 10. Archival into `docs/history/SESSIONS.md`
 
