@@ -244,9 +244,9 @@ describe('review queue repository', () => {
       expect(result).toEqual({ ok: true, entries: [] });
     });
 
-    // The fix's own boundary (`fix/review-queue-sweep-rereport`): the window is half-open on the
-    // left, closed on the right — `(since, until]` — so a row stamped exactly at `until` is this
-    // run's to report, and a row stamped any later is deferred to the next one.
+    // The window is half-open on the left, closed on the right — `(since, until]` — so a row
+    // stamped exactly at `until` is this run's to report, and a row stamped any later is
+    // deferred to the next one.
     it('excludes a row created after until and includes one created exactly at until', async () => {
       vi.useFakeTimers();
       try {
@@ -280,9 +280,9 @@ describe('review queue repository', () => {
       }
     });
 
-    // R1 fold, L2: the other edge of the same half-open boundary — a row stamped exactly at
-    // `since` belongs to the *previous* completed window ((a, since]), not this one ((since,
-    // until]), so it must not reappear here.
+    // The other edge of the same half-open boundary — a row stamped exactly at `since` belongs
+    // to the *previous* completed window ((a, since]), not this one ((since, until]), so it must
+    // not reappear here.
     it('excludes a row created exactly at since', async () => {
       vi.useFakeTimers();
       try {
@@ -290,10 +290,11 @@ describe('review queue repository', () => {
         const until = new Date('2026-07-19T10:00:00.000Z');
 
         vi.setSystemTime(since);
-        await createReviewQueueEntry(db, {
+        const created = await createReviewQueueEntry(db, {
           ...newEntryInput(),
           sourceMessageText: 'created exactly at since — excluded',
         });
+        expect(created.ok).toBe(true);
 
         const result = await listReviewQueueEntriesSince(db, {
           personaId: 'sarah',
