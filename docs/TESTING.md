@@ -9,10 +9,12 @@ Test-writing discipline that complements `docs/CONVENTIONS.md` §Testing Standar
 ## Running tests
 
 ```bash
-pnpm test                                          # all packages
+env -u DATABASE_URL pnpm test                      # all packages
 env -u DATABASE_URL pnpm --filter @moe/core test   # one package
-pnpm vitest run --coverage                         # with coverage
+env -u DATABASE_URL pnpm vitest run --coverage     # with coverage
 ```
+
+Locally, `@moe/core`'s DB-backed test files fail with "DATABASE_URL is not set" and plain `pnpm test` stops at that package, so run the test step as `docs/DEVELOPMENT.md` §Quick Reference step 4 says.
 
 Root `vitest.config.ts` (once one exists — today each package has its own, see `packages/core/vitest.config.ts` for the pattern) would enforce coverage thresholds across all packages; each package's own config scopes `pnpm test` to that package alone. No path-alias gotcha here — unlike chief-clancy, moe has no `~/`-style aliases to trip over (`docs/CONVENTIONS.md` §Import Ordering).
 
@@ -154,7 +156,7 @@ This is the discipline `docs/DA-REVIEW.md` and `docs/SELF-REVIEW.md` already for
 
 1. Create the module and its co-located test in the same commit.
 2. Test the pure functions directly; mock only at I/O boundaries.
-3. Use fast-check for parsers, serializers, and formatters (grep `fast-check` in the repo for the current list of where it's used — a maintained enumeration goes stale, the grep doesn't. Nothing uses it yet; the first parser/serializer this codebase writes is also the first real entry in that list).
+3. Use fast-check for parsers, serializers, and formatters (grep `fast-check` in the repo for the current list of where it's used — a maintained enumeration goes stale, the grep doesn't).
 4. Follow the existing package's test patterns rather than inventing a new shape.
 
 **A PR adding a new module should include:**
