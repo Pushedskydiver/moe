@@ -28,10 +28,10 @@ function parseStateRow(row: unknown): SweepStateResult {
 }
 
 /**
- * Looks up when a persona's `review-queue-sweep` CLI script last ran (BUILD_PLAN 3.5) — the
- * sweep's own scope-since-last-run boundary. Returns a null state, not an error, for a
- * persona that's never swept yet — the sweep's own caller treats that as "since the
- * beginning of time."
+ * Looks up the upper bound of a persona's `review-queue-sweep` CLI script's last *completed*
+ * window (BUILD_PLAN 3.5), not simply when it last ran — the sweep's own scope-since-last-run
+ * boundary. Returns a null state, not an error, for a persona that's never swept yet — the
+ * sweep's own caller treats that as "since the beginning of time."
  */
 export async function getSweepState(
   db: Kysely<Database>,
