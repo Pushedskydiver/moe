@@ -524,23 +524,29 @@ describe('runReviewQueueSweep', () => {
   // Reproduces the re-report bug: `resolveStaleQuestionsAndSweepWindow` writes this run's own
   // `'mid-silence'` row stamped with a real clock read *after* `now` (`createReviewQueueEntry`,
   // `packages/core/src/intake/review-queue-repository.ts`), so the row's own `createdAt` can fall
-  // after the boundary a naive fix would record. Stateful in-memory fakes stand in for the DB
-  // across two consecutive calls, so the second run's `listSince` genuinely sees the state the
-  // first run left behind, not a scripted return value — `deps.clock` is read only after this
-  // run's own `'mid-silence'` write, matching `runReviewQueueSweep`'s own read order.
+  // after `now` — exactly what the pre-fix code's `sweptAt: now` missed, re-reporting that row on
+  // the very next sweep. One shared, advancing fake clock backs both the `resolveAndLog` fake's
+  // `createdAt` stamp and `deps.clock`'s `until` read, so whichever the production code actually
+  // calls first gets the earlier value — a real guard on `runReviewQueueSweep`'s own read order,
+  // not two independently scripted timestamps that would still agree even if the order changed.
+  // Stateful in-memory fakes stand in for the DB across two consecutive calls, so the second
+  // run's `listSince` genuinely sees the state the first run left behind, not a scripted return
+  // value.
   describe('the re-report bug this fix addresses', () => {
     it('does not re-report, on the very next sweep, a mid-silence row this run itself just wrote', async () => {
       const rows: ReviewQueueEntry[] = [];
       let recordedSweptAt: Date | null = null;
       const question = makeQuestion();
       const run1Now = new Date('2026-07-19T12:00:00.000Z');
-      // The real `createReviewQueueEntry` stamps `createdAt: new Date()` at write time, which is
-      // strictly after the `now` passed into this run — this fake reproduces that ordering
-      // directly rather than approximating it.
-      const midSilenceCreatedAt = new Date(run1Now.getTime() + 1000);
-      const run1Until = new Date(midSilenceCreatedAt.getTime() + 500);
       const run2Now = new Date('2026-07-20T12:00:00.000Z');
-      const run2Until = new Date(run2Now.getTime() + 500);
+
+      // The shared clock: each read advances it, so a call that happens earlier in real
+      // execution order always gets an earlier value than one that happens later.
+      let clockMs = run1Now.getTime();
+      const advanceClock = (ms: number): Date => {
+        clockMs += ms;
+        return new Date(clockMs);
+      };
 
       const listSince = vi.fn<ReviewQueueStore['listSince']>(async (scope) => ({
         ok: true,
@@ -555,7 +561,7 @@ describe('runReviewQueueSweep', () => {
           const entry = makeEntry({
             id: 'f1a85f64-5717-4562-b3fc-2c963f66afaa',
             outcomeReason: 'mid-silence',
-            createdAt: midSilenceCreatedAt,
+            createdAt: advanceClock(1000),
           });
           rows.push(entry);
           return {
@@ -583,10 +589,7 @@ describe('runReviewQueueSweep', () => {
           state: { personaId: 'sarah', lastSweptAt: input.sweptAt },
         };
       });
-      const clock = vi
-        .fn<SweepDeps['clock']>()
-        .mockReturnValueOnce(run1Until)
-        .mockReturnValueOnce(run2Until);
+      const clock = vi.fn<SweepDeps['clock']>(() => advanceClock(500));
 
       const deps = makeDeps({
         clock,
@@ -603,6 +606,13 @@ describe('runReviewQueueSweep', () => {
 
       await runReviewQueueSweep(deps, run1Now);
       expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(1);
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining(
+            'anyone know a good coffee place nearby',
+          ) as string,
+        }),
+      );
 
       await runReviewQueueSweep(deps, run2Now);
 
