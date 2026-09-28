@@ -8,6 +8,8 @@ Updated 2026-09-28 end-Session-64 — **`fix/review-queue-sweep-rereport` is ope
 
 Update (2026-09-28): #117's CI went green, 5/5. The DB-backed tests ran for the first time: all 57 `packages/core` test files passed, including `review-queue-repository.test.ts` (15 tests). The PR is `BEHIND` `main`, by the handoff commit only.
 
+Update (2026-09-28): Alex merged #117 as `77e6b77`, with no review comments. Both trades stand as shipped (no guard, no settle delay, no warn log), so decision branch 3 is closed. The local branch is deleted.
+
 **Asked and decided:** Alex gave permission in chat to open the PR, after the auto-mode classifier blocked the push and `gh pr create` (HHHHH). Nothing else was marked Alex's.
 
 **Done this session:**
@@ -52,20 +54,17 @@ Update (2026-09-28): #117's CI went green, 5/5. The DB-backed tests ran for the 
 
 - **Check live state first:**
   - `git fetch`, then read **`git show origin/main:PROGRESS.md`**, not the working tree's copy (YYYY, GGGGG).
-  - `git log --oneline -3 origin/main` (expect this handoff on top of `913013c`), `git status`, and `gh pr list` (expect #117, unless Alex has merged it).
+  - `git log --oneline -3 origin/main` (expect `77e6b77` (#117) on top of this handoff's `c75418c`, or later), `git status`, and `gh pr list` (expect none open; #117 merged as `77e6b77`).
   - `fly status -a moe-<persona>` for all 8 persona Apps.
   - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
-- **First: PR #117.**
-  - CI was green at handoff, DB-backed tests included (see the Update line). Re-check it with `mcp__ccd_pr__get_status` only if the branch has moved.
-  - Read Alex's review comments. If he vetoed a trade, apply decision branch 3.
-- **Then: finish `docs/glossary-thinning`**, per the Session 62 entry's loading instructions (step "Then: finish `docs/glossary-thinning`"). R3 on `04c6ec3..c8cd765`, then the PR. Labels: `chore`, `server`, `github`, `core`.
-  - If #117 has merged first, resolve the conflicts in `review-queue-repository.ts`, `schema.ts`, `review-queue-sweep.ts` and `sender-trigger-cache.ts` in favour of #117. Also take #117's `ARCHITECTURE.md:20` and `sweep-state.ts` wording if they conflict.
+- **First: finish `docs/glossary-thinning`**, per the Session 62 entry's loading instructions (step "Then: finish `docs/glossary-thinning`"). R3 on `04c6ec3..` the post-merge HEAD, so the conflict resolution and the GLOSSARY `:54` edits are inside the range, then the PR. Labels: `chore`, `server`, `github`, `core`.
+  - #117 is merged, so merge `origin/main` into the branch first and resolve the conflicts in `review-queue-repository.ts`, `schema.ts`, `review-queue-sweep.ts` and `sender-trigger-cache.ts` in favour of #117. Also take #117's `ARCHITECTURE.md:20` and `sweep-state.ts` wording if they conflict.
   - GLOSSARY `:54`: scope "never misses a row" / "double-reports" to the sweep TSDoc's four exceptions (decision branch 2). Surrogate R3 FYI A found three more phrases there that #117 fixed everywhere else: "the codebase has no scheduled-job infrastructure" (false: the pull loop's `setInterval`), "since the persona's last sweep", and "'last swept at' timestamp". Fix them in the same pass.
 - **Then the SESSION-HANDOFF PR**, as specified in the Session 61 entry: row 1 → load + 40k, the "context at load" field, prompt step 1 → `origin/main` (GGGGG is supporting evidence), and the PPPP, SSSS and YYYY harvests. IIIII rides in the next PR that touches `REVIEW-PATTERNS.md`.
 - **Decision branches:**
   1. If the glossary R3 finds BLOCKING/MATERIAL, fold it and run R4. Reaching R4 means ask Alex (`docs/DEVELOPMENT.md` §Review Gate).
   2. GLOSSARY `:54` on the glossary branch: see above.
-  3. **[ALEX]** If Alex vetoes a trade on #117: for a guard, re-add `max(since, until)` and reword exception (3) as a gap; for a settle delay, add it as a fold; for the warn log, add a `logger.warn` when `until <= since` and mention it in exception (4). Each is a fold on the branch, followed by a range check.
+  3. Closed: #117 merged with both trades as shipped.
 - **Carry-overs:**
   - WWWW into `docs/DEVELOPMENT.md` §Quick Reference, in the next PR that touches it.
   - The A4 cite-fix PR (Alex: fix the cites).
