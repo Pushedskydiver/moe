@@ -9,9 +9,9 @@ Test-writing discipline that complements `docs/CONVENTIONS.md` §Testing Standar
 ## Running tests
 
 ```bash
-pnpm test                      # all packages
-pnpm --filter @moe/core test   # one package
-pnpm vitest run --coverage     # with coverage
+pnpm test                                          # all packages
+env -u DATABASE_URL pnpm --filter @moe/core test   # one package
+pnpm vitest run --coverage                         # with coverage
 ```
 
 Root `vitest.config.ts` (once one exists — today each package has its own, see `packages/core/vitest.config.ts` for the pattern) would enforce coverage thresholds across all packages; each package's own config scopes `pnpm test` to that package alone. No path-alias gotcha here — unlike chief-clancy, moe has no `~/`-style aliases to trip over (`docs/CONVENTIONS.md` §Import Ordering).
