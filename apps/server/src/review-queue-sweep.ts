@@ -32,6 +32,17 @@ const SILENCE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 // runs would count as "ignored" before anyone could plausibly have reacted to it yet.
 const IGNORED_DRAFT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 
+// Named per `docs/CONVENTIONS.md`'s Code Style rule (three or more properties earn a named
+// type) — mirrors `packages/core/src/intake/review-queue-repository.ts`'s own (non-exported)
+// `ListReviewQueueEntriesSinceScope`, the scope type of the core function `listSince` is wired to
+// (`listReviewQueueEntriesSince`). This file is the sweep's DI-testable core, not the script —
+// `scripts/review-queue-sweep.ts` is the thin real-infra wrapper that actually calls it.
+type ListSinceScope = {
+  readonly personaId: string;
+  readonly since: Date;
+  readonly until: Date;
+};
+
 // A standalone-script-scoped DI seam, not `HandlerDeps`'s own `reviewQueueStore`/
 // `confirmingQuestionStore`/`draftStore` — this sweep needs `listSince`/`findStale`/
 // `getOutcomeCounts`, methods the live message/reaction handlers never call, so widening those
@@ -43,15 +54,6 @@ const IGNORED_DRAFT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 // here either, deliberately — this Slack post only ever happens because Alex personally ran the
 // script at a moment of his own choosing, and VISION §6.4's core-hours rule / §14's weekend rest
 // rule govern a persona acting unprompted, not Alex-triggered admin tooling.
-// Named per `docs/CONVENTIONS.md`'s Code Style rule (three or more properties earn a named
-// type) — mirrors `packages/core/src/intake/review-queue-repository.ts`'s own
-// `ListReviewQueueEntriesSinceScope`, this script's real caller.
-type ListSinceScope = {
-  readonly personaId: string;
-  readonly since: Date;
-  readonly until: Date;
-};
-
 export type SweepDeps = {
   readonly personaId: string;
   readonly alertSlackUserId: string;
