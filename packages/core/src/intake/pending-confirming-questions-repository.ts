@@ -238,8 +238,9 @@ export async function resolvePendingConfirmingQuestion(
  * treats as silence, VISION §5.2's Mid-band "silence" outcome finally getting a real writer.
  * `resolvedAt IS NULL` excludes anything a real 👍/👎 has already claimed, same predicate
  * `resolvePendingConfirmingQuestion`'s own CAS uses — the sweep's own caller still re-claims each
- * match via that same function before logging it as silent, so a real answer racing the sweep
- * always wins.
+ * match via that same function before logging it as silent, so whichever claims a question first
+ * wins: a real answer that claimed it first is never overwritten as silence, and a reaction
+ * arriving after the sweep's claim is ignored (`apps/server/src/handle-reaction-added.ts`).
  */
 export async function findStaleUnresolvedConfirmingQuestions(
   db: Kysely<Database>,
