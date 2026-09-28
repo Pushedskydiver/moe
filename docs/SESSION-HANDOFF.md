@@ -10,18 +10,22 @@ Moe's own data, recorded per session since Session 46 in anticipation of this do
 
 | #   | Trigger                            | Rule                                                                                                                                                                                                                                                                                              |
 | --- | ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1   | **Phase boundary**                 | A deliverable has shipped — PR opened, fold committed, PR merged, a chunk shipped, deploy verified — and the session is above 100k tokens. Hand off before starting the next phase.                                                                                                               |
+| 1   | **Phase boundary**                 | A deliverable has shipped — PR opened, fold committed, PR merged, a chunk shipped, deploy verified — and the session is 40k or more above its own context at load (§2, §9). Hand off before starting the next phase.                                                                              |
 | 2   | **Soft context line: 150k tokens** | Finish the current unit of work, then hand off. Do not start a new workflow or a new topic.                                                                                                                                                                                                       |
 | 3   | **Hard context line: 250k tokens** | Hand off now. Only finish the step in progress.                                                                                                                                                                                                                                                   |
 | 4   | **Plan usage**                     | 5-hour window at 85% or more: start no new multi-agent work. Write the handoff, tell Alex the reset time, and name the weekly % in the notice too if it's also ≥85% (§9).                                                                                                                         |
 | 5   | **Structural warning signs**       | Any one of: re-reading a file already read this session, asking Alex something already answered, two failed tool calls caused by forgetting an established fact, an auto-compaction. These are observable events, not feelings — self-rated confidence is not a trigger because it is unreliable. |
 | 6   | **Topic switch**                   | Alex pivots to an unrelated workstream. Offer a fresh session for it.                                                                                                                                                                                                                             |
 
-Why absolute tokens rather than a percentage: the window is 1M tokens, so a percentage line such as 60% would be 600k, far past where quality holds.
+Why tokens rather than a percentage: the window is 1M tokens, so a percentage line such as 60% would be 600k, far past where quality holds.
+
+Row 1 is relative to the context at load while rows 2 and 3 stay absolute. That was Alex's call at §9's first review (2026-09-27, `git show 8e27f4c:PROGRESS.md`), made because the load then cost ~87–95k (Sessions 57–60), so a 100k line fired after about 10k of work. About 49k of the load is tool schemas, which moe doesn't control from the repo (measured at Session 57, and again at Session 66). Separately, rows 2 and 3 bound total input length, the quantity the evidence above ties to degradation.
 
 No new weekly-limit trigger row is added (Alex, 2026-09-27) — the weekly % lives in §9's Session data field instead, named in the handoff notice at ≥85%.
 
 ## 2. How Claude checks
+
+**At load:** record the context figure once the loading reads finish, from whichever source below applies. It is §9's context at load and row 1's baseline.
 
 **Desktop app:** load `mcp__ccd_session_mgmt__get_usage` through ToolSearch (it is a deferred tool). Call it after digesting each subagent report, before each dispatch, and before a new topic. It covers context, the 5-hour window and the weekly limit.
 
@@ -42,7 +46,7 @@ No new weekly-limit trigger row is added (Alex, 2026-09-27) — the weekly % liv
 2. Memory files current — decisions and preferences that should load automatically next time.
 3. Background work committed, or declared re-runnable with its inputs on disk.
 4. Cleanup (§4).
-5. A one-line notice to Alex saying why now (naming the weekly % if ≥85%, per §9), plus the paste-in prompt (§5) as a text block Alex pastes into a new session — not a task chip.
+5. A one-line notice to Alex saying why now (naming the weekly % if ≥85%, per §9), plus the paste-in prompt (§5) as a text block Alex pastes into a new session — not a task chip. When the entry rides an open PR (item 1's exception), the prompt's step 1 names that PR's branch (§5).
 6. The recommended model and effort for the next session (§7).
 
 Rules for the entry: point to files instead of restating them, separate "done" from "verified", list open questions for Alex rather than assuming answers, and never default silently to a workstream if the next step is unclear. If Alex keeps the session going after its handoff is written, keep working and write a new entry at the next stopping point. Never edit the earlier one, apart from §6's post-handoff decision rule (one dated `Update (<date>):` line plus the matching loading-instructions amendment).
@@ -64,17 +68,19 @@ Kept deliberately small, because the artefact carries the state:
 
 ```text
 Continue the moe project.
-1. Read PROGRESS.md in the repo root and follow its latest loading instructions.
+1. Run git fetch, then read origin/main's PROGRESS.md (git show origin/main:PROGRESS.md) and follow its latest loading instructions.
 2. Read docs/SESSION-HANDOFF.md and apply it to this session too.
 3. Then carry on with the Next list. Ask me only what PROGRESS.md marks as mine to decide.
 ```
+
+Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first, at a cost of ~9k per resume (Sessions 61–62). Under §3's exception, when the entry rides an open PR, `origin/main`'s copy is the stale one instead. The paste-in prompt's step 1 then names that branch (`git show origin/<branch>:PROGRESS.md`), since the notice goes only to Alex.
 
 ## 6. Entry shape
 
 `## Next workstreams (after Session N)` for the newest entry, then `## Earlier: Session N` for older ones. Each entry holds:
 
 - "Updated `<date>` end-Session-N — **headline**."
-- Asked and decided.
+- Asked and decided. Split what Alex decided from what Claude decided under his delegation, and tag each accordingly: only the first gets "(Alex, `<date>`)"; the second is tagged as Claude's call under Alex's delegation. Session 60's single "Asked and decided (Alex, …)" header filed Claude's delegated calls under Alex's name, and harvesting that entry into this doc first tagged three of them as Alex's (Session 66, caught in review).
 - Shipped/Done (paths; what was verified and how).
 - In flight.
 - Next, and open questions for Alex — anything marked his to decide.
@@ -85,12 +91,12 @@ Continue the moe project.
 
 The loading instructions carry:
 
-- Live checks: `git log origin/main`, `git status`, `gh pr list`, and `fly status -a moe-<persona>` for every persona App (one per `fly.*.toml`).
+- Live checks: `git fetch` first, then `git log origin/main`, `git status`, `gh pr list`, and `fly status -a moe-<persona>` for every persona App (one per `fly.*.toml`).
 - The primary workstream.
 - Orchestration notes.
 - The recommended model and effort.
 - **Decision branches, numbered** — not lettered, since a lettered list collides with lesson letters (§8). Mark each branch that is Alex's to decide.
-- Carry-overs.
+- Carry-overs. A deferred workstream keeps a pointer to where its scope is written (a commit's `PROGRESS.md`, or a brief file), never just a one-line label: five handoffs once carried "PR 5: docs thinning, plus VISION:327" while its real scope sat only in the Session 49 and 50 entries, which archived out of the detail band by the fifth.
 - The fallback.
 
 **No restating codified rules inside a loading-instructions block** — it's a pointer to `docs/*.md`, not a copy of it. The exception: genuinely session-specific direction (the workstream pointer, decision branches, carry-overs) and anything the next session can't discover just by reading the codebase (an in-flight external dependency, a fact only true this week). Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious constraints) is marked Alex's call.
@@ -119,9 +125,16 @@ Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Conte
 
 ## 9. Keeping this honest
 
-Session data fields, per entry: tokens at handoff and their source (tool or CLI); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired; what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered.
+Session data fields, per entry: tokens at handoff and their source (tool or CLI); context at load and its source (§2; row 1's baseline); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired; what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered.
 
-Review every ten sessions. The first review is at Session 60, using data from Session 46 on.
+Fields missing from older entries stay "not recorded", with no backfill. Sessions 46–52's gaps were a Claude call under Alex's delegation at §9's first review (Session 60). Claude extended the rule to context at load before Session 58, the first entry with a context-at-load field, when adding that field to this doc (Session 66).
+
+Review every ten sessions. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
+
+- Alex decided that row 1 becomes relative to the context at load (§1).
+- He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, step 1's `origin/main` read and the no-backfill call.
+
+The next review is at Session 70.
 
 ## 10. Archival into `docs/history/SESSIONS.md`
 
