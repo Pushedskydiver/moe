@@ -36,8 +36,10 @@ const DEFAULT_WINDOW_MS = 15 * 60 * 1000;
  * still starts the window, so a second, genuinely different message from that same sender minutes
  * later is suppressed too. This matches Alex's own "second trigger blocks" framing literally — a
  * *trigger* is a message reaching High/Mid band, not a successful post — and the suppressed
- * message still survives via the 3.5 sweep digest either way, so nothing is silently lost by this
- * reading.
+ * message still survives via the 3.5 sweep digest either way, provided its `review_queue` write
+ * succeeds (a failed write is logged as an error by `logAmbientIntakeToReviewQueue` and leaves no
+ * row) and it doesn't fall into exception (4) of `review-queue-sweep.ts`'s `runReviewQueueSweep`
+ * TSDoc, the sweep's one gap — so this reading adds no *silent* loss beyond that gap.
  *
  * In-memory, not persisted — the same trade-off `packages/slack/src/seen-event-cache.ts` already
  * makes and documents: no migration, no write on the hot path of every inbound message, at the

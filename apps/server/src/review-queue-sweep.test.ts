@@ -51,9 +51,19 @@ function makeLogger() {
   return { info: vi.fn(), warn: vi.fn(), error: vi.fn() };
 }
 
+// Every existing test's own `now` literal.
+const DEFAULT_TEST_NOW = new Date('2026-07-19T12:00:00.000Z');
+
+// The default injected clock's value, deliberately a moment after `DEFAULT_TEST_NOW` rather than
+// equal to it — a test that doesn't override `clock` still sees `until` and `now` as two
+// genuinely different values, so an assertion that happens to pass because `until === now`
+// can't hide behind this default.
+const DEFAULT_TEST_UNTIL = new Date(DEFAULT_TEST_NOW.getTime() + 1000);
+
 function makeDeps(
   overrides: Partial<{
     readonly slackClient: SweepDeps['slackClient'];
+    readonly clock: SweepDeps['clock'];
     readonly sweepStateStore: SweepStateStore;
     readonly reviewQueueStore: ReviewQueueStore;
     readonly confirmingQuestionStore: ConfirmingQuestionStore;
@@ -64,6 +74,7 @@ function makeDeps(
     personaId: 'sarah',
     alertSlackUserId: 'U04UQ6CLZ1U',
     logger: makeLogger(),
+    clock: overrides.clock ?? (() => DEFAULT_TEST_UNTIL),
     slackClient: overrides.slackClient ?? {
       chat: { postMessage: vi.fn().mockResolvedValue({ ok: true, ts: 'x' }) },
     },
@@ -138,7 +149,7 @@ describe('runReviewQueueSweep', () => {
     );
     expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalledWith({
       personaId: 'sarah',
-      sweptAt: now,
+      sweptAt: DEFAULT_TEST_UNTIL,
     });
   });
 
@@ -316,7 +327,7 @@ describe('runReviewQueueSweep', () => {
     expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
     expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalledWith({
       personaId: 'sarah',
-      sweptAt: now,
+      sweptAt: DEFAULT_TEST_UNTIL,
     });
   });
 
@@ -449,11 +460,63 @@ describe('runReviewQueueSweep', () => {
     expect(deps.reviewQueueStore.listSince).toHaveBeenCalledWith({
       personaId: 'sarah',
       since: new Date(0),
+      until: DEFAULT_TEST_UNTIL,
     });
     expect(deps.logger.error).toHaveBeenCalledWith(
       'failed to read sweep state — falling back to sweeping from the beginning',
       expect.objectContaining({ errorMessage: 'Error: connection reset' }),
     );
+  });
+
+  // A run whose clock reads `until` earlier than the stored `lastSweptAt` — the host's clock
+  // corrected backward, or the script run from a machine whose clock lags the last one — records
+  // `until` anyway: one of `runReviewQueueSweep`'s own named accepted-overlap exceptions, not a
+  // guarded case. The next run re-reports rows in `(until, storedLastSweptAt]`. Holding `since`
+  // instead would be the wrong trade: if the earlier reading were in fact the fast one, it would
+  // skip every row later stamped in `(until, since]`.
+  it("records `until` as the next lastSweptAt even when this run's clock reads earlier than the stored value", async () => {
+    const now = new Date('2026-07-19T12:00:00.000Z');
+    const storedLastSweptAt = new Date('2026-07-19T11:00:00.000Z');
+    const earlierClockRead = new Date('2026-07-19T10:00:00.000Z');
+    const deps = makeDeps({
+      clock: () => earlierClockRead,
+      reviewQueueStore: {
+        listSince: vi
+          .fn<ReviewQueueStore['listSince']>()
+          .mockImplementation(({ since, until }) =>
+            Promise.resolve({
+              ok: true,
+              entries: until > since ? [makeEntry()] : [],
+            }),
+          ),
+      },
+      sweepStateStore: {
+        getSweepState: vi
+          .fn<SweepStateStore['getSweepState']>()
+          .mockResolvedValue({
+            ok: true,
+            state: { personaId: 'sarah', lastSweptAt: storedLastSweptAt },
+          }),
+        recordSweepCompleted: vi
+          .fn<SweepStateStore['recordSweepCompleted']>()
+          .mockResolvedValue({
+            ok: true,
+            state: { personaId: 'sarah', lastSweptAt: earlierClockRead },
+          }),
+      },
+    });
+
+    await runReviewQueueSweep(deps, now);
+
+    expect(deps.reviewQueueStore.listSince).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      since: storedLastSweptAt,
+      until: earlierClockRead,
+    });
+    expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      sweptAt: earlierClockRead,
+    });
   });
 
   it('logs an error but continues the sweep when finding stale confirming questions fails', async () => {
@@ -477,5 +540,170 @@ describe('runReviewQueueSweep', () => {
       expect.objectContaining({ errorMessage: 'Error: connection reset' }),
     );
     expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalled();
+  });
+
+  // Reproduces the re-report bug: `resolveStaleQuestionsAndSweepWindow` writes this run's own
+  // `'mid-silence'` row stamped with a real clock read *after* `now` (`createReviewQueueEntry`,
+  // `packages/core/src/intake/review-queue-repository.ts`), so the row's own `createdAt` can fall
+  // after `now` — exactly what the pre-fix code's `sweptAt: now` missed, re-reporting that row on
+  // the very next sweep. One shared, advancing fake clock backs both the `resolveAndLog` fake's
+  // `createdAt` stamp and `deps.clock`'s `until` read, so whichever the production code actually
+  // calls first gets the earlier value — a real guard on `runReviewQueueSweep`'s own read order,
+  // not two independently scripted timestamps that would still agree even if the order changed.
+  // Stateful in-memory fakes stand in for the DB across two consecutive calls, so the second
+  // run's `listSince` genuinely sees the state the first run left behind, not a scripted return
+  // value.
+  describe('the re-report bug this fix addresses', () => {
+    it('does not re-report, on the very next sweep, a mid-silence row this run itself just wrote', async () => {
+      const rows: ReviewQueueEntry[] = [];
+      let recordedSweptAt: Date | null = null;
+      const question = makeQuestion();
+      const run1Now = new Date('2026-07-19T12:00:00.000Z');
+      const run2Now = new Date('2026-07-20T12:00:00.000Z');
+
+      // The shared clock: each read advances it, so a call that happens earlier in real
+      // execution order always gets an earlier value than one that happens later.
+      let clockMs = run1Now.getTime();
+      const advanceClock = (ms: number): Date => {
+        clockMs += ms;
+        return new Date(clockMs);
+      };
+
+      const listSince = vi.fn<ReviewQueueStore['listSince']>(async (scope) => ({
+        ok: true,
+        entries: rows.filter(
+          (row) =>
+            row.createdAt.getTime() > scope.since.getTime() &&
+            row.createdAt.getTime() <= scope.until.getTime(),
+        ),
+      }));
+      const resolveAndLog = vi.fn<ConfirmingQuestionStore['resolveAndLog']>(
+        async () => {
+          const entry = makeEntry({
+            id: 'f1a85f64-5717-4562-b3fc-2c963f66afaa',
+            outcomeReason: 'mid-silence',
+            createdAt: advanceClock(1000),
+          });
+          rows.push(entry);
+          return {
+            ok: true,
+            question: { ...question, resolvedAt: entry.createdAt },
+            entry,
+          };
+        },
+      );
+      const getSweepState = vi.fn<SweepStateStore['getSweepState']>(
+        async () => ({
+          ok: true,
+          state:
+            recordedSweptAt === null
+              ? null
+              : { personaId: 'sarah', lastSweptAt: recordedSweptAt },
+        }),
+      );
+      const recordSweepCompleted = vi.fn<
+        SweepStateStore['recordSweepCompleted']
+      >(async (input) => {
+        recordedSweptAt = input.sweptAt;
+        return {
+          ok: true,
+          state: { personaId: 'sarah', lastSweptAt: input.sweptAt },
+        };
+      });
+      const clock = vi.fn<SweepDeps['clock']>(() => advanceClock(500));
+
+      const deps = makeDeps({
+        clock,
+        reviewQueueStore: { listSince },
+        confirmingQuestionStore: {
+          findStale: vi
+            .fn<ConfirmingQuestionStore['findStale']>()
+            .mockResolvedValueOnce({ ok: true, questions: [question] })
+            .mockResolvedValue({ ok: true, questions: [] }),
+          resolveAndLog,
+        },
+        sweepStateStore: { getSweepState, recordSweepCompleted },
+      });
+
+      await runReviewQueueSweep(deps, run1Now);
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(1);
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining(
+            'anyone know a good coffee place nearby',
+          ) as string,
+        }),
+      );
+
+      await runReviewQueueSweep(deps, run2Now);
+
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledTimes(1);
+    });
+
+    // The mirror image of the test above: a row whose `createdAt` falls just after this run's own
+    // `until` is deferred, not lost — it's genuinely still unreported (excluded from run 1's
+    // digest), and the very next sweep's window starts exactly where this one ended, so the row
+    // is included there instead.
+    it("defers, rather than loses, a row created just after this run's own until boundary", async () => {
+      const until1 = new Date('2026-07-19T12:00:01.000Z');
+      const rowCreatedAt = new Date('2026-07-19T12:00:02.000Z');
+      const until2 = new Date('2026-07-19T12:00:03.000Z');
+      const row = makeEntry({
+        id: 'c2a85f64-5717-4562-b3fc-2c963f66afac',
+        outcomeReason: 'low-confidence',
+        sourceMessageText: 'written just after run 1 listed',
+        createdAt: rowCreatedAt,
+      });
+      let recordedSweptAt: Date | null = null;
+
+      const listSince = vi.fn<ReviewQueueStore['listSince']>(async (scope) => ({
+        ok: true,
+        entries: [row].filter(
+          (entry) =>
+            entry.createdAt.getTime() > scope.since.getTime() &&
+            entry.createdAt.getTime() <= scope.until.getTime(),
+        ),
+      }));
+      const getSweepState = vi.fn<SweepStateStore['getSweepState']>(
+        async () => ({
+          ok: true,
+          state:
+            recordedSweptAt === null
+              ? null
+              : { personaId: 'sarah', lastSweptAt: recordedSweptAt },
+        }),
+      );
+      const recordSweepCompleted = vi.fn<
+        SweepStateStore['recordSweepCompleted']
+      >(async (input) => {
+        recordedSweptAt = input.sweptAt;
+        return {
+          ok: true,
+          state: { personaId: 'sarah', lastSweptAt: input.sweptAt },
+        };
+      });
+      const clock = vi
+        .fn<SweepDeps['clock']>()
+        .mockReturnValueOnce(until1)
+        .mockReturnValueOnce(until2);
+
+      const deps = makeDeps({
+        clock,
+        reviewQueueStore: { listSince },
+        sweepStateStore: { getSweepState, recordSweepCompleted },
+      });
+
+      await runReviewQueueSweep(deps, new Date('2026-07-19T12:00:00.000Z'));
+      expect(deps.slackClient.chat.postMessage).not.toHaveBeenCalled();
+
+      await runReviewQueueSweep(deps, new Date('2026-07-19T12:00:04.000Z'));
+      expect(deps.slackClient.chat.postMessage).toHaveBeenCalledWith(
+        expect.objectContaining({
+          text: expect.stringContaining(
+            'written just after run 1 listed',
+          ) as string,
+        }),
+      );
+    });
   });
 });
