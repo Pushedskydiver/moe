@@ -19,8 +19,7 @@ type PostMessageClient = Parameters<typeof postMessage>[0];
 
 // Alex confirmed via `AskUserQuestion` (BUILD_PLAN 3.5): an unresolved confirming question past
 // this age counts as "silence," VISION §5.2's third Mid-band outcome alongside a real 👍/👎
-// answer. A plain named constant, not env-configurable — same "cheap to change later" reasoning
-// as `compose-and-post-confirming-question.ts`'s own fixed-template wording, not a
+// answer. A plain named constant, not env-configurable — cheap to change later, not a
 // schema/architecture choice worth a config parameter yet.
 const SILENCE_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 

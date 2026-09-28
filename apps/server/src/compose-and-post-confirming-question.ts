@@ -296,9 +296,12 @@ export async function postAndPersistConfirmingQuestion(
 /**
  * BUILD_PLAN 3.4b-i's Mid-band action: gated by the same cost-cap+operating-rhythm guard and
  * situational-appropriateness gate the High-band draft path uses
- * (`standing-proactive-guards.ts`), then posts a fixed-template confirming question against the
- * source message — in-thread for an ambient one, top-level for a DM (`surface`) — persists a `pending_confirming_questions` row keyed on the posted message,
- * and seeds the 👍/👎 legend (`postAndPersistConfirmingQuestion`).
+ * (`standing-proactive-guards.ts`), then claims a `pending_confirming_questions` row keyed on the
+ * source message's ts (BUILD_PLAN 5.2b), posts a confirming question (a persona-voiced lead-in,
+ * or a fixed fallback if composition fails or the cost cap skips it, plus a fixed trailer)
+ * against the source message — in-thread for an ambient one, top-level for a DM (`surface`) —
+ * records the posted message's ts on the claimed row, and seeds the 👍/👎 legend
+ * (`postAndPersistConfirmingQuestion`).
  *
  * **BUILD_PLAN 3.9 — the off-hours branch no longer drops the message, and BUILD_PLAN 3.10 — nor
  * do the other two guard exits.** This path has the byte-identical guard chain the High-band draft
