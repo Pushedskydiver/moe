@@ -2,7 +2,94 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
 
-## Next workstreams (after Session 74)
+## Next workstreams (after Session 75)
+
+Updated 2026-09-29 end-Session-75 — **The §9 PR has cleared its review chain. R3 came back 0 BLOCKING/0 MATERIAL from both reviewers, and the final LOW pass is committed on the local branch `docs/s9-review-harvests` (`141451c`, not pushed, no PR). Self-review, the pre-push suite, push and PR are next.** `main` is at `cd7d6e1` plus this handoff, and no PRs are open. All 8 personas are `started` with checks passing.
+
+**Asked and decided:**
+
+- Alex decided: nothing this session.
+- Claude decided under Alex's delegation (2026-09-29):
+  - Graded R3's four convergences at the higher severity. They were all LOWs, so the chain stopped at R3: `DEVELOPMENT.md:48`'s "saves an empty file" (DA L1, surrogate 2), `TESTING.md:12`/`:14` unprefixed (DA L2, surrogate 4), the follow-on TypeErrors (DA Nit, surrogate 1), and the undefined `<session>` path (DA Nit, surrogate 3).
+  - Folded every R3 LOW and Nit except surrogate 5, 7 and 8, plus FFFFFF's and GGGGGG's standing-line edits (brief H1–H10, `s9-pr/r3/fold-brief.md`). The three deferrals are older `TESTING.md`/`DA-REVIEW.md` claims this PR didn't introduce, so they go to the NOTICED cleanup PR (carry-overs). Surrogate 6, "Nothing uses it yet" about fast-check, was false and was deleted.
+  - `SESSION-HANDOFF.md:146` now names Claude as the one who added §10's mechanical check (Session 73's §9 PR, `git show b70a3cb:PROGRESS.md` "Done this session"). No entry lists it as anyone's decision.
+  - Archived Session 71 at handoff: with this entry, the band passes both §10 lines (5 entries, ~11k tokens). At load it was 38.1 KB (≈9.5k tokens) over 4 entries, under both lines.
+
+**Done this session:**
+
+- **R3** (range `ff6bc74..d964d05`, DA and surrogate in parallel, worktree-isolated): DA 0/0/3 (+4 Nit, 3 FYI), surrogate 0/0/10. Both confirm G1–G5 and N3–N6 are folded. They also confirm G2 went the right way round: the host guard is the backstop, as `implementer.md:35` says, not what the R2 brief said. DA ran G4's jq recipe against 124 real subagent transcripts, and it returned the report every time. Reports: `s9-pr/r3/da.md` and `surrogate.md`.
+- **LOW pass** (`doc-fixer`, brief `s9-pr/r3/fold-brief.md`):
+  - `1f4292f` and `7c87dbb` (`DEVELOPMENT.md`, the standing lines included), `db06acf` (`TESTING.md`), `ccc0742` (`SESSION-HANDOFF.md`) and `fca2be7` (`copilot-surrogate.md`). Report: `s9-pr/r3/fold-report.md`. `check:agents`, `typecheck:scripts`, `test:scripts` (103) and `check:rulebook` pass, and Prettier is clean.
+  - I read the content diff (word-diff plus the three long `DEVELOPMENT.md` lines in full). It had one slip, in the fixer's extra sibling edit at `SESSION-HANDOFF.md:140`: "§5's step 1 `origin/main` read". I fixed it myself in `141451c` ("§5 step 1's"). Per §Round-2 verification, the PR must say that no fresh context checked the LOW pass.
+
+**In flight:** nothing. No agents are running.
+
+**Next, and open questions for Alex:**
+
+- **§9 PR:** self-review (`docs/SELF-REVIEW.md` over `main...HEAD`), then the pre-push suite, push and PR. Alex merges.
+- **The hook follow-up PR** (its own branch, after the §9 PR).
+- **[ALEX]** Merging the §9 PR once it's open.
+
+**Cleanup:**
+
+- Both R3 review worktrees were auto-removed, and `git worktree list` shows only the primary checkout.
+- `docs/s9-review-harvests` is kept (in progress).
+- The scratchpad was cleared.
+- Session 71 was archived into `docs/history/SESSIONS.md`. Its lessons were harvested as follows:
+  - XXXXX → memory (`agent-dispatch-gotchas.md`); `DEVELOPMENT.md` step 5 now carries it too.
+  - YYYYY on the §9 branch (`DEVELOPMENT.md` step 4's hook live check). It isn't in an open PR yet, so it's listed under carry-overs until the §9 PR opens.
+
+**Session data:** 125.6k tokens at handoff (usage tool; 5-hour window 68%, weekly 60%, Fable weekly 9%). Context at load: 80.1k (usage tool), so row 1's line was ~120.1k. Tool schemas at load: 50.0k (system tools 30.7k plus MCP tools 19.2k).
+
+- **Trigger:** row 1. The LOW pass committed (a phase boundary) at ~125k, 45.5k above load.
+- **What grew context most:**
+  - `docs/SESSION-HANDOFF.md` (~6k).
+  - `DEVELOPMENT.md` §Review Gate (~5k).
+  - The R2 fold brief and report (~3k).
+  - The source checks behind the LOW brief (~4k).
+- **Subagent tokens:** DA R3 129.7k, surrogate R3 173.1k, LOW fixer 52.3k (355.1k in all).
+- **Structural warning signs:** none. One failed tool call came from zsh's `$c:P` modifier in a loop (a known gotcha, not a forgotten session fact).
+- **Clarifying question needed, or a fact in the last entry wrong or missing at load:** none. The loading instructions didn't say where `s9-pr/` lives (`.claude/research/workflow-series/s9-pr/`), which cost one `find`.
+
+**Lessons (Session 75):**
+
+- **HHHHHH — A dispatch brief's "read the primary checkout at HEAD" is only true if that checkout is on the branch.** Both R3 briefs said the primary checkout had `docs/s9-review-harvests` checked out, but it was on `main` (handoffs leave it there). Only the brief's own fallback (`git show <sha>:<path>` if not) kept the reviewers off `main`'s copies. Check `git status -sb` of the primary checkout before writing a review brief, or check out the branch first. → memory (`agent-dispatch-gotchas.md`).
+- **IIIIII — The LOW pass's own content-diff read earns its place.** The fixer made an edit the brief didn't ask for: a sibling sweep that added "§5's" to a second "step 1". It broke a possessive, and only the orchestrator's read of the word-diff caught it. The protocol already requires this read, so this lesson changes nothing. → none.
+
+### Session 76 loading instructions
+
+- **Check live state first:**
+  - `git fetch`, then read the newest entry only: `git show origin/main:PROGRESS.md | awk '/^## Earlier/{exit} 1'`.
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `cd7d6e1`), `git status`, `gh pr list` (expect none), and `git log --oneline origin/main..docs/s9-review-harvests` (expect 19 commits, top `141451c`).
+  - `fly status -a moe-<persona>` for each `fly.*.toml`.
+  - Record the `get_usage` context figure right after loading, and again before every dispatch. Row 1 fires at that figure + 40k. Run §10's archival check.
+  - Review reports and briefs live in `.claude/research/workflow-series/s9-pr/` (gitignored), under `r1/`, `r2/` and `r3/`.
+- **The §9 PR** on `docs/s9-review-harvests`:
+  1. Check out the branch, then walk `docs/SELF-REVIEW.md` against `git diff main...HEAD`. Fix anything found in its own commit.
+  2. Merge `origin/main` in, since the branch is behind by the handoff commits.
+  3. Run the pre-push suite one step at a time, with tests as `env -u DATABASE_URL pnpm -r --no-bail --if-present run test`, plus the four script-suite commands.
+  4. Push and open the PR (`📝 docs(handoff): …`, labelled per `docs/GIT.md`). In the body, say that no fresh context checked the LOW pass (`1f4292f..141451c`), and list the three deferred surrogate R3 items.
+  5. Post the surrogate's R1, R2 and R3 reports (`s9-pr/r{1,2,3}/surrogate.md`) as one comment. Then walk the pre-merge checkpoint (`DEVELOPMENT.md` §Review Gate) and hand the PR to Alex.
+- **Then the hook follow-up PR** (its own branch). Scope: Alex's three answers in the Session 73 entry's "Asked and decided" (`git show b70a3cb:PROGRESS.md`), plus #121's body ("Questions for Alex"). It touches `scripts/guard-fly.ts` and its tests, `docs/GIT.md`'s blast-radius list, and `AGENTS.md`'s deploy wording (plus any sibling copy, e.g. `docs/OPERATIONS.md` and `docs/GIT.md` §Deploy Flow). Full gate; the surrogate is mandatory. Per `DEVELOPMENT.md` step 4, the changed hook gets a headless `claude -p` check before merge and a fresh-session desktop check after it.
+- **Decision branches:**
+  1. **[ALEX]** Merging the §9 PR and the hook follow-up PR.
+  2. If self-review finds something substantive (not a LOW), fold it and treat the fold as a new round per §Round-2 verification rather than as part of the LOW pass.
+- **Carry-overs:**
+  - YYYYY (Session 71) is harvested on the §9 branch and counts once the §9 PR opens.
+  - After the hook follow-up: the O10 Prettier chore PR (scope: `git show 3abde05:PROGRESS.md`, "[ALEX] O10"). Then the chief-clancy doc-port: its scope is `docs/decisions/CHIEF-CLANCY-DOC-PORTS.md` plus Alex's Session 70 decision (`git show 8680b6a:PROGRESS.md`), and its mechanics are in `git show 3abde05:PROGRESS.md`'s Session 52 entry.
+  - NOTICED items for a later cleanup PR:
+    - #118's, #120's and #121's (their bodies).
+    - `AGENTS.md:37`'s "§Node-native TS execution…" anchor (surrogate R1 FYI 12 in `handoff-r1/`).
+    - The replay-harness count drift, including `REVIEW-PATTERNS.md:19`'s scenario counts (§9 PR surrogate R1 L9 in `s9-pr/r1/`).
+    - `DEVELOPMENT.md:11`'s `engines` "pins" (the same report's FYI4).
+    - §9 PR surrogate R3 items 5, 7 and 8 (`s9-pr/r3/surrogate.md`):
+      - `TESTING.md:14`'s `--coverage` has no coverage package installed. That needs a choice: install one or drop the line.
+      - `TESTING.md:5`'s "once Slack/GitHub integration code exists" is stale.
+      - `TESTING.md:135`'s `SELF-REVIEW.md` forward reference, and `DA-REVIEW.md:221`'s "(once it exists)".
+- **Recommended model and effort for Session 76:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 74
 
 Updated 2026-09-28 end-Session-74 — **#121's hook is verified live. The §9 PR's R2 found one converged MATERIAL, and it is folded on the local branch `docs/s9-review-harvests` (`d964d05`, not pushed, no PR). R3 is next.** `main` is at `b70a3cb` plus this handoff, and no PRs are open. All 8 personas are `started` with checks passing.
 
@@ -268,103 +355,6 @@ Updated 2026-09-28 end-Session-72 — **The Hook PR cleared its review gate and 
   - NOTICED items for a later cleanup PR: #118's (its body); `AGENTS.md:37`'s "§Node-native TS execution…" anchor (surrogate R1 FYI 12 in `handoff-r1/`); #120's "Noticed but not touching" list (its body); and #121's (its body).
   - Memory: `harness-and-tooling-gotchas.md` is ~9 KB, past the ~5 KB re-consolidation mark.
 - **Recommended model and effort for Session 73:** Opus, `high`.
-- **Fallback:** if Alex redirects on load, follow that.
-
-## Earlier: Session 71
-
-Updated 2026-09-28 end-Session-71 — **The Hook PR (`chore/fly-guard-hook`, `a24882c`; not pushed, no PR yet) is R1-reviewed and R1-folded. R1 found one converged MATERIAL and one DA-only MATERIAL. The first is folded, and orchestrator evidence closed the second. An R2 range check on `0f40015..a24882c` is next.** `main` is at `8680b6a` plus this handoff, and no PRs are open. All 8 personas are `started` with checks passing.
-
-**Asked and decided:**
-
-- Alex decided (2026-09-28):
-  - §1 stays unchanged, confirming the §9 second review's recommendation.
-  - No veto on §8's end date: once a lesson's entry archives, an unharvested lesson gets its own small PR. It lands in the §9 review PR.
-- Claude decided under Alex's delegation (2026-09-28):
-  - Graded R1's converged findings at the higher severity, per the convergence rule: the secrets reason, the unlisted false negatives, the header's "do not ask" claim and the `.gitignore` label all became LOW.
-  - Folded R1's LOWs together with the MATERIAL in one commit, so R2 checks them too.
-  - Closed DA M2 ("no in-session check that the hook fires") with evidence, not a file change (see Done).
-  - Two items are deferred to the PR body as questions for Alex. They are not folded, because the first reopens brief decision 3, which kept the hook narrow on PCR's prompt-fatigue argument.
-    - DA L2: commands that act like deploys (`fly machine update --image`, `fly image update`, `fly scale count`, `fly machine clone`, `fly apps destroy`), all of which classify `null`.
-    - DA's Consider: adding `.claude/settings.json` to `docs/GIT.md`'s blast-radius list.
-  - The archival check at load found 5 entries but ~10.8k tokens (43 KB / 4), which is borderline for §10's "roughly 10k". It was deferred to this handoff, where the new entry made 6 anyway.
-
-**Done this session:**
-
-- **Merged `origin/main`** into `chore/fly-guard-hook` (`0f40015`).
-- **R1** over `main...chore/fly-guard-hook` (5 files, +278), with DA and the surrogate in parallel, both worktree-isolated. Reports: `.claude/research/workflow-series/hook-r1/da.md` and `surrogate.md`.
-  - DA: 0 BLOCKING / 2 MATERIAL / 2 LOW (+5 Nit, 2 Consider/FYI).
-  - Surrogate: 0 / 2 / 7 (+2 FYI).
-  - **Converged MATERIAL:** `AGENTS.md:48` and `guard-fly.ts:11` called the confirming human "the deploy authorisation". That overstated the coverage (the hook fails open, the regex misses some forms, and Codex never runs `.claude/` hooks). It also contradicted "Alex-only" and "A human runs the deploy command". Verified at source.
-  - **DA M2:** nobody had watched the hook fire in a real session. **Closed by the orchestrator:** a headless `claude -p` on this branch was asked to run `echo fly deploy`. The hook intercepted it with the deploy reason, and it was denied despite `--allowedTools Bash` (`permission_denials` in the JSON output). That verifies that the settings load, `${CLAUDE_PROJECT_DIR}` expands and `node` resolves (this session's Claude process has mise shims on PATH). **It was the terminal env, not the desktop app, so the post-merge desktop check still stands.**
-  - Both reviewers confirmed the cases the handoff named: `env FOO=1 fly deploy`, newline-separated scripts, `sh -c 'fly deploy'`, `flyctl` and flags before the subcommand. They also confirmed `fly secrets deploy`/`sync` exist (flyctl v0.4.108, `--help` only). DA's mutation run found that the child-process tests do catch a broken `main()`.
-- **R1 fold** (`implementer`, per `hook-r1/fold-brief.md`, `a24882c`):
-  - The backstop wording in `AGENTS.md:48` and the header.
-  - Both reason texts (`--build-only`; `--stage` for every secrets subcommand).
-  - The accepted false negatives are now listed in the header.
-  - The lookbehind is now `(?<![\w.-])` (the `moe.fly` test was watched failing first).
-  - Two test renames, the `.gitignore` label, and the unused `export type` dropped.
-  - Worker-reported: typecheck:scripts, test:scripts (103), lint, format:check, check:agents, check:rulebook and knip all pass. The orchestrator read the `AGENTS.md` and `.gitignore` hunks, and both match the brief. **R2 checks the rest.**
-
-**In flight:** nothing running.
-
-**Next, and open questions for Alex:** none open now. The two deferred items above go into the PR body for him.
-
-**Cleanup:**
-
-- Both R1 review worktrees were auto-removed (`git worktree list` shows only the primary checkout).
-- `chore/fly-guard-hook` is kept (unpushed work).
-- Session 66 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
-- The scratchpad holds only the headless run's JSON and this entry's draft.
-
-**Session data:** ~130k tokens at handoff (usage tool; 5-hour window 21%, weekly 54%, Fable weekly 4%). Context at load: 82.8k (usage tool), so row 1 fired at ~122.8k. Tool schemas at load: 50.0k (system tools 30.7k plus MCP tools 19.2k).
-
-- **Trigger:** row 1, a phase boundary (the R1 fold committed) at 126.3k.
-- **What grew context most:**
-  - The two R1 hand-backs (~9k together), injected in full as agent messages.
-  - `docs/SESSION-HANDOFF.md` read in full (~6k), as step 2 asks.
-  - The fold brief (~3k), and the guard script's header and settings (~2k).
-- **Subagent tokens:** DA 132k, surrogate 90k, fold 34k, plus one headless haiku run.
-- **§9 review:** the evidence is in `s9-review-2/report.md`. Alex answered both of its questions this session, and applying it is still pending (the §9 PR).
-- **Structural warning signs:** none.
-- **Clarifying question needed that the last entry should have answered:** none.
-
-**Lessons (Session 71):**
-
-- **XXXXX — A hand-back report isn't in the subagent transcript's text blocks.** It is the input of the `SubagentHandback` tool call. `jq` over `.message.content[] | select(.type=="text")` saved an empty file. This worked: `select(.type=="tool_use" and (.name|test("Handback"))) | .input | to_entries[] | select(.value|type=="string") | .value`. → memory (`harness-and-tooling-gotchas.md`).
-- **YYYYY — A headless `claude -p` run on the branch is a cheap pre-merge live check of a project hook.** In `-p` mode, an `ask` becomes a recorded `permission_denials` entry, even over `--allowedTools`. It proves the settings load, the path expands and the interpreter resolves, which a piped-JSON smoke test can't. It closed a DA MATERIAL without waiting for the merge. → `docs/DEVELOPMENT.md` §Quick Reference, in the §9 PR (it is already editing that section).
-
-### Session 72 loading instructions
-
-- **Check live state first:**
-  - `git fetch`, then read the newest entry only: `git show origin/main:PROGRESS.md | awk '/^## Earlier/{exit} 1'`.
-  - `git log --oneline -3 origin/main` (expect this handoff on top of `8680b6a`), `git status`, `gh pr list` (expect none open), and `git log --oneline main..chore/fly-guard-hook` (expect `a24882c` on top of `0f40015` and `6ba7a15`).
-  - `fly status -a moe-<persona>` for each `fly.*.toml`.
-  - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
-- **First: the Hook PR's R2** (`chore/fly-guard-hook`).
-  1. Merge `origin/main` into the branch first if it has moved (this handoff moved it). The R2 range stays `0f40015..a24882c`.
-  2. R2: DA and the surrogate, since both had MATERIALs, in parallel and worktree-isolated. Give both the primary checkout's absolute path, `hook-r1/fold-brief.md`, and R1's findings by number from `hook-r1/da.md` and `surrogate.md`. Ask each to confirm or disprove every fold, and to find what the fold introduced. The new header and `AGENTS.md` text make fresh claims about the regex's false negatives and flyctl's `--stage` behaviour, and those need checking at source.
-  3. Stop at 0 BLOCKING/MATERIAL, run the LOW pass, and disclose it in the PR. If R4 still finds BLOCKING/MATERIAL, ask Alex.
-  4. Self-review, then the pre-push suite (test step on its own), **plus** the script suite.
-  5. Push and open the PR as `📦 chore(hooks): …`, with labels per `docs/GIT.md`. The body carries:
-     - the headless live-check evidence (Done above);
-     - the two deferred questions for Alex (Asked and decided above);
-     - the surrogate's R1 and later reports as one comment.
-
-     `AGENTS.md` is blast-radius, so Alex merges.
-
-  6. After the merge, verify it live in a new **desktop** session on `main`: the harmless `echo "fly deploy"` should raise a prompt. Never run a real `fly deploy`.
-- **Then the §9 review PR, bundled with the overdue harvests** (its own branch). Scope: the Session 70 entry's loading instructions (`git show 8680b6a:PROGRESS.md`, "Then the §9 review PR").
-  - Alex has now answered both of its questions: no §1 change, and no veto on §8's end date.
-  - Add YYYYY to its `DEVELOPMENT.md` §Quick Reference edit.
-- **Decision branches:**
-  1. If the Hook R2 loop reaches R4, ask Alex.
-  2. **[ALEX]** The PR body's two deferred questions (the deploy-equivalent commands, and `.claude/settings.json` on the blast-radius list), answered at review or merge.
-- **Carry-overs:**
-  - After the Hook PR: the O10 Prettier chore PR (scope: `git show 3abde05:PROGRESS.md`, "[ALEX] O10"). Then the chief-clancy doc-port: its scope is `docs/decisions/CHIEF-CLANCY-DOC-PORTS.md` plus Alex's Session 70 decision (`git show 8680b6a:PROGRESS.md`), and its mechanics are in `git show 3abde05:PROGRESS.md`'s Session 52 entry.
-  - WWWW, PPPPP, IIIII, UUUUU and YYYYY: scheduled into the §9 PR.
-  - NOTICED items for a later cleanup PR: #118's (its body); `AGENTS.md:37`'s "§Node-native TS execution…" anchor (surrogate R1 FYI 12 in `handoff-r1/`); and #120's "Noticed but not touching" list (its body).
-  - Memory: `harness-and-tooling-gotchas.md` is ~9 KB, past the ~5 KB re-consolidation mark.
-- **Recommended model and effort for Session 72:** Opus, `high`.
 - **Fallback:** if Alex redirects on load, follow that.
 
 ## Session archive
