@@ -36,7 +36,7 @@ const IGNORED_DRAFT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 // type) — mirrors `packages/core/src/intake/review-queue-repository.ts`'s own (non-exported)
 // `ListReviewQueueEntriesSinceScope`, the scope type of the core function `listSince` is wired to
 // (`listReviewQueueEntriesSince`). This file is the sweep's DI-testable core, not the script —
-// `scripts/review-queue-sweep.ts` is the thin real-infra wrapper that actually calls it.
+// `apps/server/scripts/review-queue-sweep.ts` is the thin real-infra wrapper that actually calls it.
 type ListSinceScope = {
   readonly personaId: string;
   readonly since: Date;
@@ -385,17 +385,19 @@ async function postSweepDigest(
 /**
  * BUILD_PLAN 3.5's own review-queue sweep — VISION §5.2's "nothing is silently eaten" backstop,
  * finally given a real reader. Triggered manually (Alex confirmed via `AskUserQuestion`: a CLI
- * script, `scripts/review-queue-sweep.ts`'s own thin real-infra wrapper around this function — not
+ * script, `apps/server/scripts/review-queue-sweep.ts`'s own thin real-infra wrapper around this function — not
  * a background timer, since the codebase had no scheduled-job infrastructure at chunk 3.5 and
  * chunk 7.2a's own future ceremony scheduler is the real home for that, not this chunk).
  *
- * Lists every `review_queue` row created in `(lastSweptAt, until]`, where `until` is read from
+ * Lists the `review_queue` rows created in `(lastSweptAt, until]`, where `until` is read from
  * `deps.clock()` *after* `resolveStaleQuestionsAndSweepWindow` writes this run's own
- * `'mid-silence'` rows (so this run's own writes are included), and DMs a formatted digest
+ * `'mid-silence'` rows (so this run's own writes normally fall inside the window — exceptions (3)
+ * and (4) below name when they don't), and DMs a formatted digest
  * (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's own lifetime-cumulative High-band
  * draft-outcome counts (`fetchDraftOutcomeCounts`), VISION §5.4's named production metric for the
- * whole intake cascade. `sweep_state` is only advanced, to `until` (not `now`), once both listing
- * *and* posting actually succeed — either failure leaves it untouched, so the next run re-covers
+ * whole intake cascade. `sweep_state` is only updated, to `until` (not `now`), once both listing
+ * *and* posting actually succeed — normally an advance, though exception (3) below can move it
+ * back — either failure leaves it untouched, so the next run re-covers
  * the same window rather than silently skipping past rows Alex was never shown (DA review, chunk
  * 3.5: the posting-failure half of this was originally missed — `sweep_state` advanced
  * unconditionally after `postSweepDigest`, defeating this very backstop's own purpose).
@@ -414,15 +416,17 @@ async function postSweepDigest(
  * 3. **Clock reading backward (overlap):** if this run's clock reads `until` earlier than the
  *    stored `lastSweptAt` — the host's clock corrected backward, or the script run from a machine
  *    whose clock lags the last one — the listing `(since, until]` is empty and recording `until`
- *    moves the window back, so the next run re-reports rows in `(until, since]`. Recording `until`
- *    rather than holding `since` is deliberate: when the earlier reading was the fast one, holding
- *    `since` would skip every row later stamped in `(until, since]`.
+ *    moves the window back, so the next run's window reaches back over `(until, since]`,
+ *    re-reporting any row there that an earlier sweep already listed. Recording `until` rather
+ *    than holding `since` is deliberate: when the stored `lastSweptAt` came from a clock that was
+ *    running fast, holding it would skip every row later stamped in `(until, since]`.
  * 4. **Stamp-versus-listing ordering (gap):** a row stamped at or before one window's `until` can
  *    be invisible to that window's listing and then fall at or below the next window's `since` —
  *    its insert committed after the listing ran, or the clock that stamped it lagged the clock
  *    that read `until` (clock skew between the CLI host and a persona's machine, or this run's own
- *    `'mid-silence'` writes when (3) applies). It is bounded by commit latency plus clock skew,
- *    and nothing detects or logs it.
+ *    `'mid-silence'` writes when they are stamped at or before the stored `lastSweptAt` — always
+ *    the case when (3) applies). It is bounded by commit latency plus clock skew, and nothing
+ *    detects or logs it.
  *
  * (1)–(3) are re-reports, not misses — the same rule `resolveStaleQuestionsAndSweepWindow`'s own
  * comment states above: over-reporting an already-seen row is far lower-risk than silently
