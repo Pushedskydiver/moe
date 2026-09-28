@@ -6,6 +6,8 @@ Living state document — current state, what's next. Session-by-session detail 
 
 Updated 2026-09-28 end-Session-68 — **[PR #119](https://github.com/Pushedskydiver/moe/pull/119) (`docs/session-handoff-review`) is open with all 5 CI checks passing, and it's waiting on Alex's merge. The A4 cite fix is built, R1-reviewed and R1-folded on a local branch (`fix/vision-latency-cites`, `48efbc0`; not pushed, no PR yet). An R2 range check on `4217a18..48efbc0` is next.** `main` is at `440b9e9` plus this handoff. All 8 personas are `started` with checks passing.
 
+Update (2026-09-28): Alex merged #119 (`e3ac3a4`). The local and remote `docs/session-handoff-review` branches are gone.
+
 **Asked and decided:**
 
 - Alex decided: nothing new this session. A4's "fix the cites, don't add a target" is Alex's earlier call.
@@ -62,7 +64,7 @@ Updated 2026-09-28 end-Session-68 — **[PR #119](https://github.com/Pushedskydi
 
 - **Check live state first:**
   - `git fetch`, then read **`git show origin/main:PROGRESS.md`**.
-  - `git log --oneline -3 origin/main` (expect this handoff on top of `440b9e9`, plus #119's squash if Alex merged it), `git status`, `gh pr list` (expect #119 open unless merged), and `git log --oneline main..fix/vision-latency-cites` (expect 2 commits, ending `48efbc0`).
+  - `git log --oneline -3 origin/main` (expect #119's squash `e3ac3a4` on top of this handoff, plus this update), `git status`, `gh pr list` (expect none open), and `git log --oneline main..fix/vision-latency-cites` (expect 2 commits, ending `48efbc0`).
   - `fly status -a moe-<persona>` for all 8 persona Apps.
   - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
 - **First: finish `fix/vision-latency-cites` (A4).**
@@ -76,8 +78,7 @@ Updated 2026-09-28 end-Session-68 — **[PR #119](https://github.com/Pushedskydi
      - Body: the fold brief's "Dismissed / PR body" items.
      - Post the surrogate reports as one comment.
      - `docs/VISION.md` is blast-radius, so Alex merges.
-- **Decision branches:**
-  1. If #119 hasn't merged, leave it. It's Alex's to merge.
+- **Decision branches:** none. (#119 merged after handoff.)
 - **Carry-overs:**
   - WWWW and PPPPP go into `docs/DEVELOPMENT.md` §Quick Reference, in the next PR that touches it.
   - IIIII rides in the next PR that touches `REVIEW-PATTERNS.md`.
