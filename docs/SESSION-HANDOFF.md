@@ -130,7 +130,7 @@ Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Conte
 
 Session data fields, per entry: tokens at handoff, to 0.1k like context at load, and their source (tool or CLI); context at load and its source (§2; row 1's baseline); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired, the context figure when it fired, and the event (e.g. "row 1 at 137.2k, PR opened"); what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered, or a fact in the last entry was found wrong or missing at load.
 
-There is no tool-schema field: tool schemas measured 49.4–49.9k across Sessions 66–69, a constant, so re-measure them at each ten-session review or after a harness update instead.
+There is no tool-schema field: tool schemas measured 49.4–50.3k across Sessions 66–72, close to constant, so re-measure them at each ten-session review or after a harness update instead.
 
 Fields missing from older entries stay "not recorded", with no backfill. Sessions 46–52's gaps were a Claude call under Alex's delegation at §9's first review (Session 60). Claude extended the rule to context at load before Session 58, the first entry with a context-at-load field, when adding that field to this doc (Session 66).
 
