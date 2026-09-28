@@ -137,7 +137,7 @@ Fields missing from older entries stay "not recorded", with no backfill. Session
 Review every ten sessions. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
 
 - Alex decided that row 1 becomes relative to the context at load (§1).
-- He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, §5's step 1 `origin/main` read and the no-backfill call.
+- He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, §5 step 1's `origin/main` read and the no-backfill call.
 
 The second review ran at Session 70, over Sessions 60–69 (`git show 8680b6a:PROGRESS.md`):
 
