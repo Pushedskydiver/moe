@@ -43,6 +43,15 @@ const IGNORED_DRAFT_THRESHOLD_MS = 24 * 60 * 60 * 1000;
 // here either, deliberately — this Slack post only ever happens because Alex personally ran the
 // script at a moment of his own choosing, and VISION §6.4's core-hours rule / §14's weekend rest
 // rule govern a persona acting unprompted, not Alex-triggered admin tooling.
+// Named per `docs/CONVENTIONS.md`'s Code Style rule (three or more properties earn a named
+// type) — mirrors `packages/core/src/intake/review-queue-repository.ts`'s own
+// `ListReviewQueueEntriesSinceScope`, this script's real caller.
+type ListSinceScope = {
+  readonly personaId: string;
+  readonly since: Date;
+  readonly until: Date;
+};
+
 export type SweepDeps = {
   readonly personaId: string;
   readonly alertSlackUserId: string;
@@ -63,11 +72,9 @@ export type SweepDeps = {
     }) => Promise<SweepStateResult>;
   };
   readonly reviewQueueStore: {
-    readonly listSince: (scope: {
-      readonly personaId: string;
-      readonly since: Date;
-      readonly until: Date;
-    }) => Promise<ReviewQueueEntryListResult>;
+    readonly listSince: (
+      scope: ListSinceScope,
+    ) => Promise<ReviewQueueEntryListResult>;
   };
   readonly confirmingQuestionStore: {
     readonly findStale: (scope: {
