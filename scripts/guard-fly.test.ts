@@ -20,6 +20,16 @@ describe('classifyFly', () => {
     expect(classifyFly('fly -a moe-sarah deploy')).toBe('deploy');
   });
 
+  it('flags a deploy after a global flag with no value', () => {
+    expect(classifyFly('fly --debug deploy')).toBe('deploy');
+  });
+
+  it('flags fly deploy --build-only (a documented false positive)', () => {
+    expect(classifyFly('fly deploy --build-only -c fly.sarah.toml')).toBe(
+      'deploy',
+    );
+  });
+
   it.each([
     'cd x && fly deploy',
     'pnpm build; fly deploy',
@@ -27,16 +37,18 @@ describe('classifyFly', () => {
     'echo $(fly deploy)',
     'sh -c "fly deploy"',
     'env FLY_API_TOKEN=x fly deploy',
-  ])('flags a deploy inside a compound command: %s', (command) => {
+  ])('flags a deploy inside a compound or wrapped command: %s', (command) => {
     expect(classifyFly(command)).toBe('deploy');
   });
 
-  it.each(['superfly deploy', 'moe-fly deploy', 'butterfly deploy'])(
-    'does not match a different binary that ends in fly: %s',
-    (command) => {
-      expect(classifyFly(command)).toBeNull();
-    },
-  );
+  it.each([
+    'superfly deploy',
+    'moe-fly deploy',
+    'moe.fly deploy',
+    'butterfly deploy',
+  ])('does not match a different binary that ends in fly: %s', (command) => {
+    expect(classifyFly(command)).toBeNull();
+  });
 
   it.each([
     'fly status -a moe-sarah',
@@ -75,16 +87,19 @@ describe('classifyFly', () => {
     'fly secrets list -a set-app',
     'superfly secrets set FOO=bar',
     'moe-fly secrets set FOO=bar',
-  ])('does not flag a non-mutating secrets command: %s', (command) => {
-    expect(classifyFly(command)).toBeNull();
-  });
+  ])(
+    "does not flag a read-only secrets command or another binary's secrets command: %s",
+    (command) => {
+      expect(classifyFly(command)).toBeNull();
+    },
+  );
 });
 
 describe('evaluateCommand', () => {
   it('asks with the image reason for a deploy', () => {
     const result = evaluateCommand('fly deploy -c fly.sarah.toml --ha=false');
     expect(result.ask).toBe(true);
-    expect(result.ask && result.reason).toContain('ships a new image');
+    expect(result.ask && result.reason).toContain('ship a new image');
   });
 
   it('asks with the secrets reason for a mutating secrets command', () => {
@@ -120,7 +135,7 @@ describe('hook entry point', () => {
       permissionDecision: 'ask',
     });
     expect(output.hookSpecificOutput.permissionDecisionReason).toContain(
-      'ships a new image',
+      'ship a new image',
     );
   });
 
