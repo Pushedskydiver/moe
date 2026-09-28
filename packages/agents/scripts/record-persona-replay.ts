@@ -92,8 +92,8 @@ if (!parsedAnthropic.ok) {
   process.exit(1);
 }
 
-// A batch-recording script has no live-Slack-reply latency target, unlike every production call
-// site — `createAnthropicClient`'s 20s default genuinely timed out live on a scenario that
+// A batch-recording script isn't a live Slack reply a human is waiting on, so it doesn't need
+// `createAnthropicClient`'s 20s default — which genuinely timed out live on a scenario that
 // provoked heavy extended thinking (confirmed by running this exact script, not assumed).
 const RECORDING_TIMEOUT_MS = 120_000;
 const realClient = createAnthropicClient(
