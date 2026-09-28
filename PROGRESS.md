@@ -2,7 +2,84 @@
 
 Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
 
-## Next workstreams (after Session 61)
+## Next workstreams (after Session 62)
+
+Updated 2026-09-28 end-Session-62 — **`fix/review-queue-sweep-rereport` is built, R1-reviewed and R1-folded on a local branch (`9d8e125`; not pushed, no PR yet). R1 found 3 MATERIALs, all folded, so an R2 range check on `41e4a36..9d8e125` is next.** `docs/glossary-thinning` is unchanged at `c8cd765` (R3 still due). All 8 personas are `started` with checks passing.
+
+**Asked and decided:** nothing. Nothing this session was marked Alex's.
+
+**Done this session:**
+
+- **Build** (`implementer`, from `main` @ `84ddfd9`, per `.claude/research/workflow-series/sweep-fix/build-brief.md`): `7cb20b4` (core) and `f4fe25c` (server).
+  - `listReviewQueueEntriesSince` takes a required `until`, making the window `(since, until]`.
+  - `SweepDeps` gets an injected `clock`. `until` is read after the run's own `'mid-silence'` writes, and `sweptAt: until` is recorded.
+  - The orchestrator ran the new tests against `main`'s `review-queue-sweep.ts`: 3 failed, including both new re-report tests.
+- **Architectural pass** (orchestrator, `41e4a36`): the repository and sweep TSDocs pointed at each other for the known gap, and schema.ts's "neither overlap nor gap" stood unqualified.
+- **R1** (range `main...41e4a36`, both isolated): DA 0 BLOCKING / 2 MATERIAL / 10 LOW; surrogate 0 / 1 / 5 (+2 FYI). Reports: `sweep-fix/da-r1-report.md`, `sweep-fix/surrogate-r1-report.md`.
+  - Converged, graded MATERIAL: the "read `until` after the writes" ordering was untested (DA moved the line and all 16 tests still passed). `:380` still said "the codebase has no scheduled-job infrastructure" (false: the pull loop's `setInterval`).
+  - Surrogate MATERIAL: "neither overlap nor gap" left out the two by-design re-report paths (the epoch fallback and a failed `recordSweepCompleted`). The build brief had required both.
+- **R1 fold** (`implementer`, per `sweep-fix/r1-fold-brief.md`; report `r1-fold-report.md`): 7 commits, `cb44046`..`9d8e125`.
+  - New code guard: `lastSweptAt` never moves backward (`sweptAt = until > since ? until : since`, DA L3).
+  - The ordering test uses one shared advancing clock. The builder reported moving the clock read above the writes and seeing it fail. **Not re-verified by the orchestrator**; R2 checks it.
+  - The `:380` wording matches `docs/glossary-thinning`'s exactly.
+  - LOWs L1–L7 applied. Dismissed or PR-body only: DA L4, L5, L9, L10 and the surrogate FYIs (the brief's last section).
+  - Suite reported green except `packages/core`'s DB-backed files (no `DATABASE_URL`). The new DB tests have only been read, not run; CI is their first run.
+
+**In flight:** nothing running.
+
+**Next, and open questions for Alex:** nothing waiting on Alex. For his veto in the PR: DA L5, whether the fix's trade (a per-run double report swapped for a millisecond-scale miss window at `until`) is right, or a settle delay should be added.
+
+**Cleanup:** both R1 review worktrees and their `worktree-agent-*` branches were removed, after checking the report copies byte for byte. `git worktree list` shows only the primary checkout. Both `fix/review-queue-sweep-rereport` and `docs/glossary-thinning` are kept (unpushed work). Session 57 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
+
+**Session data:** ~148k tokens at handoff (usage tool; 5-hour window 41%, weekly 43%, Fable weekly 4%). Context at load: 91.6k (usage tool), so row 1 fired at ~131.6k.
+
+- **Trigger:** row 1, a phase boundary (R1 fold committed) at ~146k, past load+40k.
+- **What grew context most:**
+  - The ~92k loaded start (it included reading the branch's `PROGRESS.md` before `origin/main`'s, YYYY a fourth time, ~9k).
+  - Reading the build diff (~6k).
+  - The DA LOW section (~4k).
+  - Four hand-backs (~1k each).
+- **Subagent tokens:** build 158k, DA R1 154k, surrogate R1 111k, R1 fold 149k.
+- **Structural warning signs:** none.
+- **Clarifying question needed that the last entry should have answered:** none.
+
+**Lessons (Session 62):**
+
+- **DDDDD — The brief settled two exception classes, and the build plus the architectural pass checked only one.** Both the builder and the orchestrator's pass checked the new comments against the brief's "known gap" but never walked its full settled-semantics paragraph. The surrogate caught the omitted failure-path re-reports. Check an architectural pass against the brief's settled items one by one, not against a remembered gist. → none (instance of self-reported-status-needs-verification).
+- **EEEEE — A mutation check found an untested key invariant that the test comment claimed was covered.** The fakes scripted fixed timestamps, so they couldn't see call order. DA moved one line and re-ran. For a fix whose correctness is an ordering or boundary, deliberately break that one thing once and watch a test fail. → none (observation; weigh it for `docs/TESTING.md` if it recurs).
+
+### Session 63 loading instructions
+
+- **Check live state first:**
+  - `git fetch`, then read **`git show origin/main:PROGRESS.md`**, not the working tree's copy (YYYY).
+  - `git log --oneline -3 origin/main` (expect this handoff on top of `84ddfd9`), `git status`, `gh pr list`, and `git log --oneline origin/main..fix/review-queue-sweep-rereport` (expect 10 commits, ending `9d8e125`).
+  - `fly status -a moe-<persona>` for all 8 persona Apps.
+  - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
+- **First: finish `fix/review-queue-sweep-rereport`.**
+  1. Check out the branch; merge `origin/main` if it has moved.
+  2. Run the R2 range check on `41e4a36..9d8e125`, DA and surrogate in parallel and isolated. Both check every item in `sweep-fix/r1-fold-brief.md`: applied as settled, true at source, no new false absolute. DA re-runs the ordering mutation check (F2).
+     - Per UUUU/XXXX: git only in their own worktree; reports written there and `cp`'d to `sweep-fix/`.
+     - 0 BLOCKING/MATERIAL → the disclosed LOW pass, then self-review (`docs/SELF-REVIEW.md`).
+  3. Run the full pre-push suite (tests via `pnpm -r --no-bail --if-present run test`, WWWW), push, and open the PR: `🐛 fix(server): stop the review-queue sweep re-reporting its own writes`, labels `server` and `core` (plus the type label per `docs/GIT.md`).
+     - Body: the r1-fold-brief's "Dismissed / PR body" items. That covers DA L4 (the squash hides the red intermediate commit), L5 (the trade, for Alex's veto), L9 (the first sweep after merge re-reports once), and the 3-file conflict with `docs/glossary-thinning`. Also say the DB-backed tests first run in CI.
+     - Post the surrogate reports as one comment.
+  4. Watch the DB-backed tests in CI. They have never run.
+- **Then: finish `docs/glossary-thinning`** (Session 62's loading steps, unchanged). Check out the branch and merge `origin/main`; run R3 on `04c6ec3..c8cd765`; the LOW pass, self-review and tokens per brief §4; then the PR. Labels: `chore`, `server`, `github`, `core`.
+  - If the sweep PR has merged first, resolve the conflicts in `review-queue-repository.ts`, `schema.ts` and `review-queue-sweep.ts` in favour of the sweep PR's code and wording. The `:380` sentence is already identical.
+- **Then the SESSION-HANDOFF PR**, as specified in the Session 61 entry below: row 1 → load + 40k, the "context at load" field, prompt step 1 → `origin/main`, and the PPPP, SSSS and YYYY harvests.
+- **Decision branches:**
+  1. If the sweep R2 finds BLOCKING/MATERIAL, fold it; reaching R4 means ask Alex. Same for the glossary R3.
+  2. GLOSSARY `:48` on the glossary branch ("picks up where the last completed one left off", "never misses a row"): re-check it against the sweep fix's exceptions before the glossary PR opens. The known narrow commit-ordering gap may need scoping there.
+  3. If Alex vetoes L5's trade on the sweep PR, add the settle delay as a fold.
+- **Carry-overs:**
+  - WWWW into `docs/DEVELOPMENT.md` §Quick Reference, in the next PR that touches it.
+  - The A4 cite-fix PR (Alex: fix the cites).
+  - Then the O10 Prettier chore PR, the Hook PR, and the chief-clancy doc-port workstream (candidates in `git show 3abde05:PROGRESS.md`'s Session 52 entry). Confirm the order with Alex.
+  - Memory: `harness-and-tooling-gotchas.md` is past the ~5 KB re-consolidation mark.
+- **Recommended model and effort for Session 63:** Opus, `high`.
+- **Fallback:** if Alex redirects on load, follow that.
+
+## Earlier: Session 61
 
 Updated 2026-09-28 end-Session-61 — **`docs/glossary-thinning` has its R1 and R2 folds committed on the local branch (`c8cd765`; not pushed, no PR yet). R2 found one MATERIAL, which was folded, so an R3 range check on the R2 fold is due. Session 62 starts with the review-queue sweep re-report bug R2 found (Alex), then R3.** All 8 personas are `started` with checks passing.
 
@@ -291,59 +368,6 @@ Updated 2026-09-27 end-Session-58 — **`docs/development-thinning` is built, ar
   - PPPP's harvest (`docs/SESSION-HANDOFF.md` §6) and SSSS's (§9) go into the next PR that touches that doc.
   - After both thinning PRs: the O10 Prettier chore PR, then the Hook PR, then the chief-clancy doc-port workstream (candidates in `git show 3abde05:PROGRESS.md`'s Session 52 entry). Confirm the order with Alex.
 - **Recommended model and effort for Session 59:** Opus, `high`.
-- **Fallback:** if Alex redirects on load, follow that.
-
-## Earlier: Session 57
-
-Updated 2026-09-27 end-Session-57 — **The docs-thinning brief is final: the `spec-grill` verification round ran and its findings are folded. The build of `docs/development-thinning` is next.** The brief is `.claude/research/workflow-series/pr5-brief.md` (gitignored, 536 lines). `main` is unchanged apart from this handoff. All 8 personas are `started` with checks passing.
-
-**Asked and decided (Alex, 2026-09-27, `AskUserQuestion`):** O10 is **yes**. A scoped `.prettierrc` `proseWrap: "never"` override lands as its own chore PR **after both thinning PRs**. The mechanism: with `proseWrap: "never"`, Prettier prints a table wider than `printWidth` in compact form, so no other option is needed. The brief's top block records it.
-
-**Done this session:**
-
-- **`spec-grill` R2 (verification):** 17 of R1's items confirmed, 4 partial (M3, M5, L3, L12), 0 BLOCKING / 2 MATERIAL / 8 LOW new. Report: `pr5-grill/r2-report.md`. The ~35 re-checked file:line cites all hold at `3abde05`.
-  - NM1: §3.4's "no rule lost" check used a `{1,40}` word-diff regex, which never printed a longer deleted run. The grill tested it: a kept rule sentence slipped past. §6 still gave DA the pre-R1 criterion.
-  - NM2: R1's M5 fix sentence placed `listClaimableTickets` under `capacity/`. It lives in `ticket-lifecycle/tickets-repository.ts` and does no ordering. The orchestrator verified this at source.
-- **R2 fold** (`doc-fixer`): applied per `pr5-grill/r2-fold-brief.md`. Before settling, the orchestrator verified the source claims inside NM2, NL1, NL2 and NL8's fix wording: oldest-`createdAt`-first at `find-next-claimable-ticket.ts:17`, the fixed fallback lead-in at `compose-and-post-confirming-question.ts:58-63`, and "live-chat-reply" at `create-pull-loop-behavior-deps.ts:40`. NL6 took both fixes: the override at brief `:22` now names "Optional" and "NOTICED BUT NOT TOUCHING", and §3.5 carries a "Superseded by A2" line. The orchestrator spot-checked the folded lines. No R3: the MATERIAL fix wording was verified at source, and the build's own review gate reads the result.
-
-**Next, and open questions for Alex:**
-
-- **[ALEX] A4** (unchanged): three places cite a §6.4 latency target that VISION §6.4 doesn't have. Ask when the development PR opens. The brief's `:504` now quotes each site's wording correctly.
-
-**Cleanup:** no branches were created. `git worktree list` shows only the primary checkout. Session 52 was archived into `docs/history/SESSIONS.md`, because this entry made 6.
-
-**Session data:** ~116k tokens at handoff (usage tool; 5-hour window 7%, weekly 39%, Fable weekly 4%).
-
-- **Trigger:** phase boundary above 100k (brief final), before the build phase.
-- **What grew context most:** the fixed start. `get_usage` read **88.6k right after loading**: system tools 30k, MCP tools 19k, memory/skills/system prompt ~13.5k, plus `PROGRESS.md` + `SESSION-HANDOFF.md` (~15k). Then two hand-backs (~2k each) and source checks.
-- **Subagent tokens:** grill R2 128k, fold 75k.
-- **Structural warning signs:** none.
-- **Clarifying question needed that the last entry should have answered:** none.
-
-**Lessons (Session 57):**
-
-- **SSSS — The start-of-session baseline eats most of the phase-boundary margin.** This session started at 88.6k, so §1 row 1's 100k line sat ~12k above a freshly loaded session. It fired after one grill round and one fold. About 49k of that baseline is tool schemas (system + MCP), which moe doesn't control from the repo. Earlier Session data lines never recorded the start figure, so it's unknown whether this is new. At Session 60's §9 review, weigh measuring the thresholds as a delta above the loaded start. → `docs/SESSION-HANDOFF.md` §9 (a "context at load" field; rides the next PR that touches it).
-- **TTTT — A reviewer's fix sentence was wrong at R1 and reached the brief verbatim (NM2).** This is JJJJ/OOOO again. This session checked every source claim in R2's fix wording before settling it, and all of them held. → none (instance of JJJJ).
-
-### Session 58 loading instructions
-
-- **Check live state first:**
-  - `git log --oneline -3 origin/main` (expect this handoff on top of `3abde05`), `git status`, `gh pr list`.
-  - `fly status -a moe-<persona>` for all 8 persona Apps.
-  - Record the `get_usage` context figure right after loading (SSSS).
-- **Primary: build `docs/development-thinning`.** The brief is final. Don't re-grill it.
-  1. Branch `docs/development-thinning` from a freshly pulled `main`. Fill in `<date>`/`<branch-point sha>` at brief `:237` (O6).
-  2. Dispatch `implementer` with brief §3. The dispatch says: "read the Decisions-settled block first; it overrides §3.5 and §7", because commit 3 edits both `VISION.md:327` (A1) and `:208` (A2).
-  3. Run the review gate per brief §6. The surrogate is mandatory, because the PR touches the blast-radius docs DEVELOPMENT and VISION. Loop until 0 BLOCKING/MATERIAL, then self-review.
-  4. Measure before/after tokens per brief §4. The PR body carries the NOTICED items (A4, isolation Option B) and the token figures.
-  5. Then `docs/glossary-thinning` (brief §5), in its own session if a trigger fires.
-- **Decision branches:**
-  1. **[ALEX]** A4: ask when the development PR opens.
-  2. If the build's review gate reaches R4, ask Alex.
-- **Carry-overs:**
-  - PPPP's harvest (`docs/SESSION-HANDOFF.md` §6) and SSSS's (§9) go into the next PR that touches that doc.
-  - After both thinning PRs: the O10 Prettier chore PR, then the Hook PR, then the chief-clancy doc-port workstream. The candidates are in `git show 3abde05:PROGRESS.md`'s Session 52 entry. Confirm the order with Alex.
-- **Recommended model and effort for Session 58:** Opus, `high`.
 - **Fallback:** if Alex redirects on load, follow that.
 
 ## Session archive
