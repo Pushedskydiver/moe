@@ -254,15 +254,17 @@ describe('review queue repository', () => {
         const until = new Date('2026-07-19T10:00:00.000Z');
 
         vi.setSystemTime(until);
-        await createReviewQueueEntry(db, {
+        const createdAtUntil = await createReviewQueueEntry(db, {
           ...newEntryInput(),
           sourceMessageText: 'created exactly at until — included',
         });
+        expect(createdAtUntil.ok).toBe(true);
         vi.setSystemTime(new Date(until.getTime() + 1000));
-        await createReviewQueueEntry(db, {
+        const createdAfterUntil = await createReviewQueueEntry(db, {
           ...newEntryInput(),
           sourceMessageText: 'created after until — excluded, deferred',
         });
+        expect(createdAfterUntil.ok).toBe(true);
 
         const result = await listReviewQueueEntriesSince(db, {
           personaId: 'sarah',
