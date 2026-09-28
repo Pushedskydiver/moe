@@ -230,7 +230,8 @@ type PendingConfirmingQuestionsTable = {
  * `lastSweptAt`, so consecutive completed sweeps' windows neither overlap nor gap, save for the
  * exceptions `review-queue-sweep.ts`'s own `runReviewQueueSweep` TSDoc names — Alex confirmed this
  * design via `AskUserQuestion` over the cheaper "fixed rolling window from now" alternative, which
- * has real gaps if the script is skipped or run twice in one window.
+ * overlaps (a double report) if run twice within one window, and gaps if runs are further apart
+ * than the window.
  */
 type SweepStateTable = {
   readonly personaId: string;
