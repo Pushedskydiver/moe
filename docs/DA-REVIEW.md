@@ -116,7 +116,7 @@ DA, research, and Explore agents can hallucinate file contents — claims about 
 
 ### Reporting channel — in-chat only, not PR comments
 
-The `da-review` subagent's output is consumed in-chat by Claude for triage and folds. It must **not** post comments on the PR. Once `copilot-surrogate` is dispatched (drift-fix PRs, or as a general factual-claim check), its findings are what Claude posts as a PR comment — see `.claude/agents/copilot-surrogate.md`. Both subagents return findings in-band; only the surrogate's output becomes a PR comment, and only Claude posts it. When dispatching `@agent-da-review`, instruct it to return findings as the tool result; do not ask it to post a PR comment. If a DA comment ends up on a PR by accident, delete it — it is noise, not the audit trail.
+The `da-review` subagent's output is consumed in-chat by Claude for triage and folds. It must **not** post comments on the PR. Once `copilot-surrogate` is dispatched (drift-fix PRs, or as a general factual-claim check), its findings are what Claude posts as a PR comment — see `.claude/agents/copilot-surrogate.md`. Both subagents return findings in-band; only the surrogate's output becomes a PR comment, and only Claude posts it. When dispatching `@agent-da-review`, instruct it to return findings as the tool result; do not ask it to post a PR comment. When the dispatch brief names a report file, the reviewer instead writes its full report there and hands back the counts plus one line per finding, still in-chat and never a PR comment (`docs/DEVELOPMENT.md` §Quick Reference step 5). If a DA comment ends up on a PR by accident, delete it — it is noise, not the audit trail.
 
 ### Dead Code Hygiene — list and ask
 
