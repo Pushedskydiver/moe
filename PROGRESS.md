@@ -6,6 +6,8 @@ Living state document — current state, what's next. Session-by-session detail 
 
 Updated 2026-09-28 end-Session-64 — **`fix/review-queue-sweep-rereport` is open as [PR #117](https://github.com/Pushedskydiver/moe/pull/117), not merged (Alex merges). R3 came back with 0 BLOCKING / 0 MATERIAL, and the LOW pass was applied.** At handoff CI showed 4 passing, 1 pending. The DB-backed tests' first-ever CI run was not yet confirmed. `docs/glossary-thinning` is unchanged at `c8cd765` (R3 still due). All 8 personas are `started` with checks passing.
 
+Update (2026-09-28): #117's CI went green, 5/5. The DB-backed tests ran for the first time: all 57 `packages/core` test files passed, including `review-queue-repository.test.ts` (15 tests). The PR is `BEHIND` `main`, by the handoff commit only.
+
 **Asked and decided:** Alex gave permission in chat to open the PR, after the auto-mode classifier blocked the push and `gh pr create` (HHHHH). Nothing else was marked Alex's.
 
 **Done this session:**
@@ -54,7 +56,7 @@ Updated 2026-09-28 end-Session-64 — **`fix/review-queue-sweep-rereport` is ope
   - `fly status -a moe-<persona>` for all 8 persona Apps.
   - Record the `get_usage` context figure right after loading. Row 1 fires at that figure + 40k.
 - **First: PR #117.**
-  - Read its CI with `mcp__ccd_pr__get_status`, and confirm the DB-backed `packages/core` tests ran and passed. A real failure there is a fold on the branch (`implementer`), then a range check.
+  - CI was green at handoff, DB-backed tests included (see the Update line). Re-check it with `mcp__ccd_pr__get_status` only if the branch has moved.
   - Read Alex's review comments. If he vetoed a trade, apply decision branch 3.
 - **Then: finish `docs/glossary-thinning`**, per the Session 62 entry's loading instructions (step "Then: finish `docs/glossary-thinning`"). R3 on `04c6ec3..c8cd765`, then the PR. Labels: `chore`, `server`, `github`, `core`.
   - If #117 has merged first, resolve the conflicts in `review-queue-repository.ts`, `schema.ts`, `review-queue-sweep.ts` and `sender-trigger-cache.ts` in favour of #117. Also take #117's `ARCHITECTURE.md:20` and `sweep-state.ts` wording if they conflict.
