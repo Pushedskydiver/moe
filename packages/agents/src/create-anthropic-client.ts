@@ -22,12 +22,12 @@ const REQUEST_TIMEOUT_MS = 20_000;
  * secret-handling SDK client this repo has added has needed this same wiring; it's easy to skip
  * on the next one too, so it's called out explicitly here rather than assumed obvious.
  *
- * `timeoutMs` defaults to `REQUEST_TIMEOUT_MS` (20s, tuned for a live Slack reply). The Slack
- * listener keeps that default. Two callers override it with 120s, because no human is waiting on
- * them synchronously: `record-persona-replay.ts`, a manual batch-recording script, where a real
- * recording measured genuinely timing out at 20s on a scenario that provoked heavy extended
- * thinking (live-diagnosed, not assumed); and `apps/server`'s pull loop
- * (`create-pull-loop-behavior-deps.ts`).
+ * `timeoutMs` defaults to `REQUEST_TIMEOUT_MS` (20s, tuned for a live Slack reply), which the Slack
+ * listener keeps. A caller no human waits on synchronously can pass a longer one: the manual
+ * batch-recording script `record-persona-replay.ts` and `apps/server`'s pull loop
+ * (`create-pull-loop-behavior-deps.ts`) both pass 120s. Both overrides were live-diagnosed, not
+ * assumed — a real call genuinely timed out at 20s: a recording on a scenario that provoked heavy
+ * extended thinking, and a Plan-stage `composePlan` work step.
  */
 export function createAnthropicClient(
   apiKey: string,
