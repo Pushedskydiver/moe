@@ -26,8 +26,8 @@ const REQUEST_TIMEOUT_MS = 20_000;
  * listener keeps. A caller no human waits on synchronously can pass a longer one: the manual
  * batch-recording script `record-persona-replay.ts` and `apps/server`'s pull loop
  * (`create-pull-loop-behavior-deps.ts`) both pass 120s. Both overrides were live-diagnosed, not
- * assumed — a real call genuinely timed out at 20s: a recording on a scenario that provoked heavy
- * extended thinking, and a Plan-stage `composePlan` work step.
+ * assumed — a real call genuinely timed out at the 20s per-attempt limit: a recording on a
+ * scenario that provoked heavy extended thinking, and a Plan-stage `composePlan` work step.
  */
 export function createAnthropicClient(
   apiKey: string,
