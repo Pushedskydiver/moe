@@ -392,34 +392,39 @@ async function postSweepDigest(
  * `'mid-silence'` rows (so this run's own writes are included), and DMs a formatted digest
  * (`postSweepDigest`) — which now also carries BUILD_PLAN 3.6's own lifetime-cumulative High-band
  * draft-outcome counts (`fetchDraftOutcomeCounts`), VISION §5.4's named production metric for the
- * whole intake cascade. `sweep_state` is only advanced, to the later of `since` and `until` (not
- * `now`), once both listing *and* posting actually succeed — either failure leaves it untouched,
- * so the next run re-covers the same window rather than silently skipping past rows Alex was
- * never shown (DA review, chunk 3.5: the posting-failure half of this was originally missed —
- * `sweep_state` advanced unconditionally after `postSweepDigest`, defeating this very backstop's
- * own purpose). Recording the later of the two (R1 fold, F1) keeps a clock that reads earlier than
- * the stored `lastSweptAt` — skew between the CLI host and the persona's machine, or the host's
- * own clock stepping backward — from moving the window back; `until <= since` already means the
- * listing above found nothing, so recording `since` unchanged loses nothing.
+ * whole intake cascade. `sweep_state` is only advanced, to `until` (not `now`), once both listing
+ * *and* posting actually succeed — either failure leaves it untouched, so the next run re-covers
+ * the same window rather than silently skipping past rows Alex was never shown (DA review, chunk
+ * 3.5: the posting-failure half of this was originally missed — `sweep_state` advanced
+ * unconditionally after `postSweepDigest`, defeating this very backstop's own purpose).
  *
  * Reading `until` after this run's own writes, and recording it (not `now`) as the next
  * `lastSweptAt`, keeps consecutive completed sweeps' windows from overlapping (a row reported
- * twice) or gapping (a row missed) in the common case — but not always; three exceptions this
- * doesn't close, none of them silent, and none in place of the other:
+ * twice) or gapping (a row missed) in the common case — but not always. Assuming one sweep per
+ * persona at a time (`sweep-state-repository.ts`), four exceptions remain; (1)–(3) re-report
+ * rows, (4) misses them, and only (1) and (2) are logged:
  * 1. **State-read fallback (overlap):** a failed `getSweepState` falls back to `since = new
- *    Date(0)` (`resolveStaleQuestionsAndSweepWindow`, below) rather than aborting, so that run's
+ *    Date(0)` (`resolveStaleQuestionsAndSweepWindow`, above) rather than aborting, so that run's
  *    window overlaps every earlier completed one.
  * 2. **Record failure after a successful post (overlap):** a failed `recordSweepCompleted` after
  *    listing and posting both succeed leaves `lastSweptAt` where it was, so the next run's window
  *    overlaps the rows Alex was already shown.
- * 3. **Commit-ordering (gap):** `createdAt` is stamped by the writing process before its insert
- *    commits, so a row stamped just before `until` but committed after the listing query runs is
- *    never listed by either window (milliseconds, plus any clock skew between the CLI host and
- *    the persona's machine).
+ * 3. **Clock reading backward (overlap):** if this run's clock reads `until` earlier than the
+ *    stored `lastSweptAt` — the host's clock corrected backward, or the script run from a machine
+ *    whose clock lags the last one — the listing `(since, until]` is empty and recording `until`
+ *    moves the window back, so the next run re-reports rows in `(until, since]`. Recording `until`
+ *    rather than holding `since` is deliberate: when the earlier reading was the fast one, holding
+ *    `since` would skip every row later stamped in `(until, since]`.
+ * 4. **Stamp-versus-listing ordering (gap):** a row stamped at or before one window's `until` can
+ *    be invisible to that window's listing and then fall at or below the next window's `since` —
+ *    its insert committed after the listing ran, or the clock that stamped it lagged the clock
+ *    that read `until` (clock skew between the CLI host and a persona's machine, or this run's own
+ *    `'mid-silence'` writes when (3) applies). It is bounded by commit latency plus clock skew,
+ *    and nothing detects or logs it.
  *
- * (1) and (2) are re-reports, not misses — the same rule `resolveStaleQuestionsAndSweepWindow`'s
- * own comment states below: over-reporting an already-seen row is far lower-risk than silently
- * missing one. (3) is the one true gap.
+ * (1)–(3) are re-reports, not misses — the same rule `resolveStaleQuestionsAndSweepWindow`'s own
+ * comment states above: over-reporting an already-seen row is far lower-risk than silently
+ * missing one. (4) is the one true gap.
  *
  * `now` keeps its own separate, pre-existing roles unchanged: the Mid-band silence cutoff and the
  * ignored-draft threshold, both computed relative to when this run started, not to `until`.
@@ -447,15 +452,9 @@ export async function runReviewQueueSweep(
   const posted = await postSweepDigest(deps, entries.entries, now);
   if (!posted) return;
 
-  // Never move `lastSweptAt` backward: `until` normally advances past `since`, but a clock that
-  // reads earlier than the stored value (clock skew between the CLI host and the persona's
-  // machine, or the host's own clock stepping backward) must not record a window regression — if
-  // `until <= since` the listing above is already empty, so recording `since` unchanged loses
-  // nothing.
-  const sweptAt = until > since ? until : since;
   const recorded = await deps.sweepStateStore.recordSweepCompleted({
     personaId: deps.personaId,
-    sweptAt,
+    sweptAt: until,
   });
   if (!recorded.ok) {
     deps.logger.error('failed to record sweep completion', {

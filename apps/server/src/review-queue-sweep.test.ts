@@ -55,8 +55,8 @@ function makeLogger() {
 const DEFAULT_TEST_NOW = new Date('2026-07-19T12:00:00.000Z');
 
 // The default injected clock's value, deliberately a moment after `DEFAULT_TEST_NOW` rather than
-// equal to it (R1 fold, L1) — a test that doesn't override `clock` still sees `until` and `now` as
-// two genuinely different values, so an assertion that happens to pass because `until === now`
+// equal to it — a test that doesn't override `clock` still sees `until` and `now` as two
+// genuinely different values, so an assertion that happens to pass because `until === now`
 // can't hide behind this default.
 const DEFAULT_TEST_UNTIL = new Date(DEFAULT_TEST_NOW.getTime() + 1000);
 
@@ -468,16 +468,28 @@ describe('runReviewQueueSweep', () => {
     );
   });
 
-  // R1 fold, F1: a run whose clock reads earlier than the stored `lastSweptAt` (clock skew
-  // between the CLI host and the persona's machine, or the host's own clock stepping backward)
-  // must not move the window backward — recording the clock's own earlier read as `sweptAt` would
-  // make the next run's window overlap everything already reported since `storedLastSweptAt`.
-  it("does not move lastSweptAt backward when this run's clock reads earlier than the stored value", async () => {
+  // A run whose clock reads `until` earlier than the stored `lastSweptAt` — the host's clock
+  // corrected backward, or the script run from a machine whose clock lags the last one — records
+  // `until` anyway: one of `runReviewQueueSweep`'s own named accepted-overlap exceptions, not a
+  // guarded case. The next run re-reports rows in `(until, storedLastSweptAt]`. Holding `since`
+  // instead would be the wrong trade: if the earlier reading were in fact the fast one, it would
+  // skip every row later stamped in `(until, since]`.
+  it("records `until` as the next lastSweptAt even when this run's clock reads earlier than the stored value", async () => {
     const now = new Date('2026-07-19T12:00:00.000Z');
     const storedLastSweptAt = new Date('2026-07-19T11:00:00.000Z');
     const earlierClockRead = new Date('2026-07-19T10:00:00.000Z');
     const deps = makeDeps({
       clock: () => earlierClockRead,
+      reviewQueueStore: {
+        listSince: vi
+          .fn<ReviewQueueStore['listSince']>()
+          .mockImplementation(({ since, until }) =>
+            Promise.resolve({
+              ok: true,
+              entries: until > since ? [makeEntry()] : [],
+            }),
+          ),
+      },
       sweepStateStore: {
         getSweepState: vi
           .fn<SweepStateStore['getSweepState']>()
@@ -489,16 +501,21 @@ describe('runReviewQueueSweep', () => {
           .fn<SweepStateStore['recordSweepCompleted']>()
           .mockResolvedValue({
             ok: true,
-            state: { personaId: 'sarah', lastSweptAt: storedLastSweptAt },
+            state: { personaId: 'sarah', lastSweptAt: earlierClockRead },
           }),
       },
     });
 
     await runReviewQueueSweep(deps, now);
 
+    expect(deps.reviewQueueStore.listSince).toHaveBeenCalledWith({
+      personaId: 'sarah',
+      since: storedLastSweptAt,
+      until: earlierClockRead,
+    });
     expect(deps.sweepStateStore.recordSweepCompleted).toHaveBeenCalledWith({
       personaId: 'sarah',
-      sweptAt: storedLastSweptAt,
+      sweptAt: earlierClockRead,
     });
   });
 
