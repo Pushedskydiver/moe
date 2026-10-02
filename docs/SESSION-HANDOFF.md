@@ -19,7 +19,7 @@ Moe's own data, recorded per session since Session 46 in anticipation of this do
 
 Why tokens rather than a percentage: the window is 1M tokens, so a percentage line such as 60% would be 600k, far past where quality holds.
 
-Row 1 is relative to the context at load while rows 2 and 3 stay absolute. That was Alex's call at §9's first review (2026-09-27, `git show 8e27f4c:PROGRESS.md`), made because the load then cost ~87–95k (Sessions 57–60), so a 100k line fired after about 10k of work. About 49k of the load is tool schemas, which moe doesn't control from the repo (measured at Session 57, and again at Session 66). Separately, rows 2 and 3 bound total input length, the quantity the evidence above ties to degradation.
+Row 1 is relative to the context at load while rows 2 and 3 stay absolute. That was Alex's call at §9's first review (2026-09-27, `git show 8e27f4c:PROGRESS.md`), made because the load then cost ~87–95k (Sessions 57–60), so a 100k line fired after about 10k of work. About 50k of the load is tool schemas, which moe doesn't control from the repo (first measured at Session 57; 49.4–50.3k across Sessions 66–72, §9). Separately, rows 2 and 3 bound total input length, the quantity the evidence above ties to degradation.
 
 No new weekly-limit trigger row is added (Alex, 2026-09-27) — the weekly % lives in §9's Session data field instead, named in the handoff notice at ≥85%.
 
@@ -68,12 +68,14 @@ Kept deliberately small, because the artefact carries the state:
 
 ```text
 Continue the moe project.
-1. Run git fetch, then read origin/main's PROGRESS.md (git show origin/main:PROGRESS.md) and follow its latest loading instructions.
+1. Run git fetch, then read the newest entry of origin/main's PROGRESS.md (git show origin/main:PROGRESS.md | awk '/^## Earlier/{exit} 1') and follow its loading instructions.
 2. Read docs/SESSION-HANDOFF.md and apply it to this session too.
 3. Then carry on with the Next list. Ask me only what PROGRESS.md marks as mine to decide.
 ```
 
-Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first, at a cost of ~9k per resume (Sessions 61–62). Under §3's exception, when the entry rides an open PR, `origin/main`'s copy is the stale one instead. The paste-in prompt's step 1 then names that branch (`git show origin/<branch>:PROGRESS.md`), since the notice goes only to Alex.
+Step 1 reads `origin/main`'s copy because handoffs commit straight to `main` (§3), so a checkout left on a feature branch holds a stale entry. Every branch resume from Session 59 to 62 read the stale copy first, at a cost of ~9k per resume (Sessions 61–62). Under §3's exception, when the entry rides an open PR, `origin/main`'s copy is the stale one instead. The paste-in prompt's step 1 then names that branch (`git show origin/<branch>:PROGRESS.md | awk '/^## Earlier/{exit} 1'`), since the notice goes only to Alex.
+
+The `awk` stops at the first `## Earlier` heading, so only the newest entry is read. Reading the whole file cost ~10–12k per load (Sessions 65, 66, 69, 70 and 72 recorded it). The command has to live in the prompt itself, not only in the loading instructions, because step 1 runs before those instructions are read.
 
 ## 6. Entry shape
 
@@ -121,26 +123,42 @@ Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Conte
 - Letters continue from the newest entry's last letter (`JJJJ`, Session 53, at the time of writing).
 - Each lesson ends with a destination tag: `→ RATIONALIZATIONS.md §<phase>`, `→ REVIEW-PATTERNS.md §<area>`, `→ <other file>`, `→ memory`, or `→ none`.
 - Both destination docs are blast-radius (`docs/GIT.md`'s list), so a harvest needs a PR. It rides in the next PR that already touches that doc. A harvest is due by the time its entry archives: it must be in an open or merged PR by then. Archival never waits on a merge; if a lesson is still unharvested, list it under the new entry's carry-overs.
+- A harvest that reaches its entry's archival unharvested is not carried again as "rides the next PR". It gets its own small PR, recorded in the next loading instructions. Without an end, WWWW was carried in 11 handoffs and IIIII in 6 (§9's second review). (Alex, 2026-09-28: no veto.)
 - Loading instructions stop carrying letter-range pointers such as "DDDD–EEEE above, BBBB–CCCC in the Session 50 entry…" — the letters live with the lessons themselves, not as a pointer chain.
 
 ## 9. Keeping this honest
 
-Session data fields, per entry: tokens at handoff and their source (tool or CLI); context at load and its source (§2; row 1's baseline); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired; what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered.
+Session data fields, per entry: tokens at handoff, to 0.1k like context at load, and their source (tool or CLI); context at load and its source (§2; row 1's baseline); 5-hour %; weekly % (no dedicated trigger row — Alex's call, 2026-09-27 — name it in the handoff notice at ≥85%); which trigger fired, the context figure when it fired (the fire-point figure), and the event (e.g. "row 1 at 141.8k, R3 LOW pass committed"); what grew context most; worker subagent tokens; structural warning signs or "none"; and whether a clarifying question was needed that the last entry should have answered, or a fact in the last entry was found wrong or missing at load.
+
+There is no tool-schema field: tool schemas measured 49.4–50.3k across Sessions 66–72, close to constant, so re-measure them at each ten-session review or after a harness update instead.
 
 Fields missing from older entries stay "not recorded", with no backfill. Sessions 46–52's gaps were a Claude call under Alex's delegation at §9's first review (Session 60). Claude extended the rule to context at load before Session 58, the first entry with a context-at-load field, when adding that field to this doc (Session 66).
 
 Review every ten sessions. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
 
 - Alex decided that row 1 becomes relative to the context at load (§1).
-- He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, step 1's `origin/main` read and the no-backfill call.
+- He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, §5 step 1's `origin/main` read and the no-backfill call.
 
-The next review is at Session 70.
+The second review ran at Session 70, over Sessions 60–69 (`git show 8680b6a:PROGRESS.md`):
+
+- Alex confirmed no §1 threshold change and did not veto §8's end date (`git show 4e9b34e:PROGRESS.md`).
+- Under his delegation Claude adopted the three §9 field changes, the no-tool-schema-field call and §5's newest-entry read.
+- §10's mechanical check came from Session 72's lesson ZZZZZ (the archival check was skipped because §5's step 1 printed the file before the loading instructions were read), not from the review, which recommended no change to §10's rule. Claude added the check to this doc in Session 73's §9 PR (`git show b70a3cb:PROGRESS.md`, "Done this session"), and no entry lists it as a decision by either Alex or Claude.
+
+The next review is at Session 80.
 
 ## 10. Archival into `docs/history/SESSIONS.md`
 
-When the detail band (`## Next workstreams` down to `## Session archive` in `PROGRESS.md`) holds **more than 5 discrete session entries, or exceeds roughly 10k tokens** (whichever fires first), compress the oldest entry to a one-line row in `docs/history/SESSIONS.md` before continuing with the current session's own work. A token threshold over a fixed entry count, because session entries vary widely in size, so a fixed-N count drifts against the thing that actually matters — how much context loading `PROGRESS.md` costs every session. The detail band is the only part of `PROGRESS.md` that grows and gets pruned; `## Session archive` and the `## Phase ledger` stub (pointing to the frozen ledger in `docs/history/BUILD-NARRATIVE.md`) are fixed sections below it.
+When the detail band (`## Next workstreams` down to `## Session archive` in `PROGRESS.md`) holds **more than 5 discrete session entries, or exceeds roughly 10k tokens** (whichever fires first), compress the oldest entry to a one-line row in `docs/history/SESSIONS.md` before continuing with the current session's own work. A token threshold over a fixed entry count, because session entries vary widely in size, so a fixed-N count drifts against the thing that actually matters — the band's size in tokens. That mattered most while §5's step 1 read the whole file; it now bounds the cost of any full read of `PROGRESS.md`. The detail band is the only part of `PROGRESS.md` that grows and gets pruned; `## Session archive` and the `## Phase ledger` stub (pointing to the frozen ledger in `docs/history/BUILD-NARRATIVE.md`) are fixed sections below it.
 
-**Check at session start, before picking up any workstream** — this is the primary trigger. A preemptive check at handoff time is a fine secondary habit but isn't a substitute for the session-start check; a check that only happens "when it occurs to someone" silently backslides.
+**Check at session start, before picking up any workstream** — this is the primary trigger. A preemptive check at handoff time is a fine secondary habit but isn't a substitute for the session-start check; a check that only happens "when it occurs to someone" silently backslides. Step 1 of §5's prompt reads only the newest entry, so it no longer shows the band. Check it mechanically instead (÷ 4 is a working estimate of tokens, not a measurement):
+
+```bash
+git show origin/main:PROGRESS.md | awk '/^## Next workstreams/{p=1} /^## Session archive/{exit} p' | wc -c   # bytes; ÷ 4 ≈ tokens
+git show origin/main:PROGRESS.md | grep -c '^## \(Next workstreams\|Earlier: Session\)'   # entries
+```
+
+Under §3's exception (the entry rides an open PR), read `origin/<branch>` instead of `origin/main`, as §5 does.
 
 `docs/history/SESSIONS.md` approximate shape:
 
@@ -173,7 +191,7 @@ Moe keeps manual handoff (`PROGRESS.md` + loading-instructions blocks) as the pr
 
 **What moe does not import, and where that has since partly changed:** chief-clancy's handoff-_cost_ thresholds and backfilled metric fields stay declined — their own 8k-token handoff-cost threshold drifted out of meaning as sessions got heavier, and their backfill discipline collapsed (19/20 metric fields left TBD across their last two audited windows); a protocol that decays silently is worse than none. But this is now a **partial** supersession, not the original blanket position: PCR's context-size handoff triggers are a separate, handoff-_timing_ mechanism, not a bookkeeping habit — moe has recorded a Session data line since Session 46 (in anticipation of this doc), and Alex's Session 46 scope call (a PCR-style handoff doc with per-session token records, `git show 5f63516:PROGRESS.md`) and his Session 47 expansion to PCR's usage-aware handoff (`docs/history/SESSIONS.md` Session 47) adopted the per-session record that PCR's own §6 defines. Only the original Rationale 4 wording — adopting "event-based triggers (below) instead of a per-session bookkeeping habit" (`docs/decisions/SESSION-HANDOFF-AUTOMATION.md`) — is superseded, and only in its decline of the per-session record, by that Session data line — the revisit triggers below are unchanged.
 
-**Revisit triggers — event-based, recorded in `PROGRESS.md` when one fires.** Two of §9's Session data fields, written at each handoff, record part of the evidence: "structural warning signs" logs any auto-compaction (§1 row 5), the event behind the first trigger, and "clarifying question needed" covers the second trigger's clarifying-question half. No field covers the second trigger's factual-errors half or the third trigger. The triggers:
+**Revisit triggers — event-based, recorded in `PROGRESS.md` when one fires.** Some of §9's Session data fields, written at each handoff, record part of the evidence: "structural warning signs" logs any auto-compaction (§1 row 5), the event behind the first trigger, and "clarifying question needed" (widened at the second review to include a fact found wrong or missing at load) covers the second trigger for the last entry only: an error in an older entry found later (LLLLL: Session 60's, found in Session 66) falls outside it. No field covers the third trigger directly, but the gap between the fire-point figure and tokens at handoff is its nearest proxy. That gap also holds other work when a PR opens inside it (Session 64 ~11k, Session 65 ~13.4k). The triggers:
 
 - An unplanned compaction costs real state (work redone, a decision lost).
 - A cold-load fails: the next session needs clarifying questions, or catches factual errors in `PROGRESS.md` (chief-clancy's one real quality incident was exactly this — three factual errors in a handoff entry, caught at next-session load).

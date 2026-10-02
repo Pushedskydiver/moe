@@ -4,7 +4,7 @@ Autonomous AI coworker team, built as a long-running Slack-native service. Monor
 
 **Scope note:** this file governs how the _moe codebase itself_ is built (by Alex and his coding agents — Claude Code and Codex both read this file) — not how the finished persona team behaves once it's running on chief-clancy. That's `docs/VISION.md`'s subject. A persona (Sarah, Riley, etc.) working on a _target_ project reads that project's own `CLAUDE.md`, not this one — personas are Claude-backed (raw Messages API for chat, the Claude Agent SDK for agentic coding sessions — `docs/VISION.md` §11).
 
-**Status:** read `PROGRESS.md` for current state (`origin/main`'s copy, or the branch the handoff prompt names — `docs/SESSION-HANDOFF.md` §5); `BUILD_PLAN.md`'s checkboxes are the source of truth for which chunks have landed. `docs/INDEX.md` does not exist yet (parked in `BUILD_PLAN.md` §Deliberately not scheduled).
+**Status:** read the newest entry of `PROGRESS.md` for current state (`origin/main`'s copy, or the branch the handoff prompt names; the command is in `docs/SESSION-HANDOFF.md` §5); `BUILD_PLAN.md`'s checkboxes are the source of truth for which chunks have landed. `docs/INDEX.md` does not exist yet (parked in `BUILD_PLAN.md` §Deliberately not scheduled).
 
 Moe uses the same state-surface pair as chief-clancy, same names — root `PROGRESS.md` (the living state document session handoffs read/write) and `docs/history/SESSIONS.md` (the archival sink `PROGRESS.md` overflows into). No reason to invent different names for an identical mechanism. See `docs/SESSION-HANDOFF.md` for the full mechanics (triggers, cleanup, entry shape, archival, loading instructions). (`BUILD_PLAN.md`'s checkboxes are the source of truth for exactly which chunk resolved this — this paragraph describes the mechanism, not a chunk-completion claim.)
 
@@ -21,6 +21,7 @@ pnpm knip               # Dead-code / unused-export detection
 
 # Pre-push quality suite (run before every git push — no exceptions)
 pnpm build && pnpm test && pnpm lint && pnpm typecheck && pnpm format:check && pnpm knip
+# Locally, run each step separately and the tests as: env -u DATABASE_URL pnpm -r --no-bail --if-present run test (docs/DEVELOPMENT.md §Quick Reference step 4)
 ```
 
 ```bash
@@ -107,7 +108,7 @@ Minimal actionable rules only. Patterns and philosophy live in on-demand docs, l
 - **Before writing tests:** read `docs/TESTING.md`.
 - **Before changing code style, adding a persona, or touching a Slack/GitHub integration:** read `docs/CONVENTIONS.md`, plus the matching `.claude/rules/` file (`persona-prompts.md`, `integrations.md`).
 - **Before touching a do-not-touch surface** (persona prompts, ceremony formats): stop — get Alex's explicit approval first.
-- **Starting, ending or handing off a session:** read `origin/main`'s `PROGRESS.md`, or the branch the handoff prompt names (`docs/SESSION-HANDOFF.md` §5), then `docs/SESSION-HANDOFF.md`.
+- **Starting, ending or handing off a session:** read the newest entry of `origin/main`'s `PROGRESS.md` (command: `docs/SESSION-HANDOFF.md` §5), or of the branch the handoff prompt names, then `docs/SESSION-HANDOFF.md`.
 - **For product vision, ceremonies, and the cast:** read `docs/VISION.md` (and `docs/PERSONAS.md`, plus `docs/CEREMONIES.md` once written — `VISION.md` wins on conflict).
 - **For the build sequence:** read `BUILD_PLAN.md`.
 - **Before a non-trivial architecture or package-graph change:** read `docs/ARCHITECTURE.md`.
