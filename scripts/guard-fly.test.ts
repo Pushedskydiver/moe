@@ -93,6 +93,59 @@ describe('classifyFly', () => {
       expect(classifyFly(command)).toBeNull();
     },
   );
+
+  it.each([
+    'fly machine update 148e21 --image registry/x:tag -a moe-sarah',
+    'fly machines update 148e21',
+    'fly m update 148e21',
+    'fly machine update 148e21 -a moe-sarah',
+    'fly machine clone 148e21 -a moe-sarah',
+    'fly machines clone 148e21',
+    'fly m clone 148e21',
+    'fly image update -a moe-sarah',
+    'fly img update',
+    'fly scale count 2 -a moe-sarah',
+    'flyctl scale count 1',
+    'cd x && fly scale count 2',
+    'fly -a moe-sarah scale count 2',
+  ])('flags a deploy-equivalent that changes live Machines: %s', (command) => {
+    expect(classifyFly(command)).toBe('machines');
+  });
+
+  it.each([
+    'fly machine list -a moe-sarah',
+    'fly machine status 148e21',
+    'fly m list',
+    'fly image show',
+    'fly scale show',
+    'fly apps list',
+    'fly app list',
+    'fly scale vm shared-cpu-1x',
+    'fly machine stop 148e21',
+    'superfly scale count 2',
+    'moe-fly machine update x',
+  ])('does not flag a read-only or out-of-list command: %s', (command) => {
+    expect(classifyFly(command)).toBeNull();
+  });
+
+  it.each([
+    'fly apps destroy moe-sarah',
+    'fly app destroy moe-sarah',
+    'fly apps rm moe-sarah',
+    'fly apps delete moe-sarah',
+    'fly apps remove moe-sarah',
+    'fly destroy moe-sarah',
+    'flyctl destroy moe-sarah',
+    'fly machine destroy 148e21',
+    'fly volumes destroy vol_123',
+    'cd x && fly apps destroy moe-sarah',
+  ])('flags a command that destroys live Fly resources: %s', (command) => {
+    expect(classifyFly(command)).toBe('destroy');
+  });
+
+  it('does not flag another binary that ends in fly destroying an app', () => {
+    expect(classifyFly('moe-fly apps destroy x')).toBeNull();
+  });
 });
 
 describe('evaluateCommand', () => {
@@ -105,6 +158,27 @@ describe('evaluateCommand', () => {
   it('asks with the secrets reason for a mutating secrets command', () => {
     const result = evaluateCommand('fly secrets set -a moe-sarah FOO=bar');
     expect(result.ask).toBe(true);
+    expect(result.ask && result.reason).toContain('truncated or empty secret');
+  });
+
+  it('asks with the Machines reason for a deploy-equivalent', () => {
+    const result = evaluateCommand('fly scale count 2 -a moe-sarah');
+    expect(result.ask).toBe(true);
+    expect(result.ask && result.reason).toContain(
+      "changes a live persona App's Machines",
+    );
+  });
+
+  it('asks with the destroy reason for fly apps destroy', () => {
+    const result = evaluateCommand('fly apps destroy moe-sarah');
+    expect(result.ask).toBe(true);
+    expect(result.ask && result.reason).toContain(
+      'removes a whole persona App',
+    );
+  });
+
+  it('asks with the secrets reason for fly secrets deploy, not the image one', () => {
+    const result = evaluateCommand('fly secrets deploy -a moe-sarah');
     expect(result.ask && result.reason).toContain('truncated or empty secret');
   });
 
