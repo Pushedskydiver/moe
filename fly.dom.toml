@@ -5,7 +5,7 @@
 # App-scoped and every persona process reads the same unsuffixed MOE_SLACK_* variable names.
 # The three Slack credentials are set per App: fly secrets set -a moe-dom ...
 #
-# Deploy (Alex-only, never CI-automated — CLAUDE.md), from the repo root:
+# Deploy (Alex's call, never CI-automated — AGENTS.md), from the repo root:
 #   fly deploy -c fly.dom.toml --ha=false
 # --ha=false is deliberate. This config declares no services, and for a process group without
 # services Fly's default --ha=true "creates and starts one Machine and creates one stopped standby

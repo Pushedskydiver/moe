@@ -157,7 +157,8 @@ PRs touching multiple packages get multiple labels. Root-only changes (CI, docs,
 
 1. Merge to `main` via the normal PR flow above.
 2. Alex runs `pnpm --filter @moe/core migrate` once (all personas share one database), then
-   `fly deploy -c fly.<persona>.toml --ha=false` by hand, once per persona being deployed.
+   `fly deploy -c fly.<persona>.toml --ha=false` by hand, once per persona being deployed, or asks
+   an agent in chat to run it (`AGENTS.md` §Commands).
 3. Confirm the health check passes (`fly checks list -a moe-<persona>`) before considering the
    deploy done — there is no public URL to curl, by design.
 
@@ -171,7 +172,7 @@ This is a deliberate safety choice, not a placeholder — a prior truncated/empt
 
 Editing any of these triggers Alex-review regardless of how small the diff is:
 
-- `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`
+- `CLAUDE.md`, `AGENTS.md`, `.claude/rules/`, `.claude/settings.json`
 - `docs/VISION.md`, `docs/CEREMONIES.md` (once it exists), `docs/PERSONAS.md`
 - `docs/CONVENTIONS.md`, `docs/GIT.md`
 - `docs/DA-REVIEW.md`, `docs/SELF-REVIEW.md`

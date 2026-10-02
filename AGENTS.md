@@ -36,7 +36,7 @@ pnpm typecheck:scripts && pnpm test:scripts && pnpm check:agents && pnpm check:r
 No `publint`/`attw`/changesets yet — moe doesn't publish any package to npm today (it's a private deployed service, not a distributed CLI). This isn't a deviation from `docs/VISION.md` §12's adopted pre-push hygiene list — §12 itself scopes `publint`/`attw` to "the packages Moe actually publishes," and none do yet. Add them the day a package actually publishes.
 
 ```bash
-# Deploy one persona (apps/server, Fly.io) — Alex-only, never automated on merge.
+# Deploy one persona (apps/server, Fly.io) — Alex's call, never automated on merge.
 # One Fly App per persona: moe-sarah … moe-maya. Run from the repo root.
 fly deploy -c fly.sarah.toml --ha=false
 
@@ -44,9 +44,9 @@ fly deploy -c fly.sarah.toml --ha=false
 pnpm --filter @moe/core generate:fly-configs
 ```
 
-Deploys are deliberately not CI-automated: a truncated/empty secret has previously taken the live service down (see `docs/GIT.md` §Deploy Flow). A human runs the deploy command. `--ha=false` is deliberate — these configs declare no services, so `fly deploy`'s default would add a stopped standby Machine, and a standby that starts while the primary is only unreachable would put two processes on one persona's Slack connection. Full runbook, including per-App secrets and the pooled-`DATABASE_URL` requirement: `docs/OPERATIONS.md` §Deploying the persona fleet.
+Deploys are deliberately not CI-automated: a truncated/empty secret has previously taken the live service down (see `docs/GIT.md` §Deploy Flow). Alex runs the deploy command, or an agent runs it when he explicitly asks for that deploy in chat — never on its own initiative. `--ha=false` is deliberate — these configs declare no services, so `fly deploy`'s default would add a stopped standby Machine, and a standby that starts while the primary is only unreachable would put two processes on one persona's Slack connection. Full runbook, including per-App secrets and the pooled-`DATABASE_URL` requirement: `docs/OPERATIONS.md` §Deploying the persona fleet.
 
-As a backstop, a Claude Code session's `fly deploy` or mutating `fly secrets` command hits a confirmation prompt from a PreToolUse hook (`.claude/settings.json` → `scripts/guard-fly.ts`). The prompt is not the authorisation — deploys stay Alex's to run, as above — and the hook is not a security boundary: it fails open, misses some command forms, and Codex doesn't run it.
+As a backstop, a Claude Code session's `fly deploy`, mutating `fly secrets` command or deploy-equivalent (`fly machine update`, `fly machine clone`, `fly image update`, `fly scale count`, `fly apps destroy`) hits a confirmation prompt from a PreToolUse hook (`.claude/settings.json` → `scripts/guard-fly.ts`). The prompt is not the authorisation — Alex's explicit ask in chat is, as above — and the hook is not a security boundary: it fails open, misses some command forms, and Codex doesn't run it.
 
 ## Commit format
 

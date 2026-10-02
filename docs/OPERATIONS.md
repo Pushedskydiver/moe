@@ -33,9 +33,10 @@ The eight `fly.<persona>.toml` files at the repo root are **generated** from
 `pnpm --filter @moe/core generate:fly-configs` after changing the builder or the roster; CI's
 "Fly configs freshness" job fails the build if the committed files drift.
 
-**Deploys are Alex-only and never CI-automated** (`AGENTS.md`, `docs/GIT.md` §Deploy Flow) — a
-truncated/empty secret has taken the live service down before, and that risk now multiplies across
-eight Apps on a manual copy-paste path.
+**Deploys are Alex's call and never CI-automated** (`AGENTS.md`, `docs/GIT.md` §Deploy Flow) — an
+agent runs one only when Alex explicitly asks for it in chat (`AGENTS.md`). A truncated/empty secret
+has taken the live service down before, and that risk now multiplies across eight Apps on a manual
+copy-paste path.
 
 ### First-time setup, once per persona
 
