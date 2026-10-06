@@ -6,19 +6,19 @@ The local half of `docs/SESSION-HANDOFF.md`, which is the AIOS hub core as a sta
 
 The core's section 1, unchanged; moe overrides none of its lines. The core's trigger 1 now counts 40k from context at load, so moe needs no line of its own (AIOS research/72 §7, Q1, Alex, 2026-10-06).
 
-Moe's own data, recorded per session since Session 46 in anticipation of this doc: tokens at handoff were ~300k (Session 46), ~245k (Session 47), ~205k (Session 48), ~175k (Session 49), ~145k (Session 50), ~150k (Session 51), ~190k (Session 52), and ~150k (Session 53) — each session's own `PROGRESS.md` "Session data" line (Session 46: `git show 5f63516:PROGRESS.md`; Sessions 47–48: `git show 4b4536f:PROGRESS.md`; Sessions 49–53: `git show 76032c1:PROGRESS.md`). Session data and the ten-session review, below, is how this record stays honest rather than decaying into a felt sense of "about right."
+Moe's own data, recorded per session since Session 46 in anticipation of the handoff doc: tokens at handoff were ~300k (Session 46), ~245k (Session 47), ~205k (Session 48), ~175k (Session 49), ~145k (Session 50), ~150k (Session 51), ~190k (Session 52), and ~150k (Session 53) — each session's own `PROGRESS.md` "Session data" line (Session 46: `git show 5f63516:PROGRESS.md`; Sessions 47–48: `git show 4b4536f:PROGRESS.md`; Sessions 49–53: `git show 76032c1:PROGRESS.md`). Session data and the ten-session review, below, is how this record stays honest rather than decaying into a felt sense of "about right."
 
 Trigger 1 is relative to the context at load while triggers 2 and 3 stay absolute. That was Alex's call at the first ten-session review (2026-09-27, `git show 8e27f4c:PROGRESS.md`), made because the load then cost ~87–95k (Sessions 57–60), so a 100k line fired after about 10k of work. About 50k of the load is tool schemas, which moe doesn't control from the repo (first measured at Session 57; 49.4–50.3k across Sessions 66–72, Session data below). Separately, triggers 2 and 3 bound total input length, the quantity the core's evidence ties to degradation. The core has since adopted the same relative rule hub-wide.
 
-The core's trigger 4 replaces moe's rule of 2026-09-27, which added no weekly-limit trigger row: either weekly figure at 85% or more puts any new multi-agent work to Alex before it starts (Alex, 2026-10-06, AIOS research/65 VF6).
+The core's trigger 4 replaces moe's rule of 2026-09-27, which added no weekly-limit trigger row: either weekly figure at 85% or more puts any new multi-agent work to Alex before it starts (Alex, 2026-10-06; AIOS `PROGRESS.md`'s Session 42 entry, `c59cc58`, on AIOS research/65's question VF6). Moe keeps its own addition from that rule: every handoff notice names either weekly figure that is at 85% or more, whatever the five-hour window and whichever trigger fired.
 
 ## Units of work
 
-Moe's examples of what the core's trigger 1 calls a deliverable: PR opened, fold committed, PR merged, a chunk shipped, deploy verified.
+Moe's examples of what the core's trigger 1 calls a deliverable: PR opened, fold committed, PR merged, a chunk shipped, deploy verified. A PR merged is a boundary of its own in moe, beside the core's PR opened: Alex can merge while a session runs, and `docs/RATIONALIZATIONS.md`'s "one more chunk" row checks the trigger at each merge.
 
 ## Live checks
 
-In each entry's loading instructions: `git fetch` first, then `git log origin/main`, `git status`, `gh pr list`, and `fly status -a moe-<persona>` for every persona App (one per `fly.*.toml`). Also the model and effort as run (the core's section 1 command).
+In each entry's loading instructions: `git fetch` first, then `git log origin/main`, `git status`, `gh pr list`, and `fly status -a moe-<persona>` for every persona App (one per `fly.*.toml`).
 
 Moe's `<cwd-slug>` for the core's section 1 commands (observed): `/Users/alexclapperton/Desktop/alex/@moe` → `-Users-alexclapperton-Desktop-alex--moe`.
 
@@ -56,17 +56,17 @@ The `awk` stops at the first `## Earlier` heading, so only the newest entry is r
 
 ## Entry shape
 
-Moe's settings within the core's section 4. `## Next workstreams (after Session N)` for the newest entry, then `## Earlier: Session N` for older ones; the handoff prompt's `awk` and the Archive rule's entry count depend on these headings. Each entry holds, in the core's order (Alex, 2026-10-06):
+Moe's settings within the core's section 4. `## Next workstreams (after Session N)` for the newest entry, then `## Earlier: Session N` for older ones; the handoff prompt's `awk` and the Archive rule's entry count depend on these headings. Each entry holds, in the core's order (Alex, 2026-10-06; AIOS `PROGRESS.md`'s Session 42 entry, `c59cc58`):
 
 - "Updated `<date>` end-Session-N — **headline**."
-- Asked and decided. Split what Alex decided from what Claude decided under his delegation, and tag each accordingly: only the first gets "(Alex, `<date>`)"; the second is tagged as Claude's call under Alex's delegation. Session 60's single "Asked and decided (Alex, …)" header filed Claude's delegated calls under Alex's name, and harvesting that entry into this doc first tagged three of them as Alex's (Session 66, caught in review).
+- Asked and decided. Split what Alex decided from what Claude decided under his delegation, and tag each accordingly: only the first gets "(Alex, `<date>`)"; the second is tagged as Claude's call under Alex's delegation. Session 60's single "Asked and decided (Alex, …)" header filed Claude's delegated calls under Alex's name, and harvesting that entry into the handoff doc first tagged three of them as Alex's (Session 66, caught in review).
 - Shipped/Done (paths; what was verified and how).
 - In flight.
 - Next, and open questions for Alex — anything marked his to decide.
 - Cleanup (Cleanup above).
 - `### Session N+1 loading instructions`.
-- Lessons (Lessons below).
-- Session data (Session data and the ten-session review below), the last field.
+- `### Lessons` (Lessons below).
+- `### Session data` (Session data and the ten-session review below), the last field.
 
 Beyond what the core's section 4 item 6 lists (and the live checks above), the loading instructions carry:
 
@@ -86,7 +86,7 @@ Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious cons
 | Live-fleet work: Alex-authorised deploys, `fly secrets`, the production DB, live Slack verification, multi-branch git surgery | Opus            | high   |
 | Mechanical chores: archive commit, rename, lint fix                                                                           | Haiku or Sonnet | low    |
 
-Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Context Management). Say the effort explicitly — Opus 5.5 defaults to `medium`, unlike every model before it — and prefer `high` for Opus unless there's a stated reason for less.
+Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Context Management); in moe these stand for what the core's section 1 calls the hub's workers on their pins, since moe runs none of the hub's. Say the effort explicitly — Opus 5.5 defaults to `medium`, unlike every model before it — and prefer `high` for Opus unless there's a stated reason for less.
 
 **This table is a snapshot, not a fixed ranking** — a new model release can shift where a row belongs, and the right response is a documented trial, not a silent edit. The Fable row is kept as a trial row: moe has never actually used Fable as a session model. The usage tool reports a separate "Weekly · Fable" window worth naming here — confirmed via `get_usage` on 2026-09-27 (Session 53), which listed "Weekly · Fable" at 4% used, separate from "Weekly · all models".
 
@@ -116,9 +116,9 @@ Moe's Session data adds these to the core's section 4 item 8, whose fields also 
 
 There is no tool-schema field: tool schemas measured 49.4–50.3k across Sessions 66–72, close to constant, so re-measure them at each ten-session review or after a harness update instead.
 
-Fields missing from older entries stay "not recorded", with no backfill. Sessions 46–52's gaps were a Claude call under Alex's delegation at the first review (Session 60). Claude extended the rule to context at load before Session 58, the first entry with a context-at-load field, when adding that field to this doc (Session 66).
+Fields missing from older entries stay "not recorded", with no backfill. Sessions 46–52's gaps were a Claude call under Alex's delegation at the first review (Session 60). Claude extended the rule to context at load before Session 58, the first entry with a context-at-load field, when adding that field to the handoff doc (Session 66).
 
-Review every ten sessions. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
+Review every ten sessions. Its result is recorded in the `PROGRESS.md` entry of the session that runs it, as both reviews below were. That entry is what the core's section 4 item 8 calls where the project keeps its research records. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
 
 - Alex decided that trigger 1 becomes relative to the context at load (Lines above).
 - He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, the handoff prompt's step 1 `origin/main` read and the no-backfill call.
@@ -127,7 +127,7 @@ The second review ran at Session 70, over Sessions 60–69 (`git show 8680b6a:PR
 
 - Alex confirmed no trigger-threshold change and did not veto the Lessons end date (`git show 4e9b34e:PROGRESS.md`).
 - Under his delegation Claude adopted the three Session data field changes, the no-tool-schema-field call and the handoff prompt's newest-entry read.
-- The Archive rule's mechanical check came from Session 72's lesson ZZZZZ (the archival check was skipped because the handoff prompt's step 1 printed the file before the loading instructions were read), not from the review, which recommended no change to the Archive rule. Claude added the check to this doc in Session 73's Session data PR (`git show b70a3cb:PROGRESS.md`, "Done this session"), and no entry lists it as a decision by either Alex or Claude.
+- The Archive rule's mechanical check came from Session 72's lesson ZZZZZ (the archival check was skipped because the handoff prompt's step 1 printed the file before the loading instructions were read), not from the review, which recommended no change to the Archive rule. Claude added the check to the handoff doc in Session 73's ten-session-review PR (#122) (`git show b70a3cb:PROGRESS.md`, "Done this session"), and no entry lists it as a decision by either Alex or Claude.
 
 The next review is at Session 80.
 
@@ -175,7 +175,7 @@ Moe keeps manual handoff (`PROGRESS.md` + loading-instructions blocks) as the pr
 4. **The industry converges on moe's existing shape.** Cline's official continuity mechanism (Memory Bank) is manual, user-triggered structured markdown — the same shape as `PROGRESS.md`; third-party writeups describe Cursor and Devin Desktop sessions as starting fresh, with continuity supplied by workspace files and rules rather than automated summaries (vendor-adjacent sources — hold loosely). Published practitioner workflows replace `/compact` with manual handoff files. Automated-summary systems do exist (claude-mem's Stop-hook checkpoint summaries), so this is a considered decline, not a capability gap.
 5. **The asymmetry cuts against replacing what works.** The manual author is the session that did the work, writing at a phase boundary while context is still good, exercising judgment about what the next session specifically needs. An automated summarizer runs at the worst moment (post-compaction), with no notion of moe-specific salience, and its errors surface only as next-session confusion — on a surface no review gate covers. Moe's own record, dated 2026-07-09: every cold-load to that point had worked end-to-end with zero clarifying questions (n=1 at that date).
 
-**What moe does not import, and where that has since partly changed:** chief-clancy's handoff-_cost_ thresholds and backfilled metric fields stay declined — their own 8k-token handoff-cost threshold drifted out of meaning as sessions got heavier, and their backfill discipline collapsed (19/20 metric fields left TBD across their last two audited windows); a protocol that decays silently is worse than none. But this is now a **partial** supersession, not the original blanket position: PCR's context-size handoff triggers are a separate, handoff-_timing_ mechanism, not a bookkeeping habit — moe has recorded a Session data line since Session 46 (in anticipation of this doc), and Alex's Session 46 scope call (a PCR-style handoff doc with per-session token records, `git show 5f63516:PROGRESS.md`) and his Session 47 expansion to PCR's usage-aware handoff (`docs/history/SESSIONS.md` Session 47) adopted the per-session record that PCR's own §6 defines. Only the original Rationale 4 wording — adopting "event-based triggers (below) instead of a per-session bookkeeping habit" (`docs/decisions/SESSION-HANDOFF-AUTOMATION.md`) — is superseded, and only in its decline of the per-session record, by that Session data line — the revisit triggers below are unchanged.
+**What moe does not import, and where that has since partly changed:** chief-clancy's handoff-_cost_ thresholds and backfilled metric fields stay declined — their own 8k-token handoff-cost threshold drifted out of meaning as sessions got heavier, and their backfill discipline collapsed (19/20 metric fields left TBD across their last two audited windows); a protocol that decays silently is worse than none. But this is now a **partial** supersession, not the original blanket position: PCR's context-size handoff triggers are a separate, handoff-_timing_ mechanism, not a bookkeeping habit — moe has recorded a Session data line since Session 46 (in anticipation of the handoff doc), and Alex's Session 46 scope call (a PCR-style handoff doc with per-session token records, `git show 5f63516:PROGRESS.md`) and his Session 47 expansion to PCR's usage-aware handoff (`docs/history/SESSIONS.md` Session 47) adopted the per-session record that PCR's own §6 defines. Only the original Rationale 4 wording — adopting "event-based triggers (below) instead of a per-session bookkeeping habit" (`docs/decisions/SESSION-HANDOFF-AUTOMATION.md`) — is superseded, and only in its decline of the per-session record, by that Session data line — the revisit triggers below are unchanged.
 
 **Revisit triggers — event-based, recorded in `PROGRESS.md` when one fires.** Some of the Session data fields (Session data and the ten-session review above), written at each handoff, record part of the evidence: "structural warning signs" logs any auto-compaction (the core's section 1 trigger 5), the event behind the first trigger, and "clarifying question needed" (widened at the second review to include a fact found wrong or missing at load) covers the second trigger for the last entry only: an error in an older entry found later (LLLLL: Session 60's, found in Session 66) falls outside it. No field covers the third trigger directly, but the gap between the fire-point figure and tokens at handoff is its nearest proxy. That gap also holds other work when a PR opens inside it (Session 64 ~11k, Session 65 ~13.4k). The triggers:
 
