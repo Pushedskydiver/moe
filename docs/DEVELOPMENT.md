@@ -45,7 +45,7 @@ This has one CI-shaped consequence: type-aware ESLint rules (`@typescript-eslint
      - The review agents have no Write tool (`da-review.md`, `copilot-surrogate.md` and `spec-grill.md` list `Read, Grep, Glob, Bash`, the first and third also `WebFetch`), so the brief tells them to write through Bash to the report's **absolute path in the primary checkout**. A relative path lands in the isolated worktree, which is removed afterwards.
      - If the isolation guard refuses a heredoc, they write it in parts and describe refused tokens in words (e.g. a regex lookbehind).
      - If the write still fails, they hand the full report back and the orchestrator saves it from the transcript, never retyped.
-       - Claude Code-specific, observed in Session 71: the report is the input of the subagent's `SubagentHandback` tool call, not a text block, so extracting text blocks saves the agent's narration instead of the report, which an emptiness check won't catch. Extract the call's input from `~/.claude/projects/<cwd-slug>/<session-id>/subagents/agent-<id>.jsonl` (`<cwd-slug>` as `docs/SESSION-HANDOFF.md` §2 defines it), e.g. `jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and (.name|test("Handback"))) | .input | to_entries[] | select(.value|type=="string") | .value'`.
+       - Claude Code-specific, observed in Session 71: the report is the input of the subagent's `SubagentHandback` tool call, not a text block, so extracting text blocks saves the agent's narration instead of the report, which an emptiness check won't catch. Extract the call's input from `~/.claude/projects/<cwd-slug>/<session-id>/subagents/agent-<id>.jsonl` (`<cwd-slug>` as `docs/SESSION-HANDOFF.md` §1 defines it), e.g. `jq -r 'select(.type=="assistant") | .message.content[]? | select(.type=="tool_use" and (.name|test("Handback"))) | .input | to_entries[] | select(.value|type=="string") | .value'`.
      - `copilot-surrogate`'s file holds its step-6 `FINDING` blocks and its end-of-walk summary, and Claude posts its findings from that file after triage.
 6. Alex reviews and merges. After confirming the merge, sync `main` and delete the local branch (`docs/GIT.md` §Rules).
 
@@ -140,7 +140,7 @@ This section is deliberately evidence-free — no cited pilot runs, no PR number
 
 ## Session handoff
 
-Moved to `docs/SESSION-HANDOFF.md` (2026-09-27): triggers, usage checks, cleanup, entry shape, archival, and why handoff stays manual.
+Moved to `docs/SESSION-HANDOFF.md` (2026-09-27), now the AIOS hub core as a stamped copy, and moe's own settings in `docs/SESSION-HANDOFF.local.md`: triggers, usage checks, cleanup, entry shape, archival, and why handoff stays manual.
 
 ---
 
@@ -184,4 +184,4 @@ New review-gate step added, the two-phase grill discipline's mechanics change, o
 - `docs/GIT.md` — branch/commit/merge mechanics, blast-radius list, repo settings
 - `docs/TESTING.md` — test-writing discipline, the Prove-It Pattern
 - `docs/CONVENTIONS.md` — code style and architecture rules the DA/self-review checklists enforce
-- `docs/SESSION-HANDOFF.md` — triggers, cleanup, entry shape, archival, loading instructions
+- `docs/SESSION-HANDOFF.md` and `docs/SESSION-HANDOFF.local.md` — the hub core and moe's local file: triggers, cleanup, entry shape, archival, loading instructions
