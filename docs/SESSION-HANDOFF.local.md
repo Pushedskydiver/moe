@@ -24,7 +24,7 @@ Moe's `<cwd-slug>` for the core's section 1 commands (observed): `/Users/alexcla
 
 ## Committing the entry
 
-The `PROGRESS.md` entry is committed direct to `main` — no branch, no PR, since it's session state, not architecturally reviewed content (`docs/GIT.md` §Rules' context-only exception, applied to this one file). Exception: if `PROGRESS.md` is already part of an open PR bundled with the work being logged, leave the update there instead of splitting it out.
+The `PROGRESS.md` entry is committed direct to `main` — no branch, no PR — even while another branch or PR is open, since it's session state, not architecturally reviewed content. This is `docs/GIT.md` §Rules' direct-to-main rule for docs only read for context, applied to this one file without its "only when no branch/PR is open" condition. Exception: if `PROGRESS.md` is already part of an open PR bundled with the work being logged, leave the update there instead of splitting it out.
 
 ## Cleanup
 
@@ -161,7 +161,7 @@ session's compression commit.
 | ------- | ---- | -------- | --- |
 ```
 
-One row per archived session. The **Headline** is one dense sentence — what made the session load-bearing, not a full recap (the full recap is `git log -p PROGRESS.md` at the compression commit). **PRs** is a comma-separated list of `[#N](url)` links, or `—` if the session shipped no PRs. Rows append in session order; this file has no pruning discipline of its own — if it ever needs one, `git log` is the same overflow valve `PROGRESS.md` uses.
+One row per archived session. The **Headline** is one dense sentence — what made the session load-bearing, not a full recap (the full recap is `git log -p PROGRESS.md` at the compression commit). **PRs**, in new rows, links each PR the session opened, or whose merge its entry records, as `[#N](url)`, comma-separated, or `—` if it had none. Older rows vary (for example ranges, `PR #N` link text, links in the Headline, rows with no PRs cell, PRs opened in a later session) and stay as written. Rows append in session order; this file has no pruning discipline of its own — if it ever needs one, `git log` is the same overflow valve `PROGRESS.md` uses.
 
 When a session's detail-band entry collapses into a `SESSIONS.md` row, delete its `### Session N+1 loading instructions` block from `PROGRESS.md` in the same commit — it directed a session that already ran, and it's recoverable via `git log -p` if ever needed.
 
