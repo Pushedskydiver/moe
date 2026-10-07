@@ -14,7 +14,7 @@ The core's trigger 4 replaces moe's rule of 2026-09-27, which added no weekly-li
 
 ## Deliverables
 
-Moe's examples of what the core's trigger 1 calls a deliverable: PR opened, fold committed, PR merged, a chunk shipped, deploy verified. A PR merged is a boundary of its own in moe, beside the core's PR opened: Alex can merge while a session runs, and `docs/RATIONALIZATIONS.md`'s "one more chunk" row checks the trigger at each merge. In moe, the core's doc loop and its stop rule are `docs/DEVELOPMENT.md` §Review Gate's checks: stop when a check returns 0 BLOCKING and 0 MATERIAL, then close its LOWs in one pass.
+Moe's examples of what the core's trigger 1 calls a deliverable: PR opened, fold committed, PR merged, a chunk shipped, deploy verified. A PR merged is a boundary of its own in moe, beside the core's PR opened: Alex can merge while a session runs, and `docs/RATIONALIZATIONS.md`'s "one more chunk" row checks the trigger at each merge. In moe, the core's doc loop and its stop rule are `docs/DEVELOPMENT.md` §Review Gate's checks, which stop as its Round-2 verification paragraph says, and, for the specs and rationale docs that `spec-grill` grills, its §Two-phase grill discipline.
 
 ## Live checks
 
@@ -88,7 +88,7 @@ Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious cons
 | Live-fleet work: Alex-authorised deploys, `fly secrets`, the production DB, live Slack verification, multi-branch git surgery | Opus            | high   |
 | Mechanical chores: archive commit, rename, lint fix                                                                           | Haiku or Sonnet | low    |
 
-Moe's five agents in `.claude/agents/` keep their pinned tiers (the workers in `docs/DEVELOPMENT.md` §Session Pattern & Context Management, the review agents in its §Review Gate): they are what the core's section 1 calls a project's own pinned workers. Moe's sessions enable no hub worker plugin (its only hub plugin, `synced-docs`, has none). Say the effort explicitly — Opus 5.5 defaults to `medium`, unlike every model before it — and prefer `high` for Opus unless there's a stated reason for less.
+Moe's five agents in `.claude/agents/` keep their pinned tiers (the workers in `docs/DEVELOPMENT.md` §Session Pattern & Context Management, the review agents in its §Review Gate, and `spec-grill` in its §Two-phase grill discipline): they are what the core's section 1 calls a project's own pinned workers. Moe's sessions enable no hub worker plugin (its only hub plugin, `synced-docs`, has none). Say the effort explicitly — Opus 5.5 defaults to `medium` in Claude Code, one level below Opus 5's default of `high` — and prefer `high` for Opus unless there's a stated reason for less.
 
 **This table is a snapshot, not a fixed ranking** — a new model release can shift where a row belongs, and the right response is a documented trial, not a silent edit. The Fable row is kept as a trial row: moe has never actually used Fable as a session model. The usage tool reports a separate "Weekly · Fable" window worth naming here — confirmed via `get_usage` on 2026-09-27 (Session 53), which listed "Weekly · Fable" at 4% used, separate from "Weekly · all models".
 
@@ -102,7 +102,7 @@ Moe sets no fallback of its own: no `switchModelsOnFlag` is set in its `.claude/
 
 ## Lessons
 
-- Letters continue from the newest entry's last letter (`JJJJ`, Session 53, at the time of writing).
+- Letters continue from the newest entry's last letter (for example, Session 53's last was `JJJJ`).
 - Each lesson ends with a destination tag: `→ RATIONALIZATIONS.md §<phase>`, `→ REVIEW-PATTERNS.md §<area>`, `→ <other file>`, `→ memory`, or `→ none`.
 - Both destination docs are blast-radius (`docs/GIT.md`'s list), so a harvest needs a PR. It rides in the next PR that already touches that doc. A harvest is due by the time its entry archives: it must be in an open or merged PR by then. Archival never waits on a merge; if a lesson is still unharvested, list it under the new entry's carry-overs.
 - A harvest that reaches its entry's archival unharvested is not carried again as "rides the next PR". It gets its own small PR, recorded in the next loading instructions. Without an end, WWWW was carried in 11 handoffs and IIIII in 6 (the second review, under Session data and the ten-session review). (Alex, 2026-09-28: no veto.)
