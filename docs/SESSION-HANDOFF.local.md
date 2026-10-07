@@ -10,7 +10,7 @@ Moe's own data, recorded per session since Session 46 in anticipation of the han
 
 Trigger 1 is relative to the context at load while triggers 2 and 3 stay absolute. That was Alex's call at the first ten-session review (2026-09-27, `git show 8e27f4c:PROGRESS.md`), made because the load then cost ~87–95k (Sessions 57–60), so a 100k line fired after about 10k of work. About 50k of the load is tool schemas, which moe doesn't control from the repo (first measured at Session 57; 49.4–50.3k across Sessions 66–72, Session data below). Separately, triggers 2 and 3 bound total input length, the quantity the core's evidence ties to degradation. The core has since adopted the same relative rule hub-wide.
 
-The core's trigger 4 replaces moe's rule of 2026-09-27, which added no weekly-limit trigger row: either weekly figure at 85% or more puts any new multi-agent work to Alex before it starts (Alex, 2026-10-06; AIOS `PROGRESS.md`'s Session 42 entry, `c59cc58`, on AIOS research/65's question VF6). Moe keeps its own addition from that rule: every handoff notice names either weekly figure that is at 85% or more, whatever the five-hour window and whichever trigger fired.
+The core's trigger 4 replaces moe's rule of 2026-09-27, which added no weekly-limit trigger row: either weekly figure at 85% or more puts any new multi-agent work to Alex before it starts (Alex, 2026-10-06; AIOS `PROGRESS.md`'s Session 42 entry, `c59cc58`, on AIOS research/65's question VF6). Moe keeps its own addition from that rule: every handoff notice names either weekly figure that is at 85% or more, whatever the five-hour window and whichever trigger fired. The 2026-09-27 rule said "the weekly %"; naming either figure is this file's reading of it.
 
 ## Units of work
 
@@ -86,7 +86,7 @@ Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious cons
 | Live-fleet work: Alex-authorised deploys, `fly secrets`, the production DB, live Slack verification, multi-branch git surgery | Opus            | high   |
 | Mechanical chores: archive commit, rename, lint fix                                                                           | Haiku or Sonnet | low    |
 
-Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Context Management); in moe these stand for what the core's section 1 calls the hub's workers on their pins, since moe runs none of the hub's. Say the effort explicitly — Opus 5.5 defaults to `medium`, unlike every model before it — and prefer `high` for Opus unless there's a stated reason for less.
+Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Context Management); in moe these stand for what the core's section 1 calls the hub's workers on their pins, since moe's own sessions enable no hub worker plugin (its only hub plugin, `synced-docs`, has none). Say the effort explicitly — Opus 5.5 defaults to `medium`, unlike every model before it — and prefer `high` for Opus unless there's a stated reason for less.
 
 **This table is a snapshot, not a fixed ranking** — a new model release can shift where a row belongs, and the right response is a documented trial, not a silent edit. The Fable row is kept as a trial row: moe has never actually used Fable as a session model. The usage tool reports a separate "Weekly · Fable" window worth naming here — confirmed via `get_usage` on 2026-09-27 (Session 53), which listed "Weekly · Fable" at 4% used, separate from "Weekly · all models".
 
@@ -118,7 +118,7 @@ There is no tool-schema field: tool schemas measured 49.4–50.3k across Session
 
 Fields missing from older entries stay "not recorded", with no backfill. Sessions 46–52's gaps were a Claude call under Alex's delegation at the first review (Session 60). Claude extended the rule to context at load before Session 58, the first entry with a context-at-load field, when adding that field to the handoff doc (Session 66).
 
-Review every ten sessions. Its result is recorded in the `PROGRESS.md` entry of the session that runs it, as both reviews below were. That entry is what the core's section 4 item 8 calls where the project keeps its research records. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
+Review every ten sessions. Its result goes in `PROGRESS.md`: the entry of the session that runs it, and the entry where Alex answers its questions if that is a later one, as for both reviews below. A report behind it goes under the gitignored `.claude/research/`, as the second review's did (`.claude/research/workflow-series/s9-review-2/report.md`, `git show 8680b6a:PROGRESS.md`). In moe, that `PROGRESS.md` record stands for what the core's section 4 item 8 calls where the project keeps its research records. The first review ran at Session 60, over Sessions 46–59 (`git show 8e27f4c:PROGRESS.md`):
 
 - Alex decided that trigger 1 becomes relative to the context at load (Lines above).
 - He left the other items to Claude "as long as you have strong, real evidence". Under that delegation Claude adopted the context-at-load field, the handoff prompt's step 1 `origin/main` read and the no-backfill call.
