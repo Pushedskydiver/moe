@@ -161,7 +161,7 @@ session's compression commit.
 | ------- | ---- | -------- | --- |
 ```
 
-One row per archived session. The **Headline** is one dense sentence — what made the session load-bearing, not a full recap (the full recap is `git log -p PROGRESS.md` at the compression commit). **PRs** links each PR the session shipped as `[#N](url)`, comma-separated, with a run of consecutive PRs as `[#A](url)–[#B](url)`, or `—` if the session shipped no PRs. Older rows also write the link text as `PR #N`. Rows append in session order; this file has no pruning discipline of its own — if it ever needs one, `git log` is the same overflow valve `PROGRESS.md` uses.
+One row per archived session. The **Headline** is one dense sentence — what made the session load-bearing, not a full recap (the full recap is `git log -p PROGRESS.md` at the compression commit). **PRs** links the session's PRs as `[#N](url)`, comma-separated when there are several, and a run of consecutive PRs may instead be a range, `[#A](url)–[#B](url)`; a session that shipped none has `—`. Sessions 18 to 43 mostly write the link text as `PR #N`. Sessions 42, 43, 47 and 48 have no PRs cell and link their PRs in the Headline, and Session 50's cell adds "(opened later)" after its link. Rows append in session order; this file has no pruning discipline of its own — if it ever needs one, `git log` is the same overflow valve `PROGRESS.md` uses.
 
 When a session's detail-band entry collapses into a `SESSIONS.md` row, delete its `### Session N+1 loading instructions` block from `PROGRESS.md` in the same commit — it directed a session that already ran, and it's recoverable via `git log -p` if ever needed.
 
