@@ -12,7 +12,7 @@ Trigger 1 is relative to the context at load while triggers 2 and 3 stay absolut
 
 The core's trigger 4 replaces moe's rule of 2026-09-27, which added no weekly-limit trigger row: either weekly figure at 85% or more puts any new multi-agent work to Alex before it starts (Alex, 2026-10-06; AIOS `PROGRESS.md`'s Session 42 entry, `c59cc58`, on AIOS research/65's question VF6). Moe keeps its own addition from that rule: every handoff notice names either weekly figure that is at 85% or more, whatever the five-hour window and whichever trigger fired. The 2026-09-27 rule said "the weekly %"; naming either figure is this file's reading of it.
 
-## Units of work
+## Deliverables
 
 Moe's examples of what the core's trigger 1 calls a deliverable: PR opened, fold committed, PR merged, a chunk shipped, deploy verified. A PR merged is a boundary of its own in moe, beside the core's PR opened: Alex can merge while a session runs, and `docs/RATIONALIZATIONS.md`'s "one more chunk" row checks the trigger at each merge.
 
@@ -28,7 +28,7 @@ The `PROGRESS.md` entry is committed direct to `main` — no branch, no PR, sinc
 
 ## Cleanup
 
-Moe's additions to the core's section 2 item 4, which also applies:
+Moe's cleanup at handoff. The core's section 2 item 4 also applies, and some of these bullets repeat or widen it:
 
 - Delete merged local branches (`docs/GIT.md` §Rules).
 - Run `git worktree list` and remove finished, clean review worktrees under `.claude/worktrees/`.
@@ -36,7 +36,7 @@ Moe's additions to the core's section 2 item 4, which also applies:
 - Withdraw stale suggestion chips (desktop only).
 - Keep `.claude/research/workflow-series/` — gitignored and still referenced.
 - Never clean while a background agent runs.
-- Record what was cleaned in a "Cleanup:" line in the entry.
+- Record what cleanup removed or skipped in a "Cleanup:" line in the entry (Entry shape below).
 - Archival check (Archive rule below): primary at session start, secondary at handoff.
 
 ## Handoff prompt
@@ -63,10 +63,12 @@ Moe's settings within the core's section 4. `## Next workstreams (after Session 
 - Shipped/Done (paths; what was verified and how).
 - In flight.
 - Next, and open questions for Alex — anything marked his to decide.
-- Cleanup (Cleanup above).
+- Cleanup (Cleanup above): moe's own field. It holds what the core's section 4 item 4 puts in In flight: what cleanup removed or skipped. A skip because a background agent is still running is also said in In flight, as the core's section 2 item 4 asks.
 - `### Session N+1 loading instructions`.
 - `### Lessons` (Lessons below).
 - `### Session data` (Session data and the ten-session review below), the last field.
+
+Lessons and Session data take `###` headings, not the bold labels older entries use: in the core's order they come after the loading instructions' heading, and a bold label there would read as part of that block.
 
 Beyond what the core's section 4 item 6 lists (and the live checks above), the loading instructions carry:
 
@@ -96,7 +98,7 @@ Moe sets no rule of its own for new models beyond the table's documented-trial n
 
 ## Flag fallback
 
-Moe sets no fallback of its own: no `switchModelsOnFlag` is set in its `.claude/` settings. The core's section 1 applies: a flagged message is a structural warning sign under trigger 5, and a switch is made visible by the core's model-and-effort command and recorded in Session data.
+Moe sets no fallback of its own: no `switchModelsOnFlag` is set in its `.claude/` settings. The core's section 1 applies: a second flagged message in a session is a structural warning sign under trigger 5, and after the first, trigger 5 says what to do. A switch is made visible by the core's model-and-effort command and recorded in Session data.
 
 ## Lessons
 

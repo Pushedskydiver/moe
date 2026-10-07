@@ -1,6 +1,6 @@
 # Progress
 
-Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.md` for the mechanics).
+Living state document — current state, what's next. Session-by-session detail lives in git history once entries archive out (see `docs/history/SESSIONS.md` and `docs/SESSION-HANDOFF.local.md` §Archive rule for the mechanics).
 
 ## Next workstreams (after Session 77)
 
