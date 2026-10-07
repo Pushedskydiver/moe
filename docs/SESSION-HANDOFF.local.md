@@ -88,7 +88,7 @@ Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious cons
 | Live-fleet work: Alex-authorised deploys, `fly secrets`, the production DB, live Slack verification, multi-branch git surgery | Opus            | high   |
 | Mechanical chores: archive commit, rename, lint fix                                                                           | Haiku or Sonnet | low    |
 
-Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Context Management); in moe these stand for what the core's section 1 calls the hub's workers on their pins, since moe's own sessions enable no hub worker plugin (its only hub plugin, `synced-docs`, has none). Say the effort explicitly — Opus 5.5 defaults to `medium`, unlike every model before it — and prefer `high` for Opus unless there's a stated reason for less.
+Workers keep their pinned tiers (`docs/DEVELOPMENT.md` §Session Pattern & Context Management): they are what the core's section 1 calls a project's own pinned workers. Moe's sessions enable no hub worker plugin (its only hub plugin, `synced-docs`, has none). Say the effort explicitly — Opus 5.5 defaults to `medium`, unlike every model before it — and prefer `high` for Opus unless there's a stated reason for less.
 
 **This table is a snapshot, not a fixed ranking** — a new model release can shift where a row belongs, and the right response is a documented trial, not a silent edit. The Fable row is kept as a trial row: moe has never actually used Fable as a session model. The usage tool reports a separate "Weekly · Fable" window worth naming here — confirmed via `get_usage` on 2026-09-27 (Session 53), which listed "Weekly · Fable" at 4% used, separate from "Weekly · all models".
 
