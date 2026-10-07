@@ -96,7 +96,7 @@ Moe sets no rule of its own for new models beyond the table's documented-trial n
 
 ## Flag fallback
 
-Moe sets no fallback of its own: no `switchModelsOnFlag` is set in its `.claude/` settings. The core's section 1 applies: a flagged message is a structural warning sign under trigger 5, and a switch is made visible by the core's model-and-effort command and recorded in Session data.
+Moe sets no fallback of its own: no `switchModelsOnFlag` is set in its `.claude/` settings. The core's section 1 applies: a second flagged message in a session is a structural warning sign under trigger 5, and after the first, trigger 5 says what to do. A switch is made visible by the core's model-and-effort command and recorded in Session data.
 
 ## Lessons
 
