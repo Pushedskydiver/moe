@@ -29,7 +29,7 @@ Chief-clancy investigated automating session handoff (a `PostCompact` hook + Rou
 3. **Chief-clancy's own 40-session measurement says automation solves the wrong problem.** 0/40 unplanned compactions — the harm a `PostCompact` backstop addresses never fired once. Handoff cost grew, but their own cause analysis attributed it to information density (sessions doing more), which automation doesn't reduce. Their final audit recommended formally retiring the workstream.
 4. **Their measurement protocol itself decayed** — 19/20 metric fields left unfilled across their last two audited windows. A protocol that isn't sustained is worse than none; moe adopts event-based triggers (below) instead of a per-session bookkeeping habit likely to suffer the same fate.
 
-Full evidence and citations: `docs/SESSION-HANDOFF.md` §11 "Why handoff stays manual."
+Full evidence and citations: `docs/SESSION-HANDOFF.local.md` §Why handoff stays manual.
 
 ## Deferred work: deterministic pointer-injection hook
 
@@ -53,6 +53,6 @@ One firing is a data point, not a build order; a second of the same class is a d
 
 ## References
 
-- `docs/SESSION-HANDOFF.md` §11 — full evidence (mechanics: §1–§10).
+- `docs/SESSION-HANDOFF.local.md` §Why handoff stays manual — full evidence (mechanics: `docs/SESSION-HANDOFF.md`, the hub core, and the rest of `docs/SESSION-HANDOFF.local.md`).
 - `@chief-clancy/.claude/research/session-handoff/audit-2026-04-{21,23,29}.md` — the primary-source audits this decision re-derives from.
 - Repo-local `.claude/research/session-handoff-automation/research-2026-07-09.md` (gitignored) — the Session 2 deep-research artefact.

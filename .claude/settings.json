@@ -12,5 +12,16 @@
         ]
       }
     ]
+  },
+  "enabledPlugins": {
+    "synced-docs@aios-hub": true
+  },
+  "extraKnownMarketplaces": {
+    "aios-hub": {
+      "source": {
+        "source": "directory",
+        "path": "/Users/alexclapperton/Desktop/alex/agentic-os/hub"
+      }
+    }
   }
 }
