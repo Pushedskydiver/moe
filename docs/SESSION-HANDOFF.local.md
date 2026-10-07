@@ -36,7 +36,7 @@ Moe's cleanup at handoff. The core's section 2 item 4 also applies, and some of 
 - Withdraw stale suggestion chips (desktop only).
 - Keep `.claude/research/workflow-series/` — gitignored and still referenced.
 - Never clean while a background agent runs.
-- Record what was cleaned in a "Cleanup:" line in the entry.
+- Record what cleanup removed or skipped in a "Cleanup:" line in the entry (Entry shape below).
 - Archival check (Archive rule below): primary at session start, secondary at handoff.
 
 ## Handoff prompt
