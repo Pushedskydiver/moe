@@ -63,7 +63,7 @@ Moe's settings within the core's section 4. `## Next workstreams (after Session 
 - Shipped/Done (paths; what was verified and how).
 - In flight.
 - Next, and open questions for Alex — anything marked his to decide.
-- Cleanup (Cleanup above): moe's own field. It holds what the core's section 4 item 4 puts in In flight, what cleanup removed or skipped.
+- Cleanup (Cleanup above): moe's own field. It holds what the core's section 4 item 4 puts in In flight: what cleanup removed or skipped. A skip because a background agent is still running is also said in In flight, as the core's section 2 item 4 asks.
 - `### Session N+1 loading instructions`.
 - `### Lessons` (Lessons below).
 - `### Session data` (Session data and the ten-session review below), the last field.
