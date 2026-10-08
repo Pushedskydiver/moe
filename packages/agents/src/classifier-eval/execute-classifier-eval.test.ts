@@ -139,6 +139,37 @@ describe('executeClassifierEval', () => {
     ).toBe(4);
   });
 
+  it('appends each call to a progress file as it lands, and leaves it behind when the run is cut short', async () => {
+    const log = vi.fn((line: string) => {
+      if (line.startsWith('[5/648]')) throw new Error('interrupted');
+    });
+
+    await expect(
+      executeClassifierEval({
+        client: { messages: { create: vi.fn(fakeCreate) } },
+        setsDir: SETS_DIR,
+        resultsDir,
+        log,
+      }),
+    ).rejects.toThrow('interrupted');
+
+    const names = readdirSync(resultsDir);
+    expect(names).toHaveLength(1);
+    expect(names[0]).toMatch(
+      /^classifier-eval-\d{4}-\d{2}-\d{2}\.partial\.jsonl$/,
+    );
+    const lines = readFileSync(join(resultsDir, names[0] ?? ''), 'utf8')
+      .trimEnd()
+      .split('\n');
+    expect(lines).toHaveLength(5);
+    expect(JSON.parse(lines[0] ?? '')).toMatchObject({
+      configurationId: 'A',
+      setId: 'addendum-18',
+      messageId: 'addendum-01',
+      run: 1,
+    });
+  });
+
   it("doesn't overwrite an earlier run's results on the same day", async () => {
     const first = await executeClassifierEval({
       client: { messages: { create: vi.fn(fakeCreate) } },

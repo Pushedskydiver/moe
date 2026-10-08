@@ -123,27 +123,25 @@ describe('the rebuilt set', () => {
     const ambiguous = set.messages.filter((message) =>
       message.id.startsWith('ambiguous-'),
     );
-    const texts = set.messages.map((message) => message.text.toLowerCase());
-    const mentions = (needle: string) =>
-      texts.some((text) => text.includes(needle));
+    const messageWithText = (text: string) =>
+      set.messages.find((message) => message.text === text);
 
     expect(
       ambiguous.every((message) =>
         ['signal', 'non-actionable'].includes(message.label),
       ),
     ).toBe(true);
-    expect([
-      mentions('footer links'),
-      mentions('logged out'),
-      mentions('dashboard'),
-      mentions('billing docs page'),
-      mentions('the coffee machine is broken again'),
-    ]).toEqual([true, true, true, true, true]);
     expect(
-      set.messages.find(
-        (message) => message.text === 'the coffee machine is broken again',
-      )?.label,
-    ).toBe('banter');
+      [
+        'the footer links look broken on the mobile site',
+        'I keep getting logged out of the admin panel',
+        'the dashboard has been loading really slowly today',
+        'do we have a billing docs page somewhere?',
+      ].map((text) => messageWithText(text)?.label),
+    ).toEqual(['signal', 'signal', 'signal', 'signal']);
+    expect(messageWithText('the coffee machine is broken again')?.label).toBe(
+      'banter',
+    );
   });
 });
 

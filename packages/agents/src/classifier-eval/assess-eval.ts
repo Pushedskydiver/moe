@@ -7,7 +7,8 @@ import { evalCostUsdMicros } from './eval-pricing.js';
 export type CallAssessment = {
   // A failed call is never a match.
   readonly matched: boolean;
-  // stop_reason `max_tokens`, or a response with no parsed output at all.
+  // stop_reason `max_tokens`, or a response with no parsed output and a stop_reason that is not
+  // `refusal` (a refusal is counted as refused, never also as cut).
   readonly cut: boolean;
   // stop_reason `refusal`.
   readonly refusal: boolean;
@@ -42,7 +43,7 @@ function isExpected(
   );
 }
 
-export function assessCall(
+export function evaluateCall(
   sets: readonly EvalSet[],
   record: EvalCallRecord,
 ): CallAssessment {
@@ -51,7 +52,9 @@ export function assessCall(
 
   return {
     matched: isExpected(findMessage(sets, record), record.outcome),
-    cut: record.capture?.stopReason === 'max_tokens' || noParsedOutput,
+    cut:
+      record.capture?.stopReason === 'max_tokens' ||
+      (noParsedOutput && record.capture?.stopReason !== 'refusal'),
     refusal: record.capture?.stopReason === 'refusal',
   };
 }
@@ -83,7 +86,9 @@ function totalsFor(
   const records = results.calls.filter(
     (call) => call.configurationId === configuration.id,
   );
-  const assessments = records.map((record) => assessCall(results.sets, record));
+  const assessments = records.map((record) =>
+    evaluateCall(results.sets, record),
+  );
   const usages = records.flatMap((record) =>
     record.capture === null ? [] : [record.capture.usage],
   );

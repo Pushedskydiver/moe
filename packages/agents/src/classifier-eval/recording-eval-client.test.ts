@@ -22,6 +22,7 @@ const [configA, configB, configC, configD] = EVAL_CONFIGURATIONS as readonly [
 function makeMessage(options: {
   readonly content: Anthropic.Message['content'];
   readonly stopReason?: Anthropic.Message['stop_reason'];
+  readonly stopDetails?: Anthropic.Message['stop_details'];
   readonly inputTokens?: number;
   readonly outputTokens?: number;
   readonly thinkingTokens?: number;
@@ -33,7 +34,7 @@ function makeMessage(options: {
     model: 'claude-haiku-5-5',
     container: null,
     content: options.content,
-    stop_details: null,
+    stop_details: options.stopDetails ?? null,
     stop_reason: options.stopReason ?? 'end_turn',
     stop_sequence: null,
     usage: {
@@ -165,6 +166,7 @@ describe('makeRecordingEvalClient', () => {
       [
         {
           stopReason: 'end_turn',
+          stopDetails: null,
           contentBlockTypes: ['thinking', 'text'],
           usage: { inputTokens: 300, outputTokens: 180, thinkingTokens: 150 },
         },
@@ -213,6 +215,29 @@ describe('makeRecordingEvalClient', () => {
       error: { kind: 'invalid-appropriateness-output' },
     });
     expect(onCapture.mock.calls[0]?.[0].stopReason).toBe('refusal');
+  });
+
+  it("keeps a refusal's stop_details beside its stop_reason", async () => {
+    const stopDetails = {
+      type: 'refusal',
+      category: 'cyber',
+      explanation: 'declined',
+    } as const;
+    const real = makeReal(
+      makeMessage({
+        content: [],
+        stopReason: 'refusal',
+        stopDetails,
+      }),
+    );
+    const { client, onCapture } = makeClient(real, configA);
+
+    await classifyMessageConfidence(client, { text: 'hello' });
+
+    expect(onCapture.mock.calls[0]?.[0]).toMatchObject({
+      stopReason: 'refusal',
+      stopDetails,
+    });
   });
 
   it('reports nothing when the request itself fails, and lets the error through for the production function to bucket', async () => {

@@ -5,7 +5,7 @@ import type { EvalCallRecord } from './run-eval.js';
 import { readdir } from 'node:fs/promises';
 import { join } from 'node:path';
 
-import { assessCall, totalsByConfiguration } from './assess-eval.js';
+import { evaluateCall, totalsByConfiguration } from './assess-eval.js';
 import {
   EVAL_CONFIGURATIONS,
   RUNS_PER_MESSAGE,
@@ -16,7 +16,11 @@ import {
   formatEvalResultsMarkdown,
 } from './format-eval-results.js';
 import { runClassifierEval } from './run-eval.js';
-import { pickResultsBasename, saveEvalResults } from './save-eval-results.js';
+import {
+  appendProgressRecord,
+  resolveResultsBasename,
+  saveEvalResults,
+} from './save-eval-results.js';
 
 export type ExecuteClassifierEvalResult =
   | {
@@ -47,7 +51,9 @@ async function listExistingResults(
 /**
  * BUILD_PLAN 3.13's whole run, behind the manual `eval:classifiers` script: load the committed
  * sets (making no API call if any can't be loaded), run them, write the results JSON and table to
- * `resultsDir`. The only live part is whatever `client` is; the script alone passes a real one.
+ * `resultsDir`. Each call's record is appended to `<basename>.partial.jsonl` there as it lands,
+ * and that file is removed once the JSON and table are written, so a run cut short leaves it
+ * behind. The only live part is whatever `client` is; the script alone passes a real one.
  */
 export async function executeClassifierEval(options: {
   readonly client: EvalCreateClient;
@@ -60,13 +66,16 @@ export async function executeClassifierEval(options: {
   if (!loaded.ok) return loaded;
 
   const existing = await listExistingResults(resultsDir);
+  const basename = resolveResultsBasename(new Date().toISOString(), existing);
   const results = await runClassifierEval({
     client,
     sets: loaded.sets,
     configurations: EVAL_CONFIGURATIONS,
     runsPerMessage: RUNS_PER_MESSAGE,
-    onCall: (record, position, total) =>
-      log(describeCall(loaded.sets, record, { position, total })),
+    onCall: async (record, position, total) => {
+      await appendProgressRecord({ dir: resultsDir, basename, record });
+      log(describeCall(loaded.sets, record, { position, total }));
+    },
   });
 
   totalsByConfiguration(results).forEach((totals) =>
@@ -77,12 +86,11 @@ export async function executeClassifierEval(options: {
     ),
   );
 
-  const basename = pickResultsBasename(results.startedAt, existing);
   await saveEvalResults({
     dir: resultsDir,
     basename,
     results,
-    markdown: formatEvalResultsMarkdown(results),
+    renderMarkdown: formatEvalResultsMarkdown,
   });
 
   return {
@@ -93,11 +101,11 @@ export async function executeClassifierEval(options: {
 }
 
 function describeCall(
-  sets: Parameters<typeof assessCall>[0],
+  sets: Parameters<typeof evaluateCall>[0],
   record: EvalCallRecord,
   progress: { readonly position: number; readonly total: number },
 ): string {
-  const cell = formatCell(record.outcome, assessCall(sets, record));
+  const cell = formatCell(record.outcome, evaluateCall(sets, record));
 
   return `[${progress.position}/${progress.total}] ${record.configurationId} ${record.setId}/${record.messageId} run ${record.run}: ${cell}`;
 }

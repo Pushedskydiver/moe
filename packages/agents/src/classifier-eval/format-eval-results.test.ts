@@ -15,6 +15,7 @@ import {
 
 const capture = (overrides: Partial<RawCapture> = {}): RawCapture => ({
   stopReason: 'end_turn',
+  stopDetails: null,
   contentBlockTypes: ['text'],
   usage: { inputTokens: 100, outputTokens: 20, thinkingTokens: null },
   ...overrides,

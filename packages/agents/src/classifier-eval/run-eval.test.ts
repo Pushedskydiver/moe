@@ -74,7 +74,7 @@ function answerFor(params: Anthropic.MessageCreateParamsNonStreaming): string {
 }
 
 describe('planEvalCalls', () => {
-  it('plans configuration by configuration, then set, message and run, numbering each call', () => {
+  it('plans set, message and run, then every configuration for that run, numbering each call', () => {
     const plan = planEvalCalls(
       [classifierSet, gateSet],
       EVAL_CONFIGURATIONS,
@@ -84,7 +84,7 @@ describe('planEvalCalls', () => {
     expect(plan).toHaveLength(4 * 3 * 3);
     expect(
       plan
-        .slice(0, 4)
+        .slice(0, 6)
         .map((call) => [
           call.configuration.id,
           call.setId,
@@ -93,14 +93,21 @@ describe('planEvalCalls', () => {
         ]),
     ).toEqual([
       ['A', 'classifier-set', 'c1', 1],
+      ['B', 'classifier-set', 'c1', 1],
+      ['C', 'classifier-set', 'c1', 1],
+      ['D', 'classifier-set', 'c1', 1],
       ['A', 'classifier-set', 'c1', 2],
-      ['A', 'classifier-set', 'c1', 3],
-      ['A', 'classifier-set', 'c2', 1],
+      ['B', 'classifier-set', 'c1', 2],
+    ]);
+    expect(
+      [plan[12], plan[24]].map((call) => [call?.setId, call?.messageId]),
+    ).toEqual([
+      ['classifier-set', 'c2'],
+      ['gate-set', 'g1'],
     ]);
     expect(plan.map((call) => call.index)).toEqual(
       plan.map((_call, position) => position),
     );
-    expect(plan[9]?.configuration.id).toBe('B');
   });
 });
 
@@ -132,6 +139,7 @@ describe('runClassifierEval', () => {
       },
       capture: {
         stopReason: 'end_turn',
+        stopDetails: null,
         contentBlockTypes: ['text'],
         usage: { inputTokens: 100, outputTokens: 20, thinkingTokens: null },
       },
@@ -301,6 +309,29 @@ describe('runClassifierEval', () => {
       [1, 2],
       [2, 2],
     ]);
+  });
+
+  it('waits for onCall to finish before it starts the next call', async () => {
+    const events: string[] = [];
+    const create = vi.fn(
+      async (params: Anthropic.MessageCreateParamsNonStreaming) => {
+        events.push('call');
+        return makeMessage(answerFor(params));
+      },
+    );
+
+    await runClassifierEval({
+      client: { messages: { create } },
+      sets: [classifierSet],
+      configurations: [EVAL_CONFIGURATIONS[0]],
+      runsPerMessage: 1,
+      onCall: async () => {
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        events.push('persisted');
+      },
+    });
+
+    expect(events).toEqual(['call', 'persisted', 'call', 'persisted']);
   });
 
   it('echoes the sets, configurations and run count into the results, so the results file is self-contained', async () => {

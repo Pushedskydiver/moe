@@ -2,11 +2,13 @@
 // does (see its header): Node's native TypeScript execution doesn't resolve `.js` specifiers back
 // to sibling `.ts` source. Requires `pnpm build` to have run first — the `eval:classifiers` script
 // does that automatically. Manual, live, deliberately not part of CI, like `record:replay`
-// (`docs/decisions/PERSONA-REPLAY-HARNESS.md` decision 1): it makes 648 billed calls against the
-// real Anthropic API (BUILD_PLAN 3.13), one at a time, so it needs `ANTHROPIC_API_KEY` in the
-// environment (read through `parseAnthropicConfig`, as `record-persona-replay.ts` does). Run it
-// after a Haiku model change or a classifier or safety-gate prompt edit, then commit the results
-// it writes beside the sets, in `classifier-eval/results/`.
+// (`docs/decisions/PERSONA-REPLAY-HARNESS.md` decision 1): it makes one billed call per message,
+// configuration and run against the real Anthropic API (BUILD_PLAN 3.13), one at a time, so it
+// needs `ANTHROPIC_API_KEY` in the environment (read through `parseAnthropicConfig`, as
+// `record-persona-replay.ts` does). Run it after a Haiku model change or a classifier or
+// safety-gate prompt edit, then commit the results it writes beside the sets, in
+// `classifier-eval/results/`. A run cut short leaves its finished calls in a `.partial.jsonl` file
+// there.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 

@@ -14,6 +14,8 @@ import { parseMessage } from '@anthropic-ai/sdk/lib/parser';
  */
 export type RawCapture = {
   readonly stopReason: Anthropic.StopReason | null;
+  // The API's own account of a refusal; `null` when the response carried none.
+  readonly stopDetails: Anthropic.RefusalStopDetails | null;
   readonly contentBlockTypes: readonly string[];
   readonly usage: {
     readonly inputTokens: number;
@@ -40,6 +42,7 @@ type EvalParseParams<Parsed> = Anthropic.MessageCreateParamsNonStreaming & {
 function captureFrom(message: Anthropic.Message): RawCapture {
   return {
     stopReason: message.stop_reason,
+    stopDetails: message.stop_details,
     contentBlockTypes: message.content.map((block) => block.type),
     usage: {
       inputTokens: message.usage.input_tokens,
@@ -55,10 +58,12 @@ function captureFrom(message: Anthropic.Message): RawCapture {
  * `evaluateSituationalAppropriateness` call `client.messages.parse`, so this stands in for a
  * client: its `parse` rewrites `model`, `max_tokens` and `output_config.effort` for the
  * configuration, calls the real client's `messages.create`, reports the raw response to
- * `onCapture`, then returns `parseMessage` of it, which is exactly what the SDK's own `parse`
- * does (`create(...).then(parseMessage)` in 0.111.0). Capturing before parsing keeps the
- * `stop_reason` of a refusal or a cut, which the SDK's `.parse()` would otherwise turn into a
- * bare thrown `AnthropicError` the production function can only bucket as an invalid output.
+ * `onCapture`, then returns `parseMessage` of it, the same parse step the SDK's own `parse` runs
+ * (`create(...).then(parseMessage)` in 0.111.0). Without the capture, a response cut or refused
+ * partway through its text reaches the production function as a bare `AnthropicError`, which it
+ * reports as an invalid-output kind, and one that stops before any text as `no-parsed-output`;
+ * neither says whether it was a cut or a refusal. The capture keeps the `stop_reason` and the
+ * `stop_details`.
  *
  * `effort` is merged into the incoming `output_config`, never a replacement of it, so
  * production's own `format` survives; a configuration with no `effort` adds no key at all.
@@ -89,6 +94,8 @@ export function makeRecordingEvalClient(
         const message = await real.messages.create(rewritten);
         onCapture(captureFrom(message));
 
+        // `parseMessage` in 0.111.0 never reads its logger option (`lib/parser.ts`), so `console`
+        // here bypasses no redaction.
         return parseMessage(message, rewritten, { logger: console });
       },
     },

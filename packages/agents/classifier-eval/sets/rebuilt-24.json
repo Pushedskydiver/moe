@@ -102,7 +102,7 @@
     {
       "id": "ambiguous-1",
       "label": "signal",
-      "text": "the footer links seem a bit off on mobile",
+      "text": "the footer links look broken on the mobile site",
       "expectedBands": ["mid", "high"]
     },
     {

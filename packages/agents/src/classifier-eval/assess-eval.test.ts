@@ -7,7 +7,7 @@ import type {
 
 import { describe, expect, it } from 'vitest';
 
-import { assessCall, totalsByConfiguration } from './assess-eval.js';
+import { evaluateCall, totalsByConfiguration } from './assess-eval.js';
 import { EVAL_CONFIGURATIONS } from './eval-configurations.js';
 
 const capture = (
@@ -15,6 +15,7 @@ const capture = (
   usage: Partial<RawCapture['usage']> = {},
 ): RawCapture => ({
   stopReason: 'end_turn',
+  stopDetails: null,
   contentBlockTypes: ['text'],
   usage: { inputTokens: 100, outputTokens: 20, thinkingTokens: null, ...usage },
   ...overrides,
@@ -76,16 +77,17 @@ const results: EvalResults = {
   calls: [],
 };
 
-describe('assessCall', () => {
+describe('evaluateCall', () => {
   it('matches a classifier band that is any of the expected bands', () => {
     expect(
-      assessCall(results.sets, record('signal', classifierOk('mid'))).matched,
+      evaluateCall(results.sets, record('signal', classifierOk('mid'))).matched,
     ).toBe(true);
     expect(
-      assessCall(results.sets, record('signal', classifierOk('high'))).matched,
+      evaluateCall(results.sets, record('signal', classifierOk('high')))
+        .matched,
     ).toBe(true);
     expect(
-      assessCall(results.sets, record('signal', classifierOk('low'))).matched,
+      evaluateCall(results.sets, record('signal', classifierOk('low'))).matched,
     ).toBe(false);
   });
 
@@ -98,14 +100,16 @@ describe('assessCall', () => {
     });
 
     expect(
-      assessCall(
+      evaluateCall(
         results.sets,
         record('g', gateOk(false), { setId: 'gate-set' }),
       ).matched,
     ).toBe(true);
     expect(
-      assessCall(results.sets, record('g', gateOk(true), { setId: 'gate-set' }))
-        .matched,
+      evaluateCall(
+        results.sets,
+        record('g', gateOk(true), { setId: 'gate-set' }),
+      ).matched,
     ).toBe(false);
   });
 
@@ -117,7 +121,7 @@ describe('assessCall', () => {
     };
 
     expect(
-      assessCall(results.sets, record('work', failed, { capture: null }))
+      evaluateCall(results.sets, record('work', failed, { capture: null }))
         .matched,
     ).toBe(false);
   });
@@ -130,7 +134,7 @@ describe('assessCall', () => {
     };
 
     expect(
-      assessCall(
+      evaluateCall(
         results.sets,
         record('work', noOutput, {
           capture: capture({ stopReason: 'max_tokens' }),
@@ -138,7 +142,7 @@ describe('assessCall', () => {
       ).cut,
     ).toBe(true);
     expect(
-      assessCall(
+      evaluateCall(
         results.sets,
         record('work', noOutput, {
           capture: capture({ stopReason: 'end_turn' }),
@@ -146,8 +150,25 @@ describe('assessCall', () => {
       ).cut,
     ).toBe(true);
     expect(
-      assessCall(results.sets, record('work', classifierOk('high'))).cut,
+      evaluateCall(results.sets, record('work', classifierOk('high'))).cut,
     ).toBe(false);
+  });
+
+  it('counts a refusal that stopped before any text as refused, not cut', () => {
+    const noOutput: EvalCallOutcome = {
+      ok: false,
+      errorKind: 'no-parsed-output',
+      errorMessage: 'x',
+    };
+
+    expect(
+      evaluateCall(
+        results.sets,
+        record('work', noOutput, {
+          capture: capture({ stopReason: 'refusal', contentBlockTypes: [] }),
+        }),
+      ),
+    ).toMatchObject({ cut: false, refusal: true });
   });
 
   it('flags a refusal by stop_reason, not by error kind', () => {
@@ -158,7 +179,7 @@ describe('assessCall', () => {
     };
 
     expect(
-      assessCall(
+      evaluateCall(
         results.sets,
         record('work', invalid, {
           capture: capture({ stopReason: 'refusal' }),
@@ -166,7 +187,7 @@ describe('assessCall', () => {
       ).refusal,
     ).toBe(true);
     expect(
-      assessCall(
+      evaluateCall(
         results.sets,
         record('work', invalid, {
           capture: capture({ stopReason: 'end_turn' }),

@@ -86,8 +86,10 @@ function targetsOf(
 }
 
 /**
- * Every call a run makes, in the order it makes them: configuration by configuration, then set,
- * message and run. Pure, so the order and the total are testable without a client.
+ * Every call a run makes, in the order it makes them: set, message and run, then every
+ * configuration for that run, so a failure tied to a stretch of time (an outage, a burst of rate
+ * limits) lands across all the configurations rather than on one. Pure, so the order and the
+ * total are testable without a client.
  */
 export function planEvalCalls(
   sets: readonly EvalSet[],
@@ -98,10 +100,10 @@ export function planEvalCalls(
     { length: runsPerMessage },
     (_unused, position) => position + 1,
   );
-  const specs = configurations.flatMap((configuration) =>
-    sets.flatMap((set) =>
-      targetsOf(set).flatMap(({ id, target }) =>
-        runs.map((run) => ({
+  const specs = sets.flatMap((set) =>
+    targetsOf(set).flatMap(({ id, target }) =>
+      runs.flatMap((run) =>
+        configurations.map((configuration) => ({
           configuration,
           setId: set.id,
           messageId: id,
@@ -197,12 +199,13 @@ export type RunClassifierEvalOptions = {
   readonly sets: readonly EvalSet[];
   readonly configurations: readonly EvalConfiguration[];
   readonly runsPerMessage: number;
-  // Called after each call, 1-based position of `total`, for progress output.
+  // Called after each call, 1-based position of `total`, for progress output and persistence.
+  // Awaited, so the next call starts only once it has finished.
   readonly onCall?: (
     record: EvalCallRecord,
     position: number,
     total: number,
-  ) => void;
+  ) => Promise<void> | void;
 };
 
 /**
@@ -221,7 +224,7 @@ export async function runClassifierEval(
 
   const calls = await mapSequentially(plan, async (spec) => {
     const record = await runEvalCall(client, spec);
-    onCall?.(record, spec.index + 1, plan.length);
+    await onCall?.(record, spec.index + 1, plan.length);
     return record;
   });
 
