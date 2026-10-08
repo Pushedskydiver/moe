@@ -8,7 +8,7 @@
 // `record-persona-replay.ts` does). Run it after a Haiku model change or a classifier or
 // safety-gate prompt edit, then commit the results it writes beside the sets, in
 // `classifier-eval/results/`. A run cut short leaves its finished calls in a `.partial.jsonl` file
-// there.
+// there, which git ignores.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
