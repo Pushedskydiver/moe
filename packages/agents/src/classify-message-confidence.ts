@@ -5,13 +5,13 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 
 // docs/decisions/STAGE-1-CLASSIFIER.md's Decision 2 — the eval's own evidence, not a guess: Haiku
-// separated genuine-work-signal messages (score >= 72) from non-actionable ones (score <= 35)
-// with a clean, unoccupied 36-71 band, at a fraction of Sonnet 5's cost. BUILD_PLAN 3.14
-// (2026-10-09) moved the call from Haiku 4.5 to Haiku 5.5 on 3.13's configuration C: `effort:
-// 'low'` with `max_tokens` unchanged at 256. Haiku 5.5's adaptive thinking is on by default and
-// its tokens count toward `max_tokens`; every one of C's 162 calls in the 2026-10-08 run ended
-// `end_turn` with 0 thinking tokens. The ADR's 2026-10-09 addendum has the results and Alex's
-// decision.
+// 4.5, in the ADR's original 24-message eval (2026-07-18), separated genuine-work-signal messages
+// (score >= 72) from non-actionable ones (score <= 35) with a clean, unoccupied 36-71 band, at a
+// fraction of Sonnet 5's cost. BUILD_PLAN 3.14 (2026-10-09) moved the call from Haiku 4.5 to Haiku
+// 5.5 on 3.13's configuration C: `effort: 'low'` with `max_tokens` unchanged at 256. Haiku 5.5's
+// adaptive thinking is on by default and its tokens count toward `max_tokens`; every one of C's 162
+// calls in the 2026-10-08 run ended `end_turn` with 0 thinking tokens. The ADR's 2026-10-09
+// addendum has the results and Alex's decision.
 const MODEL = 'claude-haiku-5-5';
 const MAX_TOKENS = 256;
 
@@ -136,10 +136,11 @@ export type ClassifyMessageConfidenceResult =
  * same Zod schema this function's own return type is built from — matching AGENTS.md's "full Zod
  * v4 for all runtime validation" constraint, not a workaround. `usage` passes through the API
  * response's own token counts, same "stateless, reports usage rather than accounting for it"
- * precedent as `generateReply` — the real call site (`apps/server/src/handle-inbound-message.ts`)
- * turns this into a cost-cap check before the call and a persisted cost record after it, exactly
- * like the DM reply path already does (BUILD_PLAN 2.6a/2.6b) — a real, billed Anthropic call needs
- * the same gate and accounting regardless of which model or call site it's on.
+ * precedent as `generateReply` — the real call site
+ * (`apps/server/src/classify-message-for-intake.ts`) turns this into a cost-cap check before the
+ * call and a persisted cost record after it, exactly like the DM reply path already does
+ * (BUILD_PLAN 2.6a/2.6b) — a real, billed Anthropic call needs the same gate and accounting
+ * regardless of which model or call site it's on.
  *
  * Three distinct failure kinds, verified against the installed SDK's actual source (not assumed):
  * a genuine request-level failure (rate limit, timeout, auth) throws an `APIError` — bucketed as

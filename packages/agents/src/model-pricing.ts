@@ -64,13 +64,14 @@ export function sonnetCostUsdMicros(
 const HAIKU_PRICING = { inputMicrosPerToken: 0.1, outputMicrosPerToken: 0.5 };
 
 /**
- * Converts one Stage-1 classifier call's token usage into its cost in micro-USD, same unit and
- * shape as `sonnetCostUsdMicros` — BUILD_PLAN 3.3's second real LLM call site, priced separately
- * since it's a different model at a different rate, accumulated into the same per-persona monthly
- * cost bucket `checkCostCapAndAlert` reads from (`apps/server/src/handle-inbound-message.ts`). The
- * result is rounded to the nearest whole micro-USD, as `sonnetCostUsdMicros`' is:
- * `personaCostUsageSchema`'s `costUsdMicros` must be a non-negative integer
- * (`packages/core/src/cost-usage/cost-usage.ts`), and Haiku 5.5's per-token rates are fractional.
+ * Converts one Stage 1 Haiku call's token usage — the classifier's (BUILD_PLAN 3.3) or the
+ * situational-appropriateness gate's (3.4a-iii) — into its cost in micro-USD, same unit and shape
+ * as `sonnetCostUsdMicros`, priced separately since it's a different model at a different rate,
+ * accumulated into the same per-persona monthly cost bucket that `checkCostCapAndAlert`
+ * (`apps/server/src/check-cost-cap.ts`) reads from. The result is rounded to the nearest whole
+ * micro-USD, as `sonnetCostUsdMicros`' is: `personaCostUsageSchema`'s `costUsdMicros` must be a
+ * non-negative integer (`packages/core/src/cost-usage/cost-usage.ts`), and Haiku 5.5's per-token
+ * rates are fractional.
  */
 export function haikuCostUsdMicros(usage: {
   readonly inputTokens: number;

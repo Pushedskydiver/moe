@@ -9,8 +9,9 @@ const HAIKU_4_5_PRICING = { inputMicrosPerToken: 1, outputMicrosPerToken: 5 };
 // prompt of 100K tokens or fewer, which every eval prompt is (above that, $0.50 and $2.50). 1 USD
 // per MTok is 1 micro-USD per token, so these are fractional micros per token — the eval keeps
 // them as floats rather than rounding each call, since a single call costs only about a hundred
-// micros. Production's `haikuCostUsdMicros` holds the same rate and rounds its total (3.14); a
-// test here keeps the two rates equal.
+// micros. Production's `haikuCostUsdMicros` holds the same rate and rounds its total (3.14). A
+// test here checks that the two agree on one usage, and `model-pricing.test.ts` pins production's
+// rates.
 const HAIKU_5_5_PRICING = {
   inputMicrosPerToken: 0.1,
   outputMicrosPerToken: 0.5,
