@@ -64,8 +64,8 @@ export async function appendProgressRecord(options: {
  * Writes the results JSON, then builds and writes the markdown table, each with the `wx` flag so
  * an existing file is an error, never an overwrite, and last removes the run's progress file. The
  * JSON goes first and the table is built only after it, so a failure while formatting still
- * leaves the full results on disk; a failed run keeps its progress file. Called only by the
- * manual `eval:classifiers` script.
+ * leaves the full results on disk; a failed run keeps its progress file. Called only by
+ * `executeClassifierEval`, behind the manual `eval:classifiers` script.
  */
 export async function saveEvalResults(options: {
   readonly dir: string;

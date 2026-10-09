@@ -140,7 +140,7 @@ function configurationSection(results: EvalResults): readonly string[] {
       rows,
     ),
     '',
-    'A failed call is never a match. Tokens and cost include the calls that failed after the API answered (a cut, a refusal). Thinking tokens are already inside output tokens.',
+    'A failed call is never a match. Tokens and cost include the calls that failed after the API answered (a cut, a refusal). Thinking tokens are already inside output tokens, and count only the responses that report them, so a configuration whose responses report none shows 0 without having measured it.',
   ];
 }
 

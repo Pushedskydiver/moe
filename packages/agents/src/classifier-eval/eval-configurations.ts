@@ -15,9 +15,10 @@ export type EvalConfiguration = {
 /**
  * BUILD_PLAN 3.13's four configurations. A is production as shipped; B is the same call on
  * Haiku 5.5, whose adaptive thinking is on by default and counts toward `max_tokens`, so B can
- * stop before any text; C (a low effort) and D (a larger budget) are the two ways out. There is
- * deliberately no thinking-disabled configuration: no source found says the API lets Haiku
- * 5.5's thinking be turned off.
+ * stop before any text; C (a low effort) and D (a larger budget) are the two ways out it measures.
+ * There is no thinking-disabled configuration, though the API accepts `thinking: { type:
+ * 'disabled' }` on Haiku 5.5 at effort `low`, `medium` or `high` (the `claude-api` skill's Haiku
+ * 5.5 migration guide, which advises effort as the lever instead).
  */
 export const EVAL_CONFIGURATIONS: readonly EvalConfiguration[] = [
   { id: 'A', model: 'claude-haiku-4-5', maxTokens: 256 },

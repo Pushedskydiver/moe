@@ -2,9 +2,11 @@ import type { EvalModel } from './eval-configurations.js';
 
 import { haikuCostUsdMicros } from '../model-pricing.js';
 
-// claude-haiku-5-5: $0.10 input and $0.50 output per MTok (BUILD_PLAN 3.13). 1 USD per MTok is
-// 1 micro-USD per token, so these are fractional micros per token — the eval keeps them as
-// floats rather than rounding each call, since a single call costs only a few dozen micros.
+// claude-haiku-5-5: $0.10 input and $0.50 output per MTok (BUILD_PLAN 3.13), its rate for a
+// prompt of 100K tokens or fewer, which every eval prompt is (above that, $0.50 and $2.50). 1 USD
+// per MTok is 1 micro-USD per token, so these are fractional micros per token — the eval keeps
+// them as floats rather than rounding each call, since a single call costs only about a hundred
+// micros.
 const HAIKU_5_5_PRICING = {
   inputMicrosPerToken: 0.1,
   outputMicrosPerToken: 0.5,
