@@ -23,7 +23,9 @@ const DEFAULT_MODEL = 'claude-sonnet-5';
 // comfortably clear for their own narrower tasks (BUILD_PLAN 5.3a-ii). classify-message-
 // confidence.ts's and evaluate-situational-appropriateness.ts's own 256-token ceilings are NOT
 // covered by this check — different model (Haiku 5.5, not claude-sonnet-5) and a different task
-// shape, unverified either way, not assumed safe by omission.
+// shape, not assumed safe by omission. BUILD_PLAN 3.13's eval did check both 256s on Haiku 5.5 at
+// `effort: 'low'` instead: all 162 of its configuration C's calls, classifier and gate sets alike,
+// ended `end_turn`, none cut. This file's own live check never covered them.
 //
 // Raises worst-case per-turn spend on this call site roughly 8x (~$0.015 to ~$0.12 at standard
 // output pricing) — not the highest-traffic call site overall: classify-message-confidence.ts

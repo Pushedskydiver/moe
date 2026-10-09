@@ -318,7 +318,7 @@ describe('evaluateSituationalAppropriatenessGuard', () => {
   // BUILD_PLAN 3.14 — Haiku 5.5 can end with `stop_reason: 'refusal'` and no text block, which the
   // SDK's parse reports as `parsed_output: null` (`evaluateSituationalAppropriateness` turns that
   // into `ok: false`), not as a thrown error. The guard must block the post on that too.
-  it('reports evaluation-failed, records no usage, when the gate response has no parsed output, as a refusal with no text block gives (BUILD_PLAN 3.14)', async () => {
+  it('reports evaluation-failed when the gate response has no parsed output, as a refusal with no text block gives, and records no usage — a known gap, since an ok: false result carries none (BUILD_PLAN 3.14)', async () => {
     const deps = makeDeps({
       parse: vi.fn().mockResolvedValue({
         parsed_output: null,
@@ -345,6 +345,7 @@ describe('evaluateSituationalAppropriatenessGuard', () => {
           'situational-appropriateness response had no parsed_output',
       },
     );
+    // Known gap, pinned and not endorsed: the response was billed, but an `ok: false` result carries no usage, so there is none to record.
     expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
   });
 });

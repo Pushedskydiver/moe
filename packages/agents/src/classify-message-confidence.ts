@@ -34,9 +34,11 @@ const MAX_TOKENS = 256;
 // questions in the first paragraph below is what keeps that case in its original band. Live-
 // evaluated against the real API (see the ADR's Addendum, 2026-08-01) — status-question variants
 // dropped from 42-75 into Low. One further, deliberate side effect: a mixed status-question+
-// request case moved High to Mid (the ADR's own addendum names why). Every other evaluated row
-// moved at most 15 points and stayed within its original High/Mid/Low band — see the addendum's
-// own score table for the real per-row deltas rather than treating any row as untouched.
+// request case moved High to Mid (the ADR's own addendum names why; that was on Haiku 4.5 —
+// since BUILD_PLAN 3.14 it scores High on Haiku 5.5, accepted in the ADR's 2026-10-09 addendum).
+// Every other evaluated row moved at most 15 points and stayed within its original High/Mid/Low
+// band — see the addendum's own score table for the real per-row deltas rather than treating any
+// row as untouched.
 const CLASSIFIER_SYSTEM_PROMPT =
   'You are a fast triage classifier for a shared team Slack channel. Given a single message, on ' +
   'its own with no other context, decide how likely it is that the message describes something ' +
