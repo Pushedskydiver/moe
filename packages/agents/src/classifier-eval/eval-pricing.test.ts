@@ -13,7 +13,7 @@ describe('evalCostUsdMicros', () => {
     expect(evalCostUsdMicros('claude-haiku-4-5', usage)).toBe(2_000);
   });
 
-  it('prices Haiku 5.5 at $0.10 input and $0.50 output per MTok, a tenth of Haiku 4.5', () => {
+  it('prices Haiku 5.5 at $0.10 input and $0.50 output per MTok, its rate for prompts of 100K tokens or fewer and a tenth of Haiku 4.5', () => {
     expect(
       evalCostUsdMicros('claude-haiku-5-5', {
         inputTokens: 1_000_000,

@@ -5,10 +5,9 @@
 // (`docs/decisions/PERSONA-REPLAY-HARNESS.md` decision 1): it makes one billed call per message,
 // configuration and run against the real Anthropic API (BUILD_PLAN 3.13), one at a time, so it
 // needs `ANTHROPIC_API_KEY` in the environment (read through `parseAnthropicConfig`, as
-// `record-persona-replay.ts` does). Run it before moving either call site to another model, and
-// after a classifier or safety-gate prompt edit, then commit the results it writes beside the
-// sets, in `classifier-eval/results/`. A run cut short leaves its finished calls in a
-// `.partial.jsonl` file there, which git ignores.
+// `record-persona-replay.ts` does). Run it before moving either call site to another model,
+// then commit the results it writes beside the sets, in `classifier-eval/results/`. A run cut
+// short leaves its finished calls in a `.partial.jsonl` file there, which git ignores.
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
