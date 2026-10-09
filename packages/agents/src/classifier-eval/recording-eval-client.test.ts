@@ -118,7 +118,7 @@ describe('makeRecordingEvalClient', () => {
     expect(sent.output_config?.format?.type).toBe('json_schema');
   });
 
-  it("merges effort into the incoming output_config for configuration C, keeping production's format", async () => {
+  it("sends effort low for configuration C from the configuration, keeping production's format", async () => {
     const real = makeReal(
       makeMessage({ content: [textBlock(classifierJson)] }),
     );
@@ -131,7 +131,9 @@ describe('makeRecordingEvalClient', () => {
     expect(sent.output_config?.format?.type).toBe('json_schema');
   });
 
-  it('sets no effort key at all on configurations A, B and D', async () => {
+  // Production's classifier call has sent `effort: 'low'` since BUILD_PLAN 3.14, so these three
+  // would inherit it if the wrapper let an incoming effort through.
+  it("drops the effort production's call sends, so configurations A, B and D carry no effort key at all", async () => {
     const keysSent = await Promise.all(
       [configA, configB, configD].map(async (configuration) => {
         const real = makeReal(

@@ -918,9 +918,9 @@ describe('runDmIntakeCascade', () => {
 
       await runDmIntakeCascade(deps, DM_MESSAGE, WITHIN_CORE_HOURS);
 
-      // 40in/12out at Haiku 4.5's 1/5 micro-USD per token: 40 + 60 = 100.
+      // 40in/12out at Haiku 5.5's 0.1/0.5 micro-USD per token: 4 + 6 = 10.
       expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
-        expect.objectContaining({ costUsdMicros: 100 }),
+        expect.objectContaining({ costUsdMicros: 10 }),
       );
     });
   });

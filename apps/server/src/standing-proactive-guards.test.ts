@@ -258,7 +258,7 @@ describe('evaluateSituationalAppropriatenessGuard', () => {
 
     expect(result).toEqual({ satisfied: true, reason: 'satisfied' });
     expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
-      expect.objectContaining({ costUsdMicros: 60 }),
+      expect.objectContaining({ costUsdMicros: 6 }),
     );
   });
 
@@ -312,6 +312,42 @@ describe('evaluateSituationalAppropriatenessGuard', () => {
       'failed to evaluate situational appropriateness — skipping confirming-question posting (fail-closed)',
       { personaId: 'sarah', channelId: 'C123', errorMessage: 'rate limited' },
     );
+    expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
+  });
+
+  // BUILD_PLAN 3.14 — Haiku 5.5 can end with `stop_reason: 'refusal'` and no text block, which the
+  // SDK's parse reports as `parsed_output: null` (`evaluateSituationalAppropriateness` turns that
+  // into `ok: false`), not as a thrown error. The guard must block the post on that too.
+  it('reports evaluation-failed when the gate response has no parsed output, as a refusal with no text block gives, and records no usage — a known gap, since an ok: false result carries none (BUILD_PLAN 3.14)', async () => {
+    const deps = makeDeps({
+      parse: vi.fn().mockResolvedValue({
+        parsed_output: null,
+        usage: { input_tokens: 20, output_tokens: 3 },
+      }),
+    });
+
+    const result = await evaluateSituationalAppropriatenessGuard(
+      deps as never,
+      {
+        message: MESSAGE,
+        now: new Date(),
+        actionDescription: 'confirming-question posting',
+      },
+    );
+
+    expect(result).toEqual({ satisfied: false, reason: 'evaluation-failed' });
+    expect(deps.logger.error).toHaveBeenCalledWith(
+      'failed to evaluate situational appropriateness — skipping confirming-question posting (fail-closed)',
+      {
+        personaId: 'sarah',
+        channelId: 'C123',
+        errorMessage:
+          'situational-appropriateness response had no parsed_output',
+      },
+    );
+    // Known gap, pinned and not endorsed: a cut before any text is billed, and a refusal like this
+    // one may be (the ADR's 2026-10-09 addendum), but an `ok: false` result carries no usage, so
+    // there is none to record.
     expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
   });
 });

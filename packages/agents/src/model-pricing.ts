@@ -2,9 +2,9 @@
 // introductory $2/$10 per MTok (input/output) runs through 2026-08-31, then $3/$15 standard. 1 USD
 // per MTok is numerically identical to 1 micro-USD per token (1,000,000 micros / 1,000,000
 // tokens/MTok) — the "MicrosPerToken" constants below are the same figures VISION cites, not a
-// separately-derived unit conversion. Scoped to the one hardcoded model `generate-reply.ts` uses
-// today (BUILD_PLAN 2.6a) — "per-persona model tuning as real data comes in" (VISION §10) is
-// out of scope until a second model is actually wired in.
+// separately-derived unit conversion. Covers two models: claude-sonnet-5 here
+// (`sonnetCostUsdMicros`, BUILD_PLAN 2.6a) and, since BUILD_PLAN 3.3, the Stage 1 Haiku calls
+// (`haikuCostUsdMicros`, below).
 const CUTOVER_UTC_MS = Date.parse('2026-09-01T00:00:00.000Z');
 const INTRODUCTORY_PRICING = {
   inputMicrosPerToken: 2,
@@ -56,23 +56,29 @@ export function sonnetCostUsdMicros(
   return Math.round(costUsdMicros);
 }
 
-// Claude Haiku 4.5 pricing (`docs/decisions/STAGE-1-CLASSIFIER.md`'s Decision 2, verified against
-// current pricing): flat $1/$5 per MTok — unlike Sonnet 5, no introductory/standard date split to
-// track, so this takes no `now` parameter at all.
-const HAIKU_PRICING = { inputMicrosPerToken: 1, outputMicrosPerToken: 5 };
+// Claude Haiku 5.5 pricing, from BUILD_PLAN 3.14 (2026-10-09; Haiku 4.5's $1/$5 before it): $0.10
+// input and $0.50 output per MTok, its rate for a prompt of 100K tokens or fewer, which both Stage 1
+// prompts are. Above that the rate is $0.50 and $2.50; that is not modelled here. 1 USD per MTok is
+// 1 micro-USD per token, so these are fractional micros per token, and `haikuCostUsdMicros` rounds
+// its total. No introductory/standard date split to track, so no `now` parameter.
+const HAIKU_PRICING = { inputMicrosPerToken: 0.1, outputMicrosPerToken: 0.5 };
 
 /**
- * Converts one Stage-1 classifier call's token usage into its cost in micro-USD, same unit and
- * shape as `sonnetCostUsdMicros` — BUILD_PLAN 3.3's second real LLM call site, priced separately
- * since it's a different model at a different rate, accumulated into the same per-persona monthly
- * cost bucket `checkCostCapAndAlert` reads from (`apps/server/src/handle-inbound-message.ts`).
+ * Converts one Stage 1 Haiku call's token usage — the classifier's (BUILD_PLAN 3.3) or the
+ * situational-appropriateness gate's (3.4a-iii) — into its cost in micro-USD, same unit and shape
+ * as `sonnetCostUsdMicros`, priced separately since it's a different model at a different rate,
+ * accumulated into the same per-persona monthly cost bucket that `checkCostCapAndAlert`
+ * (`apps/server/src/check-cost-cap.ts`) reads from. The result is rounded to the nearest whole
+ * micro-USD, as `sonnetCostUsdMicros`' is: `personaCostUsageSchema`'s `costUsdMicros` must be a
+ * non-negative integer (`packages/core/src/cost-usage/cost-usage.ts`), and Haiku 5.5's per-token
+ * rates are fractional.
  */
 export function haikuCostUsdMicros(usage: {
   readonly inputTokens: number;
   readonly outputTokens: number;
 }): number {
-  return (
+  return Math.round(
     usage.inputTokens * HAIKU_PRICING.inputMicrosPerToken +
-    usage.outputTokens * HAIKU_PRICING.outputMicrosPerToken
+      usage.outputTokens * HAIKU_PRICING.outputMicrosPerToken,
   );
 }

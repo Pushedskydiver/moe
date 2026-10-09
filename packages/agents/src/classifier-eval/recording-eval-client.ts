@@ -65,9 +65,11 @@ function captureFrom(message: Anthropic.Message): RawCapture {
  * neither says whether it was a cut or a refusal. The capture keeps the `stop_reason` and the
  * `stop_details`.
  *
- * `effort` is merged into the incoming `output_config`, never a replacement of it, so
- * production's own `format` survives; a configuration with no `effort` adds no key at all.
- * `onCapture` is not called when the request itself fails, since no response exists.
+ * The configuration owns `effort`. Production's own calls send `effort: 'low'` since BUILD_PLAN
+ * 3.14, so the wrapper drops an incoming `effort` and sets the configuration's, if it has one:
+ * a configuration with no `effort` sends none at all. Production's own `format` is kept, the only
+ * other key either call sends. `onCapture` is not called when the request itself fails, since no
+ * response exists.
  */
 export function makeRecordingEvalClient(
   real: EvalCreateClient,
@@ -84,7 +86,7 @@ export function makeRecordingEvalClient(
           model: configuration.model,
           max_tokens: configuration.maxTokens,
           output_config: {
-            ...params.output_config,
+            format: params.output_config.format,
             ...(configuration.effort === undefined
               ? {}
               : { effort: configuration.effort }),

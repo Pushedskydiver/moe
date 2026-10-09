@@ -5,9 +5,14 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 
 // docs/decisions/STAGE-1-CLASSIFIER.md's Decision 2 — the eval's own evidence, not a guess: Haiku
-// separated genuine-work-signal messages (score >= 72) from non-actionable ones (score <= 35)
-// with a clean, unoccupied 36-71 band, at a fraction of Sonnet 5's cost.
-const MODEL = 'claude-haiku-4-5';
+// 4.5, in the ADR's original 24-message eval (2026-07-18), separated genuine-work-signal messages
+// (score >= 72) from non-actionable ones (score <= 35) with a clean, unoccupied 36-71 band, at a
+// fraction of Sonnet 5's cost. BUILD_PLAN 3.14 (2026-10-09) moved the call from Haiku 4.5 to Haiku
+// 5.5 on 3.13's configuration C: `effort: 'low'` with `max_tokens` unchanged at 256. Haiku 5.5's
+// adaptive thinking is on by default and its tokens count toward `max_tokens`; every one of C's 162
+// calls in the 2026-10-08 run ended `end_turn` with 0 thinking tokens. The ADR's 2026-10-09
+// addendum has the results and Alex's decision.
+const MODEL = 'claude-haiku-5-5';
 const MAX_TOKENS = 256;
 
 // Freshly authored for this production call site — the ADR's own eval script was throwaway and
@@ -28,10 +33,13 @@ const MAX_TOKENS = 256;
 // ticket-creation tool, only `report_status`). The explicit carve-out for existence/lookup
 // questions in the first paragraph below is what keeps that case in its original band. Live-
 // evaluated against the real API (see the ADR's Addendum, 2026-08-01) — status-question variants
-// dropped from 42-75 into Low. One further, deliberate side effect: a mixed status-question+
-// request case moved High to Mid (the ADR's own addendum names why). Every other evaluated row
-// moved at most 15 points and stayed within its original High/Mid/Low band — see the addendum's
-// own score table for the real per-row deltas rather than treating any row as untouched.
+// dropped from 42-75 into Low on Haiku 4.5 (on Haiku 5.5 `addendum-05` can still reach Mid 35, as
+// the ADR's 2026-10-09 addendum records). One further, deliberate side effect: a mixed
+// status-question+ request case moved High to Mid (the ADR's own addendum names why; that was on
+// Haiku 4.5 — since BUILD_PLAN 3.14 it scores High on Haiku 5.5, accepted in the ADR's 2026-10-09
+// addendum). Every other evaluated row moved at most 15 points and stayed within its original
+// High/Mid/Low band — see the addendum's own score table for the real per-row deltas rather than
+// treating any row as untouched.
 const CLASSIFIER_SYSTEM_PROMPT =
   'You are a fast triage classifier for a shared team Slack channel. Given a single message, on ' +
   'its own with no other context, decide how likely it is that the message describes something ' +
@@ -80,7 +88,10 @@ type ClassifyMessageConfidenceClient = {
   readonly messages: {
     readonly parse: (
       params: Anthropic.MessageCreateParamsNonStreaming & {
-        readonly output_config: { readonly format: typeof OUTPUT_FORMAT };
+        readonly output_config: {
+          readonly format: typeof OUTPUT_FORMAT;
+          readonly effort: 'low';
+        };
       },
     ) => Promise<{
       readonly parsed_output: MessageClassification | null;
@@ -119,26 +130,30 @@ export type ClassifyMessageConfidenceResult =
 
 /**
  * VISION §5.2's Stage 1 gate, per `docs/decisions/STAGE-1-CLASSIFIER.md`: one bundled structured-
- * output call, Claude Haiku 4.5, a single 0-100 integer confidence score. Uses `zodOutputFormat` +
+ * output call, Claude Haiku 5.5 (BUILD_PLAN 3.14; Haiku 4.5 before it), a single 0-100 integer
+ * confidence score. Uses `zodOutputFormat` +
  * `.parse()` (not raw `.create()` + manual `JSON.parse`) so the response is validated against the
  * same Zod schema this function's own return type is built from — matching AGENTS.md's "full Zod
  * v4 for all runtime validation" constraint, not a workaround. `usage` passes through the API
  * response's own token counts, same "stateless, reports usage rather than accounting for it"
- * precedent as `generateReply` — the real call site (`apps/server/src/handle-inbound-message.ts`)
- * turns this into a cost-cap check before the call and a persisted cost record after it, exactly
- * like the DM reply path already does (BUILD_PLAN 2.6a/2.6b) — a real, billed Anthropic call needs
- * the same gate and accounting regardless of which model or call site it's on.
+ * precedent as `generateReply` — the real call site
+ * (`apps/server/src/classify-message-for-intake.ts`) turns this into a cost-cap check before the
+ * call and a persisted cost record after it, exactly like the DM reply path already does
+ * (BUILD_PLAN 2.6a/2.6b) — a real, billed Anthropic call needs the same gate and accounting
+ * regardless of which model or call site it's on.
  *
  * Three distinct failure kinds, verified against the installed SDK's actual source (not assumed):
  * a genuine request-level failure (rate limit, timeout, auth) throws an `APIError` — bucketed as
  * `anthropic-api-error`. `zodOutputFormat`'s own `.parse()` throws a bare `AnthropicError` (not an
- * `APIError`) when the model's raw text isn't valid JSON or fails the Zod schema (a refusal,
- * `max_tokens`-truncated output, or an out-of-range score realistically land here, not as
- * `parsed_output: null`) — bucketed separately as `invalid-classification-output`, so a caller (or
- * future monitoring against the ADR's own "Triggers for re-evaluation") can tell "the API call
- * failed" apart from "the model's output didn't conform to the schema." `parsed_output` itself
- * coming back `null` is the SDK's own fallback for a response with no text content block at all —
- * a rare edge case, not the refusal/non-`end_turn` case an earlier draft of this comment claimed.
+ * `APIError`) when the model's raw text isn't valid JSON or fails the Zod schema (a refusal or a
+ * `max_tokens` cut partway through the text, or an out-of-range score, realistically land here) —
+ * bucketed separately as `invalid-classification-output`, so a caller (or future monitoring
+ * against the ADR's own "Triggers for re-evaluation") can tell "the API call failed" apart from
+ * "the model's output didn't conform to the schema." `parsed_output` itself coming back `null` is
+ * the SDK's own fallback for a response with no text content block at all. On Haiku 5.5 a
+ * `max_tokens` cut before any text block returns `parsed_output: null` (`no-parsed-output`), not a
+ * thrown parse error, which adaptive thinking makes possible; 3.13's run of this configuration
+ * saw no cut.
  */
 // Extracted purely to stay under `max-lines-per-function` — same "composition code extracts
 // aggressively" precedent as `apps/server/src/start-slack-listener.ts`'s `createStores`.
@@ -179,7 +194,7 @@ export async function classifyMessageConfidence(
       max_tokens: MAX_TOKENS,
       system: CLASSIFIER_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: params.text }],
-      output_config: { format: OUTPUT_FORMAT },
+      output_config: { format: OUTPUT_FORMAT, effort: 'low' },
     });
 
     if (message.parsed_output === null) {
