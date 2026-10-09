@@ -46,7 +46,7 @@ describe('classifyMessageConfidence', () => {
 
     expect(client.messages.parse).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'claude-haiku-4-5',
+        model: 'claude-haiku-5-5',
         messages: [{ role: 'user', content: 'lol nice one' }],
       }),
     );
@@ -54,6 +54,22 @@ describe('classifyMessageConfidence', () => {
       system: string;
     };
     expect(call.system.length).toBeGreaterThan(0);
+  });
+
+  // BUILD_PLAN 3.14 — configuration C of 3.13's eval: Haiku 5.5's adaptive thinking is on by
+  // default and counts toward `max_tokens`, so the call asks for a low effort and keeps 256.
+  it('BUILD_PLAN 3.14 — asks Haiku 5.5 for effort low beside the schema format, with max_tokens 256', async () => {
+    const client = makeClient({ confidence: 10, reasoning: 'pure banter' });
+
+    await classifyMessageConfidence(client, { text: 'lol nice one' });
+
+    const call = client.messages.parse.mock.calls[0]?.[0] as {
+      max_tokens: number;
+      output_config: { effort?: string; format?: { type: string } };
+    };
+    expect(call.max_tokens).toBe(256);
+    expect(call.output_config.effort).toBe('low');
+    expect(call.output_config.format?.type).toBe('json_schema');
   });
 
   // BUILD_PLAN 3.12 — a real production bug: the classifier scored "is the auth work finished?"

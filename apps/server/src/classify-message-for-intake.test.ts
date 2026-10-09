@@ -140,13 +140,13 @@ describe('classifyMessageForIntake', () => {
 
     await classifyMessageForIntake(deps, MESSAGE, NOW);
 
-    // 40 input + 12 output at Haiku 4.5's 1/5 micro-USD per token: 40 + 60 = 100.
+    // 40 input + 12 output at Haiku 5.5's 0.1/0.5 micro-USD per token: 4 + 6 = 10.
     expect(deps.costStore.recordUsage).toHaveBeenCalledWith({
       personaId: 'sarah',
       day: '2026-07-17',
       inputTokens: 40,
       outputTokens: 12,
-      costUsdMicros: 100,
+      costUsdMicros: 10,
     });
   });
 

@@ -22,7 +22,7 @@ const DEFAULT_MODEL = 'claude-sonnet-5';
 // compose-confirming-question-lead-in.ts's 2048 were both live-checked the same way and sit
 // comfortably clear for their own narrower tasks (BUILD_PLAN 5.3a-ii). classify-message-
 // confidence.ts's and evaluate-situational-appropriateness.ts's own 256-token ceilings are NOT
-// covered by this check — different model (Haiku 4.5, not claude-sonnet-5) and a different task
+// covered by this check — different model (Haiku 5.5, not claude-sonnet-5) and a different task
 // shape, unverified either way, not assumed safe by omission.
 //
 // Raises worst-case per-turn spend on this call site roughly 8x (~$0.015 to ~$0.12 at standard

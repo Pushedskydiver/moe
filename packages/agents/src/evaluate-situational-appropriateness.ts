@@ -5,8 +5,10 @@ import { zodOutputFormat } from '@anthropic-ai/sdk/helpers/zod';
 import { z } from 'zod';
 
 // Same cheap-classifier cost profile as `classify-message-confidence.ts` — this is a binary
-// safety check, not a compositional writing task, so Haiku 4.5 over Sonnet 5.
-const MODEL = 'claude-haiku-4-5';
+// safety check, not a compositional writing task, so Haiku 5.5 over Sonnet 5. Moved from Haiku 4.5
+// at BUILD_PLAN 3.14 (2026-10-09) onto 3.13's configuration C, `effort: 'low'` with `max_tokens`
+// unchanged at 256, exactly as the classifier's call was (see its comment above `MODEL`).
+const MODEL = 'claude-haiku-5-5';
 const MAX_TOKENS = 256;
 
 // BUILD_PLAN 3.4a-iii's "minimal situational-appropriateness gate" (VISION §9) — Alex confirmed
@@ -48,7 +50,10 @@ type EvaluateSituationalAppropriatenessClient = {
   readonly messages: {
     readonly parse: (
       params: Anthropic.MessageCreateParamsNonStreaming & {
-        readonly output_config: { readonly format: typeof OUTPUT_FORMAT };
+        readonly output_config: {
+          readonly format: typeof OUTPUT_FORMAT;
+          readonly effort: 'low';
+        };
       },
     ) => Promise<{
       readonly parsed_output: SituationalAppropriateness | null;
@@ -152,7 +157,7 @@ export async function evaluateSituationalAppropriateness(
       max_tokens: MAX_TOKENS,
       system: APPROPRIATENESS_SYSTEM_PROMPT,
       messages: [{ role: 'user', content: params.text }],
-      output_config: { format: OUTPUT_FORMAT },
+      output_config: { format: OUTPUT_FORMAT, effort: 'low' },
     });
 
     if (message.parsed_output === null) {

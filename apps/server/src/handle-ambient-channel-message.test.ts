@@ -419,7 +419,7 @@ describe('handleAmbientChannelMessage', () => {
 
     expect(deps.anthropicClient.messages.parse).toHaveBeenCalledWith(
       expect.objectContaining({
-        model: 'claude-haiku-4-5',
+        model: 'claude-haiku-5-5',
         messages: [{ role: 'user', content: CHANNEL_MESSAGE.text }],
       }),
     );
@@ -551,14 +551,14 @@ describe('handleAmbientChannelMessage', () => {
 
     await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
-    // The classifier mock's default usage is {input_tokens: 40, output_tokens: 12}; Haiku 4.5 is
-    // a flat $1/$5 per MTok: 40 * 1 + 12 * 5 = 100 micro-USD.
+    // The classifier mock's default usage is {input_tokens: 40, output_tokens: 12}; Haiku 5.5 is
+    // a flat $0.10/$0.50 per MTok: 40 * 0.1 + 12 * 0.5 = 10 micro-USD.
     expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         personaId: 'sarah',
         inputTokens: 40,
         outputTokens: 12,
-        costUsdMicros: 100,
+        costUsdMicros: 10,
       }),
     );
   });
@@ -709,17 +709,17 @@ describe('handleAmbientChannelMessage', () => {
       });
 
       // Three LLM calls this turn (classify + appropriateness + compose) — classifier usage
-      // (40in/12out, Haiku: 40*1+12*5=100), appropriateness usage (20in/8out, Haiku:
-      // 20*1+8*5=60), and the draft composer's (120in/40out, Sonnet 5 introductory $2/$10 per
+      // (40in/12out, Haiku 5.5: 40*0.1+12*0.5=10), appropriateness usage (20in/8out, Haiku 5.5:
+      // 20*0.1+8*0.5=6), and the draft composer's (120in/40out, Sonnet 5 introductory $2/$10 per
       // MTok: 120*2+40*10=640) — three separate calls to recordUsage, in that order.
       expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(3);
       expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(
         1,
-        expect.objectContaining({ costUsdMicros: 100 }),
+        expect.objectContaining({ costUsdMicros: 10 }),
       );
       expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(
         2,
-        expect.objectContaining({ costUsdMicros: 60 }),
+        expect.objectContaining({ costUsdMicros: 6 }),
       );
       expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(
         3,

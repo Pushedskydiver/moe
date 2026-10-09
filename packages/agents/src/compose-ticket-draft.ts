@@ -8,7 +8,7 @@ import { buildCachedSystemBlocks } from './build-cached-system-blocks.js';
 
 // claude-sonnet-5 is VISION §10/§11's resolved "Sonnet-by-default" model — this is a compositional
 // writing task (matching `generateReply`'s own use), not the cheap, high-volume classification
-// gate `classify-message-confidence.ts` uses Haiku 4.5 for. `params.model` falls back to this when
+// gate `classify-message-confidence.ts` uses Haiku 5.5 for. `params.model` falls back to this when
 // a caller doesn't override it — BUILD_PLAN 5.3a gave per-persona overrides a real config value
 // (`resolvePersonaModel`); this function itself stays persona-agnostic.
 const DEFAULT_MODEL = 'claude-sonnet-5';

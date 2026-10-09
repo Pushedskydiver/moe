@@ -107,11 +107,27 @@ describe('sonnetCostUsdMicros', () => {
 });
 
 describe('haikuCostUsdMicros', () => {
-  it('prices at the flat $1/$5-per-MTok rate', () => {
+  it("prices at Haiku 5.5's $0.10 input and $0.50 output per MTok", () => {
     const cost = haikuCostUsdMicros({ inputTokens: 1_000, outputTokens: 500 });
 
-    // 1_000 * 1 + 500 * 5 = 3_500 micro-USD
-    expect(cost).toBe(3_500);
+    // 1_000 * 0.1 + 500 * 0.5 = 350 micro-USD
+    expect(cost).toBe(350);
+  });
+
+  it('prices a million tokens each way at $0.10 plus $0.50', () => {
+    const cost = haikuCostUsdMicros({
+      inputTokens: 1_000_000,
+      outputTokens: 1_000_000,
+    });
+
+    expect(cost).toBe(600_000);
+  });
+
+  it('rounds a fractional total to a whole micro-USD, which costUsdMicros requires', () => {
+    // 1 * 0.1 + 1 * 0.5 = 0.6, which rounds up to 1
+    expect(haikuCostUsdMicros({ inputTokens: 1, outputTokens: 1 })).toBe(1);
+    // 3 * 0.1 = 0.30000000000000004, which rounds down to 0
+    expect(haikuCostUsdMicros({ inputTokens: 3, outputTokens: 0 })).toBe(0);
   });
 
   it('returns zero for a zero-token call', () => {

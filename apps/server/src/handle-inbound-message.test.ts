@@ -492,13 +492,13 @@ describe('createInboundMessageHandler', () => {
       // defect DA caught on the ambient path at chunk 3.3.
       expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(2);
 
-      // Default `parse` usage is 40in/12out; Haiku 4.5 at 1/5 micro-USD per token: 40 + 60 = 100.
+      // Default `parse` usage is 40in/12out; Haiku 5.5 at 0.1/0.5 micro-USD per token: 4 + 6 = 10.
       expect(deps.costStore.recordUsage).toHaveBeenNthCalledWith(1, {
         personaId: 'sarah',
         day: '2026-07-17',
         inputTokens: 40,
         outputTokens: 12,
-        costUsdMicros: 100,
+        costUsdMicros: 10,
       });
 
       // REPLY_MESSAGE's usage is {input_tokens: 12, output_tokens: 34}; introductory Sonnet-5
@@ -533,13 +533,13 @@ describe('createInboundMessageHandler', () => {
     await handler(DM_MESSAGE);
 
     // Exactly one call, and it is the classifier's — default `parse` usage is 40in/12out, Haiku
-    // priced at 1/5 micro-USD per token: 40 * 1 + 12 * 5 = 100.
+    // priced at 0.1/0.5 micro-USD per token: 40 * 0.1 + 12 * 0.5 = 10.
     expect(deps.costStore.recordUsage).toHaveBeenCalledTimes(1);
     expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         inputTokens: 40,
         outputTokens: 12,
-        costUsdMicros: 100,
+        costUsdMicros: 10,
       }),
     );
   });
