@@ -345,7 +345,9 @@ describe('evaluateSituationalAppropriatenessGuard', () => {
           'situational-appropriateness response had no parsed_output',
       },
     );
-    // Known gap, pinned and not endorsed: the response was billed, but an `ok: false` result carries no usage, so there is none to record.
+    // Known gap, pinned and not endorsed: a cut before any text is billed, and a refusal like this
+    // one may be (the ADR's 2026-10-09 addendum), but an `ok: false` result carries no usage, so
+    // there is none to record.
     expect(deps.costStore.recordUsage).not.toHaveBeenCalled();
   });
 });
