@@ -174,7 +174,13 @@ describe('formatEvalResultsMarkdown', () => {
   });
 
   it('totals tokens, cost and matches per configuration', () => {
-    expect(markdown).toMatch(/\| A \|[^\n]*\| 3 \| 2 \|/);
+    // Whole rows: calls, matched, failed, cut, refused, input, output and thinking tokens, cost.
+    expect(markdown).toContain(
+      '| A | claude-haiku-4-5 | 256 | none | 3 | 2 | 0 | 0 | 0 | 300 | 60 | 0 | 0.0006 |',
+    );
+    expect(markdown).toContain(
+      '| B | claude-haiku-5-5 | 256 | none | 2 | 1 | 1 | 1 | 0 | 200 | 40 | 0 | 0.0000 |',
+    );
     expect(markdown).toContain('Cost (USD)');
     expect(markdown).toContain('Thinking tokens');
   });
