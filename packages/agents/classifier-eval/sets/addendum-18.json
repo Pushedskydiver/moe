@@ -1,0 +1,115 @@
+{
+  "id": "addendum-18",
+  "kind": "classifier",
+  "description": "The 18 messages of docs/decisions/STAGE-1-CLASSIFIER.md's 3.12 addendum table, each expecting that table's New prompt band.",
+  "messages": [
+    {
+      "id": "addendum-01",
+      "label": "status question",
+      "text": "is the auth work finished?",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "addendum-02",
+      "label": "status question",
+      "text": "did the migration run yet?",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "addendum-03",
+      "label": "status question",
+      "text": "what's the status of the login bug?",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "addendum-04",
+      "label": "status question",
+      "text": "did the deploy go out ok?",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "addendum-05",
+      "label": "status question",
+      "text": "has anyone looked at the deploy issue since yesterday?",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "addendum-06",
+      "label": "status question",
+      "text": "is the Q3 roadmap doc done?",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "addendum-07",
+      "label": "request",
+      "text": "can someone look at the deploy?",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "addendum-08",
+      "label": "request",
+      "text": "could someone fix the login bug?",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "addendum-09",
+      "label": "request",
+      "text": "can you check why builds are failing?",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "addendum-10",
+      "label": "request",
+      "text": "could someone restart the staging server, it seems stuck",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "addendum-11",
+      "label": "existence question",
+      "text": "do we have a billing docs page anywhere",
+      "expectedBands": ["mid"]
+    },
+    {
+      "id": "addendum-12",
+      "label": "existence question",
+      "text": "is there a shared style guide somewhere?",
+      "expectedBands": ["mid"]
+    },
+    {
+      "id": "addendum-13",
+      "label": "bug report",
+      "text": "the footer links look broken on mobile",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "addendum-14",
+      "label": "bug report",
+      "text": "I keep getting logged out every few minutes",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "addendum-15",
+      "label": "facilities issue",
+      "text": "the coffee machine is broken again",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "addendum-16",
+      "label": "banter",
+      "text": "lol did anyone see the game last night",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "addendum-17",
+      "label": "banter",
+      "text": "happy friday everyone!",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "addendum-18",
+      "label": "mixed status question and request",
+      "text": "is the auth work finished? if not can someone wrap it up today",
+      "expectedBands": ["mid"]
+    }
+  ]
+}

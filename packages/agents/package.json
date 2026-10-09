@@ -16,7 +16,8 @@
     "build": "rm -rf dist tsconfig.build.tsbuildinfo && tsc --project tsconfig.build.json && mkdir -p dist/personas && cp -r src/personas/. dist/personas/",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "record:replay": "pnpm build && node scripts/record-persona-replay.ts"
+    "record:replay": "pnpm build && node scripts/record-persona-replay.ts",
+    "eval:classifiers": "pnpm build && node scripts/run-classifier-eval.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",

@@ -30,3 +30,6 @@ Thumbs.db
 !.claude/rules/
 !.claude/rules/**
 !.claude/settings.json
+
+# A cut-short eval:classifiers run's progress file (BUILD_PLAN 3.13); only the finished JSON and table are committed
+packages/agents/classifier-eval/results/*.partial.jsonl

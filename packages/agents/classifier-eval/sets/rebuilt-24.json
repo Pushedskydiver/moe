@@ -1,0 +1,151 @@
+{
+  "id": "rebuilt-24",
+  "kind": "classifier",
+  "description": "A rebuilt 24-message set after docs/decisions/STAGE-1-CLASSIFIER.md's Decision 2: 8 work (expect High), 8 banter (expect Low) and 8 ambiguous, each labelled signal (expect Mid or High) or non-actionable (expect Low). Includes Decision 2's four named ambiguous examples and Decision 3's coffee-machine message as banter.",
+  "messages": [
+    {
+      "id": "work-1",
+      "label": "work",
+      "text": "can you add a dark mode toggle to the settings page?",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "work-2",
+      "label": "work",
+      "text": "the checkout page throws a 500 error whenever the cart is empty",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "work-3",
+      "label": "work",
+      "text": "we need to upgrade Node on the build servers before the end of the month",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "work-4",
+      "label": "work",
+      "text": "please add rate limiting to the public API",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "work-5",
+      "label": "work",
+      "text": "the nightly backup job failed again, can someone investigate?",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "work-6",
+      "label": "work",
+      "text": "can someone write up the onboarding steps for the new data pipeline?",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "work-7",
+      "label": "work",
+      "text": "users can't reset their password, the email never arrives",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "work-8",
+      "label": "work",
+      "text": "we should move the staging database to the new cluster this sprint",
+      "expectedBands": ["high"]
+    },
+    {
+      "id": "banter-1",
+      "label": "banter",
+      "text": "good morning team, hope everyone had a nice weekend",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "banter-2",
+      "label": "banter",
+      "text": "anyone up for lunch at the new ramen place?",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "banter-3",
+      "label": "banter",
+      "text": "haha that gif is perfect",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "banter-4",
+      "label": "banter",
+      "text": "congrats on the new puppy!",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "banter-5",
+      "label": "banter",
+      "text": "thanks for the birthday wishes, everyone",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "banter-6",
+      "label": "banter",
+      "text": "what a week, I need a holiday",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "banter-7",
+      "label": "banter",
+      "text": "the coffee machine is broken again",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "banter-8",
+      "label": "banter",
+      "text": "that was a great talk at the meetup last night",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "ambiguous-1",
+      "label": "signal",
+      "text": "the footer links look broken on the mobile site",
+      "expectedBands": ["mid", "high"]
+    },
+    {
+      "id": "ambiguous-2",
+      "label": "signal",
+      "text": "I keep getting logged out of the admin panel",
+      "expectedBands": ["mid", "high"]
+    },
+    {
+      "id": "ambiguous-3",
+      "label": "signal",
+      "text": "the dashboard has been loading really slowly today",
+      "expectedBands": ["mid", "high"]
+    },
+    {
+      "id": "ambiguous-4",
+      "label": "signal",
+      "text": "do we have a billing docs page somewhere?",
+      "expectedBands": ["mid", "high"]
+    },
+    {
+      "id": "ambiguous-5",
+      "label": "signal",
+      "text": "the search page feels laggy lately, not sure if it's just me",
+      "expectedBands": ["mid", "high"]
+    },
+    {
+      "id": "ambiguous-6",
+      "label": "non-actionable",
+      "text": "does anyone have a good book recommendation on distributed systems?",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "ambiguous-7",
+      "label": "non-actionable",
+      "text": "the retro went well, nice work everyone",
+      "expectedBands": ["low"]
+    },
+    {
+      "id": "ambiguous-8",
+      "label": "non-actionable",
+      "text": "I'll be heads down on the migration for the rest of the afternoon",
+      "expectedBands": ["low"]
+    }
+  ]
+}

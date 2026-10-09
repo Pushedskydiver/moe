@@ -110,6 +110,8 @@ Each stage ends with something observable working end-to-end. **The gating rule,
 
 - [x] **3.12 — The Stage 1 classifier treats a question _about_ work as work needing a ticket.** Shipped 2026-08-02. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §3.12.
 
+- [x] **3.13 — A committed Haiku eval for the Stage 1 classifier and the safety gate.** Built 2026-10-08. Spec and build narrative: `docs/history/BUILD-NARRATIVE.md` §3.13.
+
 ## Stage 4 — GitHub + the board
 
 **Exit criterion:** a ticket created from chat exists as a tracked item against chief-clancy, and an externally-opened GitHub issue appears in the triage queue and can be linked to a ticket. Persona-driven conversion of a triage-queue entry into a board ticket was deliberately not a Stage-4 capability — it's Sarah's Brief-stage triage behaviour, and landed at chunk 6.1b (below), where the pull loop lives.

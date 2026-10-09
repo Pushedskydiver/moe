@@ -4,3 +4,6 @@ pnpm-lock.yaml
 *.tsbuildinfo
 # A stamped copy of the AIOS hub core: reformatting it breaks its SHA-256 stamp.
 docs/SESSION-HANDOFF.md
+
+# Raw output of the manual eval:classifiers run, committed as written (BUILD_PLAN 3.13).
+packages/agents/classifier-eval/results/
