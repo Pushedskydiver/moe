@@ -552,7 +552,7 @@ describe('handleAmbientChannelMessage', () => {
     await handleAmbientChannelMessage(deps, CHANNEL_MESSAGE);
 
     // The classifier mock's default usage is {input_tokens: 40, output_tokens: 12}; Haiku 5.5 is
-    // a flat $0.10/$0.50 per MTok: 40 * 0.1 + 12 * 0.5 = 10 micro-USD.
+    // $0.10/$0.50 per MTok at this prompt size: 40 * 0.1 + 12 * 0.5 = 10 micro-USD.
     expect(deps.costStore.recordUsage).toHaveBeenCalledWith(
       expect.objectContaining({
         personaId: 'sarah',
