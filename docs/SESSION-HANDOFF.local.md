@@ -74,7 +74,7 @@ Beyond what the core's section 4 item 6 lists (and the live checks above), the l
 
 - The primary workstream.
 - Orchestration notes.
-- Carry-overs. A deferred workstream keeps a pointer to where its scope is written (a commit's `PROGRESS.md`, or a brief file), never just a one-line label: five handoffs once carried "PR 5: docs thinning, plus VISION:327" while its real scope sat only in the Session 49 and 50 entries, which archived out of the detail band by the fifth.
+- Carry-overs, each written as the core's section 2 asks of a carried item. In moe, a deferred workstream's scope is written in a commit's `PROGRESS.md` or a brief file. Five handoffs once carried "PR 5: docs thinning, plus VISION:327" while its real scope sat only in the Session 49 and 50 entries, which archived out of the detail band by the fifth.
 - The fallback.
 
 Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious constraints) is marked Alex's call.
@@ -131,7 +131,7 @@ The second review ran at Session 70, over Sessions 60–69 (`git show 8680b6a:PR
 - Under his delegation Claude adopted the three Session data field changes, the no-tool-schema-field call and the handoff prompt's newest-entry read.
 - The Archive rule's mechanical check came from Session 72's lesson ZZZZZ (the archival check was skipped because the handoff prompt's step 1 printed the file before the loading instructions were read), not from the review, which recommended no change to the Archive rule. Claude added the check to the handoff doc in Session 73's ten-session-review PR (#122) (`git show b70a3cb:PROGRESS.md`, "Done this session"), and no entry lists it as a decision by either Alex or Claude.
 
-The next review is at Session 80.
+Reviews fall at every tenth session: Sessions 60, 70, 80 and so on. This file names no next review by number, because the change that records a review is the session's `PROGRESS.md` entry, which is usually committed direct to `main` (Committing the entry), and that commit cannot edit this blast-radius file (`docs/GIT.md` §Rules).
 
 ## Archive rule
 
