@@ -74,7 +74,7 @@ Beyond what the core's section 4 item 6 lists (and the live checks above), the l
 
 - The primary workstream.
 - Orchestration notes.
-- Carry-overs, each written as the core's section 2 asks of a carried item. In moe, the pointer goes to wherever the scope is written, such as a commit's `PROGRESS.md`, a `docs/decisions/` record or a brief file. A label alone is not enough: five handoffs once carried "PR 5: docs thinning, plus VISION:327" while its real scope sat only in the Session 49 and 50 entries, which archived out of the detail band by the fifth.
+- Carry-overs, each written as the core's section 2 asks of a carried item. In moe, the pointer goes to wherever the scope is written, such as a commit's `PROGRESS.md`, a `docs/decisions/` record or a brief file. A brief under the gitignored `.claude/research/` is not the committed file the core's section 2 asks for when a session hands off before a unit. moe puts that unit's brief in the entry instead, under the Next item that names the unit, and the loading instructions point to that item rather than restate it. If the unit carries over, each later entry copies the brief into its own Next item, so no pointer lands in an archived entry. A label alone is not enough: five handoffs once carried "PR 5: docs thinning, plus VISION:327" while its real scope sat only in the Session 49 and 50 entries, which archived out of the detail band by the fifth.
 - The fallback.
 
 Anything that would touch a do-not-touch surface (`AGENTS.md` §Non-obvious constraints) is marked Alex's call.
